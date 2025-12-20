@@ -8,6 +8,7 @@ class_name GraphRenderer
 @export var selected_color: Color = GraphSettings.COLOR_SELECTED
 @export var path_color: Color = GraphSettings.COLOR_PATH
 @export var hover_color: Color = GraphSettings.COLOR_HOVER
+@export var debug_show_depth: bool = false
 
 # References injected by the Controller
 var graph_ref: Graph
@@ -47,22 +48,52 @@ func _draw() -> void:
 			points.append(graph_ref.get_node_pos(id))
 		draw_polyline(points, path_color, edge_width + 2.0)
 
-	# 3. Draw Nodes
+# 3. Draw Nodes
 	for id: String in graph_ref.nodes:
-		var pos = graph_ref.get_node_pos(id)
-		var col = default_color
+		# CASTING: Access the NodeData resource to read custom properties like 'type'
+		var node_data = graph_ref.nodes[id] as NodeData
+		var pos = node_data.position
 		
+		# --- COLOR LOGIC START ---
+		# 1. Base Semantic Color (The Room Type)
+		var col = GraphSettings.COLOR_DEFAULT
+		# Look up the color for this specific RoomType in your settings
+		if GraphSettings.ROOM_COLORS.has(node_data.type):
+			col = GraphSettings.ROOM_COLORS[node_data.type]
+		
+		# 2. Overrides (Highlights)
+		# "New Generation" overrides the room color
+		if new_nodes_ref.has(id):
+			col = GraphSettings.COLOR_NEW_GENERATION
+		
+		# "Selection" has the highest priority of all
 		if selected_nodes_ref.has(id):
 			col = selected_color
-		elif new_nodes_ref.has(id): # <--- NEW CHECK
-			col = GraphSettings.COLOR_NEW_GENERATION # Use settings directly or export var
+			
+		# --- COLOR LOGIC END ---
 		
-		#Draw
+		# Draw
 		draw_circle(pos, node_radius, col)
 		draw_circle(pos, node_radius * 0.7, Color(0,0,0,0.1))
+		
 		if id == hovered_id:
-			# Draw a thin ring around the node to indicate interactivity
 			draw_arc(pos, node_radius + 4.0, 0, TAU, 32, hover_color, 2.0)
+			
+		# --- NEW: DEBUG DEPTH TEXT ---
+		if debug_show_depth:
+			var font = ThemeDB.fallback_font
+			var font_size = 14
+			var text = str(node_data.depth)
+			
+			# Calculate offset to center the text roughly
+			# (draw_string draws from bottom-left baseline)
+			var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+			var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 4.0)
+			
+			# Draw Outline (Black)
+			draw_string_outline(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, 3, Color.BLACK)
+			# Draw Text (White)
+			draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
 
 	# 4. Draw Snap Preview (Ghost Node)
 	if snap_preview_pos != Vector2.INF:

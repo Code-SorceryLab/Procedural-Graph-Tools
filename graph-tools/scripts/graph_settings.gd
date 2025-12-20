@@ -15,3 +15,13 @@ const COLOR_PATH: Color = Color(0.2, 0.8, 0.2)
 const COLOR_HOVER: Color = Color(0.6, 0.8, 1.0)
 const COLOR_EDGE: Color = Color(0.8, 0.8, 0.8)
 const COLOR_NEW_GENERATION: Color = Color(0.2, 1.0, 0.8) # Cyan / Light Blue
+
+# Room Type Colors
+const ROOM_COLORS: Dictionary = {
+	NodeData.RoomType.EMPTY:    Color(0.8, 0.8, 0.8), # Gray
+	NodeData.RoomType.SPAWN:    Color(0.2, 0.8, 0.2), # Green
+	NodeData.RoomType.ENEMY:    Color(0.8, 0.3, 0.3), # Red
+	NodeData.RoomType.TREASURE: Color(1.0, 0.8, 0.2), # Gold
+	NodeData.RoomType.BOSS:     Color(0.6, 0.0, 0.0), # Dark Red
+	NodeData.RoomType.SHOP:     Color(0.4, 0.2, 0.6)  # Purple
+}

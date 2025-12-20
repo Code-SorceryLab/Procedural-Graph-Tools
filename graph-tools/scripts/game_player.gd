@@ -10,6 +10,7 @@ extends Node
 @onready var param2_label: Label = $UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param2Label
 @onready var param2_input: SpinBox = $UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param2Input
 @onready var option_toggle: CheckBox = $UI/Sidebar/Margin/TabContainer/Generation/OptionToggle
+@onready var debug_depth_chk: CheckBox = $UI/Sidebar/Margin/TabContainer/Generation/DebugDepthChk
 @onready var grow_btn: Button = $UI/Sidebar/Margin/TabContainer/Generation/GrowBtn
 @onready var generate_btn: Button = $UI/Sidebar/Margin/TabContainer/Generation/GenerateBtn
 @onready var clear_btn: Button = $UI/Sidebar/Margin/TabContainer/Generation/ClearBtn
@@ -31,7 +32,7 @@ func _ready() -> void:
 	strategies.append(StrategyWalker.new())
 	strategies.append(StrategyMST.new())
 	strategies.append(StrategyDLA.new())
-	
+	strategies.append(StrategyAnalyze.new())
 	# 2. Setup Dropdown
 	algo_select.clear()
 	for i in range(strategies.size()):
@@ -49,6 +50,7 @@ func _connect_signals() -> void:
 	
 	# Connect Generation Signals
 	grow_btn.pressed.connect(_on_grow_pressed)
+	debug_depth_chk.toggled.connect(_on_debug_depth_toggled)
 	generate_btn.pressed.connect(_on_generate_pressed)
 	clear_btn.pressed.connect(_on_clear_pressed)
 	# Connect File Signals
@@ -157,6 +159,12 @@ func _on_grow_pressed() -> void:
 		params[current_strategy.toggle_key] = option_toggle.button_pressed
 	
 	graph_editor.apply_strategy(current_strategy, params)
+
+func _on_debug_depth_toggled(toggled: bool) -> void:
+	# Update the renderer's setting
+	graph_editor.renderer.debug_show_depth = toggled
+	# Force a redraw immediately so we see the numbers appear
+	graph_editor.renderer.queue_redraw()
 
 func _on_generate_pressed() -> void:
 	# Pack current inputs into a generic dictionary

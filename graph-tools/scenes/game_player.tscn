@@ -48,11 +48,7 @@ text = "Algorithm"
 
 [node name="BtnGrid" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
-text = "Grid"
-
-[node name="BtnWalk" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
-layout_mode = 2
-text = "Walk"
+text = "Graphs"
 
 [node name="AlgoSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
@@ -84,6 +80,10 @@ layout_mode = 2
 [node name="OptionToggle" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
 text = "Use Box Spawning"
+
+[node name="DebugDepthChk" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Show Depth Numbers"
 
 [node name="GrowBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2

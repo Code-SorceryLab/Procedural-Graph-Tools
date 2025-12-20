@@ -2,62 +2,68 @@ extends GraphStrategy
 class_name StrategyMST
 
 func _init() -> void:
-	strategy_name = "MST Maze"
-	required_params = ["width", "height"]
+	strategy_name = "Prune to MST (Filter)"
+	# No params needed: it works on whatever data is already there
+	required_params = [] 
 
-func execute(graph: Graph, params: Dictionary) -> void:
-	var rows = params.get("height", 10)
-	var cols = params.get("width", 10)
-	var cell_size = GraphSettings.CELL_SIZE
+func execute(graph: Graph, _params: Dictionary) -> void:
+	# SAFETY CHECK: 
+	# If the user clicked "Generate" (which clears nodes first), there is nothing to prune.
+	# This strategy only works if nodes already exist (via Grow mode or Manual placement).
+	if graph.nodes.is_empty():
+		push_warning("MST Strategy: Graph is empty. Use 'Grow (+)' to apply this to an existing graph.")
+		return
 
-	# 1. Reset Graph & Generate Base Grid (Fully Connected)
-	graph.nodes.clear()
+	# 1. Collect ALL Existing Edges
+	# We use a Dictionary key trick to deduplicate edges (A->B is same as B->A)
+	var existing_edges: Array[Dictionary] = []
+	var processed_pairs = {} 
 	
-	# Create Nodes
-	for y in range(rows):
-		for x in range(cols):
-			var id := "%d_%d" % [x, y]
-			var pos := Vector2(x * cell_size, y * cell_size)
-			graph.add_node(id, pos)
-
-	# 2. Collect All Potential Edges (Grid Neighbor Logic)
-	# We store them as objects temporarily to sort them
-	var potential_edges: Array[Dictionary] = []
-	
-	for y in range(rows):
-		for x in range(cols):
-			var u_id := "%d_%d" % [x, y]
+	for u_id in graph.nodes:
+		var neighbors = graph.get_neighbors(u_id)
+		for v_id in neighbors:
+			# Create a sorted pair so [A, B] and [B, A] look identical
+			var pair = [u_id, v_id]
+			pair.sort() 
 			
-			# Check Right (x+1) and Down (y+1) neighbors
-			var neighbors = [Vector2i(1, 0), Vector2i(0, 1)]
-			for dir in neighbors:
-				var nx = x + dir.x
-				var ny = y + dir.y
-				
-				if nx >= 0 and nx < cols and ny >= 0 and ny < rows:
-					var v_id := "%d_%d" % [nx, ny]
-					potential_edges.append({
-						"u": u_id,
-						"v": v_id,
-						"weight": randf() # Random weight is key for random maze!
-					})
+			if not processed_pairs.has(pair):
+				processed_pairs[pair] = true
+				existing_edges.append({ 
+					"u": pair[0], 
+					"v": pair[1],
+					# We assign a random weight here to make the maze random
+					# If we used real distance, it would create "Rivers" (shortest paths)
+					"weight": randf() 
+				})
 
-	# 3. Kruskal's Algorithm
-	# Sort edges by weight (effectively shuffling them)
-	potential_edges.sort_custom(func(a, b): return a["weight"] < b["weight"])
+	# 2. Clear All Current Connections
+	# We keep the nodes, but we cut all the wires.
+	for id in graph.nodes:
+		var node = graph.nodes[id]
+		if node is NodeData: # Check type safety
+			node.connections.clear()
+
+	# 3. Kruskal's Algorithm (The Re-connection)
+	# Sort by the random weights we assigned
+	existing_edges.sort_custom(func(a, b): return a["weight"] < b["weight"])
 	
 	var ds = DisjointSet.new(graph.nodes.keys())
+	var restored_count = 0
 	
-	for edge in potential_edges:
+	for edge in existing_edges:
 		var u = edge["u"]
 		var v = edge["v"]
 		
-		# If connecting u and v doesn't create a cycle...
+		# If connecting u and v doesn't create a cycle (loop)...
 		if ds.find(u) != ds.find(v):
 			ds.union(u, v)
 			graph.add_edge(u, v)
+			restored_count += 1
+			
+	print("MST Filter Applied. Restored %d edges." % restored_count)
 
 # --- Inner Helper Class: Disjoint Set (Union-Find) ---
+# (This logic remains exactly the same as before)
 class DisjointSet:
 	var parent: Dictionary = {}
 	
@@ -67,7 +73,7 @@ class DisjointSet:
 
 	func find(i: String) -> String:
 		if parent[i] != i:
-			parent[i] = find(parent[i]) # Path compression
+			parent[i] = find(parent[i]) 
 		return parent[i]
 
 	func union(i: String, j: String) -> void:
