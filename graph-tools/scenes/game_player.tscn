@@ -1,0 +1,121 @@
+[gd_scene load_steps=3 format=3 uid="uid://b4kjmis7vpbxa"]
+
+[ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
+[ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
+
+[node name="GamePlayer" type="Node"]
+script = ExtResource("1_wv330")
+
+[node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Sidebar" type="PanelContainer" parent="UI"]
+custom_minimum_size = Vector2(200, 0)
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -86.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="UI/Sidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="TabContainer" type="TabContainer" parent="UI/Sidebar/Margin"]
+layout_mode = 2
+current_tab = 0
+
+[node name="Generation" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="Title" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generator"
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="AlgoLabel" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Algorithm"
+
+[node name="BtnGrid" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Grid"
+
+[node name="BtnWalk" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Walk"
+
+[node name="AlgoSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="InputContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="Param1Label" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation/InputContainer"]
+layout_mode = 2
+text = "Width"
+
+[node name="Param1Input" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Generation/InputContainer"]
+layout_mode = 2
+max_value = 1000.0
+value = 10.0
+
+[node name="Param2Label" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation/InputContainer"]
+layout_mode = 2
+text = "Height"
+
+[node name="Param2Input" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Generation/InputContainer"]
+layout_mode = 2
+max_value = 1000.0
+value = 10.0
+
+[node name="Spacer" type="Control" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="OptionToggle" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Use Box Spawning"
+
+[node name="GrowBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Grow (+)"
+
+[node name="GenerateBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generate"
+
+[node name="ClearBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Clear"
+
+[node name="File" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="SaveBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Save Graph"
+
+[node name="LoadBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Load Graph"
+
+[node name="FileStatus" type="Label" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Ready"
+horizontal_alignment = 1
+
+[node name="FileDialog" type="FileDialog" parent="."]
+size = Vector2i(600, 400)
+access = 2
+filters = PackedStringArray("*.tres,Graph Resources")

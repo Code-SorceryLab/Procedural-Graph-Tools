@@ -1,0 +1,78 @@
+[gd_resource type="Resource" script_class="Graph" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/node_data.gd" id="1_rr25q"]
+[ext_resource type="Script" path="res://scripts/graph.gd" id="2_s6iwk"]
+
+[sub_resource type="Resource" id="Resource_8kk2t"]
+script = ExtResource("1_rr25q")
+connections = {
+"1_0": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_do3tg"]
+script = ExtResource("1_rr25q")
+position = Vector2(60, 0)
+connections = {
+"0_0": 1.0,
+"1_-1": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_43tay"]
+script = ExtResource("1_rr25q")
+position = Vector2(60, -60)
+connections = {
+"1_0": 1.0,
+"2_-1": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_axxhq"]
+script = ExtResource("1_rr25q")
+position = Vector2(120, -60)
+connections = {
+"1_-1": 1.0,
+"3_-1": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_k3wav"]
+script = ExtResource("1_rr25q")
+position = Vector2(180, -60)
+connections = {
+"2_-1": 1.0,
+"3_-2": 1.0,
+"3_0": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_brcf8"]
+script = ExtResource("1_rr25q")
+position = Vector2(180, -120)
+connections = {
+"3_-1": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_xssky"]
+script = ExtResource("1_rr25q")
+position = Vector2(180, 0)
+connections = {
+"3_-1": 1.0,
+"3_1": 1.0
+}
+
+[sub_resource type="Resource" id="Resource_alws4"]
+script = ExtResource("1_rr25q")
+position = Vector2(180, 60)
+connections = {
+"3_0": 1.0
+}
+
+[resource]
+script = ExtResource("2_s6iwk")
+nodes = {
+"0_0": SubResource("Resource_8kk2t"),
+"1_-1": SubResource("Resource_43tay"),
+"1_0": SubResource("Resource_do3tg"),
+"2_-1": SubResource("Resource_axxhq"),
+"3_-1": SubResource("Resource_k3wav"),
+"3_-2": SubResource("Resource_brcf8"),
+"3_0": SubResource("Resource_xssky"),
+"3_1": SubResource("Resource_alws4")
+}
