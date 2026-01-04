@@ -1,11 +1,49 @@
-[gd_scene load_steps=4 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=8 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
+[ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
 [ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
 [ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
+[ext_resource type="Script" uid="uid://cyla4eosgc0x4" path="res://scripts/controllers/file_controller.gd" id="3_u2lal"]
+[ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/pathfinding_controller.gd" id="4_5u163"]
+[ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
+
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "param1_label", "param1_input", "param2_label", "param2_input", "option_toggle", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn")]
+script = ExtResource("2_hgyw2")
+graph_editor = NodePath("../GraphEditor")
+algo_select = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
+param1_label = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param1Label")
+param1_input = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param1Input")
+param2_label = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param2Label")
+param2_input = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/InputContainer/Param2Input")
+option_toggle = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/OptionToggle")
+debug_depth_chk = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/DebugDepthChk")
+grow_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GrowBtn")
+generate_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
+clear_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/ClearBtn")
+
+[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog")]
+script = ExtResource("3_u2lal")
+graph_editor = NodePath("../GraphEditor")
+save_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/SaveBtn")
+load_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/LoadBtn")
+file_status = NodePath("../UI/Sidebar/Margin/TabContainer/File/FileStatus")
+file_dialog = NodePath("../FileDialog")
+
+[node name="PathfindingController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_set_start", "btn_set_end", "btn_run_path")]
+script = ExtResource("4_5u163")
+graph_editor = NodePath("../GraphEditor")
+btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetStart")
+btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
+btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
+
+[node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
+script = ExtResource("5_u2lal")
+graph_editor = NodePath("../GraphEditor")
+toolbar = NodePath("../UI/Toolbar")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 

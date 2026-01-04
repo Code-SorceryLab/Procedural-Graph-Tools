@@ -122,8 +122,15 @@ func get_nodes_near_position(pos: Vector2, radius: float = -1.0) -> Array[String
 
 # Get nodes in a rectangle (for selection boxes, etc.)
 func get_nodes_in_rect(rect: Rect2) -> Array[String]:
-	_ensure_spatial_grid()
-	return _spatial_grid.query_rect(rect)
+	if _spatial_grid:
+		return _spatial_grid.query_rect(rect)
+	
+	# Fallback (Linear Search) if grid is missing
+	var result: Array[String] = []
+	for id in nodes:
+		if rect.has_point(nodes[id].position):
+			result.append(id)
+	return result
 
 # Find node at exact position (for mouse picking)
 func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:

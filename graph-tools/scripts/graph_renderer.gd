@@ -31,7 +31,8 @@ var graph_ref: Graph
 var selected_nodes_ref: Array[String] = []
 var current_path_ref: Array[String] = []
 var new_nodes_ref: Array[String] = [] # Highlight for "Grow" operations
-
+# Nodes currently under the drag box (Temporary Highlight)
+var pre_selection_ref: Array[String] = []
 
 # ==============================================================================
 # 3. INTERACTION STATE
@@ -46,7 +47,7 @@ var path_end_id: String = ""
 var drag_start_id: String = ""
 var hovered_id: String = ""
 var snap_preview_pos: Vector2 = Vector2.INF
-
+var selection_rect: Rect2 = Rect2()
 
 # ==============================================================================
 # 4. DRAWING LOOP
@@ -68,6 +69,8 @@ func _draw() -> void:
 	# Layer 4: Interactive Elements (Ghosts, Drag lines)
 	_draw_interaction_overlays()
 
+	# Layer 5: Selection Box (Transparent Blue Box)
+	_draw_selection_box()
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:
@@ -145,6 +148,14 @@ func _draw_interaction_overlays() -> void:
 		
 		draw_line(start_pos, mouse_pos, dragged_color, 2.0)
 
+# --- HELPER: SELECTION BOX ---
+func _draw_selection_box():
+# NEW: Draw the Selection Box on top of everything
+	if selection_rect.has_area():
+		# Fill (Low Opacity Blue)
+		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_Fill, true)
+		# Border (High Opacity Blue)
+		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_BORDER, false, 1.0)
 
 # ==============================================================================
 # 5. UTILITY FUNCTIONS
@@ -156,12 +167,13 @@ func _get_node_color(id: String, node_data: NodeData) -> Color:
 	if GraphSettings.ROOM_COLORS.has(node_data.type):
 		col = GraphSettings.ROOM_COLORS[node_data.type]
 	
-	# 2. Apply "New Generation" highlight (Medium Priority)
+	# 2. Apply "New Generation" highlight
 	if new_nodes_ref.has(id):
 		col = GraphSettings.COLOR_NEW_GENERATION
 	
 	# 3. Apply "Selection" highlight (Highest Priority)
-	if selected_nodes_ref.has(id):
+	# Logic: If it's already selected OR about to be selected (Pre-Selection)
+	if selected_nodes_ref.has(id) or pre_selection_ref.has(id):
 		col = selected_color
 		
 	return col

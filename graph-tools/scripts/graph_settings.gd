@@ -34,6 +34,9 @@ const COLOR_SELECTED: Color = Color(1.0, 0.6, 0.2)         # Selection (Orange)
 const COLOR_DRAGGED: Color = Color(1.0, 0.8, 0.2, 0.7)     # Dragging preview (Transparent Orange)
 const COLOR_NEW_GENERATION: Color = Color(0.2, 1.0, 0.8)   # Newly generated nodes (Cyan)
 
+const COLOR_SELECT_BOX_Fill: Color = Color(0.6, 0.8, 1.0, 0.2)  # Selection Box Fill (Transparent Light Blue)
+const COLOR_SELECT_BOX_BORDER: Color = Color(0.6, 0.8, 1.0, 0.8)  # Selection Box Border (Transparent Light Blue)
+
 # Pathfinding Analysis Colors
 const COLOR_PATH: Color = Color(0.2, 0.8, 0.2)             # The line drawn for the path
 const COLOR_PATH_START: Color = Color(0.2, 0.8, 0.2)       # Start Node Indicator (Green)
