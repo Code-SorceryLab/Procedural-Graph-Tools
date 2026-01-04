@@ -18,7 +18,12 @@ extends Node
 @onready var save_btn: Button = $UI/Sidebar/Margin/TabContainer/File/SaveBtn
 @onready var load_btn: Button = $UI/Sidebar/Margin/TabContainer/File/LoadBtn
 @onready var file_status: Label = $UI/Sidebar/Margin/TabContainer/File/FileStatus
+
+@onready var toolbar: Toolbar = $UI/Toolbar
+
 @onready var file_dialog: FileDialog = $FileDialog
+
+
 
 # State to track if we are saving or loading
 var _is_saving: bool = true
@@ -57,6 +62,8 @@ func _connect_signals() -> void:
 	save_btn.pressed.connect(_on_save_button_pressed)
 	load_btn.pressed.connect(_on_load_button_pressed)
 	file_dialog.file_selected.connect(_on_file_selected)
+	#Toolbar signals.
+	toolbar.tool_changed.connect(_on_tool_changed)
 
 # --- UI Logic ---
 func _on_save_button_pressed() -> void:
@@ -74,6 +81,20 @@ func _on_file_selected(path: String) -> void:
 		_save_graph(path)
 	else:
 		_load_graph(path)
+
+# Add a new function:
+func _on_tool_changed(tool_id: int, tool_name: String) -> void:
+	# Pass the tool change to GraphEditor
+	graph_editor.set_active_tool(tool_id)
+	
+	# Update UI in sidebar if needed
+	_update_tool_options(tool_id)
+
+func _update_tool_options(tool_id: int) -> void:
+	# This will show/hide tool-specific options in the sidebar
+	# We'll implement this later
+	pass
+
 
 func _save_graph(path: String) -> void:
 	# ResourceSaver is Godot's built-in magic.

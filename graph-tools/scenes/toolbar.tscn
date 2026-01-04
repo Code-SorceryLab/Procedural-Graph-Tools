@@ -1,0 +1,50 @@
+[gd_scene load_steps=3 format=3 uid="uid://0615dqn17fo0"]
+
+[ext_resource type="PackedScene" uid="uid://cspael87hhc00" path="res://scenes/tool_button.tscn" id="1_i3mxx"]
+[ext_resource type="Script" uid="uid://51ua2mcpael0" path="res://scripts/toolbar.gd" id="1_wdy5x"]
+
+[node name="Toolbar" type="PanelContainer"]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 40.0
+script = ExtResource("1_wdy5x")
+
+[node name="ToolContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="BtnSelect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Select"
+shortcut_key = "V"
+
+[node name="BtnAddNode" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Add"
+tool_id = 1
+shortcut_key = "N"
+
+[node name="BtnConnect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Connect"
+tool_id = 2
+shortcut_key = "C"
+
+[node name="BtnDelete" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Delete"
+tool_id = 3
+shortcut_key = "X"
+
+[node name="BtnRectangle" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Rectangle"
+tool_id = 4
+shortcut_key = "R"
+
+[node name="BtnMeasure" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Measure"
+tool_id = 5
+shortcut_key = "M"

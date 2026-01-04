@@ -8,6 +8,7 @@ class_name GraphRenderer
 @export var selected_color: Color = GraphSettings.COLOR_SELECTED
 @export var path_color: Color = GraphSettings.COLOR_PATH
 @export var hover_color: Color = GraphSettings.COLOR_HOVER
+@export var dragged_color: Color = GraphSettings.COLOR_DRAGGED
 @export var debug_show_depth: bool = false
 
 # References injected by the Controller
@@ -105,4 +106,4 @@ func _draw() -> void:
 	
 	# 5. Draw Dragging Line
 	if not drag_start_id.is_empty():
-		draw_line(graph_ref.get_node_pos(drag_start_id), get_global_mouse_position(), Color(1, 1, 1, 0.5), 2.0)
+		draw_line(graph_ref.get_node_pos(drag_start_id), get_local_mouse_position(), Color(1, 1, 1, 0.5), 2.0)

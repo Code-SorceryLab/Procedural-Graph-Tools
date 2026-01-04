@@ -1,22 +1,35 @@
 extends Resource
 class_name Graph
 
-
-
+const PRIORITY_QUEUE = preload("res://scripts/priority_queue.gd")
+const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
 
 # 1. Export the main dictionary
 # Godot will now save dictionaries containing the external 'NodeData' resource perfectly.
 @export var nodes: Dictionary = {}
 
-# --- Node Management ---
+# 2. Spatial partitioning
+var _spatial_grid: SpatialGrid = null
+var _spatial_grid_dirty: bool = true  # Flag to indicate we need to rebuild
+var _node_radius: float = GraphSettings.NODE_RADIUS  # For spatial queries
+
+# --- Node Management (Updated for Spatial Grid) ---
 
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	if not nodes.has(id):
 		nodes[id] = NodeData.new(pos)
+		
+		# Update spatial grid
+		_ensure_spatial_grid()
+		_spatial_grid.add_node(id, pos, _node_radius)
 
 func remove_node(id: String) -> void:
 	if not nodes.has(id):
 		return
+	
+	# Remove from spatial grid first
+	if _spatial_grid != null:
+		_spatial_grid.remove_node(id)
 	
 	# Remove connections pointing TO this node
 	for other_id: String in nodes:
@@ -25,6 +38,16 @@ func remove_node(id: String) -> void:
 			other_node.connections.erase(id)
 
 	nodes.erase(id)
+
+# Add a method to update node position (for dragging)
+func set_node_position(id: String, new_pos: Vector2) -> void:
+	if nodes.has(id):
+		var node_data: NodeData = nodes[id]
+		node_data.position = new_pos
+		
+		# Update spatial grid
+		_ensure_spatial_grid()
+		_spatial_grid.update_node(id, new_pos, _node_radius)
 
 # --- Edge Management ---
 
@@ -63,50 +86,143 @@ func get_node_pos(id: String) -> Vector2:
 		return nodes[id].position
 	return Vector2.ZERO
 
-# --- Pathfinding (A*) ---
+# --- Spatial Grid Methods ---
 
-# RENAMED: 'get_path' is reserved by Resource, so we use 'get_astar_path'
+# Initialize spatial grid
+func _ensure_spatial_grid() -> void:
+	if _spatial_grid == null:
+		# Cell size should be 2-4 times node radius for good performance
+		var cell_size = GraphSettings.NODE_RADIUS * 4
+		_spatial_grid = SPATIAL_GRID.new(cell_size)
+		_spatial_grid_dirty = true
+	
+	if _spatial_grid_dirty:
+		_rebuild_spatial_grid()
+
+# Rebuild spatial grid from scratch
+func _rebuild_spatial_grid() -> void:
+	if _spatial_grid == null:
+		return
+	
+	_spatial_grid.clear()
+	
+	for id in nodes:
+		var node_data: NodeData = nodes[id]
+		_spatial_grid.add_node(id, node_data.position, _node_radius)
+	
+	_spatial_grid_dirty = false
+
+# Get nodes near a position (for mouse picking)
+func get_nodes_near_position(pos: Vector2, radius: float = -1.0) -> Array[String]:
+	if radius < 0:
+		radius = _node_radius
+	
+	_ensure_spatial_grid()
+	return _spatial_grid.query_circle(pos, radius)
+
+# Get nodes in a rectangle (for selection boxes, etc.)
+func get_nodes_in_rect(rect: Rect2) -> Array[String]:
+	_ensure_spatial_grid()
+	return _spatial_grid.query_rect(rect)
+
+# Find node at exact position (for mouse picking)
+func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
+	if pick_radius < 0:
+		pick_radius = _node_radius
+	
+	var candidates = get_nodes_near_position(pos, pick_radius)
+	
+	var closest_id: String = ""
+	var closest_dist: float = INF
+	
+	for candidate_id in candidates:
+		var candidate_pos = get_node_pos(candidate_id)
+		var dist = candidate_pos.distance_to(pos)
+		if dist <= pick_radius and dist < closest_dist:
+			closest_dist = dist
+			closest_id = candidate_id
+	
+	return closest_id
+
+# Get spatial grid stats for debugging
+func get_spatial_stats() -> Dictionary:
+	_ensure_spatial_grid()
+	return _spatial_grid.get_stats()
+
+# Clear all nodes (update to handle spatial grid)
+func clear() -> void:
+	nodes.clear()
+	if _spatial_grid != null:
+		_spatial_grid.clear()
+	_spatial_grid_dirty = true
+
+# --- Pathfinding (A*) with Priority Queue ---
+
 func get_astar_path(start_id: String, end_id: String) -> Array[String]:
 	if not nodes.has(start_id) or not nodes.has(end_id):
 		return []
-
-	var open_set: Dictionary = { start_id: true }
+	
+	# Early exit: start and end are the same
+	if start_id == end_id:
+		return [start_id]
+	
+	# Initialize data structures
+	var open_set = PRIORITY_QUEUE.new()
+	var in_open_set: Dictionary = {}  # Track which nodes are in open_set
+	var g_score: Dictionary = {}
+	var f_score: Dictionary = {}
 	var came_from: Dictionary = {}
 	
-	var g_score: Dictionary = {} 
-	var f_score: Dictionary = {} 
-
+	# Initialize start node
 	g_score[start_id] = 0.0
 	f_score[start_id] = _heuristic(start_id, end_id)
-
+	open_set.push(start_id, f_score[start_id])
+	in_open_set[start_id] = true
+	
 	while not open_set.is_empty():
-		var current: String = ""
-		var lowest_f: float = INF
+		var current = open_set.pop()
 		
-		for id: String in open_set:
-			var score: float = f_score.get(id, INF)
-			if score < lowest_f:
-				lowest_f = score
-				current = id
+		# Remove from open set tracking
+		if in_open_set.has(current):
+			in_open_set.erase(current)
 		
+		# Found the goal
 		if current == end_id:
 			return _reconstruct_path(came_from, current)
-
-		open_set.erase(current)
-
+		
 		var current_node: NodeData = nodes[current]
+		var current_g = g_score[current]
+		
+		# Explore neighbors
 		for neighbor: String in current_node.connections:
-			var tentative_g: float = g_score.get(current, INF) + current_node.connections[neighbor]
+			# Calculate tentative g-score
+			var tentative_g = current_g + current_node.connections[neighbor]
 			
+			# If we found a better path to this neighbor
 			if tentative_g < g_score.get(neighbor, INF):
+				# Update path
 				came_from[neighbor] = current
 				g_score[neighbor] = tentative_g
 				f_score[neighbor] = tentative_g + _heuristic(neighbor, end_id)
-				if not open_set.has(neighbor):
-					open_set[neighbor] = true
+				
+				# Add to open set if not already there
+				if not in_open_set.has(neighbor):
+					open_set.push(neighbor, f_score[neighbor])
+					in_open_set[neighbor] = true
+				else:
+					# Update priority if already in open set
+					open_set.update_priority(neighbor, f_score[neighbor])
+	
+	return []
 
-	return [] 
+# OPTIONAL: Add a squared distance heuristic for even better performance
+# (avoids sqrt calculation)
+func _heuristic_squared(a: String, b: String) -> float:
+	var pos_a = nodes[a].position
+	var pos_b = nodes[b].position
+	return pos_a.distance_squared_to(pos_b)
 
+# Keep the original heuristic for compatibility
 func _heuristic(a: String, b: String) -> float:
 	return nodes[a].position.distance_to(nodes[b].position)
 

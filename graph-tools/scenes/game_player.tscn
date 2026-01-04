@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=4 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
 [ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
+[ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
 
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
@@ -114,6 +115,9 @@ text = "Load Graph"
 layout_mode = 2
 text = "Ready"
 horizontal_alignment = 1
+
+[node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
+grow_vertical = 2
 
 [node name="FileDialog" type="FileDialog" parent="."]
 size = Vector2i(600, 400)
