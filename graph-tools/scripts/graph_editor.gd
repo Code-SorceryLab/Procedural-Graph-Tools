@@ -3,6 +3,7 @@ class_name GraphEditor
 
 # Signal to notify the rest of the game when a new graph is loaded or generated
 signal graph_loaded(new_graph: Graph)
+signal selection_changed(selected_nodes: Array[String])
 
 # --- REFERENCES ---
 @onready var renderer: GraphRenderer = $Renderer
@@ -17,6 +18,8 @@ var current_tool: GraphTool
 
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
+var path_start_id: String = ""
+var path_end_id: String = ""
 var current_path: Array[String] = []
 var new_nodes: Array[String] = [] 
 
@@ -32,6 +35,10 @@ func _ready() -> void:
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
+	
+	# Sync initial null state
+	renderer.path_start_id = ""
+	renderer.path_end_id = ""
 	
 	# Start with the default tool
 	set_active_tool(GraphSettings.Tool.SELECT)
@@ -69,7 +76,7 @@ func set_active_tool(tool_id: int) -> void:
 # 3. INPUT ROUTING
 # ==============================================================================
 func _unhandled_input(event: InputEvent) -> void:
-	# 1. Handle Global Shortcuts first (Space, F, etc.)
+	# 1. Handle Global Shortcuts first (F, etc.)
 	# We handle these here so they work regardless of which tool is active.
 	if event is InputEventKey and event.pressed:
 		_handle_global_shortcuts(event)
@@ -81,12 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		current_tool.handle_input(event)
 
 func _handle_global_shortcuts(event: InputEventKey) -> void:
-	# SPACE: Run A* Pathfinding
-	if event.keycode == KEY_SPACE:
-		_run_pathfinding()
-			
 	# F: Focus Camera
-	elif event.keycode == KEY_F:
+	if event.keycode == KEY_F:
 		_center_camera_on_graph()
 
 # ==============================================================================
@@ -94,6 +97,31 @@ func _handle_global_shortcuts(event: InputEventKey) -> void:
 # These functions allow GraphTools to modify the Editor state cleanly.
 # ==============================================================================
 
+# UPDATED: Set Path Nodes (Public API for UI to call)
+func set_path_start(id: String) -> void:
+	path_start_id = id
+	renderer.path_start_id = id
+	renderer.queue_redraw()
+
+func set_path_end(id: String) -> void:
+	path_end_id = id
+	renderer.path_end_id = id
+	renderer.queue_redraw()
+
+func _refresh_path() -> void:
+	# If we have both, run A* automatically
+	if not path_start_id.is_empty() and not path_end_id.is_empty():
+		# Validate they still exist
+		if not graph.nodes.has(path_start_id) or not graph.nodes.has(path_end_id):
+			return
+		
+		var path = graph.get_astar_path(path_start_id, path_end_id)
+		current_path = path
+		renderer.current_path_ref = current_path
+	else:
+		current_path.clear()
+		renderer.current_path_ref = current_path
+		
 # --- Node Operations ---
 func create_node(pos: Vector2) -> void:
 	_next_id_counter += 1
@@ -104,10 +132,24 @@ func delete_node(id: String) -> void:
 	# Cleanup selection if the deleted node was selected
 	if selected_nodes.has(id):
 		selected_nodes.erase(id)
-	# Cleanup path if deleted node was part of it
+
+		selection_changed.emit(selected_nodes)
+	
+	# Check if the deleted node was ANY part of the current path
 	if current_path.has(id):
 		current_path.clear()
 		renderer.current_path_ref = current_path
+	
+	
+	# Specific checks for Start/End endpoints
+	if id == path_start_id:
+		path_start_id = ""
+		renderer.path_start_id = ""
+	if id == path_end_id:
+		path_end_id = ""
+		renderer.path_end_id = ""
+	
+	renderer.queue_redraw()
 
 # --- Selection Operations ---
 func toggle_selection(id: String) -> void:
@@ -115,25 +157,21 @@ func toggle_selection(id: String) -> void:
 		selected_nodes.erase(id)
 	else:
 		selected_nodes.append(id)
-		# Limit selection to 2 nodes for A* pathfinding demo
-		if selected_nodes.size() > 2:
-			selected_nodes.pop_front()
 	
-	# Sync with renderer
 	renderer.selected_nodes_ref = selected_nodes
+	selection_changed.emit(selected_nodes)
 
 func add_to_selection(id: String) -> void:
 	if not selected_nodes.has(id):
 		selected_nodes.append(id)
-		# Limit check
-		if selected_nodes.size() > 2:
-			selected_nodes.pop_front()
-		renderer.selected_nodes_ref = selected_nodes
+
+	renderer.selected_nodes_ref = selected_nodes
+	selection_changed.emit(selected_nodes)
 
 func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
-
+	selection_changed.emit(selected_nodes)
 # ==============================================================================
 # 5. GENERAL API (Called by GamePlayer / UI)
 # ==============================================================================
@@ -212,20 +250,28 @@ func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 # ==============================================================================
 # 6. INTERNAL HELPERS
 # ==============================================================================
-func _run_pathfinding() -> void:
-	if selected_nodes.size() >= 2:
-		var start_time = Time.get_ticks_usec()
-		var path = graph.get_astar_path(selected_nodes[0], selected_nodes[1])
-		var end_time = Time.get_ticks_usec()
+func run_pathfinding() -> void:
+	# Validation: We need both points
+	if path_start_id.is_empty() or path_end_id.is_empty():
+		print("Pathfinding failed: Missing Start or End node.")
+		return
 		
-		current_path.clear()
-		current_path.append_array(path)
+	# Validation: Nodes must still exist
+	if not graph.nodes.has(path_start_id) or not graph.nodes.has(path_end_id):
+		print("Pathfinding failed: Start or End node no longer exists.")
+		return
+	# Execute
+	var start_time = Time.get_ticks_usec()
+	var path = graph.get_astar_path(path_start_id, path_end_id)
+	var end_time = Time.get_ticks_usec()
+	# Update Data
+	current_path = path
+	renderer.current_path_ref = current_path
+	renderer.queue_redraw()
 		
-		renderer.current_path_ref = current_path
-		renderer.queue_redraw()
-		
-		var duration_ms = (end_time - start_time) / 1000.0
-		print("A* Path found: %d nodes in %.3f ms" % [path.size(), duration_ms])
+	# Log results
+	var duration_ms = (end_time - start_time) / 1000.0
+	print("A* Path found: %d nodes in %.3f ms" % [path.size(), duration_ms])
 
 func _center_camera_on_graph() -> void:
 	if graph.nodes.is_empty():

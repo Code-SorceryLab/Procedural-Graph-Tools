@@ -116,6 +116,23 @@ layout_mode = 2
 text = "Ready"
 horizontal_alignment = 1
 
+[node name="Pathfinding" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="BtnSetStart" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Mark Startpoint"
+
+[node name="BtnSetEnd" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Mark Endpoint"
+
+[node name="BtnRunPath" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Run Path"
+
 [node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
 grow_vertical = 2
 
