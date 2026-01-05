@@ -11,6 +11,8 @@ class_name GraphStrategy
 # Defines if this strategy requires a blank canvas.
 # True = Generators (Grid, Walker, DLA)
 # False = Decorators/Analyzers (MST, Analyze Rooms)
+# Legacy support (we will remove 'reset_on_generate' later if we want, 
+# but for now let's keep it or move it to a setting)
 var reset_on_generate: bool = true
 
 # Toggle Configuration
@@ -24,3 +26,9 @@ var reset_on_generate: bool = true
 # 'params' is a dictionary of user inputs (e.g. {"width": 10, "steps": 50})
 func execute(_graph: Graph, _params: Dictionary) -> void:
 	push_error("GraphStrategy: execute() method not implemented.")
+
+# NEW: The Strategy defines its own UI requirements
+# Returns an Array of Dictionaries. Each Dict describes one input.
+# Format: { "name": "radius", "type": TYPE_INT, "default": 5, "min": 1, "max": 100 }
+func get_settings() -> Array[Dictionary]:
+	return []
