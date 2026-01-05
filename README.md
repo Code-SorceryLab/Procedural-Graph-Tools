@@ -9,6 +9,24 @@ This project, including the codebase and this documentation, was developed with 
 
 ---
 
+## ⚙️ Workflow Features
+
+### The "Grow" Workflow
+* **Generate Button:** Executes the strategy logic. If the strategy is a **Generator**, it clears the graph first. If it is a **Decorator**, it applies to the current graph.
+* **Grow (+) Button:** Forces an additive execution. It instructs the strategy to append to the current graph regardless of its default behavior (useful for attaching a Walker path to a Grid).
+
+### Pathfinding
+Located in the **Pathfinding** tab.
+1.  Select a single node and click **"Set Start"**.
+2.  Select a different node and click **"Set End"**.
+3.  Click **"Run Path"** to visualize the A* route in green.
+
+### Persistence
+Located in the **File** tab.
+* **Save/Load:** Serializes the full graph state, including custom NodeData resources and visual coordinates, to a standard `.tres` file format.
+
+---
+
 ## 🏗️ Technical Architecture
 
 ### Controller-Component Pattern
@@ -109,18 +127,29 @@ A semantic pass that calculates graph topology.
 
 ---
 
-## ⚙️ Workflow Features
+## 🧪 Testing & Verification
 
-### The "Grow" Workflow
-* **Generate Button:** Executes the strategy logic. If the strategy is a **Generator**, it clears the graph first. If it is a **Decorator**, it applies to the current graph.
-* **Grow (+) Button:** Forces an additive execution. It instructs the strategy to append to the current graph regardless of its default behavior (useful for attaching a Walker path to a Grid).
+This project includes a dedicated **Test Runner** (`tests/TestRunner.tscn`) to validate core architectural pillars and prevent regression during refactoring.
 
-### Pathfinding
-Located in the **Pathfinding** tab.
-1.  Select a single node and click **"Set Start"**.
-2.  Select a different node and click **"Set End"**.
-3.  Click **"Run Path"** to visualize the A* route in green.
+While not an exhaustive coverage of every possible user interaction, the test suite verifies the critical logic paths required for a stable research platform.
 
-### Persistence
-Located in the **File** tab.
-* **Save/Load:** Serializes the full graph state, including custom NodeData resources and visual coordinates, to a standard `.tres` file format.
+### How to Run Tests
+1. Open the project in Godot.
+2. Navigate to `tests/TestRunner.tscn`.
+3. Press **F6** (Run Current Scene).
+4. Results will be printed to the Output Console.
+
+### Coverage Matrix
+The test suite currently verifies the following layers:
+
+* **Layer 1: Data Integrity (Critical)**
+    * **ID State Reconstruction:** Verifies that the Editor correctly scans a loaded graph (e.g., containing `man:5`) and restores the internal counters to prevent Duplicate ID collisions.
+    * **CRUD Operations:** Validates node creation and deletion logic.
+* **Layer 2: Strategy Logic**
+    * **Smart Reset:** Proves that **Generators** (Grid) clear the board, while **Append Mode** (Walker) correctly layers new nodes on top.
+    * **MST Regression:** Specifically verifies that the Minimum Spanning Tree algorithm effectively removes cycles without crashing (regression test for `clear_edges` bug).
+    * **DLA Simulation:** Verifies that random simulation algorithms respect particle limits and bounds.
+* **Layer 3: Analysis Logic**
+    * **BFS Accuracy:** Manually verifies that the "Analyze Rooms" algorithm correctly calculates depth from a known center and assigns Semantic Types (Spawn/Boss) correctly.
+
+> **Note on Stability:** While these tests ensure the logic and math are sound, complex permutations of cross-strategy layering followed by serialization cycles may still yield edge cases. Always save your work before attempting complex "stress tests" of the generator.

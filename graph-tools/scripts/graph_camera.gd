@@ -49,6 +49,11 @@ func center_on_rect(rect: Rect2, margin: float = 50.0) -> void:
 	# 1. Center the camera on the center of the bounding box
 	position = rect.get_center()
 	
+	# SAFETY CHECK: If we are running in a unit test (not in tree), 
+	# we cannot calculate viewport size. Just return early.
+	if not is_inside_tree():
+		return
+	
 	# 2. Calculate the zoom needed to fit the rectangle
 	var viewport_size = get_viewport_rect().size
 	
@@ -58,7 +63,6 @@ func center_on_rect(rect: Rect2, margin: float = 50.0) -> void:
 		return
 
 	# Determine how much we need to scale to fit width and height
-	# We use the smaller of the two scales to ensure BOTH fit
 	var scale_x = viewport_size.x / (rect.size.x + margin * 2)
 	var scale_y = viewport_size.y / (rect.size.y + margin * 2)
 	var target_zoom = min(scale_x, scale_y)
