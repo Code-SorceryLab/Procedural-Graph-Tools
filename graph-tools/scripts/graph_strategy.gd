@@ -22,5 +22,5 @@ var reset_on_generate: bool = true
 # Virtual Function: All subclasses must override this.
 # 'graph' is the data model to modify.
 # 'params' is a dictionary of user inputs (e.g. {"width": 10, "steps": 50})
-func execute(graph: Graph, params: Dictionary) -> void:
+func execute(_graph: Graph, _params: Dictionary) -> void:
 	push_error("GraphStrategy: execute() method not implemented.")

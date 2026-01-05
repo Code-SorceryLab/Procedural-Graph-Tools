@@ -24,8 +24,10 @@ var current_path: Array[String] = []
 var new_nodes: Array[String] = [] 
 
 # Internal counters
+# _next_id_counter is legacy/unused now that we switched to Namespaced IDs, 
+# but kept just in case of fallback.
 var _next_id_counter: int = 0
-# Track manual IDs separately to prevent collisions
+# Track manual IDs separately to prevent collisions (e.g. "man:1", "man:2")
 var _manual_counter: int = 0
 
 # ==============================================================================
@@ -79,11 +81,8 @@ func set_active_tool(tool_id: int) -> void:
 # ==============================================================================
 func _unhandled_input(event: InputEvent) -> void:
 	# 1. Handle Global Shortcuts first (F, etc.)
-	# We handle these here so they work regardless of which tool is active.
 	if event is InputEventKey and event.pressed:
 		_handle_global_shortcuts(event)
-		# We don't 'return' here because a tool might also want to know about keys 
-		# (e.g., Shift for snapping), though usually tools handle mouse events.
 
 	# 2. Delegate everything else to the Active Tool
 	if current_tool:
@@ -96,10 +95,8 @@ func _handle_global_shortcuts(event: InputEventKey) -> void:
 
 # ==============================================================================
 # 4. PUBLIC API FOR TOOLS
-# These functions allow GraphTools to modify the Editor state cleanly.
 # ==============================================================================
 
-# UPDATED: Set Path Nodes (Public API for UI to call)
 func set_path_start(id: String) -> void:
 	path_start_id = id
 	renderer.path_start_id = id
@@ -111,9 +108,7 @@ func set_path_end(id: String) -> void:
 	renderer.queue_redraw()
 
 func _refresh_path() -> void:
-	# If we have both, run A* automatically
 	if not path_start_id.is_empty() and not path_end_id.is_empty():
-		# Validate they still exist
 		if not graph.nodes.has(path_start_id) or not graph.nodes.has(path_end_id):
 			return
 		
@@ -131,7 +126,6 @@ func create_node(pos: Vector2) -> void:
 	var new_id = "man:%d" % _manual_counter
 	
 	# Safety: If we loaded a file that already has "man:1", scan forward until we find a free ID.
-	# This handles the "Save/Load Fragility" risk.
 	while graph.nodes.has(new_id):
 		_manual_counter += 1
 		new_id = "man:%d" % _manual_counter
@@ -140,19 +134,15 @@ func create_node(pos: Vector2) -> void:
 
 func delete_node(id: String) -> void:
 	graph.remove_node(id)
-	# Cleanup selection if the deleted node was selected
+	
 	if selected_nodes.has(id):
 		selected_nodes.erase(id)
-
 		selection_changed.emit(selected_nodes)
 	
-	# Check if the deleted node was ANY part of the current path
 	if current_path.has(id):
 		current_path.clear()
 		renderer.current_path_ref = current_path
 	
-	
-	# Specific checks for Start/End endpoints
 	if id == path_start_id:
 		path_start_id = ""
 		renderer.path_start_id = ""
@@ -183,6 +173,7 @@ func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
+
 # ==============================================================================
 # 5. GENERAL API (Called by GamePlayer / UI)
 # ==============================================================================
@@ -194,12 +185,14 @@ func clear_graph() -> void:
 	selected_nodes.clear()
 	current_path.clear()
 	new_nodes.clear()
+	
+	# Reset ID Counters
 	_next_id_counter = 0 
+	_manual_counter = 0 
 	
 	# Update References
 	renderer.graph_ref = graph
 	
-	# IMPORTANT: Update the current tool's reference to the new graph!
 	if current_tool: 
 		current_tool._graph = graph
 	
@@ -212,12 +205,9 @@ func load_new_graph(new_graph: Graph) -> void:
 	# Reset state
 	_reset_local_state()
 	
-	# Sync ID counter so new nodes don't overwrite loaded ones
-	var max_id = 0
-	for id: String in graph.nodes:
-		if id.is_valid_int() and id.to_int() > max_id:
-			max_id = id.to_int()
-	_next_id_counter = max_id
+	# IMPORTANT: Reconstruct the ID state from the file
+	# This ensures that if the file has "man:5", our counter starts at 5.
+	_reconstruct_state_from_ids()
 	
 	# Broadcast change
 	graph_loaded.emit(graph)
@@ -235,18 +225,14 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.queue_redraw()
 
 func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
-	# 1. Snapshot existing nodes (to detect what's new later)
 	var existing_ids = {}
 	for id in graph.nodes:
 		existing_ids[id] = true
 	
-	# 2. Reset selection/path visuals
 	_reset_local_state()
 	
-	# 3. Execute
 	strategy.execute(graph, params)
 	
-	# 4. Highlight new nodes (if appending)
 	new_nodes.clear()
 	var is_append = params.get("append", false)
 	if is_append:
@@ -254,33 +240,57 @@ func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 			if not existing_ids.has(id):
 				new_nodes.append(id)
 	
-	# 5. Refresh View
 	_center_camera_on_graph()
 	renderer.queue_redraw()
 
 # ==============================================================================
 # 6. INTERNAL HELPERS
 # ==============================================================================
+
+# Scans the graph for Namespaced IDs and restores the editor's counters
+func _reconstruct_state_from_ids() -> void:
+	# Reset to safe defaults
+	_manual_counter = 0
+	_next_id_counter = 0
+	
+	for id: String in graph.nodes:
+		# 1. Handle Legacy/Fallback Integers (Just in case)
+		if id.is_valid_int():
+			var val = id.to_int()
+			if val > _next_id_counter:
+				_next_id_counter = val
+				
+		# 2. Handle Namespaced IDs (e.g., "man:5")
+		var parts = id.split(":")
+		if parts.size() >= 2:
+			var id_namespace = parts[0]
+			var index_part = parts[1]
+			
+			if id_namespace == "man" and index_part.is_valid_int():
+				var val = index_part.to_int()
+				if val > _manual_counter:
+					_manual_counter = val
+					
+	# Log the restoration for debugging
+	print("GraphEditor: State Reconstructed. Manual Counter reset to: ", _manual_counter)
+
 func run_pathfinding() -> void:
-	# Validation: We need both points
 	if path_start_id.is_empty() or path_end_id.is_empty():
 		print("Pathfinding failed: Missing Start or End node.")
 		return
 		
-	# Validation: Nodes must still exist
 	if not graph.nodes.has(path_start_id) or not graph.nodes.has(path_end_id):
 		print("Pathfinding failed: Start or End node no longer exists.")
 		return
-	# Execute
+		
 	var start_time = Time.get_ticks_usec()
 	var path = graph.get_astar_path(path_start_id, path_end_id)
 	var end_time = Time.get_ticks_usec()
-	# Update Data
+	
 	current_path = path
 	renderer.current_path_ref = current_path
 	renderer.queue_redraw()
 		
-	# Log results
 	var duration_ms = (end_time - start_time) / 1000.0
 	print("A* Path found: %d nodes in %.3f ms" % [path.size(), duration_ms])
 

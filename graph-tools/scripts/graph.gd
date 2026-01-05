@@ -69,6 +69,14 @@ func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	if not directed and nodes.has(b):
 		nodes[b].connections.erase(a)
 
+# Clears all connections but keeps the nodes intact.
+# Required for MST and other re-wiring strategies.
+func clear_edges() -> void:
+	for id in nodes:
+		# Access the NodeData resource and clear its dictionary
+		if nodes[id] is NodeData:
+			nodes[id].connections.clear()
+
 # --- Helpers ---
 
 func get_neighbors(id: String) -> Array:
