@@ -25,6 +25,8 @@ var new_nodes: Array[String] = []
 
 # Internal counters
 var _next_id_counter: int = 0
+# Track manual IDs separately to prevent collisions
+var _manual_counter: int = 0
 
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
@@ -124,8 +126,17 @@ func _refresh_path() -> void:
 		
 # --- Node Operations ---
 func create_node(pos: Vector2) -> void:
-	_next_id_counter += 1
-	graph.add_node(str(_next_id_counter), pos)
+	# Increment counter
+	_manual_counter += 1
+	var new_id = "man:%d" % _manual_counter
+	
+	# Safety: If we loaded a file that already has "man:1", scan forward until we find a free ID.
+	# This handles the "Save/Load Fragility" risk.
+	while graph.nodes.has(new_id):
+		_manual_counter += 1
+		new_id = "man:%d" % _manual_counter
+		
+	graph.add_node(new_id, pos)
 
 func delete_node(id: String) -> void:
 	graph.remove_node(id)

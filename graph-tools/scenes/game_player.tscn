@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=9 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -6,12 +6,13 @@
 [ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
 [ext_resource type="Script" uid="uid://cyla4eosgc0x4" path="res://scripts/controllers/file_controller.gd" id="3_u2lal"]
 [ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/pathfinding_controller.gd" id="4_5u163"]
+[ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scenes/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
 
-[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "param1_label", "param1_input", "param2_label", "param2_input", "option_toggle", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn")]
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "param1_label", "param1_input", "param2_label", "param2_input", "option_toggle", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn", "merge_chk")]
 script = ExtResource("2_hgyw2")
 graph_editor = NodePath("../GraphEditor")
 algo_select = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
@@ -24,6 +25,7 @@ debug_depth_chk = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/DebugDe
 grow_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GrowBtn")
 generate_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
 clear_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/ClearBtn")
+merge_chk = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/MergeChk")
 
 [node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog")]
 script = ExtResource("3_u2lal")
@@ -39,6 +41,22 @@ graph_editor = NodePath("../GraphEditor")
 btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetStart")
 btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
 btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
+
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "lbl_no_selection", "single_container", "group_container", "lbl_id", "lbl_pos", "lbl_type", "lbl_edges", "lbl_neighbors", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density")]
+script = ExtResource("5_5u163")
+graph_editor = NodePath("../GraphEditor")
+lbl_no_selection = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
+single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer")
+group_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer")
+lbl_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblID")
+lbl_pos = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblPos")
+lbl_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblType")
+lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblEdges")
+lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblNeighbors")
+lbl_group_count = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCount")
+lbl_group_center = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCenter")
+lbl_group_bounds = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupBounds")
+lbl_group_density = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupDensity")
 
 [node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
 script = ExtResource("5_u2lal")
@@ -124,6 +142,12 @@ text = "Use Box Spawning"
 layout_mode = 2
 text = "Show Depth Numbers"
 
+[node name="MergeChk" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+tooltip_text = "If checked, algorithms will connect to existing nodes found at the target location. If unchecked, they will create overlapping geometry."
+button_pressed = true
+text = "Merge Overlaps"
+
 [node name="GrowBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
 text = "Grow (+)"
@@ -170,6 +194,52 @@ text = "Mark Endpoint"
 [node name="BtnRunPath" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
 layout_mode = 2
 text = "Run Path"
+
+[node name="Inspector" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 3
+
+[node name="LblNoSelection" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+modulate = Color(1, 1, 1, 0.5)
+layout_mode = 2
+text = "Select a node to view details."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DataContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+layout_mode = 2
+
+[node name="LblID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="LblPos" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="LblType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="LblEdges" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="LblNeighbors" type="RichTextLabel" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="GroupContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+visible = false
+layout_mode = 2
+
+[node name="LblGroupCount" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupCenter" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupBounds" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupDensity" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
 
 [node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
 grow_vertical = 2

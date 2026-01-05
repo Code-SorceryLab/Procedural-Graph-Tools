@@ -1,4 +1,3 @@
-# spatial_grid.gd
 class_name SpatialGrid
 extends RefCounted
 
@@ -15,7 +14,7 @@ func _init(cell_size: float) -> void:
 func _world_to_cell(pos: Vector2) -> Vector2i:
 	return Vector2i(floor(pos.x / _cell_size), floor(pos.y / _cell_size))
 
-# Get all cells that intersect with a circle
+# Get all cells that intersect with a circle (Square approximation for Broad Phase)
 func _get_cells_for_circle(center: Vector2, radius: float) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	var min_cell = _world_to_cell(center - Vector2(radius, radius))
@@ -100,21 +99,6 @@ func query_rect(rect: Rect2) -> Array[String]:
 						result.append(node_id)
 	
 	return result
-
-# Find the closest node to a position (for mouse picking)
-func find_closest_node(pos: Vector2, max_distance: float = INF) -> String:
-	var candidates = query_circle(pos, max_distance)
-	
-	var closest_id: String = ""
-	var closest_dist: float = INF
-	
-	for node_id in candidates:
-		# Note: We'd need node positions to compute actual distance
-		# This requires external position lookup
-		# We'll handle this in the Graph class
-		pass
-	
-	return closest_id
 
 # Get statistics for debugging
 func get_stats() -> Dictionary:

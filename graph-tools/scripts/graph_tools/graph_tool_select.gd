@@ -1,6 +1,8 @@
 class_name GraphToolSelect
 extends GraphTool
 
+const DRAG_THRESHOLD: float = 4.0 # Pixels
+
 # State A: Moving a Node
 var _drag_node_id: String = ""
 
@@ -91,14 +93,31 @@ func _start_box_selection(pos: Vector2) -> void:
 	# Don't clear selection yet! We might be doing Shift+Drag.
 
 func _finish_box_selection(mouse_pos: Vector2) -> void:
-	# 1. Define the final box
+	# 1. Check Drag Distance
+	var drag_dist = _box_start_pos.distance_to(mouse_pos)
+	
+	# If we didn't drag far enough, treat this as a "Click on Empty Space"
+	# (which deselects everything) rather than a "Tiny Box Selection".
+	if drag_dist < DRAG_THRESHOLD:
+		# Only clear if we aren't holding modifiers (Shift/Ctrl)
+		if not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_CTRL):
+			_editor.clear_selection()
+			
+		# Reset and exit
+		_box_start_pos = Vector2.INF
+		_renderer.selection_rect = Rect2()
+		_renderer.pre_selection_ref = []
+		_renderer.queue_redraw()
+		return
+	
+	# 2. Define the final box
 	var rect = _get_rect(_box_start_pos, mouse_pos)
 	
-	# 2. Get nodes inside
+	# 3. Get nodes inside
 	# (We use the SpatialGrid for speed!)
 	var nodes_in_box = _graph.get_nodes_in_rect(rect)
 	
-	# 3. Determine Logic Mode
+	# 4. Determine Logic Mode
 	var is_shift = Input.is_key_pressed(KEY_SHIFT) # Add
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)   # Subtract
 	
@@ -119,11 +138,11 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 			if _editor.selected_nodes.has(id):
 				_editor.toggle_selection(id) # Toggle off
 	
-	# 4. Cleanup
+	# 5. Cleanup
 	_box_start_pos = Vector2.INF
 	_renderer.selection_rect = Rect2() # clear visual
 	
-	# NEW: Clear the pre-selection list so it doesn't get stuck
+	# 6. Clear the pre-selection list so it doesn't get stuck
 	_renderer.pre_selection_ref = []
 	_renderer.queue_redraw()
 

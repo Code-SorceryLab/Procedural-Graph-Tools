@@ -122,14 +122,25 @@ func get_nodes_near_position(pos: Vector2, radius: float = -1.0) -> Array[String
 
 # Get nodes in a rectangle (for selection boxes, etc.)
 func get_nodes_in_rect(rect: Rect2) -> Array[String]:
+	# 1. Broad Phase: Get candidates from the Grid (Fast, but imprecise)
+	var candidates: Array[String] = []
 	if _spatial_grid:
-		return _spatial_grid.query_rect(rect)
+		candidates = _spatial_grid.query_rect(rect)
+	else:
+		# If no grid, every node is a candidate
+		candidates = nodes.keys()
 	
-	# Fallback (Linear Search) if grid is missing
+	# 2. Narrow Phase: Check exact positions (Precise)
 	var result: Array[String] = []
-	for id in nodes:
-		if rect.has_point(nodes[id].position):
+	for id in candidates:
+		if not nodes.has(id): continue
+		
+		var pos = nodes[id].position
+		
+		# STRICT CHECK: Is the point actually inside the rectangle?
+		if rect.has_point(pos):
 			result.append(id)
+			
 	return result
 
 # Find node at exact position (for mouse picking)

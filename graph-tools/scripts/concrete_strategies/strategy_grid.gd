@@ -1,34 +1,48 @@
-extends GraphStrategy
 class_name StrategyGrid
+extends GraphStrategy
 
 func _init() -> void:
-	strategy_name = "Grid Map"
+	strategy_name = "Grid Layout"
+	reset_on_generate = true # Wipes previous work
+	# Define which UI inputs should be visible for this strategy
 	required_params = ["width", "height"]
 
 func execute(graph: Graph, params: Dictionary) -> void:
-	var rows = params.get("height", 10)
-	var cols = params.get("width", 10)
-	var cell_size = GraphSettings.CELL_SIZE
+	# 1. Parse Params
+	var width = params.get("width", 5)
+	var height = params.get("height", 5)
+	var append_mode = params.get("append", false)
+	# Note: Grid usually ignores "merge_overlaps" because its IDs are coordinates,
+	# so "overlapping" implies "same ID" anyway.
 	
-	# Clear previous data
-	graph.nodes.clear()
-	
-	# 1. Create Nodes
-	for y in range(rows):
-		for x in range(cols):
-			var id := "%d_%d" % [x, y]
-			var pos := Vector2(x * cell_size, y * cell_size)
-			graph.add_node(id, pos)
-	
-	# 2. Create Edges
-	for y in range(rows):
-		for x in range(cols):
-			var current_id := "%d_%d" % [x, y]
-			# Connect Right and Down
-			var directions = [Vector2i(1, 0), Vector2i(0, 1)]
-			for dir in directions:
-				var nx = x + dir.x
-				var ny = y + dir.y
-				if nx >= 0 and nx < cols and ny >= 0 and ny < rows:
-					var neighbor_id := "%d_%d" % [nx, ny]
-					graph.add_edge(current_id, neighbor_id, 1.0)
+	if not append_mode:
+		graph.clear()
+		
+	# 2. Generate Grid
+	for x in range(width):
+		for y in range(height):
+			# Calculate position
+			var pos = Vector2(x * GraphSettings.CELL_SIZE, y * GraphSettings.CELL_SIZE)
+			
+			# --- ID LOGIC START ---
+			
+			# Deterministic ID based on logic (Origin Coordinates)
+			var new_id = "grid:%d:%d" % [x, y]
+			
+			# If the node doesn't exist, create it.
+			# If it does exist (e.g. running grid gen on top of grid gen), we preserve the old one.
+			if not graph.nodes.has(new_id):
+				graph.add_node(new_id, pos)
+				
+			# --- ID LOGIC END ---
+			
+			# Connect Neighbors (Deterministic)
+			# We check if neighbors exist before connecting.
+			if x > 0:
+				var neighbor_id = "grid:%d:%d" % [x - 1, y]
+				if graph.nodes.has(neighbor_id):
+					graph.add_edge(new_id, neighbor_id)
+			if y > 0:
+				var neighbor_id = "grid:%d:%d" % [x, y - 1]
+				if graph.nodes.has(neighbor_id):
+					graph.add_edge(new_id, neighbor_id)

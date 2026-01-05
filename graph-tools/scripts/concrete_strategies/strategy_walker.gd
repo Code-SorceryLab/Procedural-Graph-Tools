@@ -1,89 +1,90 @@
-extends GraphStrategy
 class_name StrategyWalker
+extends GraphStrategy
 
-# MEMORY: Remember where we finished last time
-var _last_added_id: String = ""
+# Walker memory to track state between "Grow" clicks
+# Schema: { "id": int, "pos": Vector2, "current_node_id": String, "step_count": int }
+var _walkers: Array[Dictionary] = []
 
 func _init() -> void:
 	strategy_name = "Random Walker"
-	required_params = ["steps"]
-	toggle_text = "Random Branching" 
-	toggle_key = "random_start"
+	reset_on_generate = true # Wipes previous work
+	# "steps" triggers the first input, "merge_overlaps" is handled by the toggle
+	required_params = ["steps", "merge_overlaps"]
 
 func execute(graph: Graph, params: Dictionary) -> void:
+	# 1. Parse Parameters
+	var width = params.get("width", 500)   # Not used by walker, but good to have
+	var height = params.get("height", 500) # Not used
 	var steps = params.get("steps", 50)
 	var append_mode = params.get("append", false)
-	var random_start = params.get("random_start", false)
-	var cell_size = GraphSettings.CELL_SIZE
 	
-	# Track where our "Walker" currently stands
-	var current_grid_pos: Vector2i
-	var current_id: String = "" # <--- We need to track the ID explicitly
+	# The Collision Policy Toggle
+	var merge_overlaps = params.get("merge_overlaps", true)
 	
-	# --- SETUP PHASE ---
-	if not append_mode or graph.nodes.is_empty():
-		# FRESH START
-		graph.nodes.clear()
-		current_grid_pos = Vector2i(0, 0)
-		current_id = _vec_to_id(current_grid_pos) # Calculate standard ID for 0,0
+	# 2. Reset or Initialize
+	if not append_mode:
+		graph.clear()
+		_walkers.clear()
 		
-		_add_node_safe(graph, current_grid_pos)
+	# Initialize a default walker if none exist (start at 0,0)
+	if _walkers.is_empty():
+		_walkers.append({
+			"id": 0,
+			"pos": Vector2(0, 0),
+			"current_node_id": "",
+			"step_count": 0
+		})
 		
-	else:
-		# GROW MODE
-		var start_id = ""
-		
-		# LOGIC: Decide where to start
-		if random_start:
-			start_id = graph.nodes.keys().pick_random()
-		else:
-			if _last_added_id != "" and graph.nodes.has(_last_added_id):
-				start_id = _last_added_id
-			else:
-				start_id = graph.nodes.keys().pick_random()
-		
-		# FIX: Use the ACTUAL ID of the start node. 
-		# Do not recalculate it, or we lose track of Manual Nodes (e.g. "1")
-		current_id = start_id 
-		
-		# Reverse engineer grid pos so math works for the NEXT step
-		var world_pos = graph.get_node_pos(start_id)
-		var gx = round(world_pos.x / cell_size)
-		var gy = round(world_pos.y / cell_size)
-		current_grid_pos = Vector2i(gx, gy)
-
-	# --- WALKING PHASE ---
-	# (Removed the line: var current_id = ... because we set it above)
-	
+	# 3. Simulation Loop
 	for i in range(steps):
-		var directions = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
-		var dir = directions.pick_random()
-		
-		var next_grid_pos = current_grid_pos + dir
-		var next_id = _vec_to_id(next_grid_pos)
-		
-		# 1. Add Node
-		_add_node_safe(graph, next_grid_pos)
-		
-		# 2. Add Edge
-		# FIX: Verify both nodes exist before connecting to avoid race conditions
-		if graph.nodes.has(current_id) and graph.nodes.has(next_id):
-			if graph.get_edge_weight(current_id, next_id) == INF:
-				graph.add_edge(current_id, next_id)
-		
-		# 3. Step forward
-		current_grid_pos = next_grid_pos
-		current_id = next_id
-		
-	# MEMORY: Save where we stopped
-	_last_added_id = current_id
+		for w in _walkers:
+			_step_walker(graph, w, merge_overlaps)
 
-# --- HELPERS ---
-func _vec_to_id(v: Vector2i) -> String:
-	return "%d_%d" % [v.x, v.y]
-
-func _add_node_safe(graph: Graph, grid_pos: Vector2i) -> void:
-	var id = _vec_to_id(grid_pos)
-	if not graph.nodes.has(id):
-		var world_pos = Vector2(grid_pos.x * GraphSettings.CELL_SIZE, grid_pos.y * GraphSettings.CELL_SIZE)
-		graph.add_node(id, world_pos)
+func _step_walker(graph: Graph, walker: Dictionary, merge_overlaps: bool) -> void:
+	# A. Determine Move Direction (Random Cardinal Step)
+	var dir_idx = randi() % 4
+	var step_vector = Vector2.ZERO
+	match dir_idx:
+		0: step_vector = Vector2(GraphSettings.CELL_SIZE, 0)  # Right
+		1: step_vector = Vector2(-GraphSettings.CELL_SIZE, 0) # Left
+		2: step_vector = Vector2(0, GraphSettings.CELL_SIZE)  # Down
+		3: step_vector = Vector2(0, -GraphSettings.CELL_SIZE) # Up
+		
+	var target_pos = walker.pos + step_vector
+	var current_id = ""
+	
+	# Increment step count for ID provenance
+	walker.step_count += 1
+	
+	# B. COLLISION POLICY CHECK
+	# Query the Graph/SpatialGrid for a node at this EXACT position (1.0 tolerance)
+	var existing_id = graph.get_node_at_position(target_pos, 1.0)
+	
+	if merge_overlaps and not existing_id.is_empty():
+		# REUSE: The node exists, and we are allowed to merge.
+		# We don't create a new node, we just reference the old one.
+		current_id = existing_id
+	else:
+		# CREATE: Make a new node with a deterministic ID.
+		# Schema: walk : walker_id : step_number
+		# Example: walk:0:55
+		current_id = "walk:%d:%d" % [walker.id, walker.step_count]
+		
+		# Edge case: If "Force New" is on, and we somehow step on the exact same spot 
+		# twice in the same generation run (e.g. step 5 and step 7 are same pos),
+		# we need to ensure the ID is unique.
+		# The step_count handles this naturally (walk:0:5 vs walk:0:7).
+		
+		graph.add_node(current_id, target_pos)
+	
+	# C. Connect to Previous Step
+	if not walker.current_node_id.is_empty():
+		# Prevent self-loops (connecting A to A)
+		if walker.current_node_id != current_id:
+			# Check if edge already exists to avoid duplication overhead
+			# (Graph.add_edge usually handles this safely, but good to be explicit)
+			graph.add_edge(walker.current_node_id, current_id)
+			
+	# D. Update Walker Memory
+	walker.pos = target_pos
+	walker.current_node_id = current_id

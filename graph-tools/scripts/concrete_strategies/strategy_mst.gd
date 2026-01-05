@@ -1,83 +1,58 @@
-extends GraphStrategy
 class_name StrategyMST
+extends GraphStrategy
 
 func _init() -> void:
-	strategy_name = "Prune to MST (Filter)"
-	# No params needed: it works on whatever data is already there
+	strategy_name = "Spanning Tree (MST)"
+	# MST doesn't need params usually, just operates on structure
 	required_params = [] 
+	reset_on_generate = false # CRITICAL: Works on existing nodes
 
 func execute(graph: Graph, _params: Dictionary) -> void:
-	# SAFETY CHECK: 
-	# If the user clicked "Generate" (which clears nodes first), there is nothing to prune.
-	# This strategy only works if nodes already exist (via Grow mode or Manual placement).
-	if graph.nodes.is_empty():
-		push_warning("MST Strategy: Graph is empty. Use 'Grow (+)' to apply this to an existing graph.")
-		return
-
-	# 1. Collect ALL Existing Edges
-	# We use a Dictionary key trick to deduplicate edges (A->B is same as B->A)
-	var existing_edges: Array[Dictionary] = []
-	var processed_pairs = {} 
-	
-	for u_id in graph.nodes:
-		var neighbors = graph.get_neighbors(u_id)
-		for v_id in neighbors:
-			# Create a sorted pair so [A, B] and [B, A] look identical
-			var pair = [u_id, v_id]
-			pair.sort() 
-			
-			if not processed_pairs.has(pair):
-				processed_pairs[pair] = true
-				existing_edges.append({ 
-					"u": pair[0], 
-					"v": pair[1],
-					# We assign a random weight here to make the maze random
-					# If we used real distance, it would create "Rivers" (shortest paths)
-					"weight": randf() 
-				})
-
-	# 2. Clear All Current Connections
-	# We keep the nodes, but we cut all the wires.
-	for id in graph.nodes:
-		var node = graph.nodes[id]
-		if node is NodeData: # Check type safety
-			node.connections.clear()
-
-	# 3. Kruskal's Algorithm (The Re-connection)
-	# Sort by the random weights we assigned
-	existing_edges.sort_custom(func(a, b): return a["weight"] < b["weight"])
-	
-	var ds = DisjointSet.new(graph.nodes.keys())
-	var restored_count = 0
-	
-	for edge in existing_edges:
-		var u = edge["u"]
-		var v = edge["v"]
+	# 1. Validation
+	var nodes_list = graph.nodes.keys()
+	if nodes_list.is_empty():
+		return # Nothing to process
 		
-		# If connecting u and v doesn't create a cycle (loop)...
-		if ds.find(u) != ds.find(v):
-			ds.union(u, v)
-			graph.add_edge(u, v)
-			restored_count += 1
-			
-	print("MST Filter Applied. Restored %d edges." % restored_count)
-
-# --- Inner Helper Class: Disjoint Set (Union-Find) ---
-# (This logic remains exactly the same as before)
-class DisjointSet:
-	var parent: Dictionary = {}
+	# 2. Prim's Algorithm (Simplified)
+	# We want to keep all nodes, but remove edges to form a tree.
+	# Actually, easier to: Clear all edges, then rebuild them.
 	
-	func _init(node_ids: Array) -> void:
-		for id in node_ids:
-			parent[id] = id
+	# Store positions, clear edges
+	graph.clear_edges() 
+	
+	var visited = {}
+	var start_node = nodes_list[0]
+	visited[start_node] = true
+	
+	# Priority Queue simulated with Array (can be slow for huge graphs, fine for <1000)
+	# Tuple: { "u": source_id, "v": target_id, "dist": float }
+	var edges_candidates = []
+	
+	# Helper to add candidates from a node
+	var add_candidates = func(u_id):
+		for v_id in nodes_list:
+			if not visited.has(v_id) and u_id != v_id:
+				var dist = graph.nodes[u_id].position.distance_to(graph.nodes[v_id].position)
+				# Optimization: Only consider "nearby" nodes to avoid N^2 connections
+				if dist < GraphSettings.CELL_SIZE * 3.0: 
+					edges_candidates.append({ "u": u_id, "v": v_id, "dist": dist })
 
-	func find(i: String) -> String:
-		if parent[i] != i:
-			parent[i] = find(parent[i]) 
-		return parent[i]
-
-	func union(i: String, j: String) -> void:
-		var root_i = find(i)
-		var root_j = find(j)
-		if root_i != root_j:
-			parent[root_i] = root_j
+	add_candidates.call(start_node)
+	
+	# Loop until all nodes connected
+	while visited.size() < nodes_list.size() and not edges_candidates.is_empty():
+		# Sort by distance (Smallest first)
+		edges_candidates.sort_custom(func(a, b): return a.dist < b.dist)
+		
+		# Pop smallest
+		var edge = edges_candidates.pop_front()
+		
+		if visited.has(edge.v):
+			continue # Already connected
+			
+		# Connect
+		graph.add_edge(edge.u, edge.v)
+		visited[edge.v] = true
+		
+		# Add new candidates
+		add_candidates.call(edge.v)

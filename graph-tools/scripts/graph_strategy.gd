@@ -8,7 +8,12 @@ class_name GraphStrategy
 # Options: "width", "height", "steps", etc.
 @export var required_params: Array[String] = []
 
-# NEW: Toggle Configuration
+# Defines if this strategy requires a blank canvas.
+# True = Generators (Grid, Walker, DLA)
+# False = Decorators/Analyzers (MST, Analyze Rooms)
+var reset_on_generate: bool = true
+
+# Toggle Configuration
 # If toggle_text is not empty, the UI will show a checkbox.
 @export var toggle_text: String = "" 
 @export var toggle_key: String = ""   # The key to use in the params dictionary (e.g. "use_box")

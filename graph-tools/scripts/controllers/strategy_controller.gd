@@ -16,6 +16,7 @@ class_name StrategyController
 @export var grow_btn: Button
 @export var generate_btn: Button
 @export var clear_btn: Button
+@export var merge_chk: CheckBox 
 
 # --- 2. STATE ---
 var strategies: Array[GraphStrategy] = []
@@ -84,14 +85,32 @@ func _update_ui_for_strategy() -> void:
 	   (current_strategy is StrategyWalker) or \
 	   (current_strategy is StrategyMST):
 		grow_btn.visible = true
+	
+	# Updates the Generate Button Text for clarity
+	if current_strategy.reset_on_generate:
+		generate_btn.text = "Generate"
+	else:
+		generate_btn.text = "Apply" # "Apply MST", "Apply Analysis"
 
 func _on_generate_pressed() -> void:
 	var params = _collect_params()
+	
+	# INTELLIGENT RESET LOGIC
+	# Only clear the graph if the strategy explicitly asks for a clean slate.
+	if current_strategy.reset_on_generate:
+		graph_editor.clear_graph()
+	
+	# Note: We don't pass 'reset_state' here because strategies manage their own 
+	# internal memory (like _walkers array) based on whether 'append' is in params 
+	# or if they are just running fresh.
+	
 	graph_editor.apply_strategy(current_strategy, params)
 
 func _on_grow_pressed() -> void:
 	var params = _collect_params()
-	params["append"] = true
+	params["append"] = true # This tells the strategy "Keep your internal memory"
+	
+	# Grow NEVER clears the graph
 	graph_editor.apply_strategy(current_strategy, params)
 
 func _collect_params() -> Dictionary:
@@ -99,7 +118,8 @@ func _collect_params() -> Dictionary:
 		"width": int(param1_input.value),
 		"height": int(param2_input.value),
 		"steps": int(param1_input.value), 
-		"particles": int(param1_input.value)
+		"particles": int(param1_input.value),
+		"merge_overlaps": merge_chk.button_pressed
 	}
 	if current_strategy.toggle_key != "":
 		params[current_strategy.toggle_key] = option_toggle.button_pressed
