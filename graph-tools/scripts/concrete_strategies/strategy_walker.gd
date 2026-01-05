@@ -7,84 +7,96 @@ var _walkers: Array[Dictionary] = []
 
 func _init() -> void:
 	strategy_name = "Random Walker"
-	reset_on_generate = true # Wipes previous work
-	# "steps" triggers the first input, "merge_overlaps" is handled by the toggle
-	required_params = ["steps", "merge_overlaps"]
+	reset_on_generate = true
+
+# --- NEW DYNAMIC UI ---
+func get_settings() -> Array[Dictionary]:
+	return [
+		{ "name": "steps", "type": TYPE_INT, "default": 50, "min": 1, "max": 500 },
+		# The new feature: "Branch Randomly"
+		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false }
+	]
 
 func execute(graph: Graph, params: Dictionary) -> void:
-	# 1. Parse Parameters
-	var width = params.get("width", 500)   # Not used by walker, but good to have
-	var height = params.get("height", 500) # Not used
-	var steps = params.get("steps", 50)
+	var steps = int(params.get("steps", 50))
+	var branch_randomly = params.get("branch_randomly", false)
 	var append_mode = params.get("append", false)
-	
-	# The Collision Policy Toggle
 	var merge_overlaps = params.get("merge_overlaps", true)
 	
-	# 2. Reset or Initialize
+	# 1. Handle Reset vs Append
 	if not append_mode:
-		graph.clear()
+		# If we are Generating fresh, we must clear memory
+		# (Unless we specifically want to 'add walkers' to an existing map, 
+		# but usually Generate means New)
+		# NOTE: logic depends on Controller calling clear_graph(). 
+		# We just clear our internal walker memory.
 		_walkers.clear()
+
+	# 2. Handle Branching Logic (The "Safety" Check)
+	# If we are appending AND we want to branch randomly, we pick a new start point.
+	if append_mode and branch_randomly and not graph.nodes.is_empty():
+		# Reset the walker's position to a random existing node
+		var keys = graph.nodes.keys()
+		var random_id = keys[randi() % keys.size()]
+		var random_pos = graph.get_node_pos(random_id)
 		
-	# Initialize a default walker if none exist (start at 0,0)
+		# Update the FIRST walker (or create a new one if you want multi-agent later)
+		if _walkers.is_empty():
+			_walkers.append({ "id": 0, "pos": random_pos, "current_node_id": random_id, "step_count": 0 })
+		else:
+			# Teleport existing walker to the branch point
+			_walkers[0].pos = random_pos
+			_walkers[0].current_node_id = random_id
+			# We don't reset step_count so IDs remain unique (walk:0:51, etc)
+
+	# 3. Ensure Default State
 	if _walkers.is_empty():
+		# If graph has nodes (e.g. Grid), start at a random one? 
+		# Or default to 0,0. Let's default to 0,0 for deterministic starts.
 		_walkers.append({
 			"id": 0,
 			"pos": Vector2(0, 0),
 			"current_node_id": "",
 			"step_count": 0
 		})
-		
-	# 3. Simulation Loop
+
+	# 4. Simulation Loop
 	for i in range(steps):
 		for w in _walkers:
 			_step_walker(graph, w, merge_overlaps)
 
 func _step_walker(graph: Graph, walker: Dictionary, merge_overlaps: bool) -> void:
-	# A. Determine Move Direction (Random Cardinal Step)
+	# Direction Logic
 	var dir_idx = randi() % 4
 	var step_vector = Vector2.ZERO
 	match dir_idx:
-		0: step_vector = Vector2(GraphSettings.CELL_SIZE, 0)  # Right
-		1: step_vector = Vector2(-GraphSettings.CELL_SIZE, 0) # Left
-		2: step_vector = Vector2(0, GraphSettings.CELL_SIZE)  # Down
-		3: step_vector = Vector2(0, -GraphSettings.CELL_SIZE) # Up
+		0: step_vector = Vector2(GraphSettings.CELL_SIZE, 0)
+		1: step_vector = Vector2(-GraphSettings.CELL_SIZE, 0)
+		2: step_vector = Vector2(0, GraphSettings.CELL_SIZE)
+		3: step_vector = Vector2(0, -GraphSettings.CELL_SIZE)
 		
 	var target_pos = walker.pos + step_vector
+	walker.step_count += 1
 	var current_id = ""
 	
-	# Increment step count for ID provenance
-	walker.step_count += 1
-	
-	# B. COLLISION POLICY CHECK
-	# Query the Graph/SpatialGrid for a node at this EXACT position (1.0 tolerance)
+	# Collision Logic
 	var existing_id = graph.get_node_at_position(target_pos, 1.0)
 	
 	if merge_overlaps and not existing_id.is_empty():
-		# REUSE: The node exists, and we are allowed to merge.
-		# We don't create a new node, we just reference the old one.
 		current_id = existing_id
 	else:
-		# CREATE: Make a new node with a deterministic ID.
-		# Schema: walk : walker_id : step_number
-		# Example: walk:0:55
 		current_id = "walk:%d:%d" % [walker.id, walker.step_count]
-		
-		# Edge case: If "Force New" is on, and we somehow step on the exact same spot 
-		# twice in the same generation run (e.g. step 5 and step 7 are same pos),
-		# we need to ensure the ID is unique.
-		# The step_count handles this naturally (walk:0:5 vs walk:0:7).
-		
+		# Ensure uniqueness if we looped back to same spot/step
+		while graph.nodes.has(current_id):
+			walker.step_count += 1
+			current_id = "walk:%d:%d" % [walker.id, walker.step_count]
 		graph.add_node(current_id, target_pos)
 	
-	# C. Connect to Previous Step
+	# Connect
 	if not walker.current_node_id.is_empty():
-		# Prevent self-loops (connecting A to A)
 		if walker.current_node_id != current_id:
-			# Check if edge already exists to avoid duplication overhead
-			# (Graph.add_edge usually handles this safely, but good to be explicit)
 			graph.add_edge(walker.current_node_id, current_id)
 			
-	# D. Update Walker Memory
+	# Update State
 	walker.pos = target_pos
 	walker.current_node_id = current_id

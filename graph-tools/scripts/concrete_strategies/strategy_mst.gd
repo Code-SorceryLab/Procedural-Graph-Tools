@@ -2,10 +2,15 @@ class_name StrategyMST
 extends GraphStrategy
 
 func _init() -> void:
-	strategy_name = "Spanning Tree (MST)"
-	# MST doesn't need params usually, just operates on structure
-	required_params = [] 
-	reset_on_generate = false # CRITICAL: Works on existing nodes
+	strategy_name = "Minimum Spanning Tree"
+	# Decorator: Operates on existing nodes, so do NOT reset.
+	reset_on_generate = false 
+
+# --- NEW DYNAMIC UI DEFINITION ---
+func get_settings() -> Array[Dictionary]:
+	# MST is pure logic with no tunable parameters yet.
+	# We return an empty array so the Controller knows to CLEAR the UI.
+	return [] 
 
 func execute(graph: Graph, _params: Dictionary) -> void:
 	# 1. Validation
@@ -15,7 +20,7 @@ func execute(graph: Graph, _params: Dictionary) -> void:
 		
 	# 2. Prim's Algorithm (Simplified)
 	# We want to keep all nodes, but remove edges to form a tree.
-	# Actually, easier to: Clear all edges, then rebuild them.
+	# Easier to: Clear all edges, then rebuild them.
 	
 	# Store positions, clear edges
 	graph.clear_edges() 

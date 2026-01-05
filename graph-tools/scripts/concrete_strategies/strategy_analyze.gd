@@ -3,16 +3,22 @@ extends GraphStrategy
 
 func _init() -> void:
 	strategy_name = "Analyze Rooms"
-	required_params = [] 
-	toggle_text = "Auto-Assign Types"
-	toggle_key = "auto_types"
-	
-	# CRITICAL: This is an Analyzer/Decorator.
-	# It must NOT clear the graph, or there will be nothing to analyze.
+	# Analyzer: Decorator that runs on existing nodes.
 	reset_on_generate = false 
 
+# --- NEW DYNAMIC UI DEFINITION ---
+func get_settings() -> Array[Dictionary]:
+	return [
+		{ 
+			"name": "auto_assign_types", 
+			"type": TYPE_BOOL, 
+			"default": true 
+		}
+	]
+
 func execute(graph: Graph, params: Dictionary) -> void:
-	var auto_types = params.get("auto_types", false)
+	# 1. Extract Params
+	var auto_types = params.get("auto_assign_types", true)
 	
 	if graph.nodes.is_empty():
 		return
@@ -22,7 +28,6 @@ func execute(graph: Graph, params: Dictionary) -> void:
 	var start_id = _find_closest_to_center(graph)
 	
 	# 2. CALCULATE DEPTH (BFS)
-	# We walk the graph to determine how "deep" every node is from the center.
 	var queue: Array = [start_id]
 	var visited: Dictionary = { start_id: true }
 	var depths: Dictionary = { start_id: 0 }
@@ -40,7 +45,6 @@ func execute(graph: Graph, params: Dictionary) -> void:
 			max_depth_id = current
 		
 		# Write Depth to NodeData
-		# We assume graph.nodes stores NodeData resources
 		if graph.nodes[current] is NodeData:
 			graph.nodes[current].depth = current_depth
 		
@@ -58,7 +62,7 @@ func execute(graph: Graph, params: Dictionary) -> void:
 			
 		var neighbor_count = graph.get_neighbors(id).size()
 		
-		# A. Assign Shape based on topology (How many connections?)
+		# A. Assign Shape based on topology
 		match neighbor_count:
 			0: node.shape = NodeData.RoomShape.CLOSED
 			1: node.shape = NodeData.RoomShape.DEAD_END
@@ -68,9 +72,8 @@ func execute(graph: Graph, params: Dictionary) -> void:
 			_: node.shape = NodeData.RoomShape.FOUR_WAY 
 
 		# B. Assign Type (Game Rules)
-		# Only override types if the toggle is ON.
 		if auto_types:
-			# Reset to empty first so we don't have lingering data from previous runs
+			# Reset to empty first
 			node.type = NodeData.RoomType.EMPTY
 			
 			if id == start_id:
@@ -90,7 +93,6 @@ func _find_closest_to_center(graph: Graph) -> String:
 	var min_dist = INF
 	
 	for id in graph.nodes:
-		# Access position directly from NodeData
 		var dist = graph.nodes[id].position.length_squared()
 		if dist < min_dist:
 			min_dist = dist
