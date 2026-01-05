@@ -14,7 +14,10 @@ func _init(editor: Node2D) -> void:
 
 # Virtual methods to be overridden
 func enter() -> void: pass
-func exit() -> void: pass
+# Optional: Auto-clear status when switching tools
+# You can override this in specific tools if you want the message to persist
+func exit() -> void:
+	_show_status("")
 func handle_input(_event: InputEvent) -> void: pass
 
 # Shared Helpers
@@ -26,3 +29,9 @@ func _update_hover(mouse_pos: Vector2) -> void:
 	if new_hovered != _renderer.hovered_id:
 		_renderer.hovered_id = new_hovered
 		_renderer.queue_redraw()
+
+# --- NEW SHARED HELPER ---
+func _show_status(message: String) -> void:
+	# Calls the method we just made in Step 1
+	if _editor.has_method("send_status_message"):
+		_editor.send_status_message(message)

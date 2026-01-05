@@ -4,6 +4,7 @@ class_name GraphEditor
 # Signal to notify the rest of the game when a new graph is loaded or generated
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
+# Signal to notify UI (e.g. StatusBar) when a tool wants to display info
 signal status_message_changed(message: String)
 
 # --- REFERENCES ---
@@ -83,7 +84,7 @@ func set_active_tool(tool_id: int) -> void:
 	if current_tool:
 		current_tool.enter()
 
-#For Tools to call
+# Public API for tools to call
 func send_status_message(message: String) -> void:
 	status_message_changed.emit(message)
 	

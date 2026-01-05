@@ -75,7 +75,14 @@ func _cycle_type() -> void:
 	_print_current_type()
 
 func _print_current_type() -> void:
-	# In the future, this could update a UI label instead of printing
+	var type_name = _get_type_name(_current_type)
+	var msg = "Type Brush: [Right-Click] to Cycle. Active: %s" % type_name
+	
+	# Send to Status Bar instead of Console
+	_show_status(msg)
+	
+	# (You can keep the print for debugging if you like, or remove it)
+	# print(msg)
 	print("Type Brush: Active Color is now '%s'" % _get_type_name(_current_type))
 
 func _get_type_name(type_int: int) -> String:

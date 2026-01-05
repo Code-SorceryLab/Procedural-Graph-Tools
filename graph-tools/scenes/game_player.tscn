@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=10 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/pathfinding_controller.gd" id="4_5u163"]
 [ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scenes/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
+[ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/status_controller.gd" id="7_el7nm"]
 
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
@@ -58,6 +59,11 @@ lbl_group_density = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupC
 script = ExtResource("5_u2lal")
 graph_editor = NodePath("../GraphEditor")
 toolbar = NodePath("../UI/Toolbar")
+
+[node name="StatusController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label")]
+script = ExtResource("7_el7nm")
+graph_editor = NodePath("../GraphEditor")
+status_label = NodePath("../UI/StatusBar/MarginContainer/StatusLabel")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 
@@ -210,6 +216,23 @@ layout_mode = 2
 
 [node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
 grow_vertical = 2
+
+[node name="StatusBar" type="PanelContainer" parent="UI"]
+custom_minimum_size = Vector2(0, 30)
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/StatusBar"]
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="UI/StatusBar/MarginContainer"]
+layout_mode = 2
+text = "Ready"
+vertical_alignment = 1
 
 [node name="FileDialog" type="FileDialog" parent="."]
 size = Vector2i(600, 400)
