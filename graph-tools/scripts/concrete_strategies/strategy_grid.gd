@@ -5,7 +5,6 @@ func _init() -> void:
 	strategy_name = "Grid Layout"
 	reset_on_generate = true
 
-# --- NEW DYNAMIC UI DEFINITION ---
 func get_settings() -> Array[Dictionary]:
 	return [
 		{ 
@@ -26,33 +25,30 @@ func get_settings() -> Array[Dictionary]:
 
 func execute(graph: Graph, params: Dictionary) -> void:
 	# 1. Extract Params
-	# We trust these keys exist because get_settings() defined them
 	var width = int(params.get("width", 10))
 	var height = int(params.get("height", 10))
 	
 	var cell_size = GraphSettings.CELL_SIZE
 	
-	# 2. Generate Grid
-	# Center the grid around (0,0) by calculating offset
-	var offset_x = (width - 1) * cell_size * 0.5
-	var offset_y = (height - 1) * cell_size * 0.5
+	# 2. Calculate Start Position (Top-Left)
+	# We use integer division to ensure we stay on the grid lines.
+	# Example: Width 10 / 2 = 5. Start at -5.
+	# Range will be -5 to +4. (0,0) will be one of the nodes.
+	var start_x = -int(width / 2) * cell_size
+	var start_y = -int(height / 2) * cell_size
 	
 	for x in range(width):
 		for y in range(height):
-			var pos_x = (x * cell_size) - offset_x
-			var pos_y = (y * cell_size) - offset_y
+			# Simple integer steps from the start position
+			var pos_x = start_x + (x * cell_size)
+			var pos_y = start_y + (y * cell_size)
 			
 			var id = "grid:%d:%d" % [x, y]
 			
 			# Add Node
-			# Grid implicitly merges overlaps by using deterministic IDs
 			graph.add_node(id, Vector2(pos_x, pos_y))
 			
-			# 3. Add Connections (Right and Down)
-			# We only look 'back' or 'up' to avoid duplicates, 
-			# or we can look 'forward' if we are sure nodes exist.
-			# Since we are iterating X then Y, let's look Back and Up.
-			
+			# 3. Add Connections (Look Backwards)
 			# Connect Left (x-1)
 			if x > 0:
 				var left_id = "grid:%d:%d" % [x - 1, y]

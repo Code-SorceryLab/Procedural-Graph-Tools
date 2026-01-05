@@ -68,6 +68,10 @@ func set_active_tool(tool_id: int) -> void:
 			current_tool = GraphToolConnect.new(self)
 		GraphSettings.Tool.DELETE:
 			current_tool = GraphToolDelete.new(self)
+		GraphSettings.Tool.PAINT:
+			current_tool = GraphToolPaint.new(self)
+		GraphSettings.Tool.CUT:
+			current_tool = GraphToolCut.new(self)
 		_:
 			push_warning("Unknown tool ID: %d. Defaulting to Select." % tool_id)
 			current_tool = GraphToolSelect.new(self)
@@ -120,17 +124,19 @@ func _refresh_path() -> void:
 		renderer.current_path_ref = current_path
 		
 # --- Node Operations ---
-func create_node(pos: Vector2) -> void:
-	# Increment counter
+func create_node(pos: Vector2) -> String:
 	_manual_counter += 1
 	var new_id = "man:%d" % _manual_counter
 	
-	# Safety: If we loaded a file that already has "man:1", scan forward until we find a free ID.
+	# Safety check for collisions
 	while graph.nodes.has(new_id):
 		_manual_counter += 1
 		new_id = "man:%d" % _manual_counter
 		
 	graph.add_node(new_id, pos)
+	
+	# Return the new ID so tools can use it!
+	return new_id
 
 func delete_node(id: String) -> void:
 	graph.remove_node(id)

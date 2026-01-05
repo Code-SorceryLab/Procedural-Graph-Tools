@@ -53,7 +53,8 @@ func _get_tool_name(tool_id: int) -> String:
 		GraphSettings.Tool.DELETE: return "Delete"
 		GraphSettings.Tool.RECTANGLE: return "Rectangle Select"
 		GraphSettings.Tool.MEASURE: return "Measure"
-		GraphSettings.Tool.PAN: return "Pan"
+		#GraphSettings.Tool.PAN: return "Pan"
+		GraphSettings.Tool.PAINT: return "Paint Brush"
 		_: return "Unknown"
 
 func _input(event: InputEvent) -> void:
@@ -77,4 +78,10 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			KEY_M:
 				set_active_tool(GraphSettings.Tool.MEASURE)
+				get_viewport().set_input_as_handled()
+			KEY_P:
+				set_active_tool(GraphSettings.Tool.PAINT)
+				get_viewport().set_input_as_handled()
+			KEY_K:
+				set_active_tool(GraphSettings.Tool.CUT)
 				get_viewport().set_input_as_handled()

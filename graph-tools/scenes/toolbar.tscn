@@ -48,3 +48,15 @@ layout_mode = 2
 tool_name = "Measure"
 tool_id = 5
 shortcut_key = "M"
+
+[node name="BtnPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Paint"
+tool_id = 6
+shortcut_key = "P"
+
+[node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_name = "Cut"
+tool_id = 7
+shortcut_key = "K"

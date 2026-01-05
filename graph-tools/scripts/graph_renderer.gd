@@ -20,6 +20,9 @@ class_name GraphRenderer
 @export_group("Debug")
 @export var debug_show_depth: bool = false
 
+# Tool Overlay Data
+var tool_line_start: Vector2 = Vector2.INF
+var tool_line_end: Vector2 = Vector2.INF
 
 # ==============================================================================
 # 2. DATA REFERENCES
@@ -147,6 +150,10 @@ func _draw_interaction_overlays() -> void:
 		var mouse_pos = get_local_mouse_position()
 		
 		draw_line(start_pos, mouse_pos, dragged_color, 2.0)
+	
+	# 3. Draw Tool Overlay (The Knife Line)
+	if tool_line_start != Vector2.INF and tool_line_end != Vector2.INF:
+		draw_line(tool_line_start, tool_line_end, Color.ORANGE_RED, 2.0)
 
 # --- HELPER: SELECTION BOX ---
 func _draw_selection_box():

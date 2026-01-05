@@ -78,5 +78,6 @@ enum Tool {
 	DELETE = 3,
 	RECTANGLE = 4,
 	MEASURE = 5,
-	PAN = 6
+	PAINT = 6,
+	CUT = 7,
 }
