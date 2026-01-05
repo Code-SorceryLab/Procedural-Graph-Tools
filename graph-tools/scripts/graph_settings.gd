@@ -82,19 +82,60 @@ enum Tool {
 	CUT
 }
 
-# --- THE SINGLE SOURCE OF TRUTH ---
+# res://scripts/graph_settings.gd
+
+# ... existing code ...
+
 static var TOOL_DATA: Dictionary = {
-	Tool.SELECT:    { "name": "Select",           "shortcut": KEY_V },
-	Tool.ADD_NODE:  { "name": "Add Node",         "shortcut": KEY_N },
-	Tool.CONNECT:   { "name": "Connect",          "shortcut": KEY_C },
-	Tool.DELETE:    { "name": "Delete",           "shortcut": KEY_X },
-	Tool.RECTANGLE: { "name": "Rectangle Select", "shortcut": KEY_R },
-	Tool.MEASURE:   { "name": "Measure",          "shortcut": KEY_M },
-	Tool.PAINT:     { "name": "Paint Brush",      "shortcut": KEY_P },
-	Tool.CUT:       { "name": "Knife Cut",        "shortcut": KEY_K }
+	Tool.SELECT: { 
+		"name": "Select", 
+		"shortcut": KEY_V, 
+		"icon": preload("res://assets/icons/tool_select.svg") 
+	},
+	Tool.ADD_NODE: { 
+		"name": "Add Node", 
+		"shortcut": KEY_N, 
+		"icon": preload("res://assets/icons/tool_add.svg") 
+	},
+	Tool.CONNECT: { 
+		"name": "Connect", 
+		"shortcut": KEY_C, 
+		"icon": preload("res://assets/icons/tool_connect.svg") 
+	},
+	Tool.DELETE: { 
+		"name": "Delete", 
+		"shortcut": KEY_X, 
+		"icon": preload("res://assets/icons/tool_delete.svg") 
+	},
+	Tool.RECTANGLE: { 
+		"name": "Rectangle Select", 
+		"shortcut": KEY_R, 
+		"icon": preload("res://assets/icons/tool_rect.svg") 
+	},
+	Tool.MEASURE: { 
+		"name": "Measure", 
+		"shortcut": KEY_M, 
+		"icon": preload("res://assets/icons/tool_measure.svg") 
+	},
+	Tool.PAINT: { 
+		"name": "Paint Brush", 
+		"shortcut": KEY_P, 
+		"icon": preload("res://assets/icons/tool_paint.svg") 
+	},
+	Tool.CUT: { 
+		"name": "Knife Cut", 
+		"shortcut": KEY_K, 
+		"icon": preload("res://assets/icons/tool_cut.svg") 
+	}
 }
 
+
+
 # --- HELPERS ---
+static func get_tool_icon(tool_id: int) -> Texture2D:
+	if TOOL_DATA.has(tool_id):
+		return TOOL_DATA[tool_id].get("icon", null)
+	return null
 
 static func get_tool_name(tool_id: int) -> String:
 	if TOOL_DATA.has(tool_id):
