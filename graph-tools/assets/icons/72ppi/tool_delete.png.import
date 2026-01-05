@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://blbyskfbchcc1"
-path="res://.godot/imported/tool_connect.svg-eae46870b204915a46044cd02eb14089.ctex"
+uid="uid://472x753hivl3"
+path="res://.godot/imported/tool_delete.png-9935f0916c2707711af424790873a55b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/icons/tool_connect.svg"
-dest_files=["res://.godot/imported/tool_connect.svg-eae46870b204915a46044cd02eb14089.ctex"]
+source_file="res://assets/icons/72ppi/tool_delete.png"
+dest_files=["res://.godot/imported/tool_delete.png-9935f0916c2707711af424790873a55b.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

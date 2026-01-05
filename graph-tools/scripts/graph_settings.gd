@@ -1,3 +1,4 @@
+# res://scripts/graph_settings.gd
 class_name GraphSettings
 
 # ==============================================================================
@@ -79,53 +80,61 @@ enum Tool {
 	RECTANGLE,
 	MEASURE,
 	PAINT,
-	CUT
+	CUT,
+	TYPE_PAINT
 }
 
-# res://scripts/graph_settings.gd
 
-# ... existing code ...
+# --- CONFIGURATION ---
+const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg" #
 
+# --- DATA REGISTRY ---
+# Note: We now use "icon_path" (String) instead of "icon" (Resource)
 static var TOOL_DATA: Dictionary = {
 	Tool.SELECT: { 
 		"name": "Select", 
 		"shortcut": KEY_V, 
-		"icon": preload("res://assets/icons/tool_select.svg") 
+		"icon_path": "res://assets/icons/tool_select.png" 
 	},
 	Tool.ADD_NODE: { 
 		"name": "Add Node", 
 		"shortcut": KEY_N, 
-		"icon": preload("res://assets/icons/tool_add.svg") 
+		"icon_path": "res://assets/icons/tool_add.png" 
 	},
 	Tool.CONNECT: { 
 		"name": "Connect", 
 		"shortcut": KEY_C, 
-		"icon": preload("res://assets/icons/tool_connect.svg") 
+		"icon_path": "res://assets/icons/tool_connect.png" 
 	},
 	Tool.DELETE: { 
 		"name": "Delete", 
 		"shortcut": KEY_X, 
-		"icon": preload("res://assets/icons/tool_delete.svg") 
+		"icon_path": "res://assets/icons/tool_delete.png" 
 	},
 	Tool.RECTANGLE: { 
 		"name": "Rectangle Select", 
 		"shortcut": KEY_R, 
-		"icon": preload("res://assets/icons/tool_rect.svg") 
+		"icon_path": "res://assets/icons/tool_rect.png" 
 	},
 	Tool.MEASURE: { 
 		"name": "Measure", 
 		"shortcut": KEY_M, 
-		"icon": preload("res://assets/icons/tool_measure.svg") 
+		"icon_path": "res://assets/icons/tool_measure.png" 
 	},
 	Tool.PAINT: { 
 		"name": "Paint Brush", 
 		"shortcut": KEY_P, 
-		"icon": preload("res://assets/icons/tool_paint.svg") 
+		"icon_path": "res://assets/icons/tool_paint.png" 
 	},
 	Tool.CUT: { 
 		"name": "Knife Cut", 
 		"shortcut": KEY_K, 
-		"icon": preload("res://assets/icons/tool_cut.svg") 
+		"icon_path": "res://assets/icons/tool_cut.png" 
+	},
+	Tool.TYPE_PAINT: { 
+		"name": "Type Brush", 
+		"shortcut": KEY_T, 
+		"icon_path": "res://assets/icons/tool_type.png" 
 	}
 }
 
@@ -133,8 +142,21 @@ static var TOOL_DATA: Dictionary = {
 
 # --- HELPERS ---
 static func get_tool_icon(tool_id: int) -> Texture2D:
+	var path = ""
+	
+	# 1. Try to get the specific path for this tool
 	if TOOL_DATA.has(tool_id):
-		return TOOL_DATA[tool_id].get("icon", null)
+		path = TOOL_DATA[tool_id].get("icon_path", "")
+	
+	# 2. Check if the specific file actually exists
+	if path != "" and FileAccess.file_exists(path):
+		return load(path)
+	
+	# 3. FALLBACK: If missing, load the placeholder
+	if FileAccess.file_exists(ICON_PLACEHOLDER):
+		return load(ICON_PLACEHOLDER)
+		
+	# 4. Total failure (return null, button will be empty)
 	return null
 
 static func get_tool_name(tool_id: int) -> String:

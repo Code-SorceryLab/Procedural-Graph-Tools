@@ -44,3 +44,7 @@ tool_id = 6
 [node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
 tool_id = 7
+
+[node name="BtnPropertyPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+layout_mode = 2
+tool_id = 8

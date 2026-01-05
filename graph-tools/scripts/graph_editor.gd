@@ -4,6 +4,7 @@ class_name GraphEditor
 # Signal to notify the rest of the game when a new graph is loaded or generated
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
+signal status_message_changed(message: String)
 
 # --- REFERENCES ---
 @onready var renderer: GraphRenderer = $Renderer
@@ -72,6 +73,8 @@ func set_active_tool(tool_id: int) -> void:
 			current_tool = GraphToolPaint.new(self)
 		GraphSettings.Tool.CUT:
 			current_tool = GraphToolCut.new(self)
+		GraphSettings.Tool.TYPE_PAINT:
+			current_tool = GraphToolPropertyPaint.new(self)
 		_:
 			push_warning("Unknown tool ID: %d. Defaulting to Select." % tool_id)
 			current_tool = GraphToolSelect.new(self)
@@ -80,6 +83,10 @@ func set_active_tool(tool_id: int) -> void:
 	if current_tool:
 		current_tool.enter()
 
+#For Tools to call
+func send_status_message(message: String) -> void:
+	status_message_changed.emit(message)
+	
 # ==============================================================================
 # 3. INPUT ROUTING
 # ==============================================================================

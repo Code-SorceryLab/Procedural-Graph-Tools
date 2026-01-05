@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b4mmppq5oxe14"
-path="res://.godot/imported/tool_rect.svg-f261e3745511b079009727fff008d4d8.ctex"
+uid="uid://ddee6vx3dmcmv"
+path="res://.godot/imported/tool_cut.png-a6e0ad3c8246814cbdb2a9c10904e9b0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/icons/tool_rect.svg"
-dest_files=["res://.godot/imported/tool_rect.svg-f261e3745511b079009727fff008d4d8.ctex"]
+source_file="res://assets/icons/72ppi/tool_cut.png"
+dest_files=["res://.godot/imported/tool_cut.png-a6e0ad3c8246814cbdb2a9c10904e9b0.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

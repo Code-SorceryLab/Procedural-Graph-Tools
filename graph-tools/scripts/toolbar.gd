@@ -55,6 +55,7 @@ func _get_tool_name(tool_id: int) -> String:
 		GraphSettings.Tool.MEASURE: return "Measure"
 		#GraphSettings.Tool.PAN: return "Pan"
 		GraphSettings.Tool.PAINT: return "Paint Brush"
+		GraphSettings.Tool.TYPE_PAINT: return "Type Brush"
 		_: return "Unknown"
 
 func _input(event: InputEvent) -> void:
