@@ -72,12 +72,42 @@ const ROOM_COLORS: Dictionary = {
 # Global Enum for the Tool State Machine.
 # Used by Toolbar (UI) and GraphEditor (Logic) to stay in sync.
 enum Tool {
-	SELECT = 0,
-	ADD_NODE = 1,
-	CONNECT = 2,
-	DELETE = 3,
-	RECTANGLE = 4,
-	MEASURE = 5,
-	PAINT = 6,
-	CUT = 7,
+	SELECT,
+	ADD_NODE,
+	CONNECT,
+	DELETE,
+	RECTANGLE,
+	MEASURE,
+	PAINT,
+	CUT
 }
+
+# --- THE SINGLE SOURCE OF TRUTH ---
+static var TOOL_DATA: Dictionary = {
+	Tool.SELECT:    { "name": "Select",           "shortcut": KEY_V },
+	Tool.ADD_NODE:  { "name": "Add Node",         "shortcut": KEY_N },
+	Tool.CONNECT:   { "name": "Connect",          "shortcut": KEY_C },
+	Tool.DELETE:    { "name": "Delete",           "shortcut": KEY_X },
+	Tool.RECTANGLE: { "name": "Rectangle Select", "shortcut": KEY_R },
+	Tool.MEASURE:   { "name": "Measure",          "shortcut": KEY_M },
+	Tool.PAINT:     { "name": "Paint Brush",      "shortcut": KEY_P },
+	Tool.CUT:       { "name": "Knife Cut",        "shortcut": KEY_K }
+}
+
+# --- HELPERS ---
+
+static func get_tool_name(tool_id: int) -> String:
+	if TOOL_DATA.has(tool_id):
+		return TOOL_DATA[tool_id].get("name", "Unknown")
+	return "Unknown"
+
+static func get_shortcut_keycode(tool_id: int) -> int:
+	if TOOL_DATA.has(tool_id):
+		return TOOL_DATA[tool_id].get("shortcut", KEY_NONE)
+	return KEY_NONE
+
+static func get_shortcut_string(tool_id: int) -> String:
+	var code = get_shortcut_keycode(tool_id)
+	if code != KEY_NONE:
+		return OS.get_keycode_string(code)
+	return ""

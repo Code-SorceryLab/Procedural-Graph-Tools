@@ -1,41 +1,53 @@
-# tool_button.gd
 extends Button
 class_name ToolButton
 
-@export var tool_name: String = "Tool"
-@export var tool_id: int = 0
-@export var shortcut_key: String = ""
+# 1. The ONLY thing you set in the Inspector.
+# Using the type 'GraphSettings.Tool' creates a dropdown menu automatically!
+@export var tool_id: GraphSettings.Tool 
+
+# (Removed: export var tool_name)
+# (Removed: export var shortcut_key)
 
 func _ready() -> void:
-	# Set up button properties
+	# 2. Fetch everything dynamically
+	var name_str = GraphSettings.get_tool_name(tool_id)
+	var key_str = GraphSettings.get_shortcut_string(tool_id)
+	
 	toggle_mode = true
 	focus_mode = Control.FOCUS_NONE
 	
-	# Set the label text
-	$Content/Label.text = tool_name
+	# 3. Build Label: "Paint (P)"
+	var display_text = name_str
+	if key_str != "":
+		display_text += " (%s)" % key_str
+		
+	if has_node("Content/Label"):
+		$Content/Label.text = display_text
+	else:
+		text = display_text
 
-	# Set up tooltip with shortcut
-	tooltip_text = tool_name
-	if shortcut_key != "":
-		tooltip_text += " (" + shortcut_key + ")"
-	self.tooltip_text = tooltip_text
+	# 4. Build Tooltip
+	tooltip_text = name_str
+	if key_str != "":
+		tooltip_text += " (Shortcut: %s)" % key_str
 	
-	# Connect signals
+	# Visual Init
+	modulate = Color(0.8, 0.8, 0.8, 1.0)
+	
 	pressed.connect(_on_pressed)
 	mouse_entered.connect(_on_mouse_entered)
 
+# ... (rest of the visual logic remains the same) ...
+
 func _on_pressed() -> void:
-	# This will be handled by the parent toolbar
 	pass
 
 func _on_mouse_entered() -> void:
-	# Optional: Add hover sound or effect
 	pass
 
 func set_active(active: bool) -> void:
 	button_pressed = active
-	# You could add visual feedback here
 	if active:
-		modulate = Color(1.0, 1.0, 1.0, 1.0)
+		modulate = Color(1.0, 1.0, 1.0, 1.0) # White (Active)
 	else:
-		modulate = Color(0.8, 0.8, 0.8, 1.0)
+		modulate = Color(0.8, 0.8, 0.8, 1.0) # Gray (Inactive)

@@ -58,30 +58,14 @@ func _get_tool_name(tool_id: int) -> String:
 		_: return "Unknown"
 
 func _input(event: InputEvent) -> void:
-	# Handle keyboard shortcuts for tools
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.keycode:
-			KEY_V:
-				set_active_tool(GraphSettings.Tool.SELECT)
+		
+		# Iterate through our data registry
+		for t_id in GraphSettings.TOOL_DATA:
+			var data = GraphSettings.TOOL_DATA[t_id]
+			
+			# Check if the key matches the tool's shortcut
+			if event.keycode == data.get("shortcut", KEY_NONE):
+				set_active_tool(t_id)
 				get_viewport().set_input_as_handled()
-			KEY_N:
-				set_active_tool(GraphSettings.Tool.ADD_NODE)
-				get_viewport().set_input_as_handled()
-			KEY_C:
-				set_active_tool(GraphSettings.Tool.CONNECT)
-				get_viewport().set_input_as_handled()
-			KEY_X:
-				set_active_tool(GraphSettings.Tool.DELETE)
-				get_viewport().set_input_as_handled()
-			KEY_R:
-				set_active_tool(GraphSettings.Tool.RECTANGLE)
-				get_viewport().set_input_as_handled()
-			KEY_M:
-				set_active_tool(GraphSettings.Tool.MEASURE)
-				get_viewport().set_input_as_handled()
-			KEY_P:
-				set_active_tool(GraphSettings.Tool.PAINT)
-				get_viewport().set_input_as_handled()
-			KEY_K:
-				set_active_tool(GraphSettings.Tool.CUT)
-				get_viewport().set_input_as_handled()
+				return

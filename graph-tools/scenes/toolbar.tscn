@@ -16,47 +16,31 @@ alignment = 1
 
 [node name="BtnSelect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Select"
-shortcut_key = "V"
 
 [node name="BtnAddNode" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Add"
 tool_id = 1
-shortcut_key = "N"
 
 [node name="BtnConnect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Connect"
 tool_id = 2
-shortcut_key = "C"
 
 [node name="BtnDelete" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Delete"
 tool_id = 3
-shortcut_key = "X"
 
 [node name="BtnRectangle" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Rectangle"
 tool_id = 4
-shortcut_key = "R"
 
 [node name="BtnMeasure" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Measure"
 tool_id = 5
-shortcut_key = "M"
 
 [node name="BtnPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Paint"
 tool_id = 6
-shortcut_key = "P"
 
 [node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_name = "Cut"
 tool_id = 7
-shortcut_key = "K"
