@@ -1,135 +1,126 @@
+# Godot Procedural Graph Generator
+
+A modular, node-based procedural generation research platform built in Godot 4. This tool utilizes a **Controller-Component Architecture** and the **Strategy Pattern** to layer various algorithms (Random Walkers, Diffusion Limited Aggregation, Minimum Spanning Trees) for the generation, filtering, and analysis of graph structures.
+
+It is designed for determinism and traceability, allowing developers to inspect the provenance of every node and experiment with layering destructive and non-destructive algorithms.
+
+## AI Usage Disclaimer
+This project, including the codebase and this documentation, was developed with the assistance of an AI thought partner (Google Gemini). All architectural decisions, logic verification, and implementation details were reviewed and refined by the human developer, Charon.
 
 ---
 
-# Godot Procedural Graph Generator
+## 🏗️ Technical Architecture
 
-A modular, node-based procedural generation tool built in Godot 4. It uses the **Strategy Pattern** to layer different algorithms (Walkers, DLA, MST) to generate, filter, and analyze graph structures for game development (dungeons, maps, skill trees).
+### Controller-Component Pattern
+The application has been refactored from a monolithic manager into distinct, modular controllers. Each subsystem is an independent Node within the scene tree, allowing for easy enabling or disabling of features without code changes.
 
-## 🎮 Controls & Interaction
+* **StrategyController:** Manages the execution of generation algorithms, parameter collection, and the "Smart Reset" logic.
+* **ToolbarController:** Bridges the UI toolbar inputs to the active Editor tool state.
+* **InspectorController:** Handles the real-time observation of node data, supporting both single-node detail and multi-node group analysis.
+* **FileController:** Manages serialization and deserialization of the graph state to disk.
+* **PathfindingController:** Manages A* navigation queries and visual debugging of paths.
 
-### Camera Controls
+### Namespaced ID System (Traceability)
+To ensure research-grade determinism, nodes are no longer identified by simple auto-incrementing integers. IDs are structured strings that indicate the algorithm of origin and the generation logic.
 
-* **Pan:** Hold `Middle Mouse Button` and drag.
-* **Zoom:** `Mouse Wheel Up/Down`.
-* **Focus:** Press `F` to instantly center the camera on the entire graph.
+* **Grid Strategy:** `grid:x:y` (e.g., `grid:5:10`)
+* **Walker Strategy:** `walk:agent_id:step_index` (e.g., `walk:0:42`)
+* **DLA Strategy:** `dla:x:y` (e.g., `dla:15:-3`)
+* **Manual Placement:** `man:sequence_id` (e.g., `man:5`)
 
+This ensures that running a deterministic seed produces the exact same ID structure every time, preventing "ID drift" during debugging or save/load cycles.
 
-### Editor Interactions
+### Intelligent Reset & Collision Policies
+The system distinguishes between **Generators** (which require a blank canvas) and **Decorators** (which require existing geometry).
 
-* **Add Node:** `Left Click` on empty space to create a node.
-* **Delete:** `Right Click` on a node to remove it.
-* **Drag Node:** `Left Click + Drag` to connect nodes manually.
-* **Grid Snap:** Hold `Shift` while placing nodes to snap to the grid.
-* **Mark Node:** `Left Click + Shift` to mark up to 2 nodes for a pathfinder to traverse. 
-* **Pathfind:** `Space` to begin pathfinding. Must have 2 orange nodes reachable to start. The shortest path between them will automatically draw in **Green**.
-* This uses the A* algorithm, accounting for distance/edge weights.
+* **Generators (Grid, Walker, DLA):** By default, these clear the graph when "Generate" is clicked.
+* **Decorators (MST, Analyze):** These operate additively, modifying existing nodes without deletion.
+* **Collision Policy:** Strategies include a **"Merge Overlaps"** toggle.
+    * **Merge (True):** Algorithms connect to existing nodes if they land on the same coordinate.
+    * **Layer (False):** Algorithms generate new nodes on top of existing ones, allowing for complex overlapping structures (e.g., bridges over rivers).
 
+---
 
+## 🎮 Interaction & Controls
 
+### Camera & Navigation
+* **Pan:** Hold Middle Mouse Button and drag.
+* **Zoom:** Mouse Wheel Up or Down.
+* **Focus Graph:** Press `F` to center the camera on all existing nodes.
+
+### Unified Editor Tools
+Tools are selected via the top Toolbar.
+
+* **Select Tool:**
+    * **Click Node:** Selects a single node.
+    * **Drag Node:** Moves the selected node (IDs remain immutable; only position changes).
+    * **Click Empty Space + Drag:** Creates a Box Selection.
+    * **Hold Shift:** Adds to the current selection.
+    * **Hold Ctrl:** Removes from the current selection.
+* **Add Node Tool:** Left Click to place a manual node (`man:ID`).
+* **Connect Tool:** Click and drag between two nodes to create an edge.
+* **Delete Tool:** Click a node to remove it.
+
+### Inspector & Analysis
+The right-hand sidebar features a context-aware Inspector tab.
+
+* **No Selection:** Displays placeholder status.
+* **Single Selection:** Displays Node ID (Provenance), Position, Type, and a list of connected neighbors.
+* **Multi-Selection:** Displays Group Statistics:
+    * **Count:** Total selected nodes.
+    * **Center:** Geometric center of the selection.
+    * **Bounds:** Width and Height of the selection area.
+    * **Density:** Number of internal edges (connections between selected nodes).
 
 ---
 
 ## 🛠️ Generation Strategies
 
-Select an algorithm from the dropdown in the **Generation** tab.
+Strategies are selected via the **Generation** tab.
 
-### 1. Grid
+### 1. Grid Layout (Generator)
+Creates a Cartesian grid of nodes.
+* **Parameters:** Width, Height.
+* **Collision:** Implicitly merges based on coordinates.
+* **ID Schema:** `grid:col:row`
 
-Generates a standard rectangular grid of connected nodes.
+### 2. Random Walker (Generator)
+Simulates an autonomous agent moving across the canvas.
+* **Parameters:** Steps (Duration of walk).
+* **Merge Overlaps (Toggle):** Determines if the walker connects to existing nodes or layers on top of them.
+* **ID Schema:** `walk:agent:step`
 
-* **Parameters:** `Width`, `Height` (Columns/Rows).
-* **Use Case:** Base layer for mazes, tactical maps, or cellular automata tests.
+### 3. Diffusion Limited Aggregation (Generator)
+Simulates organic growth by spawning particles that stick to existing clusters.
+* **Parameters:** Particles (Target count).
+* **Use Box Spawning (Toggle):** Spawns from the bounding box edges (inward) vs. radial spawning (outward).
+* **ID Schema:** `dla:x:y`
 
-### 2. Random Walker
+### 4. Minimum Spanning Tree (Decorator)
+Applies Kruskal's or Prim's algorithm to the existing graph structure.
+* **Function:** Removes redundant edges to eliminate cycles, producing a "perfect maze" or tree structure.
+* **Reset Behavior:** Non-destructive. Requires an existing graph.
 
-A "Drunkard's Walk" algorithm that moves randomly to create organic paths.
-
-* **Parameters:** `Steps` (Length of walk).
-* **Toggle: "Random Branching"**
-* **ON:** Picks a random existing node to start each step (creates tree-like branches).
-* **OFF:** Continues from the last placed node (creates long, snake-like paths).
-
-
-
-### 3. Diffusion Limited Aggregation (DLA)
-
-Simulates crystal growth or coral reef formation. Particles spawn randomly and stick when they touch an existing node.
-
-* **Parameters:** `Particles` (Number of nodes to add).
-* **Toggle: "Use Box Spawning"**
-* **ON:** Spawns particles at the edges of the bounding box (inward growth).
-* **OFF:** Spawns particles in a circle around the center (radial growth).
-
-
-
-### 4. Prune to MST (Filter)
-
-Applies **Kruskal’s Algorithm** (Minimum Spanning Tree) to the *existing* graph.
-
-* **Function:** Removes cycles/loops, turning any messy graph into a perfect maze/tree structure.
-* **Requirement:** Must use **Grow (+)** button (requires existing nodes to work).
-* **Use Case:** Turn a Grid into a Maze, or clean up a tangled Random Walker path.
-
-### 5. Analyze Rooms
-
-A semantic pass that calculates data rather than placing nodes.
-
-* **Function:**
-* Calculates **Depth** (distance from spawn) for every node.
-* Identifies **Topology** (Dead Ends, Corridors, 3-Way, 4-Way).
-
-
-* **Toggle: "Auto-Assign Types"**
-* **ON:** Automatically assigns `RoomType` (Spawn, Boss, Treasure, Enemy) based on depth and topology.
-* **Visuals:** Updates node colors (Green=Spawn, Red=Boss, Gold=Treasure).
-
-
-* **Debug:** Toggle "Show Depth Numbers" in the sidebar to see the distance values rendered on nodes.
+### 5. Analyze Rooms (Analyzer)
+A semantic pass that calculates graph topology.
+* **Function:** Performs a Breadth-First Search (BFS) to calculate node depth from the center.
+* **Topology Detection:** Identifies Dead Ends, Corridors, and Junctions based on neighbor count.
+* **Auto-Assign Types (Toggle):** Heuristically assigns `RoomType` (Spawn, Boss, Treasure, Enemy) based on depth and isolation.
 
 ---
 
-## ⚙️ Features & Workflow
+## ⚙️ Workflow Features
 
-### The "Grow" System
+### The "Grow" Workflow
+* **Generate Button:** Executes the strategy logic. If the strategy is a **Generator**, it clears the graph first. If it is a **Decorator**, it applies to the current graph.
+* **Grow (+) Button:** Forces an additive execution. It instructs the strategy to append to the current graph regardless of its default behavior (useful for attaching a Walker path to a Grid).
 
-* **Generate Button:** Clears the current graph and runs the selected strategy from scratch.
-* **Grow (+) Button:** Appends the new strategy to the *existing* graph.
-* *Example:* Generate a "Grid", then use "Grow" with "Random Walker" to attach a cave tunnel to the grid.
+### Pathfinding
+Located in the **Pathfinding** tab.
+1.  Select a single node and click **"Set Start"**.
+2.  Select a different node and click **"Set End"**.
+3.  Click **"Run Path"** to visualize the A* route in green.
 
-
-
-### Save & Load System (Persistence)
-
-Located in the **"File"** tab.
-
-* **Save:** Serializes the entire graph (Nodes, Edges, Positions, Biomes) to a `.tres` Resource file.
-* **Load:** Loads a graph from disk (bypassing cache to ensure data integrity).
-* **Stability:** Uses a custom `NodeData` resource to ensure custom properties (`biome`, `depth`, etc.) are saved correctly.
-
-### Visual Feedback
-
-* **White (Default):** Standard nodes ("Plains" or "Empty").
-* **Blue:** Newly generated nodes (from the most recent operation).
-* **Orange:** Currently selected nodes.
-* **Room Colors:**
-* 🟢 **Green:** Spawn
-* 🔴 **Dark Red:** Boss
-* 🟡 **Gold:** Treasure
-* 🛑 **Red:** Enemy
-* 🟣 **Purple:** Shop
-
-
-
----
-
-## 💻 Technical Architecture
-
-* **Pattern:** Model-View-Controller (MVC).
-* **Model:** `Graph.gd` (Data structure), `NodeData.gd` (Individual node properties).
-* **View:** `GraphRenderer.gd` (Draws circles/lines/text).
-* **Controller:** `GamePlayer.gd` (UI handling), `GraphEditor.gd` (State management).
-
-
-* **Extensibility:** Uses `GraphStrategy` class. New algorithms can be added by creating a script that extends `GraphStrategy` and adding it to the list in `GamePlayer`.
-
----
+### Persistence
+Located in the **File** tab.
+* **Save/Load:** Serializes the full graph state, including custom NodeData resources and visual coordinates, to a standard `.tres` file format.
