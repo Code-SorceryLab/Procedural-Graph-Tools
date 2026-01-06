@@ -24,13 +24,14 @@ grow_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GrowBtn")
 generate_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
 clear_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/ClearBtn")
 
-[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog")]
+[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog", "confirm_discard")]
 script = ExtResource("3_u2lal")
 graph_editor = NodePath("../GraphEditor")
 save_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/SaveBtn")
 load_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/LoadBtn")
 file_status = NodePath("../UI/Sidebar/Margin/TabContainer/File/FileStatus")
 file_dialog = NodePath("../FileDialog")
+confirm_discard = NodePath("../UI/Sidebar/Margin/TabContainer/File/ConfirmDiscard")
 
 [node name="PathfindingController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_set_start", "btn_set_end", "btn_run_path")]
 script = ExtResource("4_5u163")
@@ -39,21 +40,23 @@ btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetSt
 btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
 btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "lbl_no_selection", "single_container", "group_container", "lbl_id", "lbl_pos", "lbl_type", "lbl_edges", "lbl_neighbors", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 lbl_no_selection = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
 single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer")
 group_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer")
 lbl_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblID")
-lbl_pos = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblPos")
-lbl_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblType")
+spin_pos_x = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/SpinPosX")
+spin_pos_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/SpinPosY")
+option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/OptionType")
 lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblEdges")
 lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblNeighbors")
 lbl_group_count = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCount")
 lbl_group_center = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCenter")
 lbl_group_bounds = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupBounds")
 lbl_group_density = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupDensity")
+group_option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/GroupOptionType")
 
 [node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
 script = ExtResource("5_u2lal")
@@ -151,6 +154,11 @@ layout_mode = 2
 text = "Ready"
 horizontal_alignment = 1
 
+[node name="ConfirmDiscard" type="ConfirmationDialog" parent="UI/Sidebar/Margin/TabContainer/File"]
+title = "Unsaved Changes"
+ok_button_text = "Discard"
+dialog_text = "You have unsaved changes. Discard them?"
+
 [node name="Pathfinding" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
 visible = false
 layout_mode = 2
@@ -186,6 +194,23 @@ layout_mode = 2
 [node name="LblID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
 layout_mode = 2
 
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="SpinPosX" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+layout_mode = 2
+min_value = -9999.0
+max_value = 9999.0
+step = 60.0
+
+[node name="SpinPosY" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+layout_mode = 2
+min_value = -9999.0
+max_value = 9999.0
+
+[node name="OptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+layout_mode = 2
+
 [node name="LblPos" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
 layout_mode = 2
 
@@ -212,6 +237,12 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="LblGroupDensity" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblSetType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="GroupOptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
 layout_mode = 2
 
 [node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]

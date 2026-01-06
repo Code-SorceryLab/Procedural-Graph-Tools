@@ -12,6 +12,9 @@ const CELL_SIZE: float = 60.0
 # The vector used by 'snap()' functions in tools.
 const SNAP_GRID_SIZE: Vector2 = Vector2(CELL_SIZE, CELL_SIZE)
 
+# The step increment for position SpinBoxes in the Inspector.
+# 1.0 allows pixel-perfect placement. 10.0 is snappier.
+const INSPECTOR_POS_STEP: float = 1.0
 
 # ==============================================================================
 # 2. RENDERER VISUALS (SIZES)

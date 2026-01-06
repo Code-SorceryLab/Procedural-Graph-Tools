@@ -9,7 +9,6 @@ var _last_grid_pos: Vector2i = Vector2i(999999, 999999)
 
 # --- SETTINGS ---
 const PAINT_SPACING: float = 60.0
-# We assume square cells, reading from your global settings
 var _cell_size: float = GraphSettings.CELL_SIZE 
 
 func enter() -> void:
@@ -19,7 +18,7 @@ func enter() -> void:
 func exit() -> void:
 	_is_painting = false
 	_last_node_id = ""
-	# Cleanup: Hide the ghost using your existing renderer property
+	# Cleanup: Hide the ghost
 	_renderer.snap_preview_pos = Vector2.INF
 	_renderer.queue_redraw()
 
@@ -41,9 +40,9 @@ func handle_input(event: InputEvent) -> void:
 	# 2. Mouse Motion (Ghost + Dragging)
 	elif event is InputEventMouseMotion:
 		var raw_pos = _editor.get_global_mouse_position()
-		var shift = Input.is_key_pressed(KEY_SHIFT) # Check global input state for smoother handling
+		var shift = Input.is_key_pressed(KEY_SHIFT) 
 		
-		# A. UPDATE GHOST (Reuse existing renderer logic)
+		# A. UPDATE GHOST
 		_update_ghost(raw_pos, shift)
 		
 		# B. PAINT (Only if dragging)
@@ -68,7 +67,6 @@ func handle_input(event: InputEvent) -> void:
 
 func _get_paint_position(raw_pos: Vector2, is_snapped: bool) -> Vector2:
 	if is_snapped:
-		# Using GraphSettings.SNAP_GRID_SIZE to match your AddNode tool exactly
 		return raw_pos.snapped(GraphSettings.SNAP_GRID_SIZE)
 	return raw_pos
 
@@ -76,25 +74,22 @@ func _get_grid_coord(pos: Vector2) -> Vector2i:
 	return Vector2i(round(pos.x / _cell_size), round(pos.y / _cell_size))
 
 func _update_ghost(pos: Vector2, is_snapped: bool) -> void:
-	# If we are freehand painting, we might want to hide the ghost 
-	# OR show it at the cursor position. 
-	# Your AddNode tool only shows it when Snapped. 
-	# Let's show it ALWAYS for Paint so you see where the brush is.
-	
 	var target = _get_paint_position(pos, is_snapped)
 	
-	# Reuse the existing property on your renderer!
 	if target != _renderer.snap_preview_pos:
 		_renderer.snap_preview_pos = target
 		_renderer.queue_redraw()
 
 func _paint_node(pos: Vector2) -> void:
-	# Use the API that returns the ID (from our previous fix)
+	# 1. Create Node (Facade handles Dirty + Redraw)
 	var new_id = _editor.create_node(pos)
 	
+	# 2. Connect to previous (Facade handles Dirty + Redraw)
 	if not _last_node_id.is_empty():
-		_graph.add_edge(_last_node_id, new_id)
+		_editor.connect_nodes(_last_node_id, new_id)
 	
 	_last_node_id = new_id
 	_last_pos = pos
-	_renderer.queue_redraw()
+	
+	# REMOVED: _renderer.queue_redraw() 
+	# The editor calls triggered above ensure the view is up to date.

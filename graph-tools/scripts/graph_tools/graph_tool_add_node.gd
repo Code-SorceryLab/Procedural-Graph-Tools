@@ -6,16 +6,23 @@ func handle_input(event: InputEvent) -> void:
 		var mouse_pos = _editor.get_global_mouse_position()
 		var clicked_id = _get_node_at_pos(mouse_pos)
 		
+		# Only create if we clicked empty space
 		if clicked_id.is_empty():
 			var place_pos = mouse_pos
 			if Input.is_key_pressed(KEY_SHIFT):
 				place_pos = mouse_pos.snapped(GraphSettings.SNAP_GRID_SIZE)
 			
+			# --- REFACTOR ---
+			# The Editor Facade handles the data creation, dirty flag, and main redraw.
 			_editor.create_node(place_pos)
-			_renderer.queue_redraw()
+			
+			# REMOVED: _renderer.queue_redraw() 
+			# (Handled by _editor.create_node now)
 
 	elif event is InputEventMouseMotion:
 		# Custom Hover for Add Tool (Snap Ghost)
+		# This stays in the Tool because "Ghost" positions are temporary UI state,
+		# not persistent Graph data.
 		var mouse_pos = _editor.get_global_mouse_position()
 		_update_hover(mouse_pos)
 		

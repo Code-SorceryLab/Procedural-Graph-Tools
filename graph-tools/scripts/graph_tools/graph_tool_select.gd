@@ -5,6 +5,7 @@ const DRAG_THRESHOLD: float = 4.0 # Pixels
 
 # State A: Moving a Node
 var _drag_node_id: String = ""
+# REMOVED: var _has_moved: bool = false (Handled by Editor Wrapper)
 
 # State B: Box Selection
 var _box_start_pos: Vector2 = Vector2.INF
@@ -20,10 +21,8 @@ func handle_input(event: InputEvent) -> void:
 				var clicked_id = _get_node_at_pos(mouse_pos)
 				
 				if not clicked_id.is_empty():
-					# CASE A: Clicked a Node -> Start Moving
 					_start_moving_node(clicked_id)
 				else:
-					# CASE B: Clicked Empty Space -> Start Boxing
 					_start_box_selection(mouse_pos)
 			else:
 				# --- CLICK RELEASE ---
@@ -32,7 +31,7 @@ func handle_input(event: InputEvent) -> void:
 				elif _box_start_pos != Vector2.INF:
 					_finish_box_selection(mouse_pos)
 		
-		# Always redraw on click updates
+		# Keep this redraw for selection clicks (which don't use the wrapper)
 		_renderer.queue_redraw()
 
 	# 2. MOUSE MOTION INPUT
@@ -46,22 +45,21 @@ func handle_input(event: InputEvent) -> void:
 			if Input.is_key_pressed(KEY_SHIFT):
 				move_pos = move_pos.snapped(GraphSettings.SNAP_GRID_SIZE)
 			
-			_graph.set_node_position(_drag_node_id, move_pos)
-			_renderer.queue_redraw()
+			# --- REFACTOR START ---
+			# OLD: _graph.set_node_position(...) + manual redraw + manual dirty flag
+			# NEW: Use the Editor Facade. It handles the Dirty Flag and Redraw automatically.
+			_editor.set_node_position(_drag_node_id, move_pos)
+			# --- REFACTOR END ---
 			
 		# Update Box State
 		elif _box_start_pos != Vector2.INF:
-			# 1. Update the visual rect in the renderer
 			var rect = _get_rect(_box_start_pos, mouse_pos)
 			_renderer.selection_rect = rect
 			
-			# 2. Update Pre-Selection Highlight
-			# This gives the "Live Feedback" that nodes are about to be picked
 			var potential_nodes = _graph.get_nodes_in_rect(rect)
 			_renderer.pre_selection_ref = potential_nodes
 			_renderer.queue_redraw()
 		
-		# Update Hover (Standard)
 		_update_hover(mouse_pos)
 
 # --- HELPER FUNCTIONS ---
@@ -69,15 +67,11 @@ func handle_input(event: InputEvent) -> void:
 func _start_moving_node(id: String) -> void:
 	_drag_node_id = id
 	_renderer.drag_start_id = id
+	# REMOVED: _has_moved = false
 	
-	# Selection Logic for Single Click
-	# If we click a node that isn't selected, select it (and deselect others)
-	# Unless Shift is held (Add to selection)
 	if Input.is_key_pressed(KEY_SHIFT):
 		_editor.add_to_selection(id)
 	elif Input.is_key_pressed(KEY_CTRL):
-		# Ctrl Click on node usually toggles off, or does nothing in move mode
-		# Let's keep it simple: Ctrl Click toggles
 		_editor.toggle_selection(id)
 	else:
 		if not _editor.selected_nodes.has(id):
@@ -85,76 +79,60 @@ func _start_moving_node(id: String) -> void:
 			_editor.add_to_selection(id)
 
 func _finish_moving_node() -> void:
+	# REMOVED: Manual dirty check.
+	# The data was modified 'live' during the drag via _editor.set_node_position()
+	
 	_drag_node_id = ""
 	_renderer.drag_start_id = ""
 
 func _start_box_selection(pos: Vector2) -> void:
 	_box_start_pos = pos
-	# Don't clear selection yet! We might be doing Shift+Drag.
 
 func _finish_box_selection(mouse_pos: Vector2) -> void:
-	# 1. Check Drag Distance
 	var drag_dist = _box_start_pos.distance_to(mouse_pos)
 	
-	# If we didn't drag far enough, treat this as a "Click on Empty Space"
-	# (which deselects everything) rather than a "Tiny Box Selection".
 	if drag_dist < DRAG_THRESHOLD:
-		# Only clear if we aren't holding modifiers (Shift/Ctrl)
 		if not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_CTRL):
 			_editor.clear_selection()
 			
-		# Reset and exit
 		_box_start_pos = Vector2.INF
 		_renderer.selection_rect = Rect2()
 		_renderer.pre_selection_ref = []
 		_renderer.queue_redraw()
 		return
 	
-	# 2. Define the final box
 	var rect = _get_rect(_box_start_pos, mouse_pos)
-	
-	# 3. Get nodes inside
-	# (We use the SpatialGrid for speed!)
 	var nodes_in_box = _graph.get_nodes_in_rect(rect)
 	
-	# 4. Determine Logic Mode
 	var is_shift = Input.is_key_pressed(KEY_SHIFT) # Add
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)   # Subtract
 	
 	if not is_shift and not is_ctrl:
-		# Normal: Clear old, select new
 		_editor.clear_selection()
 		for id in nodes_in_box:
 			_editor.add_to_selection(id)
 			
 	elif is_shift:
-		# Add: Keep old, append new
 		for id in nodes_in_box:
 			_editor.add_to_selection(id)
 			
 	elif is_ctrl:
-		# Subtract: Remove new from old
 		for id in nodes_in_box:
 			if _editor.selected_nodes.has(id):
-				_editor.toggle_selection(id) # Toggle off
+				_editor.toggle_selection(id)
 	
-	# 5. Cleanup
 	_box_start_pos = Vector2.INF
-	_renderer.selection_rect = Rect2() # clear visual
-	
-	# 6. Clear the pre-selection list so it doesn't get stuck
+	_renderer.selection_rect = Rect2()
 	_renderer.pre_selection_ref = []
 	_renderer.queue_redraw()
 
 func _get_rect(p1: Vector2, p2: Vector2) -> Rect2:
-	# Handles dragging in any direction (negative width/height)
 	var min_x = min(p1.x, p2.x)
 	var max_x = max(p1.x, p2.x)
 	var min_y = min(p1.y, p2.y)
 	var max_y = max(p1.y, p2.y)
 	return Rect2(min_x, min_y, max_x - min_x, max_y - min_y)
 
-# Cleanup if we switch tools while dragging
 func exit() -> void:
 	_drag_node_id = ""
 	_box_start_pos = Vector2.INF

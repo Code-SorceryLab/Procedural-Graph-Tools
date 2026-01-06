@@ -3,7 +3,6 @@ extends GraphTool
 
 # --- STATE ---
 var _is_painting: bool = false
-# Default to something visible (like Enemy/Red) so the user sees it working immediately
 var _current_type: int = NodeData.RoomType.ENEMY 
 var _last_painted_id: String = ""
 
@@ -47,10 +46,12 @@ func _paint_under_mouse() -> void:
 	if id != "" and id != _last_painted_id:
 		var node = _graph.nodes[id]
 		
-		# Only redraw if the data actually changes
+		# Only act if the data actually changes
 		if node.type != _current_type:
-			node.type = _current_type
-			_renderer.queue_redraw()
+			# --- REFACTOR ---
+			# Delegate to Editor Facade. 
+			# Handles Dirty Flag and Redraw automatically.
+			_editor.set_node_type(id, _current_type)
 			
 		_last_painted_id = id
 
@@ -61,7 +62,7 @@ func _pick_type_under_mouse() -> void:
 	if id != "":
 		var node = _graph.nodes[id]
 		_current_type = node.type
-		print("Type Brush: Picked '%s'" % _get_type_name(_current_type))
+		_print_current_type()
 
 func _cycle_type() -> void:
 	# Get all defined keys from settings
@@ -78,12 +79,8 @@ func _print_current_type() -> void:
 	var type_name = _get_type_name(_current_type)
 	var msg = "Type Brush: [Right-Click] to Cycle. Active: %s" % type_name
 	
-	# Send to Status Bar instead of Console
+	# Send to Status Bar
 	_show_status(msg)
-	
-	# (You can keep the print for debugging if you like, or remove it)
-	# print(msg)
-	print("Type Brush: Active Color is now '%s'" % _get_type_name(_current_type))
 
 func _get_type_name(type_int: int) -> String:
 	match type_int:

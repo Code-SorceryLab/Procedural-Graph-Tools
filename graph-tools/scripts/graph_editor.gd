@@ -6,6 +6,7 @@ signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
 # Signal to notify UI (e.g. StatusBar) when a tool wants to display info
 signal status_message_changed(message: String)
+signal graph_modified
 
 # --- REFERENCES ---
 @onready var renderer: GraphRenderer = $Renderer
@@ -143,6 +144,9 @@ func create_node(pos: Vector2) -> String:
 		
 	graph.add_node(new_id, pos)
 	
+	renderer.queue_redraw()
+	# --- Auto-mark dirty ---
+	mark_modified()
 	# Return the new ID so tools can use it!
 	return new_id
 
@@ -165,6 +169,9 @@ func delete_node(id: String) -> void:
 		renderer.path_end_id = ""
 	
 	renderer.queue_redraw()
+	
+	# --- Auto-mark dirty ---
+	mark_modified()
 
 # --- Selection Operations ---
 func toggle_selection(id: String) -> void:
@@ -187,6 +194,31 @@ func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
+
+# --- Connection Operations ---
+
+func connect_nodes(id_a: String, id_b: String, weight: float = 1.0) -> void:
+	graph.add_edge(id_a, id_b, weight)
+	mark_modified() # <--- Automatic dirty flag
+	renderer.queue_redraw()
+
+func disconnect_nodes(id_a: String, id_b: String) -> void:
+	graph.remove_edge(id_a, id_b)
+	mark_modified()
+	renderer.queue_redraw()
+
+# --- Modification Operations ---
+
+func set_node_position(id: String, new_pos: Vector2) -> void:
+	graph.set_node_position(id, new_pos)
+	mark_modified()
+	renderer.queue_redraw()
+
+func set_node_type(id: String, type_index: int) -> void:
+	if graph.nodes.has(id):
+		graph.nodes[id].type = type_index
+		mark_modified()
+		renderer.queue_redraw()
 
 # ==============================================================================
 # 5. GENERAL API (Called by GamePlayer / UI)
@@ -212,6 +244,12 @@ func clear_graph() -> void:
 	
 	camera.reset_view()
 	renderer.queue_redraw()
+	mark_modified()
+
+# Call this whenever a strategy finishes or a tool commits an action
+func mark_modified() -> void:
+	graph_modified.emit()
+
 
 func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
@@ -256,6 +294,9 @@ func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 	
 	_center_camera_on_graph()
 	renderer.queue_redraw()
+	
+	# Mark as dirty
+	mark_modified()
 
 # ==============================================================================
 # 6. INTERNAL HELPERS

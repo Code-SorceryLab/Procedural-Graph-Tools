@@ -6,7 +6,6 @@ var _start_pos: Vector2 = Vector2.ZERO
 var _current_pos: Vector2 = Vector2.ZERO
 
 func enter() -> void:
-	# Optional: Change cursor to a "Knife" icon
 	pass
 
 func exit() -> void:
@@ -36,24 +35,18 @@ func handle_input(event: InputEvent) -> void:
 
 func _perform_cut() -> void:
 	# We collect edges to remove first, then remove them.
-	# This prevents issues with modifying the collection while iterating.
 	var edges_to_remove: Array[Array] = [] # Stores [u_id, v_id]
 	
-	# Iterate all nodes to check their connections
-	# (Since the graph is undirected, checking u->v covers v->u)
 	for u_id in _graph.nodes:
 		var u_pos = _graph.get_node_pos(u_id)
-		
-		# Get neighbors
 		var neighbors = _graph.get_neighbors(u_id)
+		
 		for v_id in neighbors:
-			# Optimization: Only check each edge once (when u < v)
 			if u_id > v_id: continue
 				
 			var v_pos = _graph.get_node_pos(v_id)
 			
 			# MATH: Check Intersection
-			# segment_intersects_segment returns the intersection point or null
 			var intersection = Geometry2D.segment_intersects_segment(
 				_start_pos, _current_pos,
 				u_pos, v_pos
@@ -66,10 +59,10 @@ func _perform_cut() -> void:
 	if not edges_to_remove.is_empty():
 		print("Knife: Severing %d edges." % edges_to_remove.size())
 		for pair in edges_to_remove:
-			_graph.remove_edge(pair[0], pair[1])
-		
-		# Refresh the view
-		_renderer.queue_redraw()
+			# --- REFACTOR ---
+			# Delegate to Editor Facade. 
+			# Handles edge removal, dirty flag, and redraw.
+			_editor.disconnect_nodes(pair[0], pair[1])
 
 # --- VISUALS ---
 
