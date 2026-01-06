@@ -4,6 +4,7 @@ class_name GraphStrategy
 # Metadata
 var strategy_name: String = "Base Strategy"
 var reset_on_generate: bool = true
+var supports_grow: bool = false
 
 # Legacy support (Optional: we can keep these to prevent crashing un-updated scripts temporarily)
 var required_params = []

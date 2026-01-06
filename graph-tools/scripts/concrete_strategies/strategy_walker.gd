@@ -5,9 +5,13 @@ extends GraphStrategy
 # Schema: { "id": int, "pos": Vector2, "current_node_id": String, "step_count": int }
 var _walkers: Array[Dictionary] = []
 
+# NEW: Track the specific nodes touched in this generation run
+var _session_path: Array[String] = []
+
 func _init() -> void:
 	strategy_name = "Random Walker"
 	reset_on_generate = true
+	supports_grow = true
 
 func get_settings() -> Array[Dictionary]:
 	return [
@@ -21,30 +25,25 @@ func execute(graph: Graph, params: Dictionary) -> void:
 	var append_mode = params.get("append", false)
 	var merge_overlaps = params.get("merge_overlaps", true)
 	
+	# Reset session tracking
+	_session_path.clear()
+	
 	# 1. HANDLE RESET
 	if not append_mode:
 		_walkers.clear()
 
-	# 2. VALIDATE MEMORY (The Crash Fix)
-	# Check if our walkers are "lost" (holding references to deleted nodes)
+	# 2. VALIDATE MEMORY
 	for w in _walkers:
 		if w.current_node_id != "" and not graph.nodes.has(w.current_node_id):
-			# The node we were standing on is gone! 
-			# We must reset this walker's anchor.
 			w.current_node_id = ""
 	
 	# 3. BRANCHING / RESPAWN LOGIC
-	# If we want to branch randomly, OR if we are lost (current_node_id is empty), 
-	# we need to pick a new spot.
 	var need_respawn = (append_mode and branch_randomly)
-	
-	# Also respawn if we have a walker but it's disconnected from reality
 	if not _walkers.is_empty() and _walkers[0].current_node_id == "":
 		need_respawn = true
 
 	if need_respawn:
 		if not graph.nodes.is_empty():
-			# Teleport to a random existing node
 			var keys = graph.nodes.keys()
 			var random_id = keys[randi() % keys.size()]
 			var random_pos = graph.get_node_pos(random_id)
@@ -55,14 +54,13 @@ func execute(graph: Graph, params: Dictionary) -> void:
 				_walkers[0].pos = random_pos
 				_walkers[0].current_node_id = random_id
 		else:
-			# Graph is empty, reset to center
 			if _walkers.is_empty():
 				_walkers.append({ "id": 0, "pos": Vector2.ZERO, "current_node_id": "", "step_count": 0 })
 			else:
 				_walkers[0].pos = Vector2.ZERO
 				_walkers[0].current_node_id = ""
 
-	# 4. INITIALIZE DEFAULT (If totally empty)
+	# 4. INITIALIZE DEFAULT
 	if _walkers.is_empty():
 		_walkers.append({
 			"id": 0,
@@ -71,10 +69,32 @@ func execute(graph: Graph, params: Dictionary) -> void:
 			"step_count": 0
 		})
 
+	# --- CAPTURE START ---
+	# If we are standing on a node, that is our start.
+	# If we are in the void (current_node_id == ""), we will grab the first created node later.
+	var session_start_id = _walkers[0].current_node_id
+
 	# 5. SIMULATION LOOP
 	for i in range(steps):
 		for w in _walkers:
 			_step_walker(graph, w, merge_overlaps)
+
+	# --- POST-PROCESS ---
+	
+	# If we started from nothing, the first node we created is the "Start"
+	if session_start_id == "" and not _session_path.is_empty():
+		session_start_id = _session_path[0]
+
+	# --- OUTPUT TO EDITOR ---
+	# We write the results back to params so GraphEditor can visualize them
+	params["out_highlight_nodes"] = _session_path.duplicate()
+	
+	# Identify the "Head" (Current location of the main walker)
+	if not _walkers.is_empty():
+		params["out_head_node"] = _walkers[0].current_node_id
+	
+	# Output the start node
+	params["out_start_node"] = session_start_id
 
 func _step_walker(graph: Graph, walker: Dictionary, merge_overlaps: bool) -> void:
 	# Direction Logic
@@ -104,14 +124,13 @@ func _step_walker(graph: Graph, walker: Dictionary, merge_overlaps: bool) -> voi
 	
 	# Connect to Previous
 	if not walker.current_node_id.is_empty():
-		# SAFETY CHECK: Only connect if the previous node actually exists
 		if graph.nodes.has(walker.current_node_id):
 			if walker.current_node_id != current_id:
 				graph.add_edge(walker.current_node_id, current_id)
-		else:
-			# If we somehow got here with a dead ID, ignore the edge but keep moving.
-			pass
 			
 	# Update State
 	walker.pos = target_pos
 	walker.current_node_id = current_id
+	
+	# NEW: Record this step for visualization
+	_session_path.append(current_id)

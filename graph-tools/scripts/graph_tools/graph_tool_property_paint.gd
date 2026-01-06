@@ -43,15 +43,25 @@ func _paint_under_mouse() -> void:
 	var id = _get_node_at_pos(mouse_pos)
 	
 	# Optimization: Only update if we hit a valid node AND haven't just painted it
+	# (This prevents spamming the same node 60 times a second while holding the mouse still)
 	if id != "" and id != _last_painted_id:
-		var node = _graph.nodes[id]
 		
-		# Only act if the data actually changes
-		if node.type != _current_type:
-			# --- REFACTOR ---
-			# Delegate to Editor Facade. 
-			# Handles Dirty Flag and Redraw automatically.
-			_editor.set_node_type(id, _current_type)
+		# --- BATCH LOGIC START ---
+		if _editor.selected_nodes.has(id):
+			# If we are painting a node that is part of a selection, 
+			# apply the paint to the ENTIRE selection.
+			for selected_id in _editor.selected_nodes:
+				var node = _graph.nodes[selected_id]
+				# Only update nodes that actually need changing (prevents redundant updates)
+				if node.type != _current_type:
+					_editor.set_node_type(selected_id, _current_type)
+		else:
+			# --- SINGLE LOGIC ---
+			# Normal painting (painting a node that isn't selected)
+			var node = _graph.nodes[id]
+			if node.type != _current_type:
+				_editor.set_node_type(id, _current_type)
+		# --- BATCH LOGIC END ---
 			
 		_last_painted_id = id
 

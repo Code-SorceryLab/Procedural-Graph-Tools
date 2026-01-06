@@ -78,8 +78,6 @@ func _draw() -> void:
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:
 	# We use a Dictionary to track drawn pairs so we don't draw duplicates.
-	# Example: If A connects to B, we find edge A-B. Later, when checking B,
-	# we might find B-A. Sorting the IDs ensures A-B and B-A look like the same key.
 	var drawn_edges := {} 
 	
 	for id: String in graph_ref.nodes:
@@ -178,16 +176,21 @@ func _get_node_color(id: String, node_data: NodeData) -> Color:
 	if new_nodes_ref.has(id):
 		col = GraphSettings.COLOR_NEW_GENERATION
 	
-	# 3. Apply "Selection" highlight (Highest Priority)
-	# Logic: If it's already selected OR about to be selected (Pre-Selection)
-	if selected_nodes_ref.has(id) or pre_selection_ref.has(id):
-		col = selected_color
+	# CHANGE: We removed step 3 (Selection Overwrite). 
+	# Now the Fill Color always reflects the Data Type.
 		
 	return col
 
 func _draw_node_indicators(id: String, pos: Vector2) -> void:
-	# Hover Ring (Blue halo)
-	if id == hovered_id:
+	# --- SELECTION RING (Prioritized) ---
+	# We use 'selected_color' (Orange) but draw it as a ring.
+	if selected_nodes_ref.has(id) or pre_selection_ref.has(id):
+		# Thicker ring than hover to show importance
+		draw_arc(pos, node_radius + 4.0, 0, TAU, 32, selected_color, 3.0)
+		
+	# --- HOVER RING ---
+	# Only show hover if it's NOT selected (prevents double rings)
+	elif id == hovered_id:
 		draw_arc(pos, node_radius + 4.0, 0, TAU, 32, hover_color, 2.0)
 	
 	# Path Start Indicator (Green Ring)

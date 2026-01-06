@@ -4,6 +4,7 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Diffusion Aggregation"
 	reset_on_generate = true
+	supports_grow = true
 
 func get_settings() -> Array[Dictionary]:
 	return [

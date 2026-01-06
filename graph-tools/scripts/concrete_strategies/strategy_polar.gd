@@ -4,6 +4,7 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Polar Wedges"
 	reset_on_generate = true
+	supports_grow = false
 
 # --- NEW DYNAMIC UI DEFINITION ---
 func get_settings() -> Array[Dictionary]:

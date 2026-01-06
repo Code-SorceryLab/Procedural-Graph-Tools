@@ -4,7 +4,8 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Minimum Spanning Tree"
 	# Decorator: Operates on existing nodes, so do NOT reset.
-	reset_on_generate = false 
+	reset_on_generate = false
+	supports_grow = false
 
 # --- NEW DYNAMIC UI DEFINITION ---
 func get_settings() -> Array[Dictionary]:

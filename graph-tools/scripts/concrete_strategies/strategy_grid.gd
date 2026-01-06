@@ -4,6 +4,7 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Grid Layout"
 	reset_on_generate = true
+	supports_grow = false
 
 func get_settings() -> Array[Dictionary]:
 	return [

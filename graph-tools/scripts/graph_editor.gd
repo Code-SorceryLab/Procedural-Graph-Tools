@@ -277,25 +277,51 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.queue_redraw()
 
 func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
+	# 1. Snapshot existing nodes to detect changes (Standard Logic)
 	var existing_ids = {}
 	for id in graph.nodes:
 		existing_ids[id] = true
 	
 	_reset_local_state()
 	
+	# 2. Execute
 	strategy.execute(graph, params)
 	
+	# 3. (New Node / Highlight logic)
 	new_nodes.clear()
-	var is_append = params.get("append", false)
-	if is_append:
+	if params.has("out_highlight_nodes"):
+		new_nodes = params["out_highlight_nodes"]
+	elif params.get("append", false):
+		# Fallback for other strategies
 		for id in graph.nodes:
 			if not existing_ids.has(id):
 				new_nodes.append(id)
 	
+	# --- Override with Strategy Visuals ---
+	# If the strategy specifically reported a path (like Walker), use that
+	# instead of the simple "diff" logic.
+	if params.has("out_highlight_nodes"):
+		new_nodes = params["out_highlight_nodes"]
+		
+	# If the strategy reported a "Head" (Walker location), show it using the red ring
+# --- VISUALIZATION INDICATORS ---
+	
+	# 1. HEAD (Red Ring)
+	if params.has("out_head_node"):
+		set_path_end(params["out_head_node"])
+	else:
+		set_path_end("")
+
+	# 2. START (Green Ring) 
+	if params.has("out_start_node"):
+		set_path_start(params["out_start_node"])
+	else:
+		set_path_start("")
+	
+	# 4. Finalize
+	renderer.new_nodes_ref = new_nodes
 	_center_camera_on_graph()
 	renderer.queue_redraw()
-	
-	# Mark as dirty
 	mark_modified()
 
 # ==============================================================================

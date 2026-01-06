@@ -101,12 +101,9 @@ func _build_ui_for_strategy() -> void:
 			_active_inputs[key] = control
 	
 	# 4. Handle Buttons Visibility
-	if (current_strategy is StrategyDLA) or \
-	   (current_strategy is StrategyWalker) or \
-	   (current_strategy is StrategyMST):
-		grow_btn.visible = true
-	else:
-		grow_btn.visible = false
+	# 4. Handle Buttons Visibility
+	grow_btn.visible = current_strategy.supports_grow
+	
 	
 	if current_strategy.reset_on_generate:
 		generate_btn.text = "Generate"
