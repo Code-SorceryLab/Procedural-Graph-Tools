@@ -1,0 +1,60 @@
+[gd_scene load_steps=3 format=3 uid="uid://7e6g2rbnyccx"]
+
+[ext_resource type="Script" uid="uid://cwftsv1argbc0" path="res://scripts/settings_window.gd" id="1_rtnku"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_w8px2"]
+
+[node name="SettingsWindow" type="PanelContainer"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -56.5
+offset_top = -11.5
+offset_right = 56.5
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_rtnku")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="LblEditorSettings" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "Editor Settings"
+label_settings = SubResource("LabelSettings_w8px2")
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="GridContainer" type="GridContainer" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="LblAtomic" type="Label" parent="VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Atomic Undo"
+
+[node name="ChkAtomic" type="CheckBox" parent="VBoxContainer/GridContainer"]
+layout_mode = 2
+
+[node name="LblMaxHistorySteps" type="Label" parent="VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Max History Steps"
+
+[node name="SpinHistory" type="SpinBox" parent="VBoxContainer/GridContainer"]
+layout_mode = 2
+min_value = 1.0
+max_value = 1000.0
+value = 50.0
+
+[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="BtnClose" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Close"

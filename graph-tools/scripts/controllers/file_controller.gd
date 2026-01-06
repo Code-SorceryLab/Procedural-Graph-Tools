@@ -10,7 +10,11 @@ class_name FileController
 @export var load_btn: Button
 @export var file_status: Label
 @export var file_dialog: FileDialog
-@export var confirm_discard: ConfirmationDialog # <--- Assign in Inspector
+
+@export var settings_btn: Button
+@export var confirm_discard: ConfirmationDialog
+
+@export var settings_window: PanelContainer
 
 var _is_saving: bool = true
 var _is_dirty: bool = false
@@ -19,6 +23,7 @@ var _pending_action: Callable # Stores the function we paused
 func _ready() -> void:
 	save_btn.pressed.connect(_on_save_button_pressed)
 	load_btn.pressed.connect(_on_load_button_pressed)
+	settings_btn.pressed.connect(_on_settings_button_pressed)
 	
 	file_dialog.file_selected.connect(_on_file_selected)
 	file_dialog.filters = ["*.json ; Dungeon Layout"]
@@ -136,3 +141,6 @@ func _load_graph(path: String) -> void:
 	else:
 		file_status.text = "Error parsing JSON!"
 		file_status.modulate = GraphSettings.COLOR_UI_ERROR
+
+func _on_settings_button_pressed() -> void:
+	settings_window.show_settings()

@@ -8,4 +8,6 @@ class_name GamePlayer
 # you can add it here. Otherwise, it stays clean!
 
 func _ready() -> void:
+	# 1. Load Preferences from Disk
+	ConfigManager.load_config()
 	print("GamePlayer: All systems initialized.")
