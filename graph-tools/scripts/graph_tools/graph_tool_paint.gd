@@ -29,16 +29,29 @@ func handle_input(event: InputEvent) -> void:
 			_is_painting = true
 			_last_node_id = "" 
 			
+			# --- START TRANSACTION ---
+			# We group the entire stroke into one Undo step.
+			# 'false' = Don't recenter camera on undo (keep smooth feel)
+			_editor.start_undo_transaction("Paint Nodes", false)
+			
 			# Paint immediately
 			var target_pos = _get_paint_position(_editor.get_global_mouse_position(), Input.is_key_pressed(KEY_SHIFT))
 			_paint_node(target_pos)
+			
 		else:
+			# --- COMMIT TRANSACTION ---
+			# The mouse is released, so the stroke is finished.
+			# If Atomic Undo is ON, this does nothing (safe).
+			# If Atomic Undo is OFF, this bundles all nodes/edges into one item.
+			_editor.commit_undo_transaction()
+			
 			_is_painting = false
 			_last_node_id = ""
 			_last_grid_pos = Vector2i(999999, 999999)
 			
 	# 2. Mouse Motion (Ghost + Dragging)
 	elif event is InputEventMouseMotion:
+		# ... (Rest of logic is unchanged) ...
 		var raw_pos = _editor.get_global_mouse_position()
 		var shift = Input.is_key_pressed(KEY_SHIFT) 
 		

@@ -77,6 +77,11 @@ func clear_edges() -> void:
 		if nodes[id] is NodeData:
 			nodes[id].connections.clear()
 
+func has_edge(a: String, b: String) -> bool:
+	if nodes.has(a):
+		return nodes[a].connections.has(b)
+	return false
+
 # --- Helpers ---
 
 func get_neighbors(id: String) -> Array:
@@ -93,6 +98,8 @@ func get_node_pos(id: String) -> Vector2:
 	if nodes.has(id):
 		return nodes[id].position
 	return Vector2.ZERO
+	
+
 
 # --- Spatial Grid Methods ---
 

@@ -6,9 +6,11 @@ const DRAG_THRESHOLD: float = 4.0
 # State A: Moving Nodes
 var _drag_node_id: String = ""       # The "Anchor" node we clicked on
 var _group_offsets: Dictionary = {}  # Stores { "node_id": Vector2_offset_from_anchor }
+var _drag_start_positions: Dictionary = {}
 
 # State B: Box Selection
 var _box_start_pos: Vector2 = Vector2.INF
+
 
 
 func handle_input(event: InputEvent) -> void:
@@ -72,6 +74,8 @@ func handle_input(event: InputEvent) -> void:
 
 # --- HELPER FUNCTIONS ---
 
+# --- HELPER FUNCTIONS ---
+
 func _start_moving_node(id: String) -> void:
 	_drag_node_id = id
 	_renderer.drag_start_id = id
@@ -90,22 +94,48 @@ func _start_moving_node(id: String) -> void:
 			_editor.add_to_selection(id)
 		# If we clicked a node INSIDE the selection, we keep the group!
 	
-	# --- GROUP OFFSET CALCULATION ---
+	# --- GROUP OFFSET & HISTORY CAPTURE ---
 	# We only prepare for movement if the clicked node ended up selected
 	if _editor.selected_nodes.has(id):
 		_group_offsets.clear()
+		_drag_start_positions.clear() # <--- Reset history capture
+		
 		var anchor_pos = _graph.nodes[id].position
 		
 		for selected_id in _editor.selected_nodes:
-			if selected_id == id: continue
-			# Calculate vector from Anchor -> Neighbor
-			var diff = _graph.nodes[selected_id].position - anchor_pos
-			_group_offsets[selected_id] = diff
+			# 1. Capture Visual Offset (For the dragging math)
+			if selected_id != id:
+				var diff = _graph.nodes[selected_id].position - anchor_pos
+				_group_offsets[selected_id] = diff
+			
+			# 2. Capture History Start Position (For Undo)
+			# We save WHERE the node was before we touched it.
+			if _graph.nodes.has(selected_id):
+				_drag_start_positions[selected_id] = _graph.nodes[selected_id].position
+				
 	else:
 		# If we somehow clicked and deselected it (Ctrl click), don't drag
 		_drag_node_id = ""
 
 func _finish_moving_node() -> void:
+	# --- COMMIT UNDO HISTORY ---
+	# We compare where they started vs where they ended up.
+	if not _drag_start_positions.is_empty():
+		var move_payload = {}
+		
+		for id in _drag_start_positions:
+			if _graph.nodes.has(id):
+				move_payload[id] = {
+					"from": _drag_start_positions[id],
+					"to": _graph.nodes[id].position
+				}
+		
+		# Send the payload to the Editor.
+		# The Editor will ignore nodes that didn't actually move (distance < 0.1).
+		_editor.commit_move_batch(move_payload)
+	
+	# --- CLEANUP ---
+	_drag_start_positions.clear()
 	_drag_node_id = ""
 	_renderer.drag_start_id = ""
 	_group_offsets.clear()

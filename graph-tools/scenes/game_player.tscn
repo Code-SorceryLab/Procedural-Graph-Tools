@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
 [ext_resource type="Script" uid="uid://cyla4eosgc0x4" path="res://scripts/controllers/file_controller.gd" id="3_u2lal"]
 [ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/pathfinding_controller.gd" id="4_5u163"]
-[ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scenes/inspector_controller.gd" id="5_5u163"]
+[ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/status_controller.gd" id="7_el7nm"]
 

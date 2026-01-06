@@ -140,7 +140,12 @@ static var TOOL_DATA: Dictionary = {
 		"icon_path": "res://assets/icons/tool_type.png" 
 	}
 }
-
+# ==============================================================================
+# 6. COMMAND DEFINITIONS
+# ==============================================================================
+# Limit memory usage (optional, but good practice)
+static var MAX_HISTORY_STEPS: int = 50
+static var USE_ATOMIC_UNDO: bool = false # False = Batch, True = Individual
 
 
 # --- HELPERS ---

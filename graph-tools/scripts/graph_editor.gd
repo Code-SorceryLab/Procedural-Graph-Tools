@@ -33,6 +33,12 @@ var _next_id_counter: int = 0
 # Track manual IDs separately to prevent collisions (e.g. "man:1", "man:2")
 var _manual_counter: int = 0
 
+# --- HISTORY STATE ---
+var _undo_stack: Array[GraphCommand] = []
+var _redo_stack: Array[GraphCommand] = []
+# The active transaction (if any)
+var _active_transaction: CmdBatch = null
+
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
 # ==============================================================================
@@ -105,6 +111,16 @@ func _handle_global_shortcuts(event: InputEventKey) -> void:
 	# F: Focus Camera
 	if event.keycode == KEY_F:
 		_center_camera_on_graph()
+		
+	# Ctrl+Z / Ctrl+Y
+	if event.pressed and event.ctrl_pressed:
+		if event.keycode == KEY_Z:
+			if event.shift_pressed:
+				redo() # Ctrl+Shift+Z
+			else:
+				undo() # Ctrl+Z
+		elif event.keycode == KEY_Y:
+			redo()     # Ctrl+Y
 
 # ==============================================================================
 # 4. PUBLIC API FOR TOOLS
@@ -137,22 +153,26 @@ func create_node(pos: Vector2) -> String:
 	_manual_counter += 1
 	var new_id = "man:%d" % _manual_counter
 	
-	# Safety check for collisions
+	# Safety check loop
 	while graph.nodes.has(new_id):
 		_manual_counter += 1
 		new_id = "man:%d" % _manual_counter
 		
-	graph.add_node(new_id, pos)
+	# --- NEW: Use Command Pattern ---
+	# We pass the graph, the determined ID, and the position.
+	# The command handles the actual graph.add_node() call.
+	var cmd = CmdAddNode.new(graph, new_id, pos)
+	_commit_command(cmd)
 	
-	renderer.queue_redraw()
-	# --- Auto-mark dirty ---
-	mark_modified()
-	# Return the new ID so tools can use it!
 	return new_id
 
 func delete_node(id: String) -> void:
-	graph.remove_node(id)
+	# 1. Validation
+	if not graph.nodes.has(id):
+		return
 	
+	# 2. Cleanup Editor State (Selection/Pathfinding)
+	# We still do this manually because the Command only knows about Data, not Editor UI state.
 	if selected_nodes.has(id):
 		selected_nodes.erase(id)
 		selection_changed.emit(selected_nodes)
@@ -168,10 +188,9 @@ func delete_node(id: String) -> void:
 		path_end_id = ""
 		renderer.path_end_id = ""
 	
-	renderer.queue_redraw()
-	
-	# --- Auto-mark dirty ---
-	mark_modified()
+	# 3. EXECUTE COMMAND
+	var cmd = CmdDeleteNode.new(graph, id)
+	_commit_command(cmd)
 
 # --- Selection Operations ---
 func toggle_selection(id: String) -> void:
@@ -198,58 +217,250 @@ func clear_selection() -> void:
 # --- Connection Operations ---
 
 func connect_nodes(id_a: String, id_b: String, weight: float = 1.0) -> void:
-	graph.add_edge(id_a, id_b, weight)
-	mark_modified() # <--- Automatic dirty flag
-	renderer.queue_redraw()
+	# Check if edge already exists to prevent duplicate stack entries
+	if graph.has_edge(id_a, id_b):
+		return
+
+	var cmd = CmdConnect.new(graph, id_a, id_b, weight)
+	_commit_command(cmd)
 
 func disconnect_nodes(id_a: String, id_b: String) -> void:
-	graph.remove_edge(id_a, id_b)
-	mark_modified()
-	renderer.queue_redraw()
+	# 1. Validation: Does the edge exist?
+	if not graph.has_edge(id_a, id_b):
+		return
+		
+	# 2. Capture State: Get weight before destruction!
+	var weight = graph.get_edge_weight(id_a, id_b)
+	
+	# 3. Create Command
+	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight)
+	_commit_command(cmd)
 
 # --- Modification Operations ---
 
+# Existing function (Used for visual updates during drag)
 func set_node_position(id: String, new_pos: Vector2) -> void:
 	graph.set_node_position(id, new_pos)
 	mark_modified()
 	renderer.queue_redraw()
 
+# NEW: Call this ONCE when the mouse is released
+# move_data format: { "node_id": { "from": Vector2, "to": Vector2 } }
+func commit_move_batch(move_data: Dictionary) -> void:
+	if move_data.is_empty():
+		return
+		
+	var batch = CmdBatch.new(graph, "Move Nodes", false) # False = Don't recenter camera
+	
+	for id in move_data:
+		var data = move_data[id]
+		var old = data["from"]
+		var new = data["to"]
+		
+		# Optimization: Ignore microscopic moves (jitter)
+		if old.distance_squared_to(new) < 0.1:
+			continue
+			
+		var cmd = CmdMoveNode.new(graph, id, old, new)
+		batch.add_command(cmd)
+		
+	if not batch._commands.is_empty():
+		_commit_command(batch)
+
 func set_node_type(id: String, type_index: int) -> void:
-	if graph.nodes.has(id):
-		graph.nodes[id].type = type_index
-		mark_modified()
-		renderer.queue_redraw()
+	if not graph.nodes.has(id):
+		return
+		
+	# 1. Capture Old State
+	var old_type = graph.nodes[id].type
+	
+	# Optimization: Don't clutter history if nothing changed
+	if old_type == type_index:
+		return
+		
+	# 2. Create & Commit Command
+	var cmd = CmdSetType.new(graph, id, old_type, type_index)
+	_commit_command(cmd)
+
+func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
+	
+	print("Bulk Update called with %d nodes. Atomic Mode: %s" % [ids.size(), GraphSettings.USE_ATOMIC_UNDO])
+	
+	# 1. ATOMIC MODE CHECK
+	if GraphSettings.USE_ATOMIC_UNDO:
+		for id in ids:
+			set_node_type(id, type_index) # <--- This creates individual Undo steps
+		return
+
+	# 2. BATCH MODE (Default)
+	var batch = CmdBatch.new(graph, "Bulk Type Change")
+	var change_count = 0
+	
+	for id in ids:
+		if not graph.nodes.has(id): continue
+		
+		var old_type = graph.nodes[id].type
+		
+		if old_type != type_index:
+			# --- CRITICAL CHECK ---
+			# Ensure you are creating the command manually:
+			var cmd = CmdSetType.new(graph, id, old_type, type_index)
+			batch.add_command(cmd) # <--- Add to batch, DO NOT execute/commit yet
+			change_count += 1
+			# DO NOT call set_node_type(id, type_index) here!
+	
+	# 3. Commit ONCE
+	if change_count > 0:
+		_commit_command(batch)
+
+# --- TRANSACTION MANAGEMENT ---
+
+func start_undo_transaction(name: String, refocus_camera: bool = true) -> void:
+	# 1. NEW: Check Atomic Preference
+	# If the user wants every single action to be separate, we REFUSE to start a transaction.
+	if GraphSettings.USE_ATOMIC_UNDO:
+		return
+
+	# 2. Existing Logic
+	if _active_transaction != null:
+		push_warning("GraphEditor: Transaction overlap.")
+		return
+		
+	_active_transaction = CmdBatch.new(graph, name, refocus_camera)
+	print("Transaction Started: ", name)
+
+func commit_undo_transaction() -> void:
+	# 1. Safety Check
+	# If Atomic Mode was on, _active_transaction will be null (because we never started it).
+	# This function will just exit gracefully, which is exactly what we want.
+	if _active_transaction == null:
+		return
+		
+	if not _active_transaction._commands.is_empty():
+		_undo_stack.append(_active_transaction)
+		_redo_stack.clear()
+		
+		if _undo_stack.size() > GraphSettings.MAX_HISTORY_STEPS:
+			_undo_stack.pop_front()
+			
+		print("Transaction Committed: %s" % _active_transaction.get_name())
+		
+	_active_transaction = null
+	mark_modified()
 
 # ==============================================================================
 # 5. GENERAL API (Called by GamePlayer / UI)
 # ==============================================================================
 func clear_graph() -> void:
-	# Create fresh graph instance
-	graph = Graph.new()
+	if graph.nodes.is_empty():
+		return
+		
+	# 1. Create a Batch Command
+	var batch = CmdBatch.new(graph, "Clear Graph")
 	
-	# Reset local state
-	selected_nodes.clear()
-	current_path.clear()
-	new_nodes.clear()
+	# 2. Add a Delete Command for EVERY node
+	# We iterate through all IDs and queue them for deletion.
+	# CmdDeleteNode handles the edge cleanup automatically.
+	var all_ids = graph.nodes.keys()
+	for id in all_ids:
+		var cmd = CmdDeleteNode.new(graph, id)
+		batch.add_command(cmd)
 	
-	# Reset ID Counters
-	_next_id_counter = 0 
-	_manual_counter = 0 
+	# 3. Commit
+	# This executes the batch immediately, clearing the graph visual and data.
+	_commit_command(batch)
 	
-	# Update References
-	renderer.graph_ref = graph
+	# 4. Reset Local State
+	# We clean up the Editor's "pointer" references, but we DO NOT reset 
+	# the 'graph' variable itself. The object instance persists.
+	_reset_local_state()
 	
-	if current_tool: 
-		current_tool._graph = graph
+	# Note: We do NOT reset _manual_counter here. 
+	# Why? If we Undo the Clear, we want to ensure new nodes don't collide 
+	# with the restored ones (though create_node has safety checks for that anyway).
 	
 	camera.reset_view()
-	renderer.queue_redraw()
-	mark_modified()
+	# queue_redraw and mark_modified handled by _commit_command
 
 # Call this whenever a strategy finishes or a tool commits an action
 func mark_modified() -> void:
 	graph_modified.emit()
 
+# --- HISTORY MANAGEMENT ---
+
+func _commit_command(cmd: GraphCommand) -> void:
+	# 1. ALWAYS Execute immediately (Visual feedback)
+	cmd.execute()
+	
+	# 2. DECIDE: Transaction or Stack?
+	if _active_transaction != null:
+		# We are in the middle of a stroke. Add to the batch.
+		_active_transaction.add_command(cmd)
+		# Do NOT clear redo stack yet, do NOT check max history yet.
+	else:
+		# Standard atomic behavior
+		_undo_stack.append(cmd)
+		_redo_stack.clear()
+		
+		if _undo_stack.size() > GraphSettings.MAX_HISTORY_STEPS:
+			_undo_stack.pop_front()
+	
+	# 3. Global Updates (Dirty flags)
+	mark_modified()
+	renderer.queue_redraw()
+	print("Command Executed: %s" % cmd.get_name())
+
+# --- HISTORY MANAGEMENT (Undo/Redo) ---
+
+func undo() -> void:
+	if _undo_stack.is_empty(): return
+		
+	var cmd = _undo_stack.pop_back()
+	cmd.undo()
+	_redo_stack.append(cmd)
+	
+	mark_modified()
+	renderer.queue_redraw()
+	print("Undo: %s" % cmd.get_name())
+	
+	# --- BATCH HANDLING ---
+	if cmd is CmdBatch:
+		# 1. Camera Focus
+		if cmd.center_on_undo:
+			_center_camera_on_graph()
+			
+		# 2. CLEAR VISUAL ARTIFACTS
+		# If we undo a generation, we must wipe the "Cyan Nodes" and "Rings"
+		# because they might point to nodes that no longer exist.
+		new_nodes.clear()
+		renderer.new_nodes_ref = new_nodes
+		set_path_start("")
+		set_path_end("")
+
+func redo() -> void:
+	if _redo_stack.is_empty(): return
+		
+	var cmd = _redo_stack.pop_back()
+	cmd.execute()
+	_undo_stack.append(cmd)
+	
+	mark_modified()
+	renderer.queue_redraw()
+	print("Redo: %s" % cmd.get_name())
+	
+	# --- BATCH HANDLING ---
+	if cmd is CmdBatch:
+		# 1. Camera Focus
+		if cmd.center_on_undo:
+			_center_camera_on_graph()
+			
+		# 2. CLEAR VISUAL ARTIFACTS
+		# Even on Redo, we clear them. The data returns, but the "New Node" 
+		# highlight effect is transient and shouldn't persist.
+		new_nodes.clear()
+		renderer.new_nodes_ref = new_nodes
+		set_path_start("")
+		set_path_end("")
 
 func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
@@ -277,52 +488,73 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.queue_redraw()
 
 func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
-	# 1. Snapshot existing nodes to detect changes (Standard Logic)
+	# 1. Prepare Visualization Logic
+	# We Snapshot existing nodes so we can highlight what changed later
+	# (Legacy fallback if the strategy doesn't output 'out_highlight_nodes')
 	var existing_ids = {}
 	for id in graph.nodes:
 		existing_ids[id] = true
 	
 	_reset_local_state()
+
+	# 2. Create the Batch
+	var batch = CmdBatch.new(graph, "Run %s" % strategy.strategy_name)
 	
-	# 2. Execute
-	strategy.execute(graph, params)
+	# 3. Handle "Reset on Generate" (Destructive Start)
+	# If the strategy wants a clean slate, we add delete commands to the batch FIRST.
+	if strategy.reset_on_generate and not params.get("append", false):
+		for id in graph.nodes.keys():
+			batch.add_command(CmdDeleteNode.new(graph, id))
 	
-	# 3. (New Node / Highlight logic)
+	# 4. Setup the Sandbox (Recorder)
+	# We initialize it with the CURRENT state of the graph.
+	# If we are appending, the Walker needs to see existing walls.
+	var recorder = GraphRecorder.new(graph)
+	
+	# 5. Run the Strategy on the RECORDER
+	# The strategy runs, fills the recorder's memory, and populates 'recorded_commands'
+	strategy.execute(recorder, params)
+	
+	# 6. Harvest Commands
+	# Move the commands from the recorder to our Batch
+	for cmd in recorder.recorded_commands:
+		batch.add_command(cmd)
+		
+	# 7. Commit
+	# Only commit if something actually happened
+	if not batch._commands.is_empty():
+		_commit_command(batch)
+
+	# ==========================================================================
+	# VISUALIZATION (Post-Process)
+	# ==========================================================================
+	
 	new_nodes.clear()
+	
+	# A. Get Highlight Path (Prioritize Strategy Output)
 	if params.has("out_highlight_nodes"):
 		new_nodes = params["out_highlight_nodes"]
-	elif params.get("append", false):
-		# Fallback for other strategies
+	else:
+		# B. Fallback Diff Logic (For strategies that don't support the new param)
 		for id in graph.nodes:
 			if not existing_ids.has(id):
 				new_nodes.append(id)
 	
-	# --- Override with Strategy Visuals ---
-	# If the strategy specifically reported a path (like Walker), use that
-	# instead of the simple "diff" logic.
-	if params.has("out_highlight_nodes"):
-		new_nodes = params["out_highlight_nodes"]
-		
-	# If the strategy reported a "Head" (Walker location), show it using the red ring
-# --- VISUALIZATION INDICATORS ---
-	
-	# 1. HEAD (Red Ring)
+	# C. Set Indicators (Head / Start)
 	if params.has("out_head_node"):
 		set_path_end(params["out_head_node"])
 	else:
 		set_path_end("")
 
-	# 2. START (Green Ring) 
 	if params.has("out_start_node"):
 		set_path_start(params["out_start_node"])
 	else:
 		set_path_start("")
 	
-	# 4. Finalize
+	# Finalize
 	renderer.new_nodes_ref = new_nodes
 	_center_camera_on_graph()
-	renderer.queue_redraw()
-	mark_modified()
+	# queue_redraw and mark_modified handled by _commit_command
 
 # ==============================================================================
 # 6. INTERNAL HELPERS
