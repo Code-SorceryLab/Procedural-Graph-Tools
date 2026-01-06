@@ -26,7 +26,8 @@ enum RoomShape {
 @export var connections: Dictionary = {}
 
 # Semantic Data
-@export var type: RoomType = RoomType.EMPTY
+# We default it to RoomType.EMPTY (0), but now it can accept 100, 999, etc.
+@export var type: int = RoomType.EMPTY
 @export var shape: RoomShape = RoomShape.AUTO
 @export var depth: int = 0  # Steps away from Spawn
 

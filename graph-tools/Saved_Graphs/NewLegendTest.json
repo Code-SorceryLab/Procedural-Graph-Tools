@@ -1,0 +1,67 @@
+{
+	"meta": {
+		"version": "1.1",
+		"timestamp": "2026-01-06T12:00:00"
+	},
+	"legend": {
+		"0": {
+			"name": "Empty",
+			"color": "cccccc"
+		},
+		"1": {
+			"name": "Spawn",
+			"color": "44c55e"
+		},
+		"2": {
+			"name": "Enemy",
+			"color": "ef4444"
+		},
+		"99": {
+			"name": "Magma Chamber",
+			"color": "ff4500"
+		}
+	},
+	"nodes": [
+		{
+			"id": "man:1",
+			"x": 0,
+			"y": 0,
+			"type": 1
+		},
+		{
+			"id": "man:2",
+			"x": 100,
+			"y": 0,
+			"type": 0
+		},
+		{
+			"id": "man:3",
+			"x": 200,
+			"y": 0,
+			"type": 2
+		},
+		{
+			"id": "man:4",
+			"x": 200,
+			"y": 100,
+			"type": 99
+		}
+	],
+	"edges": [
+		{
+			"from": "man:1",
+			"to": "man:2",
+			"w": 1.0
+		},
+		{
+			"from": "man:2",
+			"to": "man:3",
+			"w": 1.0
+		},
+		{
+			"from": "man:3",
+			"to": "man:4",
+			"w": 1.0
+		}
+	]
+}

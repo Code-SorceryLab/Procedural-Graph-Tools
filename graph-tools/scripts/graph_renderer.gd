@@ -167,18 +167,13 @@ func _draw_selection_box():
 # ==============================================================================
 
 func _get_node_color(id: String, node_data: NodeData) -> Color:
-	# 1. Start with Default or Room Type color
-	var col = default_color
-	if GraphSettings.ROOM_COLORS.has(node_data.type):
-		col = GraphSettings.ROOM_COLORS[node_data.type]
+	# 1. Resolve Base Color via Legend (Safe Lookup)
+	var col = GraphSettings.get_color(node_data.type)
 	
-	# 2. Apply "New Generation" highlight
+	# 2. Apply "New Generation" highlight (Walker Path / Cellular Growth)
 	if new_nodes_ref.has(id):
 		col = GraphSettings.COLOR_NEW_GENERATION
 	
-	# CHANGE: We removed step 3 (Selection Overwrite). 
-	# Now the Fill Color always reflects the Data Type.
-		
 	return col
 
 func _draw_node_indicators(id: String, pos: Vector2) -> void:

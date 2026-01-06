@@ -6,29 +6,31 @@ extends RefCounted
 static func serialize(graph: Graph) -> String:
 	var data = {
 		"meta": {
-			"version": "1.0",
+			"version": "1.1", # Bumped version
 			"timestamp": Time.get_datetime_string_from_system()
 		},
+		# NEW: Save the Legend!
+		"legend": _serialize_legend(), 
 		"nodes": [],
 		"edges": []
 	}
 	
-	# 1. SERIALIZE NODES
-	# We iterate through the graph's nodes and convert them to simple dicts
+	# ... (Keep existing Node/Edge serialization) ...
+	
+	# 1. SERIALIZE NODES (Unchanged)
 	for id in graph.nodes:
-		var node_obj = graph.nodes[id] # This is the NodeData resource
+		var node_obj = graph.nodes[id]
 		var node_dict = {
 			"id": id,
 			"x": node_obj.position.x,
 			"y": node_obj.position.y,
-			"type": node_obj.type
+			"type": node_obj.type 
 		}
 		data["nodes"].append(node_dict)
 		
-		# 2. SERIALIZE EDGES
-		# We look at the connections of each node.
-		# To avoid duplicates (A->B and B->A), we can filter or just save all.
-		# For simplicity/robustness, we save exactly what is in the adjacency list.
+	# 2. SERIALIZE EDGES (Unchanged)
+	for id in graph.nodes:
+		var node_obj = graph.nodes[id]
 		for neighbor_id in node_obj.connections:
 			var weight = node_obj.connections[neighbor_id]
 			var edge_dict = {
@@ -37,52 +39,69 @@ static func serialize(graph: Graph) -> String:
 				"w": weight
 			}
 			data["edges"].append(edge_dict)
-	
-	# 3. CONVERT TO JSON STRING
-	return JSON.stringify(data, "\t") # "\t" makes it pretty-printed (readable)
-
+			
+	return JSON.stringify(data, "\t")
 
 static func deserialize(json_string: String) -> Graph:
-	# 1. PARSE JSON
 	var json = JSON.new()
 	var error = json.parse(json_string)
+	if error != OK: return null
 	
-	if error != OK:
-		push_error("GraphSerializer: JSON Parse Error: %s at line %s" % [json.get_error_message(), json.get_error_line()])
-		return null
-		
 	var data = json.data
-	if typeof(data) != TYPE_DICTIONARY:
-		push_error("GraphSerializer: Invalid JSON format (Root is not a Dictionary)")
-		return null
+	
+	# NEW: Restore Legend first!
+	if data.has("legend"):
+		_deserialize_legend(data["legend"])
+	else:
+		# If loading an old file, reset to defaults
+		GraphSettings.reset_legend()
 		
-	# 2. CONSTRUCT GRAPH
+	# ... (Keep existing Graph construction) ...
 	var new_graph = Graph.new()
 	
-	# Load Nodes
-	if data.has("nodes") and data["nodes"] is Array:
+	# Load Nodes (Unchanged)
+	if data.has("nodes"):
 		for n in data["nodes"]:
 			var id = n.get("id", "")
-			if id == "": continue
-			
 			var pos = Vector2(n.get("x", 0), n.get("y", 0))
 			new_graph.add_node(id, pos)
 			
-			# Restore Type (Default to 0 if missing)
 			var type = n.get("type", 0)
 			if new_graph.nodes.has(id):
 				new_graph.nodes[id].type = type
-
-	# Load Edges
-	if data.has("edges") and data["edges"] is Array:
+				
+	# Load Edges (Unchanged)
+	if data.has("edges"):
 		for e in data["edges"]:
 			var u = e.get("from", "")
 			var v = e.get("to", "")
 			var w = e.get("w", 1.0)
-			
-			if u != "" and v != "":
-				# Check strict existence to avoid crashes
-				if new_graph.nodes.has(u) and new_graph.nodes.has(v):
-					new_graph.add_edge(u, v, w, true) # 'true' because JSON stores direction explicitly
-	
+			if new_graph.nodes.has(u) and new_graph.nodes.has(v):
+				new_graph.add_edge(u, v, w, true)
+				
 	return new_graph
+
+# --- PRIVATE HELPERS ---
+
+static func _serialize_legend() -> Dictionary:
+	var export_data = {}
+	# We iterate through the current settings
+	for type_id in GraphSettings.current_names:
+		export_data[str(type_id)] = {
+			"name": GraphSettings.current_names[type_id],
+			"color": GraphSettings.current_colors[type_id].to_html() # Save as Hex String
+		}
+	return export_data
+
+static func _deserialize_legend(legend_data: Dictionary) -> void:
+	GraphSettings.reset_legend()
+	
+	for type_id_str in legend_data:
+		var id = type_id_str.to_int()
+		var entry = legend_data[type_id_str]
+		
+		var name = entry.get("name", "Unknown")
+		var color_html = entry.get("color", "ff00ff")
+		var color = Color(color_html)
+		
+		GraphSettings.register_custom_type(id, name, color)

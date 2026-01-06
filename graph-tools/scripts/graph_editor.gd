@@ -315,7 +315,7 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 
 # --- TRANSACTION MANAGEMENT ---
 
-func start_undo_transaction(name: String, refocus_camera: bool = true) -> void:
+func start_undo_transaction(action_name: String, refocus_camera: bool = true) -> void:
 	# 1. NEW: Check Atomic Preference
 	# If the user wants every single action to be separate, we REFUSE to start a transaction.
 	if GraphSettings.USE_ATOMIC_UNDO:
@@ -326,8 +326,8 @@ func start_undo_transaction(name: String, refocus_camera: bool = true) -> void:
 		push_warning("GraphEditor: Transaction overlap.")
 		return
 		
-	_active_transaction = CmdBatch.new(graph, name, refocus_camera)
-	print("Transaction Started: ", name)
+	_active_transaction = CmdBatch.new(graph, action_name, refocus_camera)
+	print("Transaction Started: ", action_name)
 
 func commit_undo_transaction() -> void:
 	# 1. Safety Check

@@ -1,184 +1,130 @@
-# res://scripts/graph_settings.gd
 class_name GraphSettings
 
 # ==============================================================================
 # 1. GRID & SPATIAL SETTINGS
 # ==============================================================================
-# Defines the coarse grid used for snapping nodes.
-# Smaller values allow for more precise placement but can look cluttered.
-# Larger values make it easier to align rooms perfectly.
 const CELL_SIZE: float = 60.0
-
-# The vector used by 'snap()' functions in tools.
 const SNAP_GRID_SIZE: Vector2 = Vector2(CELL_SIZE, CELL_SIZE)
-
-# The step increment for position SpinBoxes in the Inspector.
-# 1.0 allows pixel-perfect placement. 10.0 is snappier.
 const INSPECTOR_POS_STEP: float = 1.0
 
 # ==============================================================================
 # 2. RENDERER VISUALS (SIZES)
 # ==============================================================================
-# The radius of the node circle in pixels.
-# NOTE: SpatialGrid uses this * 4 for bucket sizes, so changing this 
-# significantly might require tweaking SpatialGrid optimization.
 const NODE_RADIUS: float = 12.0
-
-# The thickness of connection lines.
 const EDGE_WIDTH: float = 3.0
-
 
 # ==============================================================================
 # 3. UI STATE COLORS
 # ==============================================================================
-# Standard state colors
-const COLOR_DEFAULT: Color = Color(0.9, 0.9, 0.9)          # Normal node (White-ish)
-const COLOR_HOVER: Color = Color(0.6, 0.8, 1.0)            # Mouse-over highlight (Light Blue)
-const COLOR_SELECTED: Color = Color(1.0, 0.6, 0.2)         # Selection (Orange)
-const COLOR_DRAGGED: Color = Color(1.0, 0.8, 0.2, 0.7)     # Dragging preview (Transparent Orange)
-const COLOR_NEW_GENERATION: Color = Color(0.2, 1.0, 0.8)   # Newly generated nodes (Cyan)
+const COLOR_DEFAULT: Color = Color(0.9, 0.9, 0.9)
+const COLOR_HOVER: Color = Color(0.6, 0.8, 1.0)
+const COLOR_SELECTED: Color = Color(1.0, 0.6, 0.2)
+const COLOR_DRAGGED: Color = Color(1.0, 0.8, 0.2, 0.7)
+const COLOR_NEW_GENERATION: Color = Color(0.2, 1.0, 0.8)
 
-const COLOR_SELECT_BOX_Fill: Color = Color(0.6, 0.8, 1.0, 0.2)  # Selection Box Fill (Transparent Light Blue)
-const COLOR_SELECT_BOX_BORDER: Color = Color(0.6, 0.8, 1.0, 0.8)  # Selection Box Border (Transparent Light Blue)
+const COLOR_SELECT_BOX_Fill: Color = Color(0.6, 0.8, 1.0, 0.2)
+const COLOR_SELECT_BOX_BORDER: Color = Color(0.6, 0.8, 1.0, 0.8)
 
-# Pathfinding Analysis Colors
-const COLOR_PATH: Color = Color(0.2, 0.8, 0.2)             # The line drawn for the path
-const COLOR_PATH_START: Color = Color(0.2, 0.8, 0.2)       # Start Node Indicator (Green)
-const COLOR_PATH_END: Color = Color(0.9, 0.2, 0.2)         # End Node Indicator (Red)
+const COLOR_PATH: Color = Color(0.2, 0.8, 0.2)
+const COLOR_PATH_START: Color = Color(0.2, 0.8, 0.2)
+const COLOR_PATH_END: Color = Color(0.9, 0.2, 0.2)
 
-# Edge Colors
-const COLOR_EDGE: Color = Color(0.8, 0.8, 0.8)             # Standard connection line
+const COLOR_EDGE: Color = Color(0.8, 0.8, 0.8)
 
-# UI Feedback Colors (Status Labels & Buttons)
-const COLOR_UI_SUCCESS: Color = Color(0.2, 0.8, 0.2)       # Success messages (Green)
-const COLOR_UI_ERROR: Color = Color(0.8, 0.3, 0.3)         # Error messages (Red)
-const COLOR_UI_ACTIVE: Color = Color.WHITE                   # Enabled buttons (Standard)
-const COLOR_UI_DISABLED: Color = Color(1, 1, 1, 0.5)       # Disabled/Dimmed buttons
+const COLOR_UI_SUCCESS: Color = Color(0.2, 0.8, 0.2)
+const COLOR_UI_ERROR: Color = Color(0.8, 0.3, 0.3)
+const COLOR_UI_ACTIVE: Color = Color.WHITE
+const COLOR_UI_DISABLED: Color = Color(1, 1, 1, 0.5)
 
 # ==============================================================================
-# 4. SEMANTIC ROOM COLORS
+# 4. SEMANTIC ROOM COLORS (DYNAMIC LEGEND)
 # ==============================================================================
-# These match the 'type' field in NodeData.
-# Used to visualize the dungeon's logical structure.
-const ROOM_COLORS: Dictionary = {
-	NodeData.RoomType.EMPTY:    Color(0.8, 0.8, 0.8), # Gray (Corridors)
-	NodeData.RoomType.SPAWN:    Color(0.2, 0.8, 0.2), # Green (Start)
-	NodeData.RoomType.ENEMY:    Color(0.8, 0.3, 0.3), # Red (Combat)
-	NodeData.RoomType.TREASURE: Color(1.0, 0.8, 0.2), # Gold (Reward)
-	NodeData.RoomType.BOSS:     Color(0.6, 0.0, 0.0), # Dark Red (Final Challenge)
-	NodeData.RoomType.SHOP:     Color(0.4, 0.2, 0.6)  # Purple (Merchant)
+# CHANGED: Separate Defaults from the Active State so we can restore later.
+
+const DEFAULT_COLORS: Dictionary = {
+	NodeData.RoomType.EMPTY:    Color(0.8, 0.8, 0.8),
+	NodeData.RoomType.SPAWN:    Color(0.2, 0.8, 0.2),
+	NodeData.RoomType.ENEMY:    Color(0.8, 0.3, 0.3),
+	NodeData.RoomType.TREASURE: Color(1.0, 0.8, 0.2),
+	NodeData.RoomType.BOSS:     Color(0.6, 0.0, 0.0),
+	NodeData.RoomType.SHOP:     Color(0.4, 0.2, 0.6)
 }
 
+const DEFAULT_NAMES: Dictionary = {
+	NodeData.RoomType.EMPTY:    "Empty",
+	NodeData.RoomType.SPAWN:    "Spawn",
+	NodeData.RoomType.ENEMY:    "Enemy",
+	NodeData.RoomType.TREASURE: "Treasure",
+	NodeData.RoomType.BOSS:     "Boss",
+	NodeData.RoomType.SHOP:     "Shop"
+}
+
+# The Mutable Dictionary used by the Runtime
+static var current_colors: Dictionary = DEFAULT_COLORS.duplicate()
+static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 
 # ==============================================================================
 # 5. TOOL DEFINITIONS
 # ==============================================================================
-# Global Enum for the Tool State Machine.
-# Used by Toolbar (UI) and GraphEditor (Logic) to stay in sync.
-enum Tool {
-	SELECT,
-	ADD_NODE,
-	CONNECT,
-	DELETE,
-	RECTANGLE,
-	MEASURE,
-	PAINT,
-	CUT,
-	TYPE_PAINT
-}
+enum Tool { SELECT, ADD_NODE, CONNECT, DELETE, RECTANGLE, MEASURE, PAINT, CUT, TYPE_PAINT }
 
+const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
-# --- CONFIGURATION ---
-const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg" #
-
-# --- DATA REGISTRY ---
-# Note: We now use "icon_path" (String) instead of "icon" (Resource)
 static var TOOL_DATA: Dictionary = {
-	Tool.SELECT: { 
-		"name": "Select", 
-		"shortcut": KEY_V, 
-		"icon_path": "res://assets/icons/tool_select.png" 
-	},
-	Tool.ADD_NODE: { 
-		"name": "Add Node", 
-		"shortcut": KEY_N, 
-		"icon_path": "res://assets/icons/tool_add.png" 
-	},
-	Tool.CONNECT: { 
-		"name": "Connect", 
-		"shortcut": KEY_C, 
-		"icon_path": "res://assets/icons/tool_connect.png" 
-	},
-	Tool.DELETE: { 
-		"name": "Delete", 
-		"shortcut": KEY_X, 
-		"icon_path": "res://assets/icons/tool_delete.png" 
-	},
-	Tool.RECTANGLE: { 
-		"name": "Rectangle Select", 
-		"shortcut": KEY_R, 
-		"icon_path": "res://assets/icons/tool_rect.png" 
-	},
-	Tool.MEASURE: { 
-		"name": "Measure", 
-		"shortcut": KEY_M, 
-		"icon_path": "res://assets/icons/tool_measure.png" 
-	},
-	Tool.PAINT: { 
-		"name": "Paint Brush", 
-		"shortcut": KEY_P, 
-		"icon_path": "res://assets/icons/tool_paint.png" 
-	},
-	Tool.CUT: { 
-		"name": "Knife Cut", 
-		"shortcut": KEY_K, 
-		"icon_path": "res://assets/icons/tool_cut.png" 
-	},
-	Tool.TYPE_PAINT: { 
-		"name": "Type Brush", 
-		"shortcut": KEY_T, 
-		"icon_path": "res://assets/icons/tool_type.png" 
-	}
+	Tool.SELECT:     { "name": "Select", "shortcut": KEY_V, "icon_path": "res://assets/icons/tool_select.png" },
+	Tool.ADD_NODE:   { "name": "Add Node", "shortcut": KEY_N, "icon_path": "res://assets/icons/tool_add.png" },
+	Tool.CONNECT:    { "name": "Connect", "shortcut": KEY_C, "icon_path": "res://assets/icons/tool_connect.png" },
+	Tool.DELETE:     { "name": "Delete", "shortcut": KEY_X, "icon_path": "res://assets/icons/tool_delete.png" },
+	Tool.RECTANGLE:  { "name": "Rectangle Select", "shortcut": KEY_R, "icon_path": "res://assets/icons/tool_rect.png" },
+	Tool.MEASURE:    { "name": "Measure", "shortcut": KEY_M, "icon_path": "res://assets/icons/tool_measure.png" },
+	Tool.PAINT:      { "name": "Paint Brush", "shortcut": KEY_P, "icon_path": "res://assets/icons/tool_paint.png" },
+	Tool.CUT:        { "name": "Knife Cut", "shortcut": KEY_K, "icon_path": "res://assets/icons/tool_cut.png" },
+	Tool.TYPE_PAINT: { "name": "Type Brush", "shortcut": KEY_T, "icon_path": "res://assets/icons/tool_type.png" }
 }
+
 # ==============================================================================
 # 6. COMMAND DEFINITIONS
 # ==============================================================================
-# Limit memory usage (optional, but good practice)
 static var MAX_HISTORY_STEPS: int = 50
-static var USE_ATOMIC_UNDO: bool = false # False = Batch, True = Individual
+static var USE_ATOMIC_UNDO: bool = false
 
 
-# --- HELPERS ---
+# ==============================================================================
+# 7. HELPER FUNCTIONS
+# ==============================================================================
+
 static func get_tool_icon(tool_id: int) -> Texture2D:
 	var path = ""
-	
-	# 1. Try to get the specific path for this tool
 	if TOOL_DATA.has(tool_id):
 		path = TOOL_DATA[tool_id].get("icon_path", "")
-	
-	# 2. Check if the specific file actually exists
 	if path != "" and FileAccess.file_exists(path):
 		return load(path)
-	
-	# 3. FALLBACK: If missing, load the placeholder
 	if FileAccess.file_exists(ICON_PLACEHOLDER):
 		return load(ICON_PLACEHOLDER)
-		
-	# 4. Total failure (return null, button will be empty)
 	return null
 
 static func get_tool_name(tool_id: int) -> String:
-	if TOOL_DATA.has(tool_id):
-		return TOOL_DATA[tool_id].get("name", "Unknown")
-	return "Unknown"
+	return TOOL_DATA.get(tool_id, {}).get("name", "Unknown")
 
 static func get_shortcut_keycode(tool_id: int) -> int:
-	if TOOL_DATA.has(tool_id):
-		return TOOL_DATA[tool_id].get("shortcut", KEY_NONE)
-	return KEY_NONE
+	return TOOL_DATA.get(tool_id, {}).get("shortcut", KEY_NONE)
 
 static func get_shortcut_string(tool_id: int) -> String:
 	var code = get_shortcut_keycode(tool_id)
-	if code != KEY_NONE:
-		return OS.get_keycode_string(code)
-	return ""
+	return OS.get_keycode_string(code) if code != KEY_NONE else ""
+
+# --- LEGEND HELPERS ---
+
+static func get_color(type_id: int) -> Color:
+	return current_colors.get(type_id, Color.MAGENTA) # Fallback if missing
+
+static func get_type_name(type_id: int) -> String:
+	return current_names.get(type_id, "Unknown")
+
+static func register_custom_type(id: int, name: String, color: Color) -> void:
+	current_colors[id] = color
+	current_names[id] = name
+
+static func reset_legend() -> void:
+	current_colors = DEFAULT_COLORS.duplicate()
+	current_names = DEFAULT_NAMES.duplicate()

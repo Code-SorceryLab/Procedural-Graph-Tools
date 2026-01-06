@@ -16,8 +16,6 @@ class_name InspectorController
 @export var spin_pos_x: SpinBox
 @export var spin_pos_y: SpinBox
 @export var option_type: OptionButton
-# @export var lbl_pos: Label  <-- Removed (Replaced by SpinBoxes)
-# @export var lbl_type: Label <-- Removed (Replaced by OptionButton)
 @export var lbl_edges: Label
 @export var lbl_neighbors: RichTextLabel
 
@@ -26,7 +24,7 @@ class_name InspectorController
 @export var lbl_group_center: Label
 @export var lbl_group_bounds: Label
 @export var lbl_group_density: Label
-@export var group_option_type: OptionButton # <--- Make sure this is linked in Inspector!
+@export var group_option_type: OptionButton 
 
 # State tracking
 var _tracked_nodes: Array[String] = []
@@ -58,15 +56,18 @@ func _ready() -> void:
 	
 	_clear_inspector()
 
-# Helper to populate both dropdowns identically
+# FIX 1: Dynamic Dropdown Population
 func _setup_type_dropdown(btn: OptionButton) -> void:
 	btn.clear()
-	btn.add_item("Empty (Gray)", NodeData.RoomType.EMPTY)
-	btn.add_item("Spawn (Green)", NodeData.RoomType.SPAWN)
-	btn.add_item("Enemy (Red)", NodeData.RoomType.ENEMY)
-	btn.add_item("Treasure (Gold)", NodeData.RoomType.TREASURE)
-	btn.add_item("Boss (Dark Red)", NodeData.RoomType.BOSS)
-	btn.add_item("Shop (Purple)", NodeData.RoomType.SHOP)
+	
+	# Get all registered IDs (Defaults + Customs)
+	var ids = GraphSettings.current_names.keys()
+	ids.sort() # Keep them consistently ordered
+	
+	for id in ids:
+		var type_name = GraphSettings.get_type_name(id)
+		# We add the name as the Label, and the 'id' as the value
+		btn.add_item(type_name, id)
 
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
@@ -103,6 +104,9 @@ func _update_single_inspector(node_id: String) -> void:
 		_on_selection_changed([]) 
 		return
 
+	# The Legend might have changed since the app started (e.g. after loading a file).
+	_setup_type_dropdown(option_type)
+
 	var node_data = graph.nodes[node_id]
 	var neighbors = graph.get_neighbors(node_id)
 	
@@ -112,6 +116,7 @@ func _update_single_inspector(node_id: String) -> void:
 	lbl_id.text = "ID: %s" % node_id
 	
 	# 2. POSITION (Focus Guard)
+	# Only update spinboxes if the user ISN'T typing in them right now.
 	var x_focus = spin_pos_x.get_line_edit().has_focus()
 	var y_focus = spin_pos_y.get_line_edit().has_focus()
 	
@@ -122,7 +127,10 @@ func _update_single_inspector(node_id: String) -> void:
 		
 	# 3. TYPE
 	if not option_type.has_focus():
-		option_type.selected = node_data.type
+		# IMPORTANT: Map the ID to the Dropdown Index
+		# The drop-down index (0, 1, 2) might not match the Type ID (0, 10, 99).
+		var idx = option_type.get_item_index(node_data.type)
+		option_type.selected = idx
 	
 	# 4. NEIGHBORS
 	lbl_edges.text = "Connections: %d" % neighbors.size()
@@ -206,28 +214,42 @@ func _clear_inspector() -> void:
 	_tracked_nodes = []
 	_show_view(0)
 
-# --- INPUT HANDLERS ---
+# --- INPUT HANDLERS (UPDATED) ---
 
 func _on_pos_value_changed(_val: float) -> void:
 	if _is_updating_ui: return
 	if _tracked_nodes.size() != 1: return
 	
 	var id = _tracked_nodes[0]
+	var current_pos = graph_editor.graph.get_node_pos(id)
 	var new_pos = Vector2(spin_pos_x.value, spin_pos_y.value)
 	
-	graph_editor.graph.set_node_position(id, new_pos)
-	graph_editor.renderer.queue_redraw()
-	graph_editor.mark_modified()
+	# FIX 2: Use Editor Command for Undo Support
+	
+	# 1. Update Visuals (Immediate feedback)
+	graph_editor.set_node_position(id, new_pos)
+	
+	# 2. Commit Command (History)
+	# We simulate a "Drag Finish" event so the history knows we moved from A to B.
+	var move_data = {
+		id: {
+			"from": current_pos, 
+			"to": new_pos
+		}
+	}
+	graph_editor.commit_move_batch(move_data)
 
 func _on_type_selected(index: int) -> void:
 	if _is_updating_ui: return
 	if _tracked_nodes.size() != 1: return
 	
 	var id = _tracked_nodes[0]
-	var node_data = graph_editor.graph.nodes[id]
-	node_data.type = index
-	graph_editor.renderer.queue_redraw()
-	graph_editor.mark_modified()
+	# Get the actual ID from the metadata
+	var selected_type_id = option_type.get_item_id(index)
+	
+	# FIX 3: Use Editor API
+	# This handles CmdSetType, Dirty Flags, and Redraws automatically.
+	graph_editor.set_node_type(id, selected_type_id)
 
 func _on_group_type_selected(index: int) -> void:
 	if _is_updating_ui: return
@@ -237,13 +259,9 @@ func _on_group_type_selected(index: int) -> void:
 	if selected_type_id == -1:
 		return 
 		
-	# Batch Apply
-	for id in _tracked_nodes:
-		if graph_editor.graph.nodes.has(id):
-			graph_editor.graph.nodes[id].type = selected_type_id
-			
-	graph_editor.renderer.queue_redraw()
+	# FIX 4: Use Batch API
+	# This creates a single Undo Step for the whole group change.
+	graph_editor.set_node_type_bulk(_tracked_nodes, selected_type_id)
 	
 	# Refresh UI to remove "Mixed" state
 	_update_group_inspector(_tracked_nodes)
-	graph_editor.mark_modified()

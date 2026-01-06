@@ -72,7 +72,7 @@ func _pick_type_under_mouse() -> void:
 		_print_current_type()
 
 func _cycle_type() -> void:
-	var types = GraphSettings.ROOM_COLORS.keys()
+	var types = GraphSettings.current_colors.keys()
 	var current_index = types.find(_current_type)
 	var next_index = (current_index + 1) % types.size()
 	_current_type = types[next_index]
@@ -84,11 +84,4 @@ func _print_current_type() -> void:
 	_show_status(msg)
 
 func _get_type_name(type_int: int) -> String:
-	match type_int:
-		NodeData.RoomType.EMPTY: return "Empty (Gray)"
-		NodeData.RoomType.SPAWN: return "Spawn (Green)"
-		NodeData.RoomType.ENEMY: return "Enemy (Red)"
-		NodeData.RoomType.TREASURE: return "Treasure (Gold)"
-		NodeData.RoomType.BOSS: return "Boss (Dark Red)"
-		NodeData.RoomType.SHOP: return "Shop (Purple)"
-		_: return "Unknown"
+	return GraphSettings.get_type_name(type_int)
