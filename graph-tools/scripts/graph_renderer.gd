@@ -26,6 +26,9 @@ var _depth_cache_dirty: bool = true
 var tool_line_start: Vector2 = Vector2.INF
 var tool_line_end: Vector2 = Vector2.INF
 
+# NEW: Font reference for drawing walker numbers
+var font: Font
+
 # ==============================================================================
 # 2. DATA REFERENCES
 # ==============================================================================
@@ -38,8 +41,8 @@ var pre_selection_ref: Array[String] = []
 # ==============================================================================
 # 3. INTERACTION STATE
 # ==============================================================================
-var path_start_id: String = ""
-var path_end_id: String = ""
+var path_start_ids: Array = [] 
+var path_end_ids: Array = []
 var drag_start_id: String = ""
 var hovered_id: String = ""
 var snap_preview_pos: Vector2 = Vector2.INF
@@ -48,6 +51,10 @@ var selection_rect: Rect2 = Rect2()
 # ==============================================================================
 # 4. DRAWING LOOP
 # ==============================================================================
+
+func _ready() -> void:
+	# Get default font for drawing numbers
+	font = ThemeDB.get_fallback_font()
 
 func _draw() -> void:
 	if not graph_ref:
@@ -90,7 +97,10 @@ func _draw_edges() -> void:
 			drawn_edges[pair] = true
 			
 			var end_pos = graph_ref.get_node_pos(neighbor)
-			draw_line(start_pos, end_pos, GraphSettings.COLOR_EDGE, edge_width)
+			var color = GraphSettings.COLOR_EDGE
+			var width = edge_width
+			
+			draw_line(start_pos, end_pos, color, width)
 
 # --- HELPER: PATHFINDING LINE ---
 func _draw_current_path() -> void:
@@ -179,7 +189,6 @@ func _recalculate_depth_cache() -> void:
 	var seeds: Array[String] = []
 	
 	# Priority 1: Selected Nodes (Context-Sensitive Depth)
-	# FIX: Explicitly type this array as Array[String]
 	var selected_spawns: Array[String] = [] 
 	
 	for id in selected_nodes_ref:
@@ -239,21 +248,44 @@ func _get_node_color(id: String, node_data: NodeData) -> Color:
 	return col
 
 func _draw_node_indicators(id: String, pos: Vector2) -> void:
-	# 1. Selection / Hover Rings (Orange/Yellow)
+	# 1. Selection Rings
 	if selected_nodes_ref.has(id) or pre_selection_ref.has(id):
 		draw_arc(pos, node_radius + 4.0, 0, TAU, 32, selected_color, 3.0)
 	elif id == hovered_id:
 		draw_arc(pos, node_radius + 4.0, 0, TAU, 32, hover_color, 2.0)
 	
-	# 2. Path Start Indicator (Green Ring)
-	if id == path_start_id:
-		# VISUAL FIX: Increased radius from +6.0 to +9.0
-		# This ensures that if Start == End, the Green ring is visible OUTSIDE the Red ring.
+	# 2. START INDICATORS (Green, Top-Left Text)
+	var start_indices = []
+	for i in range(path_start_ids.size()):
+		if path_start_ids[i] == id:
+			start_indices.append(str(i + 1)) # "1", "2"
+			
+	if not start_indices.is_empty():
+		# Draw the Ring (Once)
 		draw_circle(pos, node_radius * 0.5, GraphSettings.COLOR_PATH_START) 
 		draw_arc(pos, node_radius + 9.0, 0, TAU, 32, GraphSettings.COLOR_PATH_START, 3.0) 
 		
-	# 3. Path End Indicator (Red Ring)
-	if id == path_end_id:
+		# Draw the Numbers (Top Left)
+		var label = ",".join(start_indices)
+		# Position: Left and Up relative to the node
+		var text_pos = pos + Vector2(-node_radius - 24, -node_radius + 8)
+		# Align Right so text grows outward to the left
+		draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_RIGHT, -1, 16, GraphSettings.COLOR_PATH_START)
+
+	# 3. END INDICATORS (Red, Top-Right Text)
+	var end_indices = []
+	for i in range(path_end_ids.size()):
+		if path_end_ids[i] == id:
+			end_indices.append(str(i + 1))
+			
+	if not end_indices.is_empty():
+		# Draw the Ring (Once)
 		draw_circle(pos, node_radius * 0.5, GraphSettings.COLOR_PATH_END)
-		# Kept radius at +6.0, so it nests inside the green ring if overlapping.
 		draw_arc(pos, node_radius + 6.0, 0, TAU, 32, GraphSettings.COLOR_PATH_END, 3.0)
+		
+		# Draw the Numbers (Top Right)
+		var label = ",".join(end_indices)
+		# Position: Right and Up relative to the node
+		var text_pos = pos + Vector2(node_radius + 4, -node_radius + 8)
+		# Align Left so text grows outward to the right
+		draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, GraphSettings.COLOR_PATH_END)

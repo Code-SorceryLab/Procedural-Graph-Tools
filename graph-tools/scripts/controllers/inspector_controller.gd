@@ -4,12 +4,13 @@ class_name InspectorController
 # --- REFERENCES ---
 @export_group("Core Systems")
 @export var graph_editor: GraphEditor
+@export var strategy_controller: StrategyController
 
 @export_group("UI Inspector Tab")
 # 1. THE VIEW CONTAINERS
-@export var lbl_no_selection: Label      # State 0: None
-@export var single_container: Control    # State 1: Single
-@export var group_container: Control     # State 2: Multi
+@export var lbl_no_selection: Label      
+@export var single_container: Control    
+@export var group_container: Control     
 
 # 2. SINGLE NODE CONTROLS
 @export var lbl_id: Label
@@ -19,7 +20,19 @@ class_name InspectorController
 @export var lbl_edges: Label
 @export var lbl_neighbors: RichTextLabel
 
-# 3. GROUP STATS CONTROLS
+# 3. WALKER CONTROLS
+@export_group("Walker Inspector")
+@export var walker_container: Control      
+@export var opt_walker_select: OptionButton 
+@export var lbl_walker_id: Label           
+@export var opt_walker_paint: OptionButton 
+@export var chk_walker_active: CheckBox    # Active/Paused
+@export var spin_walker_x: SpinBox         # Manual X Position
+@export var spin_walker_y: SpinBox         # Manual Y Position
+@export var btn_walker_reset: Button       # Reset Steps
+
+# 4. GROUP STATS CONTROLS
+@export_group("Group Inspector")
 @export var lbl_group_count: Label
 @export var lbl_group_center: Label
 @export var lbl_group_bounds: Label
@@ -28,7 +41,9 @@ class_name InspectorController
 
 # State tracking
 var _tracked_nodes: Array[String] = []
-var _is_updating_ui: bool = false # Flag to prevent loops
+var _is_updating_ui: bool = false
+var _current_walker_ref: Object = null 
+var _current_walker_list: Array = [] # <--- NEW: Store all agents at this node
 
 func _ready() -> void:
 	graph_editor.selection_changed.connect(_on_selection_changed)
@@ -37,60 +52,56 @@ func _ready() -> void:
 	# --- 1. CONFIGURE SPINBOXES ---
 	spin_pos_x.step = GraphSettings.INSPECTOR_POS_STEP
 	spin_pos_y.step = GraphSettings.INSPECTOR_POS_STEP
-	
-	spin_pos_x.min_value = -99999
-	spin_pos_x.max_value = 99999
-	spin_pos_y.min_value = -99999
-	spin_pos_y.max_value = 99999
+	spin_pos_x.min_value = -99999; spin_pos_x.max_value = 99999
+	spin_pos_y.min_value = -99999; spin_pos_y.max_value = 99999
+	spin_walker_x.step = GraphSettings.INSPECTOR_POS_STEP
+	spin_walker_y.step = GraphSettings.INSPECTOR_POS_STEP
 	
 	spin_pos_x.value_changed.connect(_on_pos_value_changed)
 	spin_pos_y.value_changed.connect(_on_pos_value_changed)
 	
 	# --- 2. CONFIGURE DROPDOWNS ---
-	# Setup both Single and Group dropdowns
 	_setup_type_dropdown(option_type)
 	_setup_type_dropdown(group_option_type)
+	_setup_type_dropdown(opt_walker_paint)
 	
 	option_type.item_selected.connect(_on_type_selected)
 	group_option_type.item_selected.connect(_on_group_type_selected)
 	
+	# WALKER SIGNALS
+	opt_walker_paint.item_selected.connect(_on_walker_paint_selected)
+	opt_walker_select.item_selected.connect(_on_walker_agent_selected)
+
+	chk_walker_active.toggled.connect(_on_walker_active_toggled)
+	spin_walker_x.value_changed.connect(_on_walker_pos_changed)
+	spin_walker_y.value_changed.connect(_on_walker_pos_changed)
+	btn_walker_reset.pressed.connect(_on_walker_reset_pressed)
 	_clear_inspector()
 
-# FIX 1: Dynamic Dropdown Population
 func _setup_type_dropdown(btn: OptionButton) -> void:
 	btn.clear()
-	
-	# Get all registered IDs (Defaults + Customs)
 	var ids = GraphSettings.current_names.keys()
-	ids.sort() # Keep them consistently ordered
-	
+	ids.sort() 
 	for id in ids:
 		var type_name = GraphSettings.get_type_name(id)
-		# We add the name as the Label, and the 'id' as the value
 		btn.add_item(type_name, id)
 
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
 	
 	if _tracked_nodes.is_empty():
-		# STATE 0: NONE
 		set_process(false)
 		_show_view(0)
-		
 	elif _tracked_nodes.size() == 1:
-		# STATE 1: SINGLE
 		set_process(true)
 		_show_view(1)
 		_update_single_inspector(_tracked_nodes[0])
-		
 	else:
-		# STATE 2: GROUP
 		set_process(true)
 		_show_view(2)
 		_update_group_inspector(_tracked_nodes)
 
 func _process(_delta: float) -> void:
-	# Only update if we have a valid selection
 	if _tracked_nodes.size() == 1:
 		_update_single_inspector(_tracked_nodes[0])
 	elif _tracked_nodes.size() > 1:
@@ -104,72 +115,114 @@ func _update_single_inspector(node_id: String) -> void:
 		_on_selection_changed([]) 
 		return
 
-	# The Legend might have changed since the app started (e.g. after loading a file).
-	_setup_type_dropdown(option_type)
-
 	var node_data = graph.nodes[node_id]
 	var neighbors = graph.get_neighbors(node_id)
 	
 	_is_updating_ui = true
 	
-	# 1. ID
+	# 1. Standard Node Data
 	lbl_id.text = "ID: %s" % node_id
 	
-	# 2. POSITION (Focus Guard)
-	# Only update spinboxes if the user ISN'T typing in them right now.
 	var x_focus = spin_pos_x.get_line_edit().has_focus()
 	var y_focus = spin_pos_y.get_line_edit().has_focus()
-	
-	if not x_focus:
-		spin_pos_x.value = node_data.position.x
-	if not y_focus:
-		spin_pos_y.value = node_data.position.y
+	if not x_focus: spin_pos_x.value = node_data.position.x
+	if not y_focus: spin_pos_y.value = node_data.position.y
 		
-	# 3. TYPE
 	if not option_type.has_focus():
-		# IMPORTANT: Map the ID to the Dropdown Index
-		# The drop-down index (0, 1, 2) might not match the Type ID (0, 10, 99).
 		var idx = option_type.get_item_index(node_data.type)
-		option_type.selected = idx
+		if option_type.selected != idx:
+			option_type.selected = idx
 	
-	# 4. NEIGHBORS
 	lbl_edges.text = "Connections: %d" % neighbors.size()
 	var neighbor_text = ""
 	for n_id in neighbors:
 		neighbor_text += "- %s\n" % n_id
 	lbl_neighbors.text = neighbor_text
 	
+# ---------------------------------------------------------
+	# 2. WALKER INSPECTION LOGIC
+	# ---------------------------------------------------------
+	var show_walker = false
+	var new_walker_list = []
+	
+	if strategy_controller and strategy_controller.current_strategy:
+		var strat = strategy_controller.current_strategy
+		if strat.has_method("get_walkers_at_node"):
+			new_walker_list = strat.get_walkers_at_node(node_id)
+	
+	if not new_walker_list.is_empty():
+		show_walker = true
+		
+		# Sync List
+		if new_walker_list != _current_walker_list:
+			_current_walker_list = new_walker_list
+			opt_walker_select.clear()
+			var selected_idx = 0
+			for i in range(_current_walker_list.size()):
+				var w = _current_walker_list[i]
+				var status = "" if w.active else " (Paused)"
+				opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
+				if _current_walker_ref and _current_walker_ref == w:
+					selected_idx = i
+			opt_walker_select.selected = selected_idx
+			_current_walker_ref = _current_walker_list[selected_idx]
+		
+		# Fallback
+		if _current_walker_ref == null and not _current_walker_list.is_empty():
+			_current_walker_ref = _current_walker_list[0]
+			opt_walker_select.selected = 0
+
+	else:
+		_current_walker_list.clear()
+		_current_walker_ref = null
+
+	# Refresh UI
+	if show_walker and _current_walker_ref:
+		opt_walker_select.visible = (_current_walker_list.size() > 1)
+		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, _current_walker_ref.step_count]
+		
+		# Sync Paint Dropdown
+		if not opt_walker_paint.has_focus():
+			var w_idx = opt_walker_paint.get_item_index(_current_walker_ref.my_paint_type)
+			if opt_walker_paint.selected != w_idx: opt_walker_paint.selected = w_idx
+			
+		# Sync Active Checkbox
+		chk_walker_active.set_pressed_no_signal(_current_walker_ref.active)
+		
+		# Sync Position Spins (Only if not focused)
+		if not spin_walker_x.get_line_edit().has_focus():
+			spin_walker_x.set_value_no_signal(_current_walker_ref.pos.x)
+		if not spin_walker_y.get_line_edit().has_focus():
+			spin_walker_y.set_value_no_signal(_current_walker_ref.pos.y)
+	
+	if walker_container:
+		walker_container.visible = show_walker
+	# ---------------------------------------------------------
+	
 	_is_updating_ui = false
 
 func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
-	
 	var count = nodes.size()
 	var center_sum = Vector2.ZERO
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
 	var internal_connections = 0
 	
-	# --- HOMOGENEITY CHECK ---
 	var first_id = nodes[0]
 	var first_type = graph.nodes[first_id].type
 	var is_mixed = false
-	
 	var node_set = {} 
+	
 	for id in nodes:
 		node_set[id] = true
-		
-		# Check mixed state
 		if graph.nodes[id].type != first_type:
 			is_mixed = true
 	
-	# --- STATS CALC ---
 	for id in nodes:
 		if not graph.nodes.has(id): continue
-		
 		var pos = graph.nodes[id].position
 		center_sum += pos
-		
 		min_pos.x = min(min_pos.x, pos.x)
 		min_pos.y = min(min_pos.y, pos.y)
 		max_pos.x = max(max_pos.x, pos.x)
@@ -184,7 +237,6 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	var size = max_pos - min_pos
 	var unique_edges = internal_connections / 2
 	
-	# --- UPDATE UI ---
 	_is_updating_ui = true
 	
 	lbl_group_count.text = "Selected: %d Nodes" % count
@@ -192,9 +244,7 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	lbl_group_bounds.text = "Bounds: %.0f x %.0f" % [size.x, size.y]
 	lbl_group_density.text = "Internal Edges: %d" % unique_edges
 	
-	# Handle Mixed Dropdown State
 	_setup_type_dropdown(group_option_type)
-	
 	if is_mixed:
 		group_option_type.add_separator()
 		group_option_type.add_item("-- Mixed --", -1)
@@ -214,54 +264,76 @@ func _clear_inspector() -> void:
 	_tracked_nodes = []
 	_show_view(0)
 
-# --- INPUT HANDLERS (UPDATED) ---
+# --- INPUT HANDLERS ---
 
 func _on_pos_value_changed(_val: float) -> void:
 	if _is_updating_ui: return
 	if _tracked_nodes.size() != 1: return
-	
 	var id = _tracked_nodes[0]
 	var current_pos = graph_editor.graph.get_node_pos(id)
 	var new_pos = Vector2(spin_pos_x.value, spin_pos_y.value)
 	
-	# FIX 2: Use Editor Command for Undo Support
-	
-	# 1. Update Visuals (Immediate feedback)
 	graph_editor.set_node_position(id, new_pos)
-	
-	# 2. Commit Command (History)
-	# We simulate a "Drag Finish" event so the history knows we moved from A to B.
-	var move_data = {
-		id: {
-			"from": current_pos, 
-			"to": new_pos
-		}
-	}
+	var move_data = { id: { "from": current_pos, "to": new_pos } }
 	graph_editor.commit_move_batch(move_data)
 
 func _on_type_selected(index: int) -> void:
 	if _is_updating_ui: return
 	if _tracked_nodes.size() != 1: return
-	
 	var id = _tracked_nodes[0]
-	# Get the actual ID from the metadata
 	var selected_type_id = option_type.get_item_id(index)
-	
-	# FIX 3: Use Editor API
-	# This handles CmdSetType, Dirty Flags, and Redraws automatically.
 	graph_editor.set_node_type(id, selected_type_id)
 
 func _on_group_type_selected(index: int) -> void:
 	if _is_updating_ui: return
-	
-	# Check for "Mixed" selection
 	var selected_type_id = group_option_type.get_item_id(index)
-	if selected_type_id == -1:
-		return 
-		
-	# FIX 4: Use Batch API
-	# This creates a single Undo Step for the whole group change.
+	if selected_type_id == -1: return 
 	graph_editor.set_node_type_bulk(_tracked_nodes, selected_type_id)
-	
-	# Refresh UI to remove "Mixed" state
 	_update_group_inspector(_tracked_nodes)
+
+# WALKER HANDLERS ---
+
+func _on_walker_active_toggled(toggled: bool) -> void:
+	if _is_updating_ui or not _current_walker_ref: return
+	_current_walker_ref.active = toggled
+	print("Inspector: Agent #%d Active: %s" % [_current_walker_ref.id, toggled])
+
+func _on_walker_pos_changed(_val: float) -> void:
+	if _is_updating_ui or not _current_walker_ref: return
+	
+	# Update the walker's internal position
+	# NOTE: In 'Paint' mode, this might desync visual from logical node if moved off-grid.
+	# In 'Grow' mode, this effectively teleports the growth head.
+	var new_pos = Vector2(spin_walker_x.value, spin_walker_y.value)
+	_current_walker_ref.pos = new_pos
+	
+	# If we moved significantly, we might want to update the 'current_node_id' 
+	# if we landed on a valid existing node.
+	var graph = graph_editor.graph
+	var landed_node = graph.get_node_at_position(new_pos, 1.0) # strict tolerance
+	if not landed_node.is_empty():
+		_current_walker_ref.current_node_id = landed_node
+
+func _on_walker_reset_pressed() -> void:
+	if not _current_walker_ref: return
+	_current_walker_ref.step_count = 0
+	# Force refresh text
+	lbl_walker_id.text = "Agent #%d (Steps: 0)" % _current_walker_ref.id
+	print("Inspector: Agent #%d steps reset." % _current_walker_ref.id)
+
+func _on_walker_agent_selected(index: int) -> void:
+	if index >= 0 and index < _current_walker_list.size():
+		_current_walker_ref = _current_walker_list[index]
+		
+		# Force Immediate UI Sync
+		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, _current_walker_ref.step_count]
+		var w_idx = opt_walker_paint.get_item_index(_current_walker_ref.my_paint_type)
+		opt_walker_paint.select(w_idx)
+
+func _on_walker_paint_selected(index: int) -> void:
+	if _is_updating_ui: return
+	if not _current_walker_ref: return
+	
+	var paint_type_id = opt_walker_paint.get_item_id(index)
+	_current_walker_ref.my_paint_type = paint_type_id
+	print("Inspector: Updated Agent %d paint brush to %d" % [_current_walker_ref.id, paint_type_id])

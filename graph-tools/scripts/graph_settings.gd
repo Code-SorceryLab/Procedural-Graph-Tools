@@ -37,8 +37,9 @@ const PARAM_TOOLTIPS = {
 	"walker": {
 		"steps": "The total number of nodes (steps) the agent will walk.",
 		"branch": "If enabled when 'Growing', the walker picks a random starting point from existing nodes.\nIf disabled, it continues from the last created node.",
-		"mode": "Grow: Creates new nodes.\nPaint: Traverses existing nodes and changes their type."
-	
+		"mode": "Grow: Creates new nodes in the void.\nPaint: Traverses existing nodes and changes their type.",
+		"count": "Number of independent walkers simulating simultaneously.",
+		"paint_type": "The RoomType applied to NEW walkers. Use the Inspector to modify existing active walkers.",
 	},
 	"analyze": {
 		"auto": "If enabled, the algorithm runs a Breadth-First Search (BFS) to identify the network topology.\nIt marks the Start node (0,0), the furthest node (Boss), and dead ends (Treasure/Enemy)."
@@ -47,7 +48,7 @@ const PARAM_TOOLTIPS = {
 		"range": "Multiplier for the search radius (relative to Cell Size).\n2.0 connects immediate neighbors.\n5.0 jumps gaps to connect distant islands.",
 		"braid": "The percentage (0-100) of 'rejected' connections to restore.\n0% = Perfect Maze (One path).\n20% = Loopy dungeon with multiple routes.",
 		"algo": "Choose the Algorithm:\n\nKRUSKAL (Default): Extremely fast. Connects shortest edges first globally.\n\nPRIM: Slower on large graphs. Grows radially from a single point. Can create more 'river-like' branching.",
-		"paint_type": "The RoomType to apply when Painting."
+		
 	}
 }
 

@@ -43,9 +43,10 @@ btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetSt
 btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
 btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "opt_walker_paint", "chk_walker_active", "spin_walker_x", "spin_walker_y", "btn_walker_reset", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
+strategy_controller = NodePath("../StrategyController")
 lbl_no_selection = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
 single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer")
 group_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer")
@@ -55,6 +56,14 @@ spin_pos_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer
 option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/OptionType")
 lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblEdges")
 lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblNeighbors")
+walker_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer")
+opt_walker_select = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/OptWalkerSelect")
+lbl_walker_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/LblWalkerID")
+opt_walker_paint = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/OptWalkerPaint")
+chk_walker_active = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/ChkWalkerActive")
+spin_walker_x = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/SpinWalkPosX")
+spin_walker_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/SpinWalkPosY")
+btn_walker_reset = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/BtnResetSteps")
 lbl_group_count = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCount")
 lbl_group_center = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCenter")
 lbl_group_bounds = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupBounds")
@@ -232,6 +241,31 @@ layout_mode = 2
 
 [node name="LblNeighbors" type="RichTextLabel" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
 layout_mode = 2
+
+[node name="WalkerContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+layout_mode = 2
+
+[node name="OptWalkerSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="LblWalkerID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="OptWalkerPaint" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="SpinWalkPosX" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="SpinWalkPosY" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="ChkWalkerActive" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="BtnResetSteps" type="Button" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
+layout_mode = 2
+text = "Reset Step Count"
 
 [node name="GroupContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
 visible = false
