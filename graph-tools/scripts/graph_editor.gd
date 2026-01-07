@@ -4,6 +4,8 @@ class_name GraphEditor
 # Signal to notify the rest of the game when a new graph is loaded or generated
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
+signal request_save_graph(graph: Graph)
+
 # Signal to notify UI (e.g. StatusBar) when a tool wants to display info
 signal status_message_changed(message: String)
 signal graph_modified
@@ -46,6 +48,21 @@ func _ready() -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	
+	# --- Connect Signals for Reactive Renderer ---
+	# 1. When graph topology changes, dirty the cache
+	graph_modified.connect(func(): 
+		renderer._depth_cache_dirty = true
+		if renderer.debug_show_depth:
+			renderer.queue_redraw()
+	)
+	
+	# 2. When selection changes, dirty the cache (for Context-Sensitive depth)
+	selection_changed.connect(func(_selected_nodes):
+		renderer._depth_cache_dirty = true
+		if renderer.debug_show_depth:
+			renderer.queue_redraw()
+	)
+	
 	# Sync initial null state
 	renderer.path_start_id = ""
 	renderer.path_end_id = ""
@@ -60,8 +77,6 @@ func _ready() -> void:
 	set_active_tool(GraphSettings.Tool.SELECT)
 	
 	renderer.queue_redraw()
-	
-	
 	
 # ==============================================================================
 # 2. TOOL MANAGEMENT (The State Machine Factory)
@@ -88,6 +103,11 @@ func _handle_global_shortcuts(event: InputEventKey) -> void:
 	# F: Focus Camera
 	if event.keycode == KEY_F:
 		_center_camera_on_graph()
+	
+	# Ctrl+S: Save
+	if event.keycode == KEY_S and event.ctrl_pressed:
+		request_save_graph.emit(graph)
+		get_viewport().set_input_as_handled() # Prevent other nodes from reacting
 		
 	# Ctrl+Z / Ctrl+Y
 	if event.pressed and event.ctrl_pressed:

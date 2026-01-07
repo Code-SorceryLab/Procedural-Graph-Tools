@@ -62,3 +62,19 @@ func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	
 	var cmd = CmdDisconnect.new(_target_graph, a, b, w)
 	recorded_commands.append(cmd)
+
+func set_node_type(id: String, new_type: int) -> void:
+	# 1. Update Simulation (So the strategy logic "sees" the change immediately)
+	if nodes.has(id):
+		nodes[id].type = new_type
+		
+	# 2. Record Intent
+	# We need the OLD type to properly construct the Undo command.
+	# We grab it from the TARGET graph (the real history), not our simulation.
+	var old_type = 0
+	if _target_graph.nodes.has(id):
+		old_type = _target_graph.nodes[id].type
+		
+	# Create the command
+	var cmd = CmdSetType.new(_target_graph, id, old_type, new_type)
+	recorded_commands.append(cmd)

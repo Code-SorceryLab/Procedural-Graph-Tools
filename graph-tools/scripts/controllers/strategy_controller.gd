@@ -40,7 +40,8 @@ func _ready() -> void:
 	generate_btn.pressed.connect(_on_generate_pressed)
 	clear_btn.pressed.connect(_on_clear_pressed)
 	
-	_on_algo_selected(0)
+	if strategies.size() > 0:
+		_on_algo_selected(0)
 
 # --- DYNAMIC UI LOGIC ---
 func _on_algo_selected(index: int) -> void:
@@ -62,62 +63,67 @@ func _build_ui_for_strategy() -> void:
 		var type = setting["type"]
 		var default = setting.get("default", 0)
 		
-		# 1. Capture the hint
+		# Capture optional metadata
 		var hint_text = setting.get("hint", "")
+		var options_str = setting.get("options", "") 
 		
-		
-		# 2. Create Label & Apply Hint
+		# Create Label
 		var label = Label.new()
 		label.text = key.capitalize() 
-		# Apply tooltip to the label too, so hovering the text works
 		if hint_text != "":
 			label.tooltip_text = hint_text
-			label.mouse_filter = Control.MOUSE_FILTER_STOP # Required for Labels to catch mouse events
+			label.mouse_filter = Control.MOUSE_FILTER_STOP 
 		settings_container.add_child(label)
 		
 		var control: Control
 		
-		match type:
-			TYPE_INT, TYPE_FLOAT:
-				var spin = SpinBox.new()
-				
-				# --- CRITICAL FIX START ---
-				# We must set Min/Max/Step BEFORE setting Value.
-				spin.min_value = setting.get("min", 0)
-				spin.max_value = setting.get("max", 100)
-				
-				if type == TYPE_FLOAT:
-					# Use custom step if provided (e.g. 0.05), else default to 0.1
-					spin.step = setting.get("step", 0.1)
-				else:
-					spin.step = 1.0
+		# --- A. Check for Dropdown Options ---
+		if options_str != "":
+			var opt = OptionButton.new()
+			var items = options_str.split(",")
+			for i in range(items.size()):
+				opt.add_item(items[i].strip_edges(), i) 
+			
+			opt.selected = int(default)
+			control = opt
+			
+		# --- B. Standard Types ---
+		else:
+			match type:
+				# CRITICAL FIX: Removed "int" and "float" strings from this line.
+				# Comparing an INT variable to a STRING literal causes a crash.
+				TYPE_INT, TYPE_FLOAT:
+					var spin = SpinBox.new()
+					spin.min_value = setting.get("min", 0)
+					spin.max_value = setting.get("max", 100)
 					
-				spin.custom_arrow_step = spin.step
-				
-				# NOW we can safely set the value without it rounding to int
-				spin.value = default
-				# --- CRITICAL FIX END ---
-				
-				control = spin
-				
-			TYPE_BOOL:
-				var chk = CheckBox.new()
-				chk.text = "Enable"
-				chk.button_pressed = bool(default)
-				control = chk
+					if type == TYPE_FLOAT:
+						spin.step = setting.get("step", 0.1)
+					else:
+						spin.step = 1.0
+						
+					spin.custom_arrow_step = spin.step
+					spin.value = default
+					control = spin
+					
+				# Same fix here: Removed "bool" string
+				TYPE_BOOL:
+					var chk = CheckBox.new()
+					chk.text = "Enable"
+					chk.button_pressed = bool(default)
+					control = chk
 		
-		# 3. Apply Hint to the Input Control
+		# Add to Container
 		if control:
 			if hint_text != "":
 				control.tooltip_text = hint_text
 			
+			control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			settings_container.add_child(control)
 			_active_inputs[key] = control
-	
 
 	# 4. Handle Buttons Visibility
 	grow_btn.visible = current_strategy.supports_grow
-	
 	
 	if current_strategy.reset_on_generate:
 		generate_btn.text = "Generate"
@@ -128,10 +134,14 @@ func _collect_params() -> Dictionary:
 	var params = {}
 	for key in _active_inputs:
 		var control = _active_inputs[key]
+		
 		if control is SpinBox:
 			params[key] = control.value
 		elif control is CheckBox:
 			params[key] = control.button_pressed
+		elif control is OptionButton:
+			params[key] = control.selected
+			
 	params["merge_overlaps"] = merge_chk.button_pressed
 	return params
 

@@ -13,14 +13,16 @@ func get_settings() -> Array[Dictionary]:
 			"type": TYPE_INT, 
 			"default": 10, 
 			"min": 1, 
-			"max": 50 
+			"max": 50,
+			"hint": GraphSettings.PARAM_TOOLTIPS.common.width
 		},
 		{ 
 			"name": "height", 
 			"type": TYPE_INT, 
 			"default": 10, 
 			"min": 1, 
-			"max": 50 
+			"max": 50,
+			"hint": GraphSettings.PARAM_TOOLTIPS.common.height
 		}
 	]
 
