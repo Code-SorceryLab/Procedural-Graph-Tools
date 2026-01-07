@@ -224,6 +224,11 @@ func add_edge_selection(edge_pair: Array) -> void:
 		renderer.selected_edges_ref = selected_edges
 		edge_selection_changed.emit(selected_edges)
 
+func is_edge_selected(pair: Array) -> bool:
+	# Ensure the pair we check matches the sorted format in selected_edges
+	pair.sort() 
+	return selected_edges.has(pair)
+
 func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
@@ -333,6 +338,35 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 	
 	if change_count > 0:
 		_commit_command(batch)
+
+
+# Dedicated function for modifying existing weights
+func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
+	if not graph.has_edge(id_a, id_b):
+		return
+		
+	var current_w = graph.get_edge_weight(id_a, id_b)
+	if is_equal_approx(current_w, weight):
+		return # No change
+		
+	var cmd = CmdSetEdgeWeight.new(graph, id_a, id_b, weight)
+	_commit_command(cmd)
+
+# Helper for Directionality (One-Way vs Bi-Dir)
+func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
+	# Check current state to avoid redundant commands
+	var has_ab = graph.has_edge(id_a, id_b)
+	var has_ba = graph.has_edge(id_b, id_a)
+	
+	var current_mode = 0 # Bi-Dir
+	if has_ab and not has_ba: current_mode = 1
+	if not has_ab and has_ba: current_mode = 2
+	
+	if current_mode == mode:
+		return
+
+	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
+	_commit_command(cmd)
 
 # --- TRANSACTION MANAGEMENT ---
 

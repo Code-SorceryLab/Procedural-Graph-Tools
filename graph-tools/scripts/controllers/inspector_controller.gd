@@ -35,17 +35,31 @@ class_name InspectorController
 @export var lbl_group_density: Label
 @export var group_option_type: OptionButton 
 
+# 5. EDGE INSPECTOR
+@export_group("Edge Inspector")
+@export var edge_container: Control      # Parent container for edge UI
+@export var lbl_edge_header: Label       # e.g. "Edge A->B" or "5 Edges"
+@export var edge_settings_box: Control   # Where dynamic controls go
+
 # State tracking
 var _tracked_nodes: Array[String] = []
+var _tracked_edges: Array = []           # Array of [id_a, id_b] pairs
+
 var _is_updating_ui: bool = false
 var _current_walker_ref: Object = null 
 var _current_walker_list: Array = [] # Store all agents at this node
 
 # Store the dynamically generated controls
 var _walker_inputs: Dictionary = {}
+var _edge_inputs: Dictionary = {}        # Store edge controls
 
 func _ready() -> void:
 	graph_editor.selection_changed.connect(_on_selection_changed)
+	
+	# Connect Edge Selection
+	if graph_editor.has_signal("edge_selection_changed"):
+		graph_editor.edge_selection_changed.connect(_on_edge_selection_changed)
+	
 	set_process(false)
 	
 	# --- 1. CONFIGURE SPINBOXES ---
@@ -79,27 +93,200 @@ func _setup_type_dropdown(btn: OptionButton) -> void:
 		var type_name = GraphSettings.get_type_name(id)
 		btn.add_item(type_name, id)
 
+# ==============================================================================
+# SELECTION HANDLERS
+# ==============================================================================
+
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
+	_refresh_all_views()
+
+func _on_edge_selection_changed(selected_edges: Array) -> void:
+	_tracked_edges = selected_edges
 	
-	if _tracked_nodes.is_empty():
-		set_process(false)
-		_show_view(0)
-	elif _tracked_nodes.size() == 1:
-		set_process(true)
-		_show_view(1)
-		_update_single_inspector(_tracked_nodes[0])
+	# Immediate UI rebuild when selection changes (for dynamic controls)
+	if not _tracked_edges.is_empty():
+		_rebuild_edge_inspector_ui()
+		
+	_refresh_all_views()
+
+# THE NEW VISIBILITY ROUTER (Replaces _show_view)
+func _refresh_all_views() -> void:
+	var has_nodes = not _tracked_nodes.is_empty()
+	var has_edges = not _tracked_edges.is_empty()
+	
+	# 1. No Selection State
+	lbl_no_selection.visible = (not has_nodes and not has_edges)
+	
+	# 2. Node Inspector Logic
+	if has_nodes:
+		single_container.visible = (_tracked_nodes.size() == 1)
+		group_container.visible = (_tracked_nodes.size() > 1)
+		
+		# Trigger updates immediately so we don't wait for next frame
+		if _tracked_nodes.size() == 1:
+			_update_single_inspector(_tracked_nodes[0])
+		else:
+			_update_group_inspector(_tracked_nodes)
 	else:
-		set_process(true)
-		_show_view(2)
-		_update_group_inspector(_tracked_nodes)
+		single_container.visible = false
+		group_container.visible = false
+		
+	# 3. Edge Inspector Logic (Independent)
+	if has_edges:
+		edge_container.visible = true
+	else:
+		edge_container.visible = false
+		
+	# 4. Processing (Only needed for live Node position updates)
+	set_process(has_nodes)
 
-func _process(_delta: float) -> void:
-	if _tracked_nodes.size() == 1:
-		_update_single_inspector(_tracked_nodes[0])
-	elif _tracked_nodes.size() > 1:
-		_update_group_inspector(_tracked_nodes)
+# ==============================================================================
+# EDGE VIEW LOGIC (NEW)
+# ==============================================================================
 
+func _rebuild_edge_inspector_ui() -> void:
+	# 1. Clean up old UI
+	for child in edge_settings_box.get_children():
+		child.queue_free()
+	_edge_inputs.clear()
+	
+	if _tracked_edges.is_empty(): return
+
+	# 2. Determine Mode (Single vs Group)
+	var schema = []
+	var graph = graph_editor.graph # <--- Define graph reference here
+	
+	if _tracked_edges.size() == 1:
+		# --- SINGLE EDGE MODE ---
+		var pair = _tracked_edges[0]
+		var id_a = pair[0]
+		var id_b = pair[1]
+		
+		lbl_edge_header.text = "%s <-> %s" % [id_a, id_b]
+		
+		# Fetch Weight
+		var data = graph.get_edge_data(id_a, id_b)
+		var weight = data.get("weight", 1.0)
+		
+		# Fetch Direction Mode (0=Bi, 1=Fwd, 2=Rev)
+		var has_ab = graph.has_edge(id_a, id_b)
+		var has_ba = graph.has_edge(id_b, id_a)
+		
+		var current_mode = 0 
+		if has_ab and not has_ba: current_mode = 1
+		elif not has_ab and has_ba: current_mode = 2
+		
+		schema = [
+			{
+				"name": "weight", 
+				"type": TYPE_FLOAT, 
+				"default": weight, 
+				"min": 0.1, "max": 100.0, "step": 0.1
+			},
+			{
+				"name": "direction", 
+				"label": "Orientation", # Use label override
+				"type": TYPE_INT, 
+				"default": current_mode, 
+				"hint": "enum", 
+				"hint_string": "Bi-Directional,Forward (A->B),Reverse (B->A)"
+			}
+		]
+		
+	else:
+		# --- GROUP EDGE MODE ---
+		lbl_edge_header.text = "Selected %d Edges" % _tracked_edges.size()
+		
+		var total_w = 0.0
+		var first_w = -1.0
+		var is_mixed_w = false
+		
+		var first_mode = -1
+		var is_mixed_dir = false
+		
+		# Pass 1: Analyze weights AND direction
+		for i in range(_tracked_edges.size()):
+			var pair = _tracked_edges[i]
+			var u = pair[0] # Alphabetically first
+			var v = pair[1] # Alphabetically second
+			
+			# Check existence before grabbing weight
+			# If A->B exists, use it. If not, try B->A.
+			var w = 1.0
+			if graph.has_edge(u, v):
+				w = graph.get_edge_weight(u, v)
+			elif graph.has_edge(v, u):
+				w = graph.get_edge_weight(v, u)
+			
+			if i == 0:
+				first_w = w
+			elif not is_equal_approx(w, first_w):
+				is_mixed_w = true
+			total_w += w
+			
+			# 2. Direction Analysis (Unchanged)
+			var has_ab = graph.has_edge(u, v)
+			var has_ba = graph.has_edge(v, u)
+			var mode = 0 # Bi-Dir
+			if has_ab and not has_ba: mode = 1 # Fwd
+			elif not has_ab and has_ba: mode = 2 # Rev
+			
+			if i == 0:
+				first_mode = mode
+			elif mode != first_mode:
+				is_mixed_dir = true
+			
+		# Prepare Display Values
+		var display_w = first_w
+		var label_w = "Weight"
+		if is_mixed_w:
+			display_w = total_w / _tracked_edges.size()
+			label_w = "Weight (Average)"
+			
+		var display_mode = first_mode
+		var label_dir = "Orientation"
+		if is_mixed_dir:
+			display_mode = -1 # No selection
+			label_dir = "Orientation (Mixed)"
+		
+		schema = [
+			{
+				"name": "weight", 
+				"label": label_w,
+				"type": TYPE_FLOAT, 
+				"default": display_w, 
+				"min": 0.1, "max": 100.0, "step": 0.1
+			},
+			{
+				"name": "direction", 
+				"label": label_dir,
+				"type": TYPE_INT, 
+				"default": display_mode, 
+				"hint": "enum", 
+				"hint_string": "Bi-Directional,Forward (A->B),Reverse (B->A)"
+			}
+		]
+
+	# 3. Build UI
+	_edge_inputs = SettingsUIBuilder.build_ui(schema, edge_settings_box)
+	
+	# 4. Connect Signals
+	SettingsUIBuilder.connect_live_updates(_edge_inputs, _on_edge_setting_changed)
+
+func _on_edge_setting_changed(key: String, value: Variant) -> void:
+	if _tracked_edges.is_empty(): return
+	
+	for pair in _tracked_edges:
+		var u = pair[0]
+		var v = pair[1]
+		
+		match key:
+			"weight":
+				graph_editor.set_edge_weight(u, v, value)
+			"direction":
+				# Call the correctly named function with the INT value
+				graph_editor.set_edge_directionality(u, v, int(value))
 # --- VIEW LOGIC ---
 
 func _update_single_inspector(node_id: String) -> void:
@@ -278,7 +465,8 @@ func _show_view(view_index: int) -> void:
 
 func _clear_inspector() -> void:
 	_tracked_nodes = []
-	_show_view(0)
+	_tracked_edges = []
+	_refresh_all_views()
 
 # --- INPUT HANDLERS ---
 

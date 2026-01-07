@@ -112,24 +112,25 @@ func _start_moving_node(id: String) -> void:
 	# We only prepare for movement if the clicked node ended up selected
 	if _editor.selected_nodes.has(id):
 		_group_offsets.clear()
-		_drag_start_positions.clear() # <--- Reset history capture
+		_drag_start_positions.clear() 
 		
 		var anchor_pos = _graph.nodes[id].position
 		
 		for selected_id in _editor.selected_nodes:
-			# 1. Capture Visual Offset (For the dragging math)
+			# 1. Capture Visual Offset
 			if selected_id != id:
 				var diff = _graph.nodes[selected_id].position - anchor_pos
 				_group_offsets[selected_id] = diff
 			
-			# 2. Capture History Start Position (For Undo)
-			# We save WHERE the node was before we touched it.
+			# 2. Capture History Start Position
 			if _graph.nodes.has(selected_id):
 				_drag_start_positions[selected_id] = _graph.nodes[selected_id].position
 				
 	else:
-		# If we somehow clicked and deselected it (Ctrl click), don't drag
+		# FIX: If we deselected the node (Ctrl click), cancel BOTH logic and visuals
 		_drag_node_id = ""
+		_renderer.drag_start_id = "" # <--- Clears the orange line
+		_renderer.queue_redraw()     # <--- Forces immediate update
 
 func _finish_moving_node() -> void:
 	# --- COMMIT UNDO HISTORY ---
@@ -173,10 +174,7 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	
 	# Commit Box Selection
 	var rect = _get_rect(_box_start_pos, mouse_pos)
-	# 1. Get Nodes
 	var nodes_in_box = _graph.get_nodes_in_rect(rect)
-	
-	# 2. NEW: Get Edges
 	var edges_in_box = _graph.get_edges_in_rect(rect)
 	
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
@@ -184,12 +182,9 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	
 	if not is_shift and not is_ctrl:
 		# REPLACE Selection
-		_editor.clear_selection() # Clears both nodes and edges
-		
+		_editor.clear_selection() 
 		for id in nodes_in_box: _editor.add_to_selection(id)
-		
-		# Add Edges directly to the editor state
-		for pair in edges_in_box: _editor.toggle_edge_selection(pair)
+		for pair in edges_in_box: _editor.toggle_edge_selection(pair) # Toggle acts as Add here since cleared
 		
 	elif is_shift:
 		# ADD to Selection
@@ -197,12 +192,17 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 		for pair in edges_in_box: _editor.add_edge_selection(pair)
 		
 	elif is_ctrl:
-		# TOGGLE Selection
+		# SUBTRACT Selection (Nodes)
 		for id in nodes_in_box: 
-			if _editor.selected_nodes.has(id): _editor.toggle_selection(id)
+			if _editor.selected_nodes.has(id): 
+				_editor.toggle_selection(id)
 		
+		# SUBTRACT Selection (Edges) - FIXED
 		for pair in edges_in_box:
-			_editor.toggle_edge_selection(pair)
+			# Only toggle (deselect) if it is CURRENTLY selected.
+			# If GraphEditor doesn't have is_edge_selected, use _editor.selected_edges.has(pair)
+			if _editor.is_edge_selected(pair):
+				_editor.toggle_edge_selection(pair)
 			
 	# Cleanup
 	_box_start_pos = Vector2.INF

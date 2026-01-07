@@ -17,12 +17,14 @@ static func build_ui(settings_list: Array, container: Control, tooltip_map: Dict
 		
 		# Metadata
 		var hint_text = setting.get("hint", "")
+		var hint_string = setting.get("hint_string", "")
 		var options_str = setting.get("options", "")
 		
 		# 1. Create Label
 		var label = Label.new()
-		label.text = key.capitalize()
-		if hint_text != "":
+		# Use 'label' key if present, otherwise capitalize the name
+		label.text = setting.get("label", setting.name.capitalize())
+		if hint_text != "" and hint_text != "enum":
 			label.tooltip_text = hint_text
 			label.mouse_filter = Control.MOUSE_FILTER_STOP
 		container.add_child(label)
@@ -30,7 +32,8 @@ static func build_ui(settings_list: Array, container: Control, tooltip_map: Dict
 		var control: Control
 		
 		# 2. Create Control
-		# A. Dropdown (OptionButton)
+		
+		# A. Custom "options" string (Legacy support)
 		if options_str != "":
 			var opt = OptionButton.new()
 			var items = options_str.split(",")
@@ -42,17 +45,30 @@ static func build_ui(settings_list: Array, container: Control, tooltip_map: Dict
 		# B. Standard Types
 		else:
 			match type:
-				TYPE_INT, TYPE_FLOAT:
+				TYPE_INT:
+					# NEW: Support for Enum Hints (Dropdowns)
+					if hint_text == "enum":
+						var opt = OptionButton.new()
+						var items = hint_string.split(",")
+						for i in range(items.size()):
+							opt.add_item(items[i].strip_edges(), i)
+						opt.selected = int(default)
+						control = opt
+					else:
+						# Standard SpinBox
+						var spin = SpinBox.new()
+						spin.min_value = setting.get("min", -99999)
+						spin.max_value = setting.get("max", 99999)
+						spin.step = 1.0
+						spin.custom_arrow_step = 1.0
+						spin.value = default
+						control = spin
+						
+				TYPE_FLOAT:
 					var spin = SpinBox.new()
 					spin.min_value = setting.get("min", -99999)
 					spin.max_value = setting.get("max", 99999)
-					
-					if type == TYPE_FLOAT:
-						spin.step = setting.get("step", 0.1)
-					else:
-						spin.step = 1.0
-						spin.custom_arrow_step = 1.0
-						
+					spin.step = setting.get("step", 0.1)
 					spin.value = default
 					control = spin
 					
@@ -87,7 +103,8 @@ static func build_ui(settings_list: Array, container: Control, tooltip_map: Dict
 		
 		# 3. Add to Container & Dictionary
 		if control:
-			if hint_text != "":
+			# Apply tooltip to control as well
+			if hint_text != "" and hint_text != "enum":
 				control.tooltip_text = hint_text
 			
 			control.size_flags_horizontal = Control.SIZE_EXPAND_FILL

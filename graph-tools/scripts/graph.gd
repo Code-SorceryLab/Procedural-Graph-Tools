@@ -251,6 +251,26 @@ func get_edges_in_rect(rect: Rect2) -> Array:
 				
 	return result
 
+# Updates existing edge or creates new one
+func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
+	# 1. Handle Non-Existent Edge
+	if not has_edge(id_a, id_b):
+		add_edge(id_a, id_b, weight) # FIXED: Was 'connect_node'
+		return
+		
+	# 2. Update Legacy Adjacency (CRITICAL for A* Pathfinding)
+	if nodes.has(id_a):
+		nodes[id_a].connections[id_b] = weight
+		
+	# 3. Update Rich Data (For Inspector/Logic)
+	if edge_data.has(id_a) and edge_data[id_a].has(id_b):
+		edge_data[id_a][id_b]["weight"] = weight
+	
+	# Note: We do NOT automatically update B->A here. 
+	# This allows for asymmetric weights (e.g. going uphill vs downhill).
+
+
+
 # Find node at exact position (for mouse picking)
 func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
 	if pick_radius < 0:
@@ -376,7 +396,7 @@ func get_astar_path(start_id: String, end_id: String) -> Array[String]:
 	
 	return []
 
-# OPTIONAL: Add a squared distance heuristic for even better performance
+# Add a squared distance heuristic for even better performance
 # (avoids sqrt calculation)
 func _heuristic_squared(a: String, b: String) -> float:
 	var pos_a = nodes[a].position

@@ -43,27 +43,30 @@ btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetSt
 btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
 btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
 lbl_no_selection = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
-single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer")
+single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer")
 group_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer")
-lbl_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblID")
-spin_pos_x = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/SpinPosX")
-spin_pos_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/SpinPosY")
-option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer/OptionType")
-lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblEdges")
-lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/LblNeighbors")
-walker_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer")
-opt_walker_select = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/OptWalkerSelect")
-lbl_walker_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer/LblWalkerID")
+lbl_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblID")
+spin_pos_x = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/SpinPosX")
+spin_pos_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/SpinPosY")
+option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/OptionType")
+lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblEdges")
+lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblNeighbors")
+walker_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer")
+opt_walker_select = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer/OptWalkerSelect")
+lbl_walker_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer/LblWalkerID")
 lbl_group_count = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCount")
 lbl_group_center = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCenter")
 lbl_group_bounds = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupBounds")
 lbl_group_density = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupDensity")
 group_option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/GroupOptionType")
+edge_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer")
+lbl_edge_header = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer/LblEdgeHeader")
+edge_settings_box = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer/EdgeSettingsBox")
 
 [node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
 script = ExtResource("5_u2lal")
@@ -73,7 +76,7 @@ toolbar = NodePath("../UI/Toolbar")
 [node name="StatusController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label")]
 script = ExtResource("7_el7nm")
 graph_editor = NodePath("../GraphEditor")
-status_label = NodePath("../UI/StatusBar/MarginContainer/StatusLabel")
+status_label = NodePath("../UI/StatusBar/SidebarPadding/StatusLabel")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 
@@ -202,49 +205,61 @@ text = "Select a node to view details."
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="DataContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+[node name="SingleNodeContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
 layout_mode = 2
 
-[node name="LblID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="LblID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
 layout_mode = 2
 
-[node name="SpinPosX" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+[node name="LblPos" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Position: "
+
+[node name="PositionRow" type="GridContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+columns = 3
+
+[node name="SpinPosX" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
 layout_mode = 2
 min_value = -9999.0
 max_value = 9999.0
 step = 60.0
 
-[node name="SpinPosY" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+[node name="SpinPosY" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
 layout_mode = 2
 min_value = -9999.0
 max_value = 9999.0
 
-[node name="OptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/HBoxContainer"]
+[node name="OptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
 layout_mode = 2
 
-[node name="LblPos" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="LblType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Type: "
+
+[node name="HSeparator2" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
 layout_mode = 2
 
-[node name="LblType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="LblEdges" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Edges: "
+
+[node name="LblNeighbors" type="RichTextLabel" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Neighbors: "
+
+[node name="WalkerContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
 layout_mode = 2
 
-[node name="LblEdges" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="OptWalkerSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer"]
 layout_mode = 2
 
-[node name="LblNeighbors" type="RichTextLabel" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
+[node name="LblWalkerID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer"]
 layout_mode = 2
-
-[node name="WalkerContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer"]
-layout_mode = 2
-
-[node name="OptWalkerSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
-layout_mode = 2
-
-[node name="LblWalkerID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/DataContainer/WalkerContainer"]
-layout_mode = 2
+text = "Walker ID: "
 
 [node name="GroupContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
 visible = false
@@ -262,10 +277,23 @@ layout_mode = 2
 [node name="LblGroupDensity" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
 layout_mode = 2
 
-[node name="LblSetType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+[node name="LblBulkEditHeader" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
 layout_mode = 2
 
 [node name="GroupOptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="EdgeContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+layout_mode = 2
+
+[node name="LblEdgeHeader" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer"]
+layout_mode = 2
+text = "Edge Selection"
+
+[node name="EdgeSettingsBox" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer"]
 layout_mode = 2
 
 [node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
@@ -281,10 +309,10 @@ offset_top = -30.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="MarginContainer" type="MarginContainer" parent="UI/StatusBar"]
+[node name="SidebarPadding" type="MarginContainer" parent="UI/StatusBar"]
 layout_mode = 2
 
-[node name="StatusLabel" type="Label" parent="UI/StatusBar/MarginContainer"]
+[node name="StatusLabel" type="Label" parent="UI/StatusBar/SidebarPadding"]
 layout_mode = 2
 text = "Ready"
 vertical_alignment = 1
