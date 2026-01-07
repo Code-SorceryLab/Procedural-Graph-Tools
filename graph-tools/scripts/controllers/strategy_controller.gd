@@ -26,6 +26,7 @@ func _ready() -> void:
 	strategies.append(StrategyWalker.new())
 	strategies.append(StrategyMST.new())
 	strategies.append(StrategyDLA.new())
+	strategies.append(StrategyCA.new())
 	strategies.append(StrategyPolar.new()) 
 	strategies.append(StrategyAnalyze.new())
 	
@@ -61,8 +62,17 @@ func _build_ui_for_strategy() -> void:
 		var type = setting["type"]
 		var default = setting.get("default", 0)
 		
+		# 1. Capture the hint
+		var hint_text = setting.get("hint", "")
+		
+		
+		# 2. Create Label & Apply Hint
 		var label = Label.new()
 		label.text = key.capitalize() 
+		# Apply tooltip to the label too, so hovering the text works
+		if hint_text != "":
+			label.tooltip_text = hint_text
+			label.mouse_filter = Control.MOUSE_FILTER_STOP # Required for Labels to catch mouse events
 		settings_container.add_child(label)
 		
 		var control: Control
@@ -95,12 +105,16 @@ func _build_ui_for_strategy() -> void:
 				chk.text = "Enable"
 				chk.button_pressed = bool(default)
 				control = chk
-				
+		
+		# 3. Apply Hint to the Input Control
 		if control:
+			if hint_text != "":
+				control.tooltip_text = hint_text
+			
 			settings_container.add_child(control)
 			_active_inputs[key] = control
 	
-	# 4. Handle Buttons Visibility
+
 	# 4. Handle Buttons Visibility
 	grow_btn.visible = current_strategy.supports_grow
 	

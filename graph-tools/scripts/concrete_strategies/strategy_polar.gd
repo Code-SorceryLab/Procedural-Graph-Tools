@@ -14,30 +14,34 @@ func get_settings() -> Array[Dictionary]:
 			"type": TYPE_INT, 
 			"default": 6, 
 			"min": 3, 
-			"max": 32 
+			"max": 32,
+			"hint": GraphSettings.PARAM_TOOLTIPS.polar.wedges
 		},
 		{ 
 			"name": "radius", 
 			"type": TYPE_INT, 
 			"default": 8, 
 			"min": 2, 
-			"max": 50 
+			"max": 50,
+			"hint": GraphSettings.PARAM_TOOLTIPS.polar.radius
 		},
 		{ 
 			"name": "use_jitter", 
 			"type": TYPE_BOOL, 
-			"default": false 
+			"default": false,
+			"hint": GraphSettings.PARAM_TOOLTIPS.polar.jitter
 		},
 		{ 
 			"name": "jitter_amount", 
 			"type": TYPE_FLOAT, 
 			"default": 10.0, 
 			"min": 0.0, 
-			"max": 50.0 
+			"max": 50.0,
+			"hint": GraphSettings.PARAM_TOOLTIPS.polar.amount
 		}
 	]
 
-func execute(graph: Graph, params: Dictionary) -> void:
+func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	# 1. Extract params safely
 	# We use the exact keys defined in 'name' above
 	var wedge_count = int(params.get("wedges", 6))

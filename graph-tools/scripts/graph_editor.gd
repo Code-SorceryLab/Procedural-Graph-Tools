@@ -16,8 +16,8 @@ signal graph_modified
 var graph: Graph = Graph.new()
 
 # --- STATE MANAGEMENT ---
-# The Active Tool (State Machine Pattern)
-var current_tool: GraphTool
+# Tool Manager
+var tool_manager: GraphToolManager
 
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
@@ -34,10 +34,7 @@ var _next_id_counter: int = 0
 var _manual_counter: int = 0
 
 # --- HISTORY STATE ---
-var _undo_stack: Array[GraphCommand] = []
-var _redo_stack: Array[GraphCommand] = []
-# The active transaction (if any)
-var _active_transaction: CmdBatch = null
+var history: GraphHistory
 
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
@@ -53,43 +50,24 @@ func _ready() -> void:
 	renderer.path_start_id = ""
 	renderer.path_end_id = ""
 	
+	# Initialize History
+	history = GraphHistory.new(graph)
+	
+	# Initialize Manager
+	tool_manager = GraphToolManager.new(self)
+	
 	# Start with the default tool
 	set_active_tool(GraphSettings.Tool.SELECT)
+	
 	renderer.queue_redraw()
-
+	
+	
+	
 # ==============================================================================
 # 2. TOOL MANAGEMENT (The State Machine Factory)
 # ==============================================================================
 func set_active_tool(tool_id: int) -> void:
-	print("GraphEditor: Switching to tool ", tool_id)
-	
-	# 1. Cleanup the old tool
-	if current_tool:
-		current_tool.exit()
-	
-	# 2. Instantiate the new tool (Factory Pattern)
-	match tool_id:
-		GraphSettings.Tool.SELECT:
-			current_tool = GraphToolSelect.new(self)
-		GraphSettings.Tool.ADD_NODE:
-			current_tool = GraphToolAddNode.new(self)
-		GraphSettings.Tool.CONNECT:
-			current_tool = GraphToolConnect.new(self)
-		GraphSettings.Tool.DELETE:
-			current_tool = GraphToolDelete.new(self)
-		GraphSettings.Tool.PAINT:
-			current_tool = GraphToolPaint.new(self)
-		GraphSettings.Tool.CUT:
-			current_tool = GraphToolCut.new(self)
-		GraphSettings.Tool.TYPE_PAINT:
-			current_tool = GraphToolPropertyPaint.new(self)
-		_:
-			push_warning("Unknown tool ID: %d. Defaulting to Select." % tool_id)
-			current_tool = GraphToolSelect.new(self)
-			
-	# 3. Initialize the new tool
-	if current_tool:
-		current_tool.enter()
+	tool_manager.set_active_tool(tool_id)
 
 # Public API for tools to call
 func send_status_message(message: String) -> void:
@@ -99,13 +77,12 @@ func send_status_message(message: String) -> void:
 # 3. INPUT ROUTING
 # ==============================================================================
 func _unhandled_input(event: InputEvent) -> void:
-	# 1. Handle Global Shortcuts first (F, etc.)
+	# 1. Handle Global Shortcuts first
 	if event is InputEventKey and event.pressed:
 		_handle_global_shortcuts(event)
 
-	# 2. Delegate everything else to the Active Tool
-	if current_tool:
-		current_tool.handle_input(event)
+	# 2. Delegate to Manager
+	tool_manager.handle_input(event)
 
 func _handle_global_shortcuts(event: InputEventKey) -> void:
 	# F: Focus Camera
@@ -316,37 +293,12 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 # --- TRANSACTION MANAGEMENT ---
 
 func start_undo_transaction(action_name: String, refocus_camera: bool = true) -> void:
-	# 1. NEW: Check Atomic Preference
-	# If the user wants every single action to be separate, we REFUSE to start a transaction.
-	if GraphSettings.USE_ATOMIC_UNDO:
-		return
-
-	# 2. Existing Logic
-	if _active_transaction != null:
-		push_warning("GraphEditor: Transaction overlap.")
-		return
-		
-	_active_transaction = CmdBatch.new(graph, action_name, refocus_camera)
-	print("Transaction Started: ", action_name)
+	history.start_transaction(action_name, refocus_camera)
 
 func commit_undo_transaction() -> void:
-	# 1. Safety Check
-	# If Atomic Mode was on, _active_transaction will be null (because we never started it).
-	# This function will just exit gracefully, which is exactly what we want.
-	if _active_transaction == null:
-		return
-		
-	if not _active_transaction._commands.is_empty():
-		_undo_stack.append(_active_transaction)
-		_redo_stack.clear()
-		
-		if _undo_stack.size() > GraphSettings.MAX_HISTORY_STEPS:
-			_undo_stack.pop_front()
-			
-		print("Transaction Committed: %s" % _active_transaction.get_name())
-		
-	_active_transaction = null
-	mark_modified()
+	var batch = history.commit_transaction()
+	if batch:
+		mark_modified()
 
 # ==============================================================================
 # 5. GENERAL API (Called by GamePlayer / UI)
@@ -389,81 +341,59 @@ func mark_modified() -> void:
 # --- HISTORY MANAGEMENT ---
 
 func _commit_command(cmd: GraphCommand) -> void:
-	# 1. ALWAYS Execute immediately (Visual feedback)
-	cmd.execute()
+	# Delegate logic to History class
+	history.add_command(cmd)
 	
-	# 2. DECIDE: Transaction or Stack?
-	if _active_transaction != null:
-		# We are in the middle of a stroke. Add to the batch.
-		_active_transaction.add_command(cmd)
-		# Do NOT clear redo stack yet, do NOT check max history yet.
-	else:
-		# Standard atomic behavior
-		_undo_stack.append(cmd)
-		_redo_stack.clear()
-		
-		if _undo_stack.size() > GraphSettings.MAX_HISTORY_STEPS:
-			_undo_stack.pop_front()
-	
-	# 3. Global Updates (Dirty flags)
+	# UI Updates
 	mark_modified()
 	renderer.queue_redraw()
-	print("Command Executed: %s" % cmd.get_name())
+	# print("Command Executed: %s" % cmd.get_name())
 
 # --- HISTORY MANAGEMENT (Undo/Redo) ---
 
 func undo() -> void:
-	if _undo_stack.is_empty(): return
+	# 1. Ask History to perform the logic
+	var cmd = history.undo()
+	
+	# 2. If valid, update the UI
+	if cmd:
+		mark_modified()
+		renderer.queue_redraw()
+		print("Undo: %s" % cmd.get_name())
 		
-	var cmd = _undo_stack.pop_back()
-	cmd.undo()
-	_redo_stack.append(cmd)
-	
-	mark_modified()
-	renderer.queue_redraw()
-	print("Undo: %s" % cmd.get_name())
-	
-	# --- BATCH HANDLING ---
-	if cmd is CmdBatch:
-		# 1. Camera Focus
-		if cmd.center_on_undo:
-			_center_camera_on_graph()
+		# --- BATCH UI HANDLING ---
+		if cmd is CmdBatch:
+			if cmd.center_on_undo:
+				_center_camera_on_graph()
 			
-		# 2. CLEAR VISUAL ARTIFACTS
-		# If we undo a generation, we must wipe the "Cyan Nodes" and "Rings"
-		# because they might point to nodes that no longer exist.
-		new_nodes.clear()
-		renderer.new_nodes_ref = new_nodes
-		set_path_start("")
-		set_path_end("")
+			# Clear visual artifacts (Cyan nodes / Rings)
+			new_nodes.clear()
+			renderer.new_nodes_ref = new_nodes
+			set_path_start("")
+			set_path_end("")
 
 func redo() -> void:
-	if _redo_stack.is_empty(): return
+	var cmd = history.redo()
+	
+	if cmd:
+		mark_modified()
+		renderer.queue_redraw()
+		print("Redo: %s" % cmd.get_name())
 		
-	var cmd = _redo_stack.pop_back()
-	cmd.execute()
-	_undo_stack.append(cmd)
-	
-	mark_modified()
-	renderer.queue_redraw()
-	print("Redo: %s" % cmd.get_name())
-	
-	# --- BATCH HANDLING ---
-	if cmd is CmdBatch:
-		# 1. Camera Focus
-		if cmd.center_on_undo:
-			_center_camera_on_graph()
-			
-		# 2. CLEAR VISUAL ARTIFACTS
-		# Even on Redo, we clear them. The data returns, but the "New Node" 
-		# highlight effect is transient and shouldn't persist.
-		new_nodes.clear()
-		renderer.new_nodes_ref = new_nodes
-		set_path_start("")
-		set_path_end("")
+		if cmd is CmdBatch:
+			if cmd.center_on_undo:
+				_center_camera_on_graph()
+				
+			new_nodes.clear()
+			renderer.new_nodes_ref = new_nodes
+			set_path_start("")
+			set_path_end("")
 
 func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
+	
+	# Re-initialize history with the new graph reference
+	history = GraphHistory.new(graph)
 	
 	# Reset state
 	_reset_local_state()
@@ -481,80 +411,32 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	
-	if current_tool:
-		current_tool._graph = graph
+	# Update Tool Manager
+	tool_manager.update_tool_graph_reference(graph)
 		
 	_center_camera_on_graph()
 	renderer.queue_redraw()
 
 func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
-	# 1. Prepare Visualization Logic
-	# We Snapshot existing nodes so we can highlight what changed later
-	# (Legacy fallback if the strategy doesn't output 'out_highlight_nodes')
+	# 1. Snapshot state (for the Diff logic later)
 	var existing_ids = {}
 	for id in graph.nodes:
 		existing_ids[id] = true
 	
 	_reset_local_state()
 
-	# 2. Create the Batch
-	var batch = CmdBatch.new(graph, "Run %s" % strategy.strategy_name)
+	# 2. Execute Strategy (Logic Phase)
+	var batch = StrategyExecutor.execute(self, strategy, params)
 	
-	# 3. Handle "Reset on Generate" (Destructive Start)
-	# If the strategy wants a clean slate, we add delete commands to the batch FIRST.
-	if strategy.reset_on_generate and not params.get("append", false):
-		for id in graph.nodes.keys():
-			batch.add_command(CmdDeleteNode.new(graph, id))
-	
-	# 4. Setup the Sandbox (Recorder)
-	# We initialize it with the CURRENT state of the graph.
-	# If we are appending, the Walker needs to see existing walls.
-	var recorder = GraphRecorder.new(graph)
-	
-	# 5. Run the Strategy on the RECORDER
-	# The strategy runs, fills the recorder's memory, and populates 'recorded_commands'
-	strategy.execute(recorder, params)
-	
-	# 6. Harvest Commands
-	# Move the commands from the recorder to our Batch
-	for cmd in recorder.recorded_commands:
-		batch.add_command(cmd)
-		
-	# 7. Commit
-	# Only commit if something actually happened
-	if not batch._commands.is_empty():
+	# 3. Commit (Data Phase)
+	if batch:
 		_commit_command(batch)
-
-	# ==========================================================================
-	# VISUALIZATION (Post-Process)
-	# ==========================================================================
-	
-	new_nodes.clear()
-	
-	# A. Get Highlight Path (Prioritize Strategy Output)
-	if params.has("out_highlight_nodes"):
-		new_nodes = params["out_highlight_nodes"]
-	else:
-		# B. Fallback Diff Logic (For strategies that don't support the new param)
-		for id in graph.nodes:
-			if not existing_ids.has(id):
-				new_nodes.append(id)
-	
-	# C. Set Indicators (Head / Start)
-	if params.has("out_head_node"):
-		set_path_end(params["out_head_node"])
-	else:
-		set_path_end("")
-
-	if params.has("out_start_node"):
-		set_path_start(params["out_start_node"])
-	else:
-		set_path_start("")
-	
-	# Finalize
-	renderer.new_nodes_ref = new_nodes
-	_center_camera_on_graph()
-	# queue_redraw and mark_modified handled by _commit_command
+		
+		# 4. Visualize (Visual Phase)
+		# We pass the snapshot so the executor knows what is "new"
+		StrategyExecutor.process_visualization(self, params, existing_ids)
+		
+		_center_camera_on_graph()
 
 # ==============================================================================
 # 6. INTERNAL HELPERS

@@ -19,7 +19,7 @@ func get_settings() -> Array[Dictionary]:
 		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false }
 	]
 
-func execute(graph: Graph, params: Dictionary) -> void:
+func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var steps = int(params.get("steps", 50))
 	var branch_randomly = params.get("branch_randomly", false)
 	var append_mode = params.get("append", false)

@@ -24,7 +24,7 @@ func get_settings() -> Array[Dictionary]:
 		}
 	]
 
-func execute(graph: Graph, params: Dictionary) -> void:
+func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	# 1. Extract Params
 	var width = int(params.get("width", 10))
 	var height = int(params.get("height", 10))

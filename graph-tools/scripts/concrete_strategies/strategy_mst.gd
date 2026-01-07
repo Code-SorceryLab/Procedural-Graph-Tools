@@ -13,7 +13,7 @@ func get_settings() -> Array[Dictionary]:
 	# We return an empty array so the Controller knows to CLEAR the UI.
 	return [] 
 
-func execute(graph: Graph, _params: Dictionary) -> void:
+func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	# 1. Validation
 	var nodes_list = graph.nodes.keys()
 	if nodes_list.is_empty():

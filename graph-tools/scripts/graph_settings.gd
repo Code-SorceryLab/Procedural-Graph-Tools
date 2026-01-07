@@ -8,13 +8,42 @@ const SNAP_GRID_SIZE: Vector2 = Vector2(CELL_SIZE, CELL_SIZE)
 const INSPECTOR_POS_STEP: float = 1.0
 
 # ==============================================================================
-# 2. RENDERER VISUALS (SIZES)
+# 2. ALGORITHM & PARAMETER DEFINITIONS
+# ==============================================================================
+
+# Centralized definitions for UI Tooltips
+const PARAM_TOOLTIPS = {
+	"common": {
+		"width": "The horizontal size of the generation area in grid cells.",
+		"height": "The vertical size of the generation area in grid cells.",
+		"steps": "The total number of steps or nodes to generate.",
+		"merge": "If enabled, new nodes will connect to existing ones when they overlap.\nIf disabled, they will layer on top."
+	},
+	"ca": {
+		"fill": "The percentage (0-100) of the grid that starts as solid walls.\n45% is the standard for cave generation.",
+		"iter": "The number of smoothing passes to apply.\nMore iterations create smoother walls and larger chambers."
+	},
+	"dla": {
+		"particles": "The total number of particles to spawn and aggregate.",
+		"box_spawn": "If enabled, particles spawn from the bounding box edges.\nIf disabled, they spawn in a circle.",
+		"gravity": "The strength of the pull towards the center (0.0 - 1.0).\nHigher values create dense, compact clusters.\nLower values create branching, coral-like structures. \nLower gravity is also less performant."
+	},
+	"polar": {
+		"wedges": "The number of angular sectors to divide the circle into.\nExample: 6 creates a Hexagon, 4 creates a Square/Diamond.",
+		"radius": "The number of concentric rings extending outward from the center.",
+		"jitter": "Adds random noise to node positions, making the structure look more organic/ruined.",
+		"amount": "The maximum pixel distance a node can be displaced from its perfect grid position."
+	}
+}
+
+# ==============================================================================
+# 3. RENDERER VISUALS (SIZES)
 # ==============================================================================
 const NODE_RADIUS: float = 12.0
 const EDGE_WIDTH: float = 3.0
 
 # ==============================================================================
-# 3. UI STATE COLORS
+# 4. UI STATE COLORS
 # ==============================================================================
 const COLOR_DEFAULT: Color = Color(0.9, 0.9, 0.9)
 const COLOR_HOVER: Color = Color(0.6, 0.8, 1.0)
@@ -37,9 +66,9 @@ const COLOR_UI_ACTIVE: Color = Color.WHITE
 const COLOR_UI_DISABLED: Color = Color(1, 1, 1, 0.5)
 
 # ==============================================================================
-# 4. SEMANTIC ROOM COLORS (DYNAMIC LEGEND)
+# 5. SEMANTIC ROOM COLORS (DYNAMIC LEGEND)
 # ==============================================================================
-# CHANGED: Separate Defaults from the Active State so we can restore later.
+# Separate Defaults from the Active State so we can restore later.
 
 const DEFAULT_COLORS: Dictionary = {
 	NodeData.RoomType.EMPTY:    Color(0.8, 0.8, 0.8),
@@ -64,7 +93,7 @@ static var current_colors: Dictionary = DEFAULT_COLORS.duplicate()
 static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 
 # ==============================================================================
-# 5. TOOL DEFINITIONS
+# 6. TOOL DEFINITIONS
 # ==============================================================================
 enum Tool { SELECT, ADD_NODE, CONNECT, DELETE, RECTANGLE, MEASURE, PAINT, CUT, TYPE_PAINT }
 
@@ -83,14 +112,14 @@ static var TOOL_DATA: Dictionary = {
 }
 
 # ==============================================================================
-# 6. COMMAND DEFINITIONS
+# 7. COMMAND DEFINITIONS
 # ==============================================================================
 static var MAX_HISTORY_STEPS: int = 50
 static var USE_ATOMIC_UNDO: bool = false
 
 
 # ==============================================================================
-# 7. HELPER FUNCTIONS
+# 8. HELPER FUNCTIONS
 # ==============================================================================
 
 static func get_tool_icon(tool_id: int) -> Texture2D:
