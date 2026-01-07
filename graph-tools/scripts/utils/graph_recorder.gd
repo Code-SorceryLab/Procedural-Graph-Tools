@@ -15,14 +15,17 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 		# 1. Duplicate nodes
 		for id in target.nodes:
 			nodes[id] = target.nodes[id].duplicate()
+		
+		# 2. Duplicate Edge Data (Deep Copy)
+		edge_data = target.edge_data.duplicate(true)
 			
-		# 2. Rebuild spatial grid
+		# 3. Rebuild spatial grid
 		_rebuild_spatial_grid()
 
 # --- MUTATOR OVERRIDES ---
 
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
-	# FIX: Check if the node already exists in our simulation
+	# Check if the node already exists in our simulation
 	var already_exists = nodes.has(id)
 	
 	# 1. Update Simulation (Pass-Through)
@@ -33,17 +36,14 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 		var cmd = CmdAddNode.new(_target_graph, id, pos)
 		recorded_commands.append(cmd)
 
-func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false) -> void:
-	# FIX: Check if the edge already exists in our simulation
-	# We use 'has_edge' which we added to Graph.gd earlier
+func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
 	var already_exists = has_edge(a, b)
 	
-	# 1. Update Simulation
-	super.add_edge(a, b, weight, directed)
+	# Pass data through to simulation
+	super.add_edge(a, b, weight, directed, extra_data)
 	
-	# 2. Record Intent (ONLY if it didn't exist before)
-	# This prevents "Double Booking" edges that belong to the underlying Grid
 	if not already_exists:
+		# TODO: Update CmdConnect later to support 'extra_data'
 		var cmd = CmdConnect.new(_target_graph, a, b, weight)
 		recorded_commands.append(cmd)
 
@@ -57,7 +57,6 @@ func remove_node(id: String) -> void:
 
 func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	var w = get_edge_weight(a, b)
-	
 	super.remove_edge(a, b, directed)
 	
 	var cmd = CmdDisconnect.new(_target_graph, a, b, w)

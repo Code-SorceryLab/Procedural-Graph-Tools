@@ -26,7 +26,16 @@ func handle_input(event: InputEvent) -> void:
 				if not clicked_id.is_empty():
 					_start_moving_node(clicked_id)
 				else:
-					_start_box_selection(mouse_pos)
+					# NEW: Check for Edge Click
+					# We use the math function we added to Graph.gd in Step 1
+					var clicked_edge = _graph.get_edge_at_position(mouse_pos)
+					
+					if not clicked_edge.is_empty():
+						_handle_edge_click(clicked_edge)
+					else:
+						# If neither node nor edge, start box select
+						_start_box_selection(mouse_pos)
+
 			else:
 				# --- CLICK RELEASE ---
 				if not _drag_node_id.is_empty():
@@ -51,15 +60,12 @@ func handle_input(event: InputEvent) -> void:
 			_editor.set_node_position(_drag_node_id, anchor_pos)
 			
 			# 3. Move the Group (Relative to Anchor)
-			# We skip the anchor itself since we just moved it
 			for id in _group_offsets:
 				if id == _drag_node_id: continue
 				
 				var offset = _group_offsets[id]
 				var new_group_pos = anchor_pos + offset
 				
-				# Note: We don't snap group members individually. 
-				# They maintain their relative formation.
 				_editor.set_node_position(id, new_group_pos)
 			
 		# Update Box State
@@ -74,7 +80,15 @@ func handle_input(event: InputEvent) -> void:
 
 # --- HELPER FUNCTIONS ---
 
-# --- HELPER FUNCTIONS ---
+# Edge Selection Logic
+func _handle_edge_click(edge_pair: Array) -> void:
+	# Check modifiers
+	if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL):
+		_editor.toggle_edge_selection(edge_pair)
+	else:
+		# Standard Click: Clear everything else, select this edge
+		_editor.clear_selection()
+		_editor.set_edge_selection(edge_pair)
 
 func _start_moving_node(id: String) -> void:
 	_drag_node_id = id
@@ -145,9 +159,9 @@ func _start_box_selection(pos: Vector2) -> void:
 	_box_start_pos = pos
 
 func _finish_box_selection(mouse_pos: Vector2) -> void:
-	# ... (Keep existing box selection code unchanged) ...
-	# Just for completeness of the copy-paste, here is the short version:
 	var drag_dist = _box_start_pos.distance_to(mouse_pos)
+	
+	# Deselect logic for small clicks
 	if drag_dist < DRAG_THRESHOLD:
 		if not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_CTRL):
 			_editor.clear_selection()
@@ -157,20 +171,40 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 		_renderer.queue_redraw()
 		return
 	
+	# Commit Box Selection
 	var rect = _get_rect(_box_start_pos, mouse_pos)
+	# 1. Get Nodes
 	var nodes_in_box = _graph.get_nodes_in_rect(rect)
+	
+	# 2. NEW: Get Edges
+	var edges_in_box = _graph.get_edges_in_rect(rect)
+	
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
 	
 	if not is_shift and not is_ctrl:
-		_editor.clear_selection()
+		# REPLACE Selection
+		_editor.clear_selection() # Clears both nodes and edges
+		
 		for id in nodes_in_box: _editor.add_to_selection(id)
+		
+		# Add Edges directly to the editor state
+		for pair in edges_in_box: _editor.toggle_edge_selection(pair)
+		
 	elif is_shift:
+		# ADD to Selection
 		for id in nodes_in_box: _editor.add_to_selection(id)
+		for pair in edges_in_box: _editor.add_edge_selection(pair)
+		
 	elif is_ctrl:
-		for id in nodes_in_box:
+		# TOGGLE Selection
+		for id in nodes_in_box: 
 			if _editor.selected_nodes.has(id): _editor.toggle_selection(id)
+		
+		for pair in edges_in_box:
+			_editor.toggle_edge_selection(pair)
 			
+	# Cleanup
 	_box_start_pos = Vector2.INF
 	_renderer.selection_rect = Rect2()
 	_renderer.pre_selection_ref = []

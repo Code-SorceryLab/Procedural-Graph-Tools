@@ -4,6 +4,7 @@ class_name GraphEditor
 # Signal to notify the rest of the game when a new graph is loaded or generated
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
+signal edge_selection_changed(selected_edges: Array)
 signal request_save_graph(graph: Graph)
 
 # Signal to notify UI (e.g. StatusBar) when a tool wants to display info
@@ -23,6 +24,7 @@ var tool_manager: GraphToolManager
 
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
+var selected_edges: Array = []
 
 # CHANGED: Now Arrays to support Multiple Walkers
 var path_start_ids: Array[String] = []
@@ -45,6 +47,7 @@ func _ready() -> void:
 	# Inject references into the renderer
 	renderer.graph_ref = graph
 	renderer.selected_nodes_ref = selected_nodes
+	renderer.selected_edges_ref = selected_edges
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	
@@ -55,10 +58,16 @@ func _ready() -> void:
 			renderer.queue_redraw()
 	)
 	
+	
 	selection_changed.connect(func(_selected_nodes):
 		renderer._depth_cache_dirty = true
 		if renderer.debug_show_depth:
 			renderer.queue_redraw()
+	)
+	
+	# Connect edge signal to renderer update
+	edge_selection_changed.connect(func(_edges):
+		renderer.queue_redraw()
 	)
 	
 	# Sync initial null state
@@ -208,10 +217,41 @@ func add_to_selection(id: String) -> void:
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
 
+func add_edge_selection(edge_pair: Array) -> void:
+	edge_pair.sort()
+	if not selected_edges.has(edge_pair):
+		selected_edges.append(edge_pair)
+		renderer.selected_edges_ref = selected_edges
+		edge_selection_changed.emit(selected_edges)
+
 func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
+	
+	# Clear Edges
+	selected_edges.clear()
+	renderer.selected_edges_ref = selected_edges
+	edge_selection_changed.emit(selected_edges)
+
+# Edge Selection API
+func toggle_edge_selection(edge_pair: Array) -> void:
+	# Ensure sorted key
+	edge_pair.sort()
+	
+	if selected_edges.has(edge_pair):
+		selected_edges.erase(edge_pair)
+	else:
+		selected_edges.append(edge_pair)
+	
+	renderer.selected_edges_ref = selected_edges
+	edge_selection_changed.emit(selected_edges)
+
+func set_edge_selection(edge_pair: Array) -> void:
+	edge_pair.sort()
+	selected_edges = [edge_pair]
+	renderer.selected_edges_ref = selected_edges
+	edge_selection_changed.emit(selected_edges)
 
 # --- Connection Operations ---
 

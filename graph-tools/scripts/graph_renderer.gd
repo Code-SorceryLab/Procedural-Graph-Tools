@@ -38,6 +38,8 @@ var current_path_ref: Array[String] = []
 var new_nodes_ref: Array[String] = [] 
 var pre_selection_ref: Array[String] = []
 
+var selected_edges_ref: Array = []
+
 # ==============================================================================
 # 3. INTERACTION STATE
 # ==============================================================================
@@ -82,25 +84,66 @@ func _draw() -> void:
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:
-	var drawn_edges := {} 
+	# We use this to avoid drawing bi-directional edges twice
+	var drawn_bidirectional := {} 
 	
 	for id: String in graph_ref.nodes:
 		var start_pos = graph_ref.get_node_pos(id)
 		
 		for neighbor: String in graph_ref.get_neighbors(id):
-			var pair = [id, neighbor]
-			pair.sort() 
-			
-			if drawn_edges.has(pair):
-				continue
-				
-			drawn_edges[pair] = true
-			
 			var end_pos = graph_ref.get_node_pos(neighbor)
-			var color = GraphSettings.COLOR_EDGE
-			var width = edge_width
 			
-			draw_line(start_pos, end_pos, color, width)
+			# Construct the sorted pair key for this connection
+			var pair = [id, neighbor]
+			pair.sort()
+			
+			# --- 1. DRAW SELECTION HIGHLIGHT ---
+			# We draw this first so it appears "behind" the actual edge line
+			# Note: We check 'has' on the Array. Since 'pair' is sorted, it matches the stored format.
+			if selected_edges_ref.has(pair):
+				draw_line(start_pos, end_pos, selected_color, edge_width + 4.0)
+			
+			# --- 2. DRAW ACTUAL EDGE ---
+			
+			# Check for return path using our Graph API
+			var is_bidirectional = graph_ref.has_edge(neighbor, id)
+			
+			if is_bidirectional:
+				# CASE A: Standard Two-Way Connection
+				if drawn_bidirectional.has(pair):
+					continue
+				
+				drawn_bidirectional[pair] = true
+				
+				draw_line(start_pos, end_pos, GraphSettings.COLOR_EDGE, edge_width)
+				
+			else:
+				# CASE B: One-Way Connection
+				draw_line(start_pos, end_pos, GraphSettings.COLOR_EDGE, edge_width)
+				_draw_arrow_head(start_pos, end_pos)
+
+# HELPER: Draws an arrow tip at the 'to' position
+func _draw_arrow_head(from: Vector2, to: Vector2) -> void:
+	var dir = (to - from).normalized()
+	
+	# Calculate the tip position
+	# We back off from the node center by (radius + padding) so the arrow isn't hidden
+	var tip_offset = node_radius + 6.0
+	var tip = to - (dir * tip_offset)
+	
+	# Arrow Shape Configuration
+	var arrow_size = 12.0
+	var angle = PI / 5.0 # ~35 degrees
+	
+	# Calculate wing points
+	var p1 = tip - dir.rotated(angle) * arrow_size
+	var p2 = tip - dir.rotated(-angle) * arrow_size
+	
+	var color = GraphSettings.COLOR_EDGE
+	var width = edge_width + 1.0 # Slightly thicker for visibility
+	
+	draw_line(tip, p1, color, width)
+	draw_line(tip, p2, color, width)
 
 # --- HELPER: PATHFINDING LINE ---
 func _draw_current_path() -> void:
