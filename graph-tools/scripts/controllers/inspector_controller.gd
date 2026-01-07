@@ -25,11 +25,7 @@ class_name InspectorController
 @export var walker_container: Control      
 @export var opt_walker_select: OptionButton 
 @export var lbl_walker_id: Label           
-@export var opt_walker_paint: OptionButton 
-@export var chk_walker_active: CheckBox    # Active/Paused
-@export var spin_walker_x: SpinBox         # Manual X Position
-@export var spin_walker_y: SpinBox         # Manual Y Position
-@export var btn_walker_reset: Button       # Reset Steps
+
 
 # 4. GROUP STATS CONTROLS
 @export_group("Group Inspector")
@@ -43,7 +39,10 @@ class_name InspectorController
 var _tracked_nodes: Array[String] = []
 var _is_updating_ui: bool = false
 var _current_walker_ref: Object = null 
-var _current_walker_list: Array = [] # <--- NEW: Store all agents at this node
+var _current_walker_list: Array = [] # Store all agents at this node
+
+# Store the dynamically generated controls
+var _walker_inputs: Dictionary = {}
 
 func _ready() -> void:
 	graph_editor.selection_changed.connect(_on_selection_changed)
@@ -54,8 +53,7 @@ func _ready() -> void:
 	spin_pos_y.step = GraphSettings.INSPECTOR_POS_STEP
 	spin_pos_x.min_value = -99999; spin_pos_x.max_value = 99999
 	spin_pos_y.min_value = -99999; spin_pos_y.max_value = 99999
-	spin_walker_x.step = GraphSettings.INSPECTOR_POS_STEP
-	spin_walker_y.step = GraphSettings.INSPECTOR_POS_STEP
+
 	
 	spin_pos_x.value_changed.connect(_on_pos_value_changed)
 	spin_pos_y.value_changed.connect(_on_pos_value_changed)
@@ -63,19 +61,14 @@ func _ready() -> void:
 	# --- 2. CONFIGURE DROPDOWNS ---
 	_setup_type_dropdown(option_type)
 	_setup_type_dropdown(group_option_type)
-	_setup_type_dropdown(opt_walker_paint)
+
 	
 	option_type.item_selected.connect(_on_type_selected)
 	group_option_type.item_selected.connect(_on_group_type_selected)
 	
 	# WALKER SIGNALS
-	opt_walker_paint.item_selected.connect(_on_walker_paint_selected)
 	opt_walker_select.item_selected.connect(_on_walker_agent_selected)
 
-	chk_walker_active.toggled.connect(_on_walker_active_toggled)
-	spin_walker_x.value_changed.connect(_on_walker_pos_changed)
-	spin_walker_y.value_changed.connect(_on_walker_pos_changed)
-	btn_walker_reset.pressed.connect(_on_walker_reset_pressed)
 	_clear_inspector()
 
 func _setup_type_dropdown(btn: OptionButton) -> void:
@@ -139,8 +132,8 @@ func _update_single_inspector(node_id: String) -> void:
 		neighbor_text += "- %s\n" % n_id
 	lbl_neighbors.text = neighbor_text
 	
-# ---------------------------------------------------------
-	# 2. WALKER INSPECTION LOGIC
+	# ---------------------------------------------------------
+	# 2. WALKER INSPECTION LOGIC (DYNAMIC)
 	# ---------------------------------------------------------
 	var show_walker = false
 	var new_walker_list = []
@@ -153,53 +146,76 @@ func _update_single_inspector(node_id: String) -> void:
 	if not new_walker_list.is_empty():
 		show_walker = true
 		
-		# Sync List
+		# A. Handle List Changes (Only Rebuild if List Content Changed)
 		if new_walker_list != _current_walker_list:
 			_current_walker_list = new_walker_list
+			
 			opt_walker_select.clear()
 			var selected_idx = 0
 			for i in range(_current_walker_list.size()):
 				var w = _current_walker_list[i]
-				var status = "" if w.active else " (Paused)"
+				var status = "" if w.get("active") else " (Paused)"
 				opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
+				
 				if _current_walker_ref and _current_walker_ref == w:
 					selected_idx = i
+			
 			opt_walker_select.selected = selected_idx
 			_current_walker_ref = _current_walker_list[selected_idx]
-		
-		# Fallback
-		if _current_walker_ref == null and not _current_walker_list.is_empty():
-			_current_walker_ref = _current_walker_list[0]
-			opt_walker_select.selected = 0
+			
+			# REBUILD UI: Reference changed due to list update
+			_rebuild_walker_ui()
 
+		# B. Handle Manual Dropdown Changes
+		var current_dropdown_idx = opt_walker_select.selected
+		if current_dropdown_idx >= 0 and current_dropdown_idx < _current_walker_list.size():
+			var selected_agent = _current_walker_list[current_dropdown_idx]
+			if selected_agent != _current_walker_ref:
+				_current_walker_ref = selected_agent
+				# REBUILD UI: User selected different agent
+				_rebuild_walker_ui()
 	else:
 		_current_walker_list.clear()
 		_current_walker_ref = null
 
-	# Refresh UI
+	# Refresh Dynamic Values (Polling)
+	# We only update the Label here. The generated controls update themselves 
+	# via the builder unless we wanted to support 2-way sync (Agent -> UI).
+	# For now, we assume UI drives Agent.
 	if show_walker and _current_walker_ref:
 		opt_walker_select.visible = (_current_walker_list.size() > 1)
-		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, _current_walker_ref.step_count]
-		
-		# Sync Paint Dropdown
-		if not opt_walker_paint.has_focus():
-			var w_idx = opt_walker_paint.get_item_index(_current_walker_ref.my_paint_type)
-			if opt_walker_paint.selected != w_idx: opt_walker_paint.selected = w_idx
-			
-		# Sync Active Checkbox
-		chk_walker_active.set_pressed_no_signal(_current_walker_ref.active)
-		
-		# Sync Position Spins (Only if not focused)
-		if not spin_walker_x.get_line_edit().has_focus():
-			spin_walker_x.set_value_no_signal(_current_walker_ref.pos.x)
-		if not spin_walker_y.get_line_edit().has_focus():
-			spin_walker_y.set_value_no_signal(_current_walker_ref.pos.y)
+		var steps = _current_walker_ref.get("step_count")
+		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, steps]
 	
 	if walker_container:
 		walker_container.visible = show_walker
 	# ---------------------------------------------------------
 	
 	_is_updating_ui = false
+
+# --- UI BUILDER LOGIC ---
+
+func _rebuild_walker_ui() -> void:
+	if not _current_walker_ref: return
+	
+	# 1. Ask Agent for Schema
+	# This calls the function we added to WalkerAgent earlier
+	var settings = _current_walker_ref.get_agent_settings()
+	
+	# 2. Setup Container
+	# We create a specific VBox for settings so we don't delete the Selector/Label
+	var settings_box = walker_container.get_node_or_null("SettingsBox")
+	if not settings_box:
+		settings_box = VBoxContainer.new()
+		settings_box.name = "SettingsBox"
+		walker_container.add_child(settings_box)
+		
+	# 3. Generate Controls
+	_walker_inputs = SettingsUIBuilder.build_ui(settings, settings_box)
+	
+	# 4. Bind Live Updates
+	SettingsUIBuilder.connect_live_updates(_walker_inputs, _on_walker_setting_changed)
+
 
 func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
@@ -291,49 +307,39 @@ func _on_group_type_selected(index: int) -> void:
 	graph_editor.set_node_type_bulk(_tracked_nodes, selected_type_id)
 	_update_group_inspector(_tracked_nodes)
 
-# WALKER HANDLERS ---
+# --- WALKER HANDLERS ---
 
-func _on_walker_active_toggled(toggled: bool) -> void:
-	if _is_updating_ui or not _current_walker_ref: return
-	_current_walker_ref.active = toggled
-	print("Inspector: Agent #%d Active: %s" % [_current_walker_ref.id, toggled])
-
-func _on_walker_pos_changed(_val: float) -> void:
-	if _is_updating_ui or not _current_walker_ref: return
-	
-	# Update the walker's internal position
-	# NOTE: In 'Paint' mode, this might desync visual from logical node if moved off-grid.
-	# In 'Grow' mode, this effectively teleports the growth head.
-	var new_pos = Vector2(spin_walker_x.value, spin_walker_y.value)
-	_current_walker_ref.pos = new_pos
-	
-	# If we moved significantly, we might want to update the 'current_node_id' 
-	# if we landed on a valid existing node.
-	var graph = graph_editor.graph
-	var landed_node = graph.get_node_at_position(new_pos, 1.0) # strict tolerance
-	if not landed_node.is_empty():
-		_current_walker_ref.current_node_id = landed_node
-
-func _on_walker_reset_pressed() -> void:
-	if not _current_walker_ref: return
-	_current_walker_ref.step_count = 0
-	# Force refresh text
-	lbl_walker_id.text = "Agent #%d (Steps: 0)" % _current_walker_ref.id
-	print("Inspector: Agent #%d steps reset." % _current_walker_ref.id)
-
+# 1. Selection Handler (Meta-Control) - KEEPER
 func _on_walker_agent_selected(index: int) -> void:
+	# User selected a specific agent from the top dropdown
 	if index >= 0 and index < _current_walker_list.size():
 		_current_walker_ref = _current_walker_list[index]
-		
-		# Force Immediate UI Sync
-		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, _current_walker_ref.step_count]
-		var w_idx = opt_walker_paint.get_item_index(_current_walker_ref.my_paint_type)
-		opt_walker_paint.select(w_idx)
+		# Rebuild the UI immediately for the new agent
+		_rebuild_walker_ui()
 
-func _on_walker_paint_selected(index: int) -> void:
-	if _is_updating_ui: return
-	if not _current_walker_ref: return
-	
-	var paint_type_id = opt_walker_paint.get_item_id(index)
-	_current_walker_ref.my_paint_type = paint_type_id
-	print("Inspector: Updated Agent %d paint brush to %d" % [_current_walker_ref.id, paint_type_id])
+# 2. Dynamic Update Handler - REPLACEMENT
+# This catches signals from ALL generated controls (SpinBoxes, CheckBoxes, etc.)
+func _on_walker_setting_changed(key: String, value: Variant) -> void:
+	if _current_walker_ref:
+		# 1. Update the Data
+		_current_walker_ref.apply_setting(key, value)
+		
+		# 2. RESTORED: Position Snapping Logic
+		# If we moved the walker manually, check if we landed on a valid node.
+		if key == "pos":
+			var graph = graph_editor.graph
+			# Strict tolerance (1.0) to ensure we are right on top of it
+			var landed_node_id = graph.get_node_at_position(value, 1.0)
+			
+			if not landed_node_id.is_empty():
+				_current_walker_ref.current_node_id = landed_node_id
+				print("Inspector: Walker snapped to node %s" % landed_node_id)
+		
+		# 3. UI Polish: Update Dropdown Label
+		if key == "active":
+			var idx = opt_walker_select.selected
+			var status = "" if value else " (Paused)"
+			opt_walker_select.set_item_text(idx, "Agent #%d%s" % [_current_walker_ref.id, status])
+			
+		print("Inspector: Updated %s -> %s" % [key, value])
+		

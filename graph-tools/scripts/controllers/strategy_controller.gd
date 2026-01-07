@@ -49,80 +49,14 @@ func _on_algo_selected(index: int) -> void:
 	_build_ui_for_strategy()
 
 func _build_ui_for_strategy() -> void:
-	# 1. Clear existing UI
-	for child in settings_container.get_children():
-		child.queue_free()
-	_active_inputs.clear()
-	
-	# 2. Get Settings Schema
+	# 1. Get Settings Schema
 	var settings = current_strategy.get_settings()
 	
-	# 3. Build new UI Elements
-	for setting in settings:
-		var key = setting["name"]
-		var type = setting["type"]
-		var default = setting.get("default", 0)
-		
-		# Capture optional metadata
-		var hint_text = setting.get("hint", "")
-		var options_str = setting.get("options", "") 
-		
-		# Create Label
-		var label = Label.new()
-		label.text = key.capitalize() 
-		if hint_text != "":
-			label.tooltip_text = hint_text
-			label.mouse_filter = Control.MOUSE_FILTER_STOP 
-		settings_container.add_child(label)
-		
-		var control: Control
-		
-		# --- A. Check for Dropdown Options ---
-		if options_str != "":
-			var opt = OptionButton.new()
-			var items = options_str.split(",")
-			for i in range(items.size()):
-				opt.add_item(items[i].strip_edges(), i) 
-			
-			opt.selected = int(default)
-			control = opt
-			
-		# --- B. Standard Types ---
-		else:
-			match type:
-				# CRITICAL FIX: Removed "int" and "float" strings from this line.
-				# Comparing an INT variable to a STRING literal causes a crash.
-				TYPE_INT, TYPE_FLOAT:
-					var spin = SpinBox.new()
-					spin.min_value = setting.get("min", 0)
-					spin.max_value = setting.get("max", 100)
-					
-					if type == TYPE_FLOAT:
-						spin.step = setting.get("step", 0.1)
-					else:
-						spin.step = 1.0
-						
-					spin.custom_arrow_step = spin.step
-					spin.value = default
-					control = spin
-					
-				# Same fix here: Removed "bool" string
-				TYPE_BOOL:
-					var chk = CheckBox.new()
-					chk.text = "Enable"
-					chk.button_pressed = bool(default)
-					control = chk
-		
-		# Add to Container
-		if control:
-			if hint_text != "":
-				control.tooltip_text = hint_text
-			
-			control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			settings_container.add_child(control)
-			_active_inputs[key] = control
+	# 2. Build UI Elements (REFACTORED)
+	# The builder automatically clears previous children and generates new ones.
+	_active_inputs = SettingsUIBuilder.build_ui(settings, settings_container)
 
-	# 4. Handle Buttons Visibility
+	# 3. Handle Buttons Visibility
 	grow_btn.visible = current_strategy.supports_grow
 	
 	if current_strategy.reset_on_generate:
@@ -131,17 +65,10 @@ func _build_ui_for_strategy() -> void:
 		generate_btn.text = "Apply"
 
 func _collect_params() -> Dictionary:
-	var params = {}
-	for key in _active_inputs:
-		var control = _active_inputs[key]
-		
-		if control is SpinBox:
-			params[key] = control.value
-		elif control is CheckBox:
-			params[key] = control.button_pressed
-		elif control is OptionButton:
-			params[key] = control.selected
-			
+	# 1. Collect Dynamic Params (REFACTORED)
+	var params = SettingsUIBuilder.collect_params(_active_inputs)
+	
+	# 2. Add Global Static Params
 	params["merge_overlaps"] = merge_chk.button_pressed
 	return params
 
