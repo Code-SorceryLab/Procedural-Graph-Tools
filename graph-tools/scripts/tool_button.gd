@@ -15,14 +15,23 @@ func _ready() -> void:
 	var key_str = GraphSettings.get_shortcut_string(tool_id)
 	var icon_tex = GraphSettings.get_tool_icon(tool_id)
 	
+	# --- DIAGNOSTIC PRINT (Remove after fixing) ---
+	print("DEBUG ToolButton [", tool_id, "]:")
+	print(" > Name: '", name_str, "'")
+	print(" > Key: '", key_str, "'")
+	# ---------------------------------------------
+	
 	# 2. SETUP ICON
 	if icon_tex and icon_rect:
 		icon_rect.texture = icon_tex
 	
-	# 3. SETUP TOOLTIP (The only place text appears now!)
+	# 3. SETUP TOOLTIP
 	var tooltip = name_str
-	if key_str != "":
+	
+	# We suspect key_str might be literally "((unset))"
+	if key_str != "" and key_str != "((unset))": 
 		tooltip += " (%s)" % key_str
+		
 	self.tooltip_text = tooltip
 	
 	# 4. REMOVE TEXT (Just in case the button property has text)

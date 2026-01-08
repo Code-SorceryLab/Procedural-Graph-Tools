@@ -111,22 +111,21 @@ static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 # ==============================================================================
 # 6. TOOL DEFINITIONS
 # ==============================================================================
-enum Tool { SELECT, ADD_NODE, CONNECT, DELETE, RECTANGLE, MEASURE, PAINT, CUT, TYPE_PAINT }
+# Reordered to match Input Map Keys (1 through 7)
+enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT }
 
 const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
+# The order here is purely visual for us; the keys (enum) map to the values.
 static var TOOL_DATA: Dictionary = {
-	Tool.SELECT:     { "name": "Select", "shortcut": KEY_V, "icon_path": "res://assets/icons/tool_select.png" },
-	Tool.ADD_NODE:   { "name": "Add Node", "shortcut": KEY_N, "icon_path": "res://assets/icons/tool_add.png" },
-	Tool.CONNECT:    { "name": "Connect", "shortcut": KEY_C, "icon_path": "res://assets/icons/tool_connect.png" },
-	Tool.DELETE:     { "name": "Delete", "shortcut": KEY_X, "icon_path": "res://assets/icons/tool_delete.png" },
-	Tool.RECTANGLE:  { "name": "Rectangle Select", "shortcut": KEY_R, "icon_path": "res://assets/icons/tool_rect.png" },
-	Tool.MEASURE:    { "name": "Measure", "shortcut": KEY_M, "icon_path": "res://assets/icons/tool_measure.png" },
-	Tool.PAINT:      { "name": "Paint Brush", "shortcut": KEY_P, "icon_path": "res://assets/icons/tool_paint.png" },
-	Tool.CUT:        { "name": "Knife Cut", "shortcut": KEY_K, "icon_path": "res://assets/icons/tool_cut.png" },
-	Tool.TYPE_PAINT: { "name": "Type Brush", "shortcut": KEY_T, "icon_path": "res://assets/icons/tool_type.png" }
+	Tool.SELECT:     { "name": "Select",     "action": "tool_select",  "icon_path": "res://assets/icons/tool_select.png" },
+	Tool.ADD_NODE:   { "name": "Add Node",   "action": "tool_add",     "icon_path": "res://assets/icons/tool_add.png" },
+	Tool.DELETE:     { "name": "Delete",     "action": "tool_delete",  "icon_path": "res://assets/icons/tool_delete.png" },
+	Tool.CONNECT:    { "name": "Connect",    "action": "tool_connect", "icon_path": "res://assets/icons/tool_connect.png" },
+	Tool.CUT:        { "name": "Knife Cut",  "action": "tool_cut",     "icon_path": "res://assets/icons/tool_cut.png" },
+	Tool.PAINT:      { "name": "Paint",      "action": "tool_paint",   "icon_path": "res://assets/icons/tool_paint.png" },
+	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" }
 }
-
 # ==============================================================================
 # 7. COMMAND DEFINITIONS
 # ==============================================================================
@@ -151,12 +150,32 @@ static func get_tool_icon(tool_id: int) -> Texture2D:
 static func get_tool_name(tool_id: int) -> String:
 	return TOOL_DATA.get(tool_id, {}).get("name", "Unknown")
 
+
+static func get_shortcut_string(tool_id: int) -> String:
+	var action = TOOL_DATA.get(tool_id, {}).get("action", "")
+	if action == "": return ""
+	
+	var events = InputMap.action_get_events(action)
+	if events.is_empty(): return ""
+	
+	for event in events:
+		if event is InputEventKey:
+			# 1. Try to get the localized label (Best for UX, e.g. handles QWERTY vs AZERTY)
+			var label = event.as_text_key_label()
+			
+			# 2. If Godot fails to resolve the label, FALL BACK to the raw keycode
+			if label == "" or label == "(Unset)":
+				# This forces it to read the physical keycode directly (e.g., "1", "Delete")
+				label = OS.get_keycode_string(event.physical_keycode)
+			
+			return label
+			
+	return ""
+
 static func get_shortcut_keycode(tool_id: int) -> int:
 	return TOOL_DATA.get(tool_id, {}).get("shortcut", KEY_NONE)
 
-static func get_shortcut_string(tool_id: int) -> String:
-	var code = get_shortcut_keycode(tool_id)
-	return OS.get_keycode_string(code) if code != KEY_NONE else ""
+
 
 # --- LEGEND HELPERS ---
 

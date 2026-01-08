@@ -1,11 +1,8 @@
-# toolbar.gd
 extends PanelContainer
 class_name Toolbar
 
-# Signal emitted when tool changes
+# Signal emitted when the UI button is clicked manually
 signal tool_changed(tool_id: int, tool_name: String)
-
-
 
 var current_tool: int = GraphSettings.Tool.SELECT
 var tool_buttons: Array[ToolButton] = []
@@ -18,55 +15,29 @@ func _ready() -> void:
 		if child is ToolButton:
 			tool_buttons.append(child)
 			child.pressed.connect(_on_tool_button_pressed.bind(child.tool_id))
-	
+			
+			# REMOVED: Tooltip/Icon logic. 
+			# REASON: ToolButton.gd handles this itself in its own _ready() function.
+			
 	# Set initial active tool
 	set_active_tool(GraphSettings.Tool.SELECT)
 
 func _on_tool_button_pressed(tool_id: int) -> void:
-	# Deselect all other buttons
-	for button in tool_buttons:
-		if button.tool_id != tool_id:
-			button.set_active(false)
+	# Update internal UI state
+	_update_button_visuals(tool_id)
 	
-	# Update current tool
-	current_tool = tool_id
-	tool_changed.emit(tool_id, _get_tool_name(tool_id))
-	
-	# Print for debugging (remove later)
-	print("Tool changed to: ", _get_tool_name(tool_id))
+	# Notify the system
+	tool_changed.emit(tool_id, GraphSettings.get_tool_name(tool_id))
 
+# Public API: Called by external scripts (like GraphEditor shortcuts)
 func set_active_tool(tool_id: int) -> void:
-	# Find and activate the corresponding button
+	_update_button_visuals(tool_id)
+
+func _update_button_visuals(tool_id: int) -> void:
+	current_tool = tool_id
+	
 	for button in tool_buttons:
 		if button.tool_id == tool_id:
 			button.set_active(true)
-			current_tool = tool_id
-			tool_changed.emit(tool_id, _get_tool_name(tool_id))
 		else:
 			button.set_active(false)
-
-func _get_tool_name(tool_id: int) -> String:
-	match tool_id:
-		GraphSettings.Tool.SELECT: return "Select"
-		GraphSettings.Tool.ADD_NODE: return "Add Node"
-		GraphSettings.Tool.CONNECT: return "Connect"
-		GraphSettings.Tool.DELETE: return "Delete"
-		GraphSettings.Tool.RECTANGLE: return "Rectangle Select"
-		GraphSettings.Tool.MEASURE: return "Measure"
-		#GraphSettings.Tool.PAN: return "Pan"
-		GraphSettings.Tool.PAINT: return "Paint Brush"
-		GraphSettings.Tool.TYPE_PAINT: return "Type Brush"
-		_: return "Unknown"
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo:
-		
-		# Iterate through our data registry
-		for t_id in GraphSettings.TOOL_DATA:
-			var data = GraphSettings.TOOL_DATA[t_id]
-			
-			# Check if the key matches the tool's shortcut
-			if event.keycode == data.get("shortcut", KEY_NONE):
-				set_active_tool(t_id)
-				get_viewport().set_input_as_handled()
-				return

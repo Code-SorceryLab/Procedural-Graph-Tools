@@ -6,10 +6,14 @@ signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
 signal edge_selection_changed(selected_edges: Array)
 signal request_save_graph(graph: Graph)
+signal graph_modified
 
 # Signal to notify UI (e.g. StatusBar) when a tool wants to display info
 signal status_message_changed(message: String)
-signal graph_modified
+signal active_tool_changed(tool_id: int)
+
+
+
 
 # --- REFERENCES ---
 @onready var renderer: GraphRenderer = $Renderer
@@ -41,6 +45,7 @@ var _manual_counter: int = 0
 # --- HISTORY STATE ---
 var history: GraphHistory
 var clipboard: GraphClipboard
+var input_handler: GraphInputHandler
 
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
@@ -78,7 +83,10 @@ func _ready() -> void:
 	
 	# Initialize History
 	history = GraphHistory.new(graph)
+	
+	# Initialize Sub-systems
 	clipboard = GraphClipboard.new(self)
+	input_handler = GraphInputHandler.new(self, clipboard)
 	
 	# Initialize Manager
 	tool_manager = GraphToolManager.new(self)
@@ -93,6 +101,7 @@ func _ready() -> void:
 # ==============================================================================
 func set_active_tool(tool_id: int) -> void:
 	tool_manager.set_active_tool(tool_id)
+	active_tool_changed.emit(tool_id) # Triggers the UI update
 
 func send_status_message(message: String) -> void:
 	status_message_changed.emit(message)
@@ -101,64 +110,14 @@ func send_status_message(message: String) -> void:
 # 3. INPUT ROUTING
 # ==============================================================================
 func _unhandled_input(event: InputEvent) -> void:
-	# 1. Handle Global Shortcuts first
-	if event is InputEventKey and event.pressed:
-		_handle_global_shortcuts(event)
+	# 1. Global Shortcuts (Delegated to Handler)
+	input_handler.handle_input(event)
+	
+	# 2. Tool Logic (Delegated to Manager)
+	# Only pass input if the Handler didn't already consume it (like a hotkey)
+	if not get_viewport().is_input_handled():
+		tool_manager.handle_input(event)
 
-	# 2. Delegate to Manager
-	tool_manager.handle_input(event)
-
-func _handle_global_shortcuts(event: InputEventKey) -> void:
-	if not event.pressed:
-		return
-
-	# --- CTRL SHORTCUTS ---
-	if event.ctrl_pressed:
-		match event.keycode:
-			KEY_S:
-				request_save_graph.emit(graph)
-				get_viewport().set_input_as_handled()
-			
-			KEY_Z:
-				if event.shift_pressed:
-					redo()
-				else:
-					undo()
-				get_viewport().set_input_as_handled()
-				
-			KEY_Y:
-				redo()
-				get_viewport().set_input_as_handled()
-				
-			KEY_C:
-				clipboard.copy()
-				get_viewport().set_input_as_handled()
-				
-			KEY_X:
-				clipboard.cut()
-				get_viewport().set_input_as_handled()
-				
-			KEY_V:
-				clipboard.paste()
-				get_viewport().set_input_as_handled()
-
-	# --- STANDARD SHORTCUTS (No Ctrl) ---
-	else:
-		match event.keycode:
-			KEY_F:
-				_center_camera_on_graph()
-				# We generally don't consume 'F' as it might be used by UI focus
-				
-			KEY_DELETE:
-				if not selected_nodes.is_empty():
-					var batch = CmdBatch.new(graph, "Delete Selection")
-					for id in selected_nodes:
-						var cmd = CmdDeleteNode.new(graph, id)
-						batch.add_command(cmd)
-					
-					_commit_command(batch)
-					_reset_local_state()
-					get_viewport().set_input_as_handled()
 
 
 # ==============================================================================

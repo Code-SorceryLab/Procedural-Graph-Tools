@@ -21,30 +21,22 @@ layout_mode = 2
 layout_mode = 2
 tool_id = 1
 
-[node name="BtnConnect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+[node name="BtnDelete" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
 tool_id = 2
 
-[node name="BtnDelete" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+[node name="BtnConnect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
 tool_id = 3
 
-[node name="BtnRectangle" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+[node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
 tool_id = 4
 
-[node name="BtnMeasure" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
+[node name="BtnPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
 tool_id = 5
 
-[node name="BtnPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 6
-
-[node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 7
-
 [node name="BtnPropertyPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
 layout_mode = 2
-tool_id = 8
+tool_id = 6

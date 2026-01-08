@@ -1,0 +1,325 @@
+[gd_scene load_steps=11 format=3 uid="uid://b4kjmis7vpbxa"]
+
+[ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
+[ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
+[ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
+[ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
+[ext_resource type="Script" uid="uid://cyla4eosgc0x4" path="res://scripts/controllers/file_controller.gd" id="3_u2lal"]
+[ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/pathfinding_controller.gd" id="4_5u163"]
+[ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
+[ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
+[ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/status_controller.gd" id="7_el7nm"]
+[ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
+
+[node name="GamePlayer" type="Node"]
+script = ExtResource("1_wv330")
+
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "debug_depth_chk", "merge_chk", "grow_btn", "generate_btn", "clear_btn")]
+script = ExtResource("2_hgyw2")
+graph_editor = NodePath("../GraphEditor")
+algo_select = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
+settings_container = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/InputContainer")
+debug_depth_chk = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/DebugDepthChk")
+merge_chk = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/MergeChk")
+grow_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GrowBtn")
+generate_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
+clear_btn = NodePath("../UI/Sidebar/Margin/TabContainer/Generation/ClearBtn")
+
+[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog", "settings_btn", "confirm_discard", "settings_window")]
+script = ExtResource("3_u2lal")
+graph_editor = NodePath("../GraphEditor")
+save_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/SaveBtn")
+load_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/LoadBtn")
+file_status = NodePath("../UI/Sidebar/Margin/TabContainer/File/FileStatus")
+file_dialog = NodePath("../FileDialog")
+settings_btn = NodePath("../UI/Sidebar/Margin/TabContainer/File/SettingsBtn")
+confirm_discard = NodePath("../UI/Sidebar/Margin/TabContainer/File/ConfirmDiscard")
+settings_window = NodePath("../UI/SettingsWindow")
+
+[node name="PathfindingController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_set_start", "btn_set_end", "btn_run_path")]
+script = ExtResource("4_5u163")
+graph_editor = NodePath("../GraphEditor")
+btn_set_start = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetStart")
+btn_set_end = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
+btn_run_path = NodePath("../UI/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
+
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
+script = ExtResource("5_5u163")
+graph_editor = NodePath("../GraphEditor")
+strategy_controller = NodePath("../StrategyController")
+lbl_no_selection = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
+single_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer")
+group_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer")
+lbl_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblID")
+spin_pos_x = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/SpinPosX")
+spin_pos_y = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/SpinPosY")
+option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow/OptionType")
+lbl_edges = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblEdges")
+lbl_neighbors = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/LblNeighbors")
+walker_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer")
+opt_walker_select = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer/OptWalkerSelect")
+lbl_walker_id = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer/LblWalkerID")
+lbl_group_count = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCount")
+lbl_group_center = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupCenter")
+lbl_group_bounds = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupBounds")
+lbl_group_density = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/LblGroupDensity")
+group_option_type = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer/GroupOptionType")
+edge_container = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer")
+lbl_edge_header = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer/LblEdgeHeader")
+edge_settings_box = NodePath("../UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer/EdgeSettingsBox")
+
+[node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
+script = ExtResource("5_u2lal")
+graph_editor = NodePath("../GraphEditor")
+toolbar = NodePath("../UI/Toolbar")
+
+[node name="StatusController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label")]
+script = ExtResource("7_el7nm")
+graph_editor = NodePath("../GraphEditor")
+status_label = NodePath("../UI/StatusBar/SidebarPadding/StatusLabel")
+
+[node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Sidebar" type="PanelContainer" parent="UI"]
+custom_minimum_size = Vector2(200, 0)
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -86.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="UI/Sidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="TabContainer" type="TabContainer" parent="UI/Sidebar/Margin"]
+layout_mode = 2
+current_tab = 0
+
+[node name="Generation" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="Title" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generator"
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="AlgoLabel" type="Label" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Algorithms"
+
+[node name="AlgoSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="InputContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="DebugDepthChk" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Show Depth Numbers"
+
+[node name="MergeChk" type="CheckBox" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+tooltip_text = "If checked, algorithms will connect to existing nodes found at the target location. If unchecked, they will create overlapping geometry."
+button_pressed = true
+text = "Merge Overlaps"
+
+[node name="GrowBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Grow (+)"
+
+[node name="GenerateBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generate"
+
+[node name="ClearBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Clear"
+
+[node name="File" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="SaveBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Save Graph"
+
+[node name="LoadBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Load Graph"
+
+[node name="FileStatus" type="Label" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Ready"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+
+[node name="SettingsBtn" type="Button" parent="UI/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Settings"
+
+[node name="ConfirmDiscard" type="ConfirmationDialog" parent="UI/Sidebar/Margin/TabContainer/File"]
+title = "Unsaved Changes"
+ok_button_text = "Discard"
+dialog_text = "You have unsaved changes. Discard them?"
+
+[node name="Pathfinding" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="BtnSetStart" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Mark Startpoint"
+
+[node name="BtnSetEnd" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Mark Endpoint"
+
+[node name="BtnRunPath" type="Button" parent="UI/Sidebar/Margin/TabContainer/Pathfinding"]
+layout_mode = 2
+text = "Run Path"
+
+[node name="Inspector" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 3
+
+[node name="LblNoSelection" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+modulate = Color(1, 1, 1, 0.5)
+layout_mode = 2
+text = "Select a node to view details."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SingleNodeContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+layout_mode = 2
+
+[node name="LblID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+
+[node name="LblPos" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Position: "
+
+[node name="PositionRow" type="GridContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+columns = 3
+
+[node name="SpinPosX" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
+layout_mode = 2
+min_value = -9999.0
+max_value = 9999.0
+step = 60.0
+
+[node name="SpinPosY" type="SpinBox" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
+layout_mode = 2
+min_value = -9999.0
+max_value = 9999.0
+
+[node name="OptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/PositionRow"]
+layout_mode = 2
+
+[node name="LblType" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Type: "
+
+[node name="HSeparator2" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+
+[node name="LblEdges" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Edges: "
+
+[node name="LblNeighbors" type="RichTextLabel" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+text = "Neighbors: "
+
+[node name="WalkerContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer"]
+layout_mode = 2
+
+[node name="OptWalkerSelect" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer"]
+layout_mode = 2
+
+[node name="LblWalkerID" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/SingleNodeContainer/WalkerContainer"]
+layout_mode = 2
+text = "Walker ID: "
+
+[node name="GroupContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+visible = false
+layout_mode = 2
+
+[node name="LblGroupCount" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupCenter" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupBounds" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblGroupDensity" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="LblBulkEditHeader" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="HSeparator" type="HSeparator" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="GroupOptionType" type="OptionButton" parent="UI/Sidebar/Margin/TabContainer/Inspector/GroupContainer"]
+layout_mode = 2
+
+[node name="EdgeContainer" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector"]
+layout_mode = 2
+
+[node name="LblEdgeHeader" type="Label" parent="UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer"]
+layout_mode = 2
+text = "Edge Selection"
+
+[node name="EdgeSettingsBox" type="VBoxContainer" parent="UI/Sidebar/Margin/TabContainer/Inspector/EdgeContainer"]
+layout_mode = 2
+
+[node name="Toolbar" parent="UI" instance=ExtResource("3_it57u")]
+grow_vertical = 2
+
+[node name="StatusBar" type="PanelContainer" parent="UI"]
+custom_minimum_size = Vector2(0, 30)
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -30.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="SidebarPadding" type="MarginContainer" parent="UI/StatusBar"]
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="UI/StatusBar/SidebarPadding"]
+layout_mode = 2
+text = "Ready"
+vertical_alignment = 1
+
+[node name="SettingsWindow" parent="UI" instance=ExtResource("10_v0keg")]
+
+[node name="FileDialog" type="FileDialog" parent="."]
+size = Vector2i(600, 400)
+access = 2
+filters = PackedStringArray("*.tres,Graph Resources")

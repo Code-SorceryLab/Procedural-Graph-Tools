@@ -15,11 +15,9 @@ func _init(editor: GraphEditor) -> void:
 func set_active_tool(tool_id: int) -> void:
 	print("ToolManager: Switching to tool ", tool_id)
 	
-	# 1. Cleanup the old tool
 	if current_tool:
 		current_tool.exit()
 	
-	# 2. Instantiate the new tool
 	match tool_id:
 		GraphSettings.Tool.SELECT:
 			current_tool = GraphToolSelect.new(_editor)
@@ -39,14 +37,17 @@ func set_active_tool(tool_id: int) -> void:
 			push_warning("ToolManager: Unknown tool ID %d. Defaulting to Select." % tool_id)
 			current_tool = GraphToolSelect.new(_editor)
 			
-	# 3. Initialize the new tool
 	if current_tool:
 		current_tool.enter()
 
 # ==============================================================================
-# 2. INPUT ROUTING
+# 2. INPUT ROUTING (Simplified)
 # ==============================================================================
 func handle_input(event: InputEvent) -> void:
+	# PURE DELEGATION: No shortcut checking here!
+	# The InputHandler now takes care of "Choosing" the tool.
+	# We only care about "Using" it.
+	
 	if current_tool:
 		current_tool.handle_input(event)
 
