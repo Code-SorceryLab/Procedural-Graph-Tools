@@ -1,8 +1,14 @@
 class_name GraphToolManager
 extends RefCounted
 
+# --- SIGNALS ---
+# Emitted whenever the active tool changes. 
+# We pass the INSTANCE so the UI can read its specific settings schema.
+signal tool_changed(tool_id: int, tool_instance: GraphTool)
+
 # --- DATA ---
 var current_tool: GraphTool
+var active_tool_id: int = GraphSettings.Tool.SELECT
 var _editor: GraphEditor
 
 # --- INITIALIZATION ---
@@ -13,7 +19,9 @@ func _init(editor: GraphEditor) -> void:
 # 1. TOOL SWITCHING (Factory)
 # ==============================================================================
 func set_active_tool(tool_id: int) -> void:
-	print("ToolManager: Switching to tool ", tool_id)
+	# Update the tracker
+	active_tool_id = tool_id
+	#print("ToolManager: Switching to tool ", tool_id)
 	
 	if current_tool:
 		current_tool.exit()
@@ -39,15 +47,14 @@ func set_active_tool(tool_id: int) -> void:
 			
 	if current_tool:
 		current_tool.enter()
+		#print("DEBUG: Manager Emitting tool_changed for ID: ", tool_id)
+		# CRITICAL: Notify the system (Toolbar, Topbar, etc.)
+		tool_changed.emit(tool_id, current_tool)
 
 # ==============================================================================
-# 2. INPUT ROUTING (Simplified)
+# 2. INPUT ROUTING
 # ==============================================================================
 func handle_input(event: InputEvent) -> void:
-	# PURE DELEGATION: No shortcut checking here!
-	# The InputHandler now takes care of "Choosing" the tool.
-	# We only care about "Using" it.
-	
 	if current_tool:
 		current_tool.handle_input(event)
 

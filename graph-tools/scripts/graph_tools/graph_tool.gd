@@ -20,6 +20,18 @@ func exit() -> void:
 	_show_status("")
 func handle_input(_event: InputEvent) -> void: pass
 
+# --- TOOL OPTIONS API ---
+
+# Returns an Array of Dictionaries (Schema) for the UI Builder
+# Override this in specific tools
+func get_options_schema() -> Array:
+	return []
+
+# Called when the user changes a value in the Top Bar
+# Override this to apply the changes (e.g., update brush size)
+func apply_option(param_name: String, value: Variant) -> void:
+	pass
+
 # Shared Helpers
 func _get_node_at_pos(pos: Vector2) -> String:
 	return _graph.get_node_at_position(pos, _renderer.node_radius)

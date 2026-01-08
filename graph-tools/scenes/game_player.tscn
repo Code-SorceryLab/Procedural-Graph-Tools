@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=12 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -10,6 +10,9 @@
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_v0keg"]
+bg_color = Color(0.1764706, 0.1764706, 0.1764706, 1)
 
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
@@ -73,10 +76,11 @@ script = ExtResource("5_u2lal")
 graph_editor = NodePath("../GraphEditor")
 toolbar = NodePath("../UI/MainLayout/Workspace/Toolbar")
 
-[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label")]
+[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container")]
 script = ExtResource("7_el7nm")
 graph_editor = NodePath("../GraphEditor")
-status_label = NodePath("../UI/MainLayout/TopBar/StatusLabel")
+status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/StatusLabel")
+tool_options_container = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/ToolOptionsContainer")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 
@@ -103,8 +107,30 @@ mouse_filter = 2
 [node name="TopBar" type="PanelContainer" parent="UI/MainLayout"]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_v0keg")
 
-[node name="StatusLabel" type="Label" parent="UI/MainLayout/TopBar"]
+[node name="MarginContainer" type="MarginContainer" parent="UI/MainLayout/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ContentRow" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer"]
+layout_mode = 2
+
+[node name="ToolOptionsContainer" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+
+[node name="Spacer" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StatusLabel" type="Label" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
 layout_mode = 2
 text = "Ready"
 vertical_alignment = 1

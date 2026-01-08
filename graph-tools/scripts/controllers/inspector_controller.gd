@@ -63,6 +63,11 @@ func _ready() -> void:
 	if graph_editor.has_signal("edge_selection_changed"):
 		graph_editor.edge_selection_changed.connect(_on_edge_selection_changed)
 	
+	# [FIX START] Listen for File Loads
+	# When a new graph loads, custom types might change. We must refresh the dropdowns.
+	graph_editor.graph_loaded.connect(func(_g): refresh_type_options())
+	# [FIX END]
+	
 	set_process(false)
 	
 	# --- 1. CONFIGURE SPINBOXES ---
@@ -76,8 +81,8 @@ func _ready() -> void:
 	spin_pos_y.value_changed.connect(_on_pos_value_changed)
 	
 	# --- 2. CONFIGURE DROPDOWNS ---
-	_setup_type_dropdown(option_type)
-	_setup_type_dropdown(group_option_type)
+	# Initial build on startup
+	refresh_type_options()
 
 	
 	option_type.item_selected.connect(_on_type_selected)
@@ -88,8 +93,18 @@ func _ready() -> void:
 
 	_clear_inspector()
 
+# [NEW] Public function to force a rebuild of type lists
+# Called on _ready and when graph_loaded signal fires.
+func refresh_type_options() -> void:
+	_setup_type_dropdown(option_type)
+	_setup_type_dropdown(group_option_type)
+	# Add the "Mixed" separator to group dropdown pre-emptively
+	group_option_type.add_separator()
+	group_option_type.add_item("-- Mixed --", -1)
+
 func _setup_type_dropdown(btn: OptionButton) -> void:
 	btn.clear()
+	# This pulls from the global settings, which includes loaded custom types
 	var ids = GraphSettings.current_names.keys()
 	ids.sort() 
 	for id in ids:
@@ -145,7 +160,7 @@ func _refresh_all_views() -> void:
 	set_process(has_nodes)
 
 # ==============================================================================
-# EDGE VIEW LOGIC (NEW)
+# EDGE VIEW LOGIC 
 # ==============================================================================
 
 func _rebuild_edge_inspector_ui() -> void:
@@ -293,6 +308,7 @@ func _on_edge_setting_changed(key: String, value: Variant) -> void:
 			"direction":
 				# Call the correctly named function with the INT value
 				graph_editor.set_edge_directionality(u, v, int(value))
+
 # --- VIEW LOGIC ---
 
 func _update_single_inspector(node_id: String) -> void:
@@ -315,6 +331,7 @@ func _update_single_inspector(node_id: String) -> void:
 	if not y_focus: spin_pos_y.value = node_data.position.y
 		
 	if not option_type.has_focus():
+		# [FIX] We select from the cached list instead of rebuilding it
 		var idx = option_type.get_item_index(node_data.type)
 		if option_type.selected != idx:
 			option_type.selected = idx
@@ -418,12 +435,10 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	var center_sum = Vector2.ZERO
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
-	
 	var first_id = nodes[0]
 	var first_type = graph.nodes[first_id].type
 	var is_mixed = false
-	
-	# We still need one loop for bounds/center, which is usually fine up to ~5000 nodes
+
 	for id in nodes:
 		if not graph.nodes.has(id): continue
 		var pos = graph.nodes[id].position
@@ -439,13 +454,10 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	var avg_center = center_sum / count
 	var size = max_pos - min_pos
 	
-	# OPTIMIZATION: Skip Density Calculation for large groups
 	var internal_connections = -1
-	
 	if count <= MAX_ANALYSIS_COUNT:
 		var node_set = {}
 		for id in nodes: node_set[id] = true
-		
 		internal_connections = 0
 		for id in nodes:
 			if not graph.nodes.has(id): continue
@@ -453,7 +465,7 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 			for n_id in neighbors:
 				if node_set.has(n_id):
 					internal_connections += 1
-		internal_connections /= 2 # Unique edges
+		internal_connections /= 2 
 	
 	_is_updating_ui = true
 	
@@ -466,10 +478,9 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	else:
 		lbl_group_density.text = "Density: (Skipped)"
 	
-	_setup_type_dropdown(group_option_type)
+	# [FIX] Don't rebuild list. Just Select.
 	if is_mixed:
-		group_option_type.add_separator()
-		group_option_type.add_item("-- Mixed --", -1)
+		# Select the last item (which we added as "-- Mixed --" in refresh_type_options)
 		group_option_type.select(group_option_type.item_count - 1)
 	else:
 		var idx = group_option_type.get_item_index(first_type)

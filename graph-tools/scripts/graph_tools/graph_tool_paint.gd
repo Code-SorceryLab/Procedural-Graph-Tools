@@ -11,9 +11,51 @@ var _last_grid_pos: Vector2i = Vector2i(999999, 999999)
 const PAINT_SPACING: float = 60.0
 var _cell_size: float = GraphSettings.CELL_SIZE 
 
+# NEW: Tool Options State
+var _brush_size: int = 1
+var _brush_shape: int = 0 # 0 = Circle, 1 = Square
+
+# --- TOOL OPTIONS API (NEW) ---
+
+func get_options_schema() -> Array:
+	return [
+		{
+			"name": "brush_size",
+			"label": "Size",
+			"type": TYPE_INT,
+			"default": _brush_size,
+			"min": 1,
+			"max": 10,
+			"hint": "Controls spacing/radius (Cosmetic for now)"
+		},
+		{
+			"name": "brush_shape",
+			"label": "Shape",
+			"type": TYPE_INT,
+			"default": _brush_shape,
+			"hint": "enum",
+			"hint_string": "Circle,Square"
+		}
+	]
+
+func apply_option(param_name: String, value: Variant) -> void:
+	match param_name:
+		"brush_size":
+			_brush_size = int(value)
+			_show_status("Brush Size: %d" % _brush_size)
+		"brush_shape":
+			_brush_shape = int(value)
+			var shape_name = "Circle" if _brush_shape == 0 else "Square"
+			_show_status("Brush Shape: %s" % shape_name)
+
+# --- LIFECYCLE ---
+
 func enter() -> void:
 	# Show ghost immediately upon entering
 	_update_ghost(_editor.get_global_mouse_position(), Input.is_key_pressed(KEY_SHIFT))
+	
+	# Initial status
+	_show_status("Paint Tool: Drag to draw nodes.")
 
 func exit() -> void:
 	_is_painting = false
@@ -21,6 +63,7 @@ func exit() -> void:
 	# Cleanup: Hide the ghost
 	_renderer.snap_preview_pos = Vector2.INF
 	_renderer.queue_redraw()
+	_show_status("")
 
 func handle_input(event: InputEvent) -> void:
 	# 1. Mouse Click (Start / Stop)
@@ -30,8 +73,6 @@ func handle_input(event: InputEvent) -> void:
 			_last_node_id = "" 
 			
 			# --- START TRANSACTION ---
-			# We group the entire stroke into one Undo step.
-			# 'false' = Don't recenter camera on undo (keep smooth feel)
 			_editor.start_undo_transaction("Paint Nodes", false)
 			
 			# Paint immediately
@@ -40,9 +81,6 @@ func handle_input(event: InputEvent) -> void:
 			
 		else:
 			# --- COMMIT TRANSACTION ---
-			# The mouse is released, so the stroke is finished.
-			# If Atomic Undo is ON, this does nothing (safe).
-			# If Atomic Undo is OFF, this bundles all nodes/edges into one item.
 			_editor.commit_undo_transaction()
 			
 			_is_painting = false
@@ -51,7 +89,6 @@ func handle_input(event: InputEvent) -> void:
 			
 	# 2. Mouse Motion (Ghost + Dragging)
 	elif event is InputEventMouseMotion:
-		# ... (Rest of logic is unchanged) ...
 		var raw_pos = _editor.get_global_mouse_position()
 		var shift = Input.is_key_pressed(KEY_SHIFT) 
 		
@@ -70,6 +107,8 @@ func handle_input(event: InputEvent) -> void:
 			
 			# Freehand Mode: Distance Logic
 			else:
+				# Scale spacing based on brush size if desired
+				# var effective_spacing = PAINT_SPACING * max(1.0, _brush_size * 0.5) 
 				if raw_pos.distance_to(_last_pos) > PAINT_SPACING:
 					_paint_node(raw_pos)
 					_last_grid_pos = Vector2i(999999, 999999)
@@ -93,16 +132,40 @@ func _update_ghost(pos: Vector2, is_snapped: bool) -> void:
 		_renderer.snap_preview_pos = target
 		_renderer.queue_redraw()
 
-func _paint_node(pos: Vector2) -> void:
-	# 1. Create Node (Facade handles Dirty + Redraw)
-	var new_id = _editor.create_node(pos)
+func _paint_node(center_pos: Vector2) -> void:
+	# 1. Determine the range based on brush size
+	# Size 1 = 0 offset (just center)
+	# Size 2 = -1 to 1 (3x3 grid)
+	# Size 3 = -2 to 2 (5x5 grid)
+	var radius = _brush_size - 1
+	var center_id = ""
+
+	# 2. Iterate through the grid
+	for x in range(-radius, radius + 1):
+		for y in range(-radius, radius + 1):
+			
+			# CIRCLE SHAPE LOGIC
+			# If shape is Circle (0) and point is outside radius, skip it
+			if _brush_shape == 0:
+				if Vector2(x, y).length() > radius + 0.5: # +0.5 smooths edges
+					continue
+			
+			# Calculate actual world position
+			var offset = Vector2(x, y) * _cell_size
+			var paint_pos = center_pos + offset
+			
+			# 3. Spawn the node
+			var new_id = _editor.create_node(paint_pos)
+			
+			# 4. Handle Connections (Only for the center node)
+			# We only maintain the "chain" through the center of the brush stroke
+			if x == 0 and y == 0:
+				center_id = new_id
+				if not _last_node_id.is_empty():
+					_editor.connect_nodes(_last_node_id, new_id)
+
+	# 5. Update State (Track the center for the next segment)
+	if center_id != "":
+		_last_node_id = center_id
 	
-	# 2. Connect to previous (Facade handles Dirty + Redraw)
-	if not _last_node_id.is_empty():
-		_editor.connect_nodes(_last_node_id, new_id)
-	
-	_last_node_id = new_id
-	_last_pos = pos
-	
-	# REMOVED: _renderer.queue_redraw() 
-	# The editor calls triggered above ensure the view is up to date.
+	_last_pos = center_pos

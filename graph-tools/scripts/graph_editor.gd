@@ -13,8 +13,6 @@ signal status_message_changed(message: String)
 signal active_tool_changed(tool_id: int)
 
 
-
-
 # --- REFERENCES ---
 @onready var renderer: GraphRenderer = $Renderer
 @onready var camera: GraphCamera = $Camera
@@ -25,7 +23,6 @@ var graph: Graph = Graph.new()
 # --- STATE MANAGEMENT ---
 # Tool Manager
 var tool_manager: GraphToolManager
-
 
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
@@ -50,6 +47,13 @@ var input_handler: GraphInputHandler
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
 # ==============================================================================
+
+# [CRITICAL FIX] 
+# Initialize the Manager in _init(). This runs when the object is created in memory,
+# strictly BEFORE it enters the tree and BEFORE any UI _ready() scripts run.
+func _init() -> void:
+	tool_manager = GraphToolManager.new(self)
+
 func _ready() -> void:
 	# Inject references into the renderer
 	renderer.graph_ref = graph
@@ -88,8 +92,8 @@ func _ready() -> void:
 	clipboard = GraphClipboard.new(self)
 	input_handler = GraphInputHandler.new(self, clipboard)
 	
-	# Initialize Manager
-	tool_manager = GraphToolManager.new(self)
+	# [REMOVED] tool_manager = GraphToolManager.new(self) 
+	# (Moved to _init above to prevent race conditions)
 	
 	# Start with the default tool
 	set_active_tool(GraphSettings.Tool.SELECT)
@@ -197,7 +201,7 @@ func delete_node(id: String) -> void:
 
 # --- Selection Operations (BATCHING OPTIMIZATION) ---
 
-# NEW: Optimized Batch Selection to prevent signal storms
+# Optimized Batch Selection to prevent signal storms
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
 	if clear_existing:
 		selected_nodes.clear()
@@ -475,7 +479,12 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	
-	tool_manager.update_tool_graph_reference(graph)
+	# --- FIXED TOOL REFRESH ---
+	if tool_manager:
+		# Instead of manually patching references, we simply RESTART the active tool.
+		# 1. This creates a NEW tool instance (which reads the NEW self.graph automatically).
+		# 2. It emits 'tool_changed', which forces the TopBar UI to rebuild the dropdowns.
+		tool_manager.set_active_tool(tool_manager.active_tool_id)
 		
 	_center_camera_on_graph()
 	renderer.queue_redraw()
