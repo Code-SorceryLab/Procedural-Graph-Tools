@@ -69,12 +69,12 @@ func _handle_delete() -> void:
 		_editor.get_viewport().set_input_as_handled()
 
 func _handle_tool_switching(event: InputEvent) -> void:
-	# Iterate through settings to find if a tool action was pressed
+	# Iterate through ALL defined tools in the dictionary
 	for tool_id in GraphSettings.TOOL_DATA:
 		var action = GraphSettings.TOOL_DATA[tool_id].get("action", "")
 		
+		# If the event matches the tool's SPECIFIC action (e.g. "tool_select")
 		if action != "" and event.is_action_pressed(action):
-			# Calls Editor -> Emits Signal -> Updates UI
 			_editor.set_active_tool(tool_id) 
 			_editor.get_viewport().set_input_as_handled()
 			return

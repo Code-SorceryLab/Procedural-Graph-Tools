@@ -116,7 +116,18 @@ enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT }
 
 const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
-# The order here is purely visual for us; the keys (enum) map to the values.
+# 1. VISUAL ORDER (Can be changed anytime without breaking hotkeys)
+static var TOOLBAR_LAYOUT: Array[Tool] = [
+	Tool.SELECT,
+	Tool.ADD_NODE,
+	Tool.DELETE,
+	Tool.CONNECT,
+	Tool.CUT,
+	Tool.PAINT,
+	Tool.TYPE_PAINT
+]
+
+# 2. DEFINITIONS (Now includes the explicit 'action' again)
 static var TOOL_DATA: Dictionary = {
 	Tool.SELECT:     { "name": "Select",     "action": "tool_select",  "icon_path": "res://assets/icons/tool_select.png" },
 	Tool.ADD_NODE:   { "name": "Add Node",   "action": "tool_add",     "icon_path": "res://assets/icons/tool_add.png" },
@@ -151,6 +162,8 @@ static func get_tool_name(tool_id: int) -> String:
 	return TOOL_DATA.get(tool_id, {}).get("name", "Unknown")
 
 
+# 3. SHORTCUT LOOKUP (Simplified again)
+# We look up the specific action for this tool, not its slot index.
 static func get_shortcut_string(tool_id: int) -> String:
 	var action = TOOL_DATA.get(tool_id, {}).get("action", "")
 	if action == "": return ""
@@ -160,16 +173,10 @@ static func get_shortcut_string(tool_id: int) -> String:
 	
 	for event in events:
 		if event is InputEventKey:
-			# 1. Try to get the localized label (Best for UX, e.g. handles QWERTY vs AZERTY)
 			var label = event.as_text_key_label()
-			
-			# 2. If Godot fails to resolve the label, FALL BACK to the raw keycode
 			if label == "" or label == "(Unset)":
-				# This forces it to read the physical keycode directly (e.g., "1", "Delete")
 				label = OS.get_keycode_string(event.physical_keycode)
-			
 			return label
-			
 	return ""
 
 static func get_shortcut_keycode(tool_id: int) -> int:

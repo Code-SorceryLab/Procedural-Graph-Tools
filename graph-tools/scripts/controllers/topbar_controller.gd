@@ -1,4 +1,4 @@
-class_name StatusController
+class_name TopbarController
 extends Node
 
 # --- REFERENCES ---
@@ -9,7 +9,7 @@ extends Node
 func _ready() -> void:
 	# Wait for dependencies to be valid
 	if not graph_editor or not status_label:
-		push_warning("StatusController: Missing references.")
+		push_warning("TopbarController: Missing references.")
 		return
 		
 	# Wire the signal

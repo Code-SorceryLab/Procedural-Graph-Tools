@@ -5,6 +5,7 @@
 [sub_resource type="LabelSettings" id="LabelSettings_w8px2"]
 
 [node name="SettingsWindow" type="PanelContainer"]
+custom_minimum_size = Vector2(500, 600)
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -18,43 +19,69 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_rtnku")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
 
-[node name="LblEditorSettings" type="Label" parent="VBoxContainer"]
+[node name="LblEditorSettings" type="Label" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Editor Settings"
 label_settings = SubResource("LabelSettings_w8px2")
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="GridContainer" type="GridContainer" parent="VBoxContainer"]
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/h_separation = 20
 theme_override_constants/v_separation = 10
 columns = 2
 
-[node name="LblAtomic" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="LblAtomic" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
 text = "Atomic Undo"
 
-[node name="ChkAtomic" type="CheckBox" parent="VBoxContainer/GridContainer"]
+[node name="ChkAtomic" type="CheckBox" parent="MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
 
-[node name="LblMaxHistorySteps" type="Label" parent="VBoxContainer/GridContainer"]
+[node name="LblMaxHistorySteps" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
 text = "Max History Steps"
 
-[node name="SpinHistory" type="SpinBox" parent="VBoxContainer/GridContainer"]
+[node name="SpinHistory" type="SpinBox" parent="MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
 min_value = 1.0
 max_value = 1000.0
 value = 50.0
 
-[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
+[node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="BtnClose" type="Button" parent="VBoxContainer"]
+[node name="LblKeybinds" type="Label" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Keybinds"
+
+[node name="BtnResetInputs" type="Button" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Reset to Defaults"
+
+[node name="ScrollInputs" type="ScrollContainer" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InputContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/ScrollInputs"]
+layout_mode = 2
+
+[node name="HSeparator3" type="HSeparator" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="BtnClose" type="Button" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Close"
