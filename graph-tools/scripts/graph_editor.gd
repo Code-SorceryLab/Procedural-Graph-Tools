@@ -496,12 +496,23 @@ func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 	
 	_reset_local_state()
 
+	# 1. Execute Logic
+	# This populates 'params' with visual data (highlights) even if no commands are generated.
 	var batch = StrategyExecutor.execute(self, strategy, params)
 	
-	if batch:
+	# 2. Commit Structural Changes (Undo/Redo)
+	# We check if batch exists AND if it actually has commands inside.
+	# This prevents empty batches from triggering camera jumps.
+	if batch and not batch._commands.is_empty():
 		_commit_command(batch)
-		StrategyExecutor.process_visualization(self, params, existing_ids)
+		
+		# [KEEP INSIDE] Only center camera if the graph structure actually grew/changed.
 		_center_camera_on_graph()
+	
+	# 3. Update Visualization (ALWAYS)
+	# [FIX] We run this even if 'batch' was null or empty.
+	# This ensures Walkers are seen immediately when traversing existing nodes.
+	StrategyExecutor.process_visualization(self, params, existing_ids)
 
 # ==============================================================================
 # 6. INTERNAL HELPERS
