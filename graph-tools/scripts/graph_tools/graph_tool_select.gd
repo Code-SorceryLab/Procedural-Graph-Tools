@@ -11,8 +11,6 @@ var _drag_start_positions: Dictionary = {}
 # State B: Box Selection
 var _box_start_pos: Vector2 = Vector2.INF
 
-
-
 func handle_input(event: InputEvent) -> void:
 	# 1. MOUSE BUTTON INPUT
 	if event is InputEventMouseButton:
@@ -26,8 +24,7 @@ func handle_input(event: InputEvent) -> void:
 				if not clicked_id.is_empty():
 					_start_moving_node(clicked_id)
 				else:
-					# NEW: Check for Edge Click
-					# We use the math function we added to Graph.gd in Step 1
+					# Check for Edge Click
 					var clicked_edge = _graph.get_edge_at_position(mouse_pos)
 					
 					if not clicked_edge.is_empty():
@@ -129,12 +126,11 @@ func _start_moving_node(id: String) -> void:
 	else:
 		# FIX: If we deselected the node (Ctrl click), cancel BOTH logic and visuals
 		_drag_node_id = ""
-		_renderer.drag_start_id = "" # <--- Clears the orange line
-		_renderer.queue_redraw()     # <--- Forces immediate update
+		_renderer.drag_start_id = "" 
+		_renderer.queue_redraw()
 
 func _finish_moving_node() -> void:
 	# --- COMMIT UNDO HISTORY ---
-	# We compare where they started vs where they ended up.
 	if not _drag_start_positions.is_empty():
 		var move_payload = {}
 		
@@ -145,8 +141,6 @@ func _finish_moving_node() -> void:
 					"to": _graph.nodes[id].position
 				}
 		
-		# Send the payload to the Editor.
-		# The Editor will ignore nodes that didn't actually move (distance < 0.1).
 		_editor.commit_move_batch(move_payload)
 	
 	# --- CLEANUP ---
@@ -155,7 +149,7 @@ func _finish_moving_node() -> void:
 	_renderer.drag_start_id = ""
 	_group_offsets.clear()
 
-# ... (Box Selection logic remains the same) ...
+# --- BOX SELECTION (OPTIMIZED) ---
 func _start_box_selection(pos: Vector2) -> void:
 	_box_start_pos = pos
 
@@ -182,27 +176,43 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	
 	if not is_shift and not is_ctrl:
 		# REPLACE Selection
-		_editor.clear_selection() 
-		for id in nodes_in_box: _editor.add_to_selection(id)
-		for pair in edges_in_box: _editor.toggle_edge_selection(pair) # Toggle acts as Add here since cleared
+		# Optimization: Direct batch set (clears existing)
+		_editor.set_selection_batch(nodes_in_box, edges_in_box, true)
 		
 	elif is_shift:
-		# ADD to Selection
-		for id in nodes_in_box: _editor.add_to_selection(id)
-		for pair in edges_in_box: _editor.add_edge_selection(pair)
+		# ADD to Selection (Union)
+		# Filter to avoid duplicates in the append operation
+		var nodes_to_add: Array[String] = []
+		for id in nodes_in_box:
+			if not _editor.selected_nodes.has(id):
+				nodes_to_add.append(id)
+				
+		var edges_to_add: Array = []
+		for pair in edges_in_box:
+			pair.sort()
+			if not _editor.is_edge_selected(pair):
+				edges_to_add.append(pair)
+		
+		if not nodes_to_add.is_empty() or not edges_to_add.is_empty():
+			# Optimization: Batch append (does NOT clear existing)
+			_editor.set_selection_batch(nodes_to_add, edges_to_add, false)
 		
 	elif is_ctrl:
-		# SUBTRACT Selection (Nodes)
-		for id in nodes_in_box: 
-			if _editor.selected_nodes.has(id): 
-				_editor.toggle_selection(id)
+		# SUBTRACT Selection (Difference)
+		# We must calculate the final state manually, then set it batch-wise
+		var final_nodes = _editor.selected_nodes.duplicate()
+		for id in nodes_in_box:
+			if final_nodes.has(id):
+				final_nodes.erase(id)
 		
-		# SUBTRACT Selection (Edges) - FIXED
+		var final_edges = _editor.selected_edges.duplicate()
 		for pair in edges_in_box:
-			# Only toggle (deselect) if it is CURRENTLY selected.
-			# If GraphEditor doesn't have is_edge_selected, use _editor.selected_edges.has(pair)
+			pair.sort()
 			if _editor.is_edge_selected(pair):
-				_editor.toggle_edge_selection(pair)
+				final_edges.erase(pair)
+		
+		# Optimization: Set the newly calculated reduced list
+		_editor.set_selection_batch(final_nodes, final_edges, true)
 			
 	# Cleanup
 	_box_start_pos = Vector2.INF

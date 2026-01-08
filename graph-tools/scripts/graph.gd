@@ -189,28 +189,44 @@ func get_nodes_in_rect(rect: Rect2) -> Array[String]:
 	return result
 
 # Returns an array of edge pairs [[a,b], [c,d]] that touch the rectangle
+# OPTIMIZED: Uses Spatial Grid to only check edges connected to relevant nodes
 func get_edges_in_rect(rect: Rect2) -> Array:
 	var result = []
 	var checked = {}
 	
-	# Pre-calculate rect corners for the intersection tests
-	# Renamed to avoid shadowing 'tr()' (translation) function
+	# Pre-calculate geometry for strict intersection tests
 	var rect_tl = rect.position
 	var rect_tr = Vector2(rect.end.x, rect.position.y)
 	var rect_br = rect.end
 	var rect_bl = Vector2(rect.position.x, rect.end.y)
 	
-	for a in edge_data:
-		if not nodes.has(a): continue
+	# 1. BROAD PHASE: Get Candidate Nodes
+	# We query the grid for nodes inside the rect.
+	# We treat the edge check as "Edges connected to nodes in this region".
+	var candidates: Array[String] = []
+	if _spatial_grid:
+		candidates = _spatial_grid.query_rect(rect)
+	else:
+		# Fallback if grid isn't ready (shouldn't happen often)
+		candidates = nodes.keys()
+
+	# 2. NARROW PHASE: Check connections of candidates only
+	for a in candidates:
+		# Safety check
+		if not nodes.has(a) or not edge_data.has(a):
+			continue
+			
 		var pos_a = nodes[a].position
 		
+		# Check all outgoing edges from this candidate
 		for b in edge_data[a]:
 			if not nodes.has(b): continue
 			
-			# Canonical Pair
+			# Create Canonical Pair (Sorted)
 			var pair = [a, b]
 			pair.sort()
 			
+			# Deduplication: Avoid processing A-B and B-A twice
 			if checked.has(pair): continue
 			checked[pair] = true
 			
@@ -218,12 +234,14 @@ func get_edges_in_rect(rect: Rect2) -> Array:
 			
 			# --- GEOMETRY CHECK ---
 			
-			# 1. Trivial Acceptance: Both points inside?
+			# A. Trivial Acceptance: Both points inside?
+			# Since 'a' is a candidate, we know it's likely inside, but 'b' might be outside.
+			# We perform the strict check on points to be sure.
 			if rect.has_point(pos_a) and rect.has_point(pos_b):
 				result.append(pair)
 				continue
 				
-			# 2. AABB Rejection: Does the "Box" of the line even touch the selection box?
+			# B. AABB Rejection: Does the "Box" of the line even touch the selection box?
 			var line_min_x = min(pos_a.x, pos_b.x)
 			var line_max_x = max(pos_a.x, pos_b.x)
 			var line_min_y = min(pos_a.y, pos_b.y)
@@ -233,7 +251,7 @@ func get_edges_in_rect(rect: Rect2) -> Array:
 			   line_max_y < rect.position.y or line_min_y > rect.end.y:
 				continue # Miss
 			
-			# 3. Strict Border Intersection
+			# C. Strict Border Intersection
 			# We check if the line segment crosses any of the 4 sides of the Rect.
 			
 			# Top

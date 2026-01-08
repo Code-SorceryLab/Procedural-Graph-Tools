@@ -22,11 +22,12 @@ var graph: Graph = Graph.new()
 # Tool Manager
 var tool_manager: GraphToolManager
 
+
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
 
-# CHANGED: Now Arrays to support Multiple Walkers
+# Arrays to support Multiple Walkers
 var path_start_ids: Array[String] = []
 var path_end_ids: Array[String] = []
 
@@ -39,6 +40,7 @@ var _manual_counter: int = 0
 
 # --- HISTORY STATE ---
 var history: GraphHistory
+var clipboard: GraphClipboard
 
 # ==============================================================================
 # 1. INITIALIZATION & SETUP
@@ -76,6 +78,7 @@ func _ready() -> void:
 	
 	# Initialize History
 	history = GraphHistory.new(graph)
+	clipboard = GraphClipboard.new(self)
 	
 	# Initialize Manager
 	tool_manager = GraphToolManager.new(self)
@@ -106,24 +109,57 @@ func _unhandled_input(event: InputEvent) -> void:
 	tool_manager.handle_input(event)
 
 func _handle_global_shortcuts(event: InputEventKey) -> void:
-	# F: Focus Camera
-	if event.keycode == KEY_F:
-		_center_camera_on_graph()
-	
-	# Ctrl+S: Save
-	if event.keycode == KEY_S and event.ctrl_pressed:
-		request_save_graph.emit(graph)
-		get_viewport().set_input_as_handled() 
-		
-	# Ctrl+Z / Ctrl+Y
-	if event.pressed and event.ctrl_pressed:
-		if event.keycode == KEY_Z:
-			if event.shift_pressed:
-				redo() 
-			else:
-				undo() 
-		elif event.keycode == KEY_Y:
-			redo()     
+	if not event.pressed:
+		return
+
+	# --- CTRL SHORTCUTS ---
+	if event.ctrl_pressed:
+		match event.keycode:
+			KEY_S:
+				request_save_graph.emit(graph)
+				get_viewport().set_input_as_handled()
+			
+			KEY_Z:
+				if event.shift_pressed:
+					redo()
+				else:
+					undo()
+				get_viewport().set_input_as_handled()
+				
+			KEY_Y:
+				redo()
+				get_viewport().set_input_as_handled()
+				
+			KEY_C:
+				clipboard.copy()
+				get_viewport().set_input_as_handled()
+				
+			KEY_X:
+				clipboard.cut()
+				get_viewport().set_input_as_handled()
+				
+			KEY_V:
+				clipboard.paste()
+				get_viewport().set_input_as_handled()
+
+	# --- STANDARD SHORTCUTS (No Ctrl) ---
+	else:
+		match event.keycode:
+			KEY_F:
+				_center_camera_on_graph()
+				# We generally don't consume 'F' as it might be used by UI focus
+				
+			KEY_DELETE:
+				if not selected_nodes.is_empty():
+					var batch = CmdBatch.new(graph, "Delete Selection")
+					for id in selected_nodes:
+						var cmd = CmdDeleteNode.new(graph, id)
+						batch.add_command(cmd)
+					
+					_commit_command(batch)
+					_reset_local_state()
+					get_viewport().set_input_as_handled()
+
 
 # ==============================================================================
 # 4. PUBLIC API FOR TOOLS
@@ -200,7 +236,29 @@ func delete_node(id: String) -> void:
 	var cmd = CmdDeleteNode.new(graph, id)
 	_commit_command(cmd)
 
-# --- Selection Operations ---
+# --- Selection Operations (BATCHING OPTIMIZATION) ---
+
+# NEW: Optimized Batch Selection to prevent signal storms
+func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
+	if clear_existing:
+		selected_nodes.clear()
+		selected_edges.clear()
+	
+	# Bulk Append
+	selected_nodes.append_array(nodes)
+	selected_edges.append_array(edges)
+	
+	# Sync Renderer
+	renderer.selected_nodes_ref = selected_nodes
+	renderer.selected_edges_ref = selected_edges
+	
+	# Emit ONCE
+	selection_changed.emit(selected_nodes)
+	edge_selection_changed.emit(selected_edges)
+	
+	renderer.queue_redraw()
+
+# Standard Selection Helpers
 func toggle_selection(id: String) -> void:
 	if selected_nodes.has(id):
 		selected_nodes.erase(id)
@@ -353,8 +411,8 @@ func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
 	_commit_command(cmd)
 
 # Helper for Directionality (One-Way vs Bi-Dir)
+# UPDATED: Accepts 'mode' (0=Bi, 1=Fwd, 2=Rev) instead of bool
 func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
-	# Check current state to avoid redundant commands
 	var has_ab = graph.has_edge(id_a, id_b)
 	var has_ba = graph.has_edge(id_b, id_a)
 	

@@ -1,6 +1,9 @@
 extends Node
 class_name InspectorController
 
+
+const MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
+
 # --- REFERENCES ---
 @export_group("Core Systems")
 @export var graph_editor: GraphEditor
@@ -155,21 +158,19 @@ func _rebuild_edge_inspector_ui() -> void:
 
 	# 2. Determine Mode (Single vs Group)
 	var schema = []
-	var graph = graph_editor.graph # <--- Define graph reference here
+	var graph = graph_editor.graph 
 	
 	if _tracked_edges.size() == 1:
-		# --- SINGLE EDGE MODE ---
+		# --- SINGLE EDGE MODE (Unchanged) ---
 		var pair = _tracked_edges[0]
 		var id_a = pair[0]
 		var id_b = pair[1]
 		
 		lbl_edge_header.text = "%s <-> %s" % [id_a, id_b]
 		
-		# Fetch Weight
 		var data = graph.get_edge_data(id_a, id_b)
 		var weight = data.get("weight", 1.0)
 		
-		# Fetch Direction Mode (0=Bi, 1=Fwd, 2=Rev)
 		var has_ab = graph.has_edge(id_a, id_b)
 		var has_ba = graph.has_edge(id_b, id_a)
 		
@@ -186,7 +187,7 @@ func _rebuild_edge_inspector_ui() -> void:
 			},
 			{
 				"name": "direction", 
-				"label": "Orientation", # Use label override
+				"label": "Orientation", 
 				"type": TYPE_INT, 
 				"default": current_mode, 
 				"hint": "enum", 
@@ -196,59 +197,64 @@ func _rebuild_edge_inspector_ui() -> void:
 		
 	else:
 		# --- GROUP EDGE MODE ---
-		lbl_edge_header.text = "Selected %d Edges" % _tracked_edges.size()
+		var count = _tracked_edges.size()
+		lbl_edge_header.text = "Selected %d Edges" % count
 		
-		var total_w = 0.0
-		var first_w = -1.0
-		var is_mixed_w = false
+		var display_w = 1.0
+		var label_w = "Weight (Bulk)"
 		
-		var first_mode = -1
-		var is_mixed_dir = false
+		var display_mode = -1
+		var label_dir = "Orientation (Bulk)"
 		
-		# Pass 1: Analyze weights AND direction
-		for i in range(_tracked_edges.size()):
-			var pair = _tracked_edges[i]
-			var u = pair[0] # Alphabetically first
-			var v = pair[1] # Alphabetically second
+		# OPTIMIZATION: Only analyze if count is small
+		if count <= MAX_ANALYSIS_COUNT:
+			var total_w = 0.0
+			var first_w = -1.0
+			var is_mixed_w = false
 			
-			# Check existence before grabbing weight
-			# If A->B exists, use it. If not, try B->A.
-			var w = 1.0
-			if graph.has_edge(u, v):
-				w = graph.get_edge_weight(u, v)
-			elif graph.has_edge(v, u):
-				w = graph.get_edge_weight(v, u)
+			var first_mode = -1
+			var is_mixed_dir = false
 			
-			if i == 0:
-				first_w = w
-			elif not is_equal_approx(w, first_w):
-				is_mixed_w = true
-			total_w += w
+			for i in range(count):
+				var pair = _tracked_edges[i]
+				var u = pair[0] 
+				var v = pair[1] 
+				
+				# 1. Weight Analysis
+				var w = 1.0
+				if graph.has_edge(u, v):
+					w = graph.get_edge_weight(u, v)
+				elif graph.has_edge(v, u):
+					w = graph.get_edge_weight(v, u)
+				
+				if i == 0: first_w = w
+				elif not is_equal_approx(w, first_w): is_mixed_w = true
+				total_w += w
+				
+				# 2. Direction Analysis
+				var has_ab = graph.has_edge(u, v)
+				var has_ba = graph.has_edge(v, u)
+				var mode = 0 
+				if has_ab and not has_ba: mode = 1 
+				elif not has_ab and has_ba: mode = 2 
+				
+				if i == 0: first_mode = mode
+				elif mode != first_mode: is_mixed_dir = true
 			
-			# 2. Direction Analysis (Unchanged)
-			var has_ab = graph.has_edge(u, v)
-			var has_ba = graph.has_edge(v, u)
-			var mode = 0 # Bi-Dir
-			if has_ab and not has_ba: mode = 1 # Fwd
-			elif not has_ab and has_ba: mode = 2 # Rev
-			
-			if i == 0:
-				first_mode = mode
-			elif mode != first_mode:
-				is_mixed_dir = true
-			
-		# Prepare Display Values
-		var display_w = first_w
-		var label_w = "Weight"
-		if is_mixed_w:
-			display_w = total_w / _tracked_edges.size()
-			label_w = "Weight (Average)"
-			
-		var display_mode = first_mode
-		var label_dir = "Orientation"
-		if is_mixed_dir:
-			display_mode = -1 # No selection
-			label_dir = "Orientation (Mixed)"
+			# Set precise labels
+			if is_mixed_w:
+				display_w = total_w / count
+				label_w = "Weight (Average)"
+			else:
+				display_w = first_w
+				label_w = "Weight"
+				
+			if is_mixed_dir:
+				display_mode = -1
+				label_dir = "Orientation (Mixed)"
+			else:
+				display_mode = first_mode
+				label_dir = "Orientation"
 		
 		schema = [
 			{
@@ -407,21 +413,17 @@ func _rebuild_walker_ui() -> void:
 func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
 	var count = nodes.size()
+	
+	# Basic Stats (Fast O(N))
 	var center_sum = Vector2.ZERO
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
-	var internal_connections = 0
 	
 	var first_id = nodes[0]
 	var first_type = graph.nodes[first_id].type
 	var is_mixed = false
-	var node_set = {} 
 	
-	for id in nodes:
-		node_set[id] = true
-		if graph.nodes[id].type != first_type:
-			is_mixed = true
-	
+	# We still need one loop for bounds/center, which is usually fine up to ~5000 nodes
 	for id in nodes:
 		if not graph.nodes.has(id): continue
 		var pos = graph.nodes[id].position
@@ -431,21 +433,38 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 		max_pos.x = max(max_pos.x, pos.x)
 		max_pos.y = max(max_pos.y, pos.y)
 		
-		var neighbors = graph.get_neighbors(id)
-		for n_id in neighbors:
-			if node_set.has(n_id):
-				internal_connections += 1
+		if graph.nodes[id].type != first_type:
+			is_mixed = true
 	
 	var avg_center = center_sum / count
 	var size = max_pos - min_pos
-	var unique_edges = internal_connections / 2
+	
+	# OPTIMIZATION: Skip Density Calculation for large groups
+	var internal_connections = -1
+	
+	if count <= MAX_ANALYSIS_COUNT:
+		var node_set = {}
+		for id in nodes: node_set[id] = true
+		
+		internal_connections = 0
+		for id in nodes:
+			if not graph.nodes.has(id): continue
+			var neighbors = graph.get_neighbors(id)
+			for n_id in neighbors:
+				if node_set.has(n_id):
+					internal_connections += 1
+		internal_connections /= 2 # Unique edges
 	
 	_is_updating_ui = true
 	
 	lbl_group_count.text = "Selected: %d Nodes" % count
 	lbl_group_center.text = "Center: (%.1f, %.1f)" % [avg_center.x, avg_center.y]
 	lbl_group_bounds.text = "Bounds: %.0f x %.0f" % [size.x, size.y]
-	lbl_group_density.text = "Internal Edges: %d" % unique_edges
+	
+	if internal_connections >= 0:
+		lbl_group_density.text = "Internal Edges: %d" % internal_connections
+	else:
+		lbl_group_density.text = "Density: (Skipped)"
 	
 	_setup_type_dropdown(group_option_type)
 	if is_mixed:

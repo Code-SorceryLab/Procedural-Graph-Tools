@@ -20,6 +20,9 @@ var _is_saving: bool = true
 var _is_dirty: bool = false
 var _pending_action: Callable # Stores the function we paused
 
+# NEW: Track the current file for Quick Save (Ctrl+S)
+var _current_path: String = ""
+
 func _ready() -> void:
 	save_btn.pressed.connect(_on_save_button_pressed)
 	load_btn.pressed.connect(_on_load_button_pressed)
@@ -33,6 +36,10 @@ func _ready() -> void:
 	
 	# Listen for changes
 	graph_editor.graph_modified.connect(_on_graph_modified)
+	
+	# NEW: Listen for Ctrl+S from Editor
+	# We discard the graph argument since we have access to it via the export var
+	graph_editor.request_save_graph.connect(func(_g): _on_quick_save_requested())
 	
 	# Initialize
 	_update_dirty_state(false)
@@ -54,7 +61,6 @@ func _update_dirty_state(dirty: bool) -> void:
 	else:
 		# Clean state (usually set after save/load)
 		# We don't clear text here because "Saved: file.json" is useful info.
-		# Just ensure the (*) is gone if we were to rebuild the string.
 		pass
 
 # --- THE GATEKEEPER ---
@@ -77,11 +83,20 @@ func _on_discard_confirmed() -> void:
 # --- BUTTON HANDLERS (UPDATED) ---
 
 func _on_save_button_pressed() -> void:
-	# Saving is always allowed (doesn't destroy data)
+	# "Save As..." behavior
 	_is_saving = true
 	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	file_dialog.title = "Save Dungeon Layout"
 	file_dialog.popup_centered()
+
+# NEW: Quick Save Handler (Ctrl+S)
+func _on_quick_save_requested() -> void:
+	if _current_path != "":
+		# We know the file, save directly!
+		_save_graph(_current_path)
+	else:
+		# We don't know the file, treat as "Save As..."
+		_on_save_button_pressed()
 
 func _on_load_button_pressed() -> void:
 	# Loading destroys current data -> Use Gatekeeper
@@ -117,6 +132,7 @@ func _save_graph(path: String) -> void:
 		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
 		
 		# SUCCESS! We are clean now.
+		_current_path = path # Remember this file
 		_update_dirty_state(false) 
 	else:
 		file_status.text = "Error writing file!"
@@ -137,6 +153,7 @@ func _load_graph(path: String) -> void:
 		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
 		
 		# SUCCESS! We are clean now.
+		_current_path = path # Remember this file
 		_update_dirty_state(false)
 	else:
 		file_status.text = "Error parsing JSON!"
