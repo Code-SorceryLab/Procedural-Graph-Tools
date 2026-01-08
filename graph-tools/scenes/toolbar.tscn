@@ -1,6 +1,5 @@
-[gd_scene load_steps=3 format=3 uid="uid://0615dqn17fo0"]
+[gd_scene load_steps=2 format=3 uid="uid://0615dqn17fo0"]
 
-[ext_resource type="PackedScene" uid="uid://cspael87hhc00" path="res://scenes/tool_button.tscn" id="1_i3mxx"]
 [ext_resource type="Script" uid="uid://51ua2mcpael0" path="res://scripts/toolbar.gd" id="1_wdy5x"]
 
 [node name="Toolbar" type="PanelContainer"]
@@ -13,30 +12,3 @@ script = ExtResource("1_wdy5x")
 layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 1
-
-[node name="BtnSelect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-
-[node name="BtnAddNode" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 1
-
-[node name="BtnDelete" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 2
-
-[node name="BtnConnect" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 3
-
-[node name="BtnCut" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 4
-
-[node name="BtnPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 5
-
-[node name="BtnPropertyPaint" parent="ToolContainer" instance=ExtResource("1_i3mxx")]
-layout_mode = 2
-tool_id = 6
