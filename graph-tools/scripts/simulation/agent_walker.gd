@@ -93,6 +93,25 @@ func step_grow(graph: GraphRecorder, grid_spacing: Vector2, merge_overlaps: bool
 		# [REFACTOR] Snap using the vector
 		target_pos = target_pos.snapped(grid_spacing)
 	
+	# --- PHASE 4: ZONE AWARENESS ---
+	# Calculate which logical grid cell we are trying to enter
+	var gx = round(target_pos.x / grid_spacing.x)
+	var gy = round(target_pos.y / grid_spacing.y)
+	var target_grid_pos = Vector2i(gx, gy)
+	
+	# Ask the Graph who owns this land
+	# GraphRecorder inherits from Graph, so it has get_zone_at()
+	var zone = graph.get_zone_at(target_grid_pos)
+	
+	if zone:
+		# Check if this zone forbids construction
+		if not zone.allow_new_nodes:
+			# BLOCKED: Treat as a wall.
+			# We return current_node_id to signify "didn't move".
+			# The loop in StrategyWalker continues, essentially making the walker "wait" this tick.
+			return current_node_id
+	# -------------------------------
+
 	# 2. Determine ID (Find existing or Create new)
 	var new_id = ""
 	var existing_id = graph.get_node_at_position(target_pos, 1.0)

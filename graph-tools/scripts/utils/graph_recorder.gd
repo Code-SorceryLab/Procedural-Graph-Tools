@@ -21,17 +21,32 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 			
 		# 3. Rebuild spatial grid
 		_rebuild_spatial_grid()
+		
+		# 4. Clone Existing Zones (So algorithms can see existing claims)
+		# We duplicate the array so we don't accidentally modify the real list directly
+		if "zones" in target:
+			zones = target.zones.duplicate()
 
 # --- MUTATOR OVERRIDES ---
 
+# [NEW] Handle Zone Registration
+func add_zone(zone: GraphZone) -> void:
+	# 1. Update Simulation (So this algorithm sees its own zone immediately)
+	super.add_zone(zone)
+	
+	# 2. Apply to Target (Directly for now)
+	# Since we don't have a CmdAddZone yet, we bypass the undo stack for metadata.
+	# This ensures the zone appears in the editor immediately.
+	if _target_graph and _target_graph.has_method("add_zone"):
+		_target_graph.add_zone(zone)
+	else:
+		push_error("GraphRecorder: Target graph missing add_zone method.")
+
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
-	# Check if the node already exists in our simulation
 	var already_exists = nodes.has(id)
 	
-	# 1. Update Simulation (Pass-Through)
 	super.add_node(id, pos)
 	
-	# 2. Record Intent (ONLY if it didn't exist before)
 	if not already_exists:
 		var cmd = CmdAddNode.new(_target_graph, id, pos)
 		recorded_commands.append(cmd)
@@ -39,17 +54,13 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
 	var already_exists = has_edge(a, b)
 	
-	# Pass data through to simulation
 	super.add_edge(a, b, weight, directed, extra_data)
 	
 	if not already_exists:
-		# TODO: Update CmdConnect later to support 'extra_data'
 		var cmd = CmdConnect.new(_target_graph, a, b, weight)
 		recorded_commands.append(cmd)
 
 func remove_node(id: String) -> void:
-	# Note: If the algorithm deletes a node, we assume it INTENDS to destroy
-	# whatever was there (Grid or otherwise), so we always record deletions.
 	super.remove_node(id)
 	
 	var cmd = CmdDeleteNode.new(_target_graph, id)
@@ -63,17 +74,12 @@ func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	recorded_commands.append(cmd)
 
 func set_node_type(id: String, new_type: int) -> void:
-	# 1. Update Simulation (So the strategy logic "sees" the change immediately)
 	if nodes.has(id):
 		nodes[id].type = new_type
 		
-	# 2. Record Intent
-	# We need the OLD type to properly construct the Undo command.
-	# We grab it from the TARGET graph (the real history), not our simulation.
 	var old_type = 0
 	if _target_graph.nodes.has(id):
 		old_type = _target_graph.nodes[id].type
 		
-	# Create the command
 	var cmd = CmdSetType.new(_target_graph, id, old_type, new_type)
 	recorded_commands.append(cmd)

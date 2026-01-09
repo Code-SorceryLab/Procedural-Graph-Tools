@@ -61,7 +61,10 @@ func _ready() -> void:
 func _draw() -> void:
 	if not graph_ref:
 		return
-
+	
+	# 0. Draw Zones (Background layer)
+	_draw_zones()
+	
 	# Layer 1: Connections
 	_draw_edges()
 	
@@ -84,6 +87,23 @@ func _draw() -> void:
 	# Layer 6: Dynamic Depth Overlay (NEW)
 	if debug_show_depth:
 		_draw_depth_numbers()
+# --- HELPER: ZONES ---
+func _draw_zones() -> void:
+	if not graph_ref or graph_ref.zones.is_empty():
+		return
+		
+	var spacing = GraphSettings.GRID_SPACING
+	# Half-size for centering the rect on the node point
+	var half_size = spacing / 2.0
+	
+	for zone in graph_ref.zones:
+		# Draw every cell in the zone
+		# (Optimized: In a real game we'd merge these into a polygon, but for an editor, drawing rects is fine)
+		for cell in zone.cells:
+			var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
+			var rect = Rect2(world_pos - half_size, spacing)
+			draw_rect(rect, zone.zone_color, true) # Filled
+			draw_rect(rect, zone.zone_color.lightened(0.2), false, 1.0) # Border
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:

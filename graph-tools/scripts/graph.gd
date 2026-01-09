@@ -11,6 +11,9 @@ const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
 # Stores rich data for edges [FromID][ToID] = { data }
 @export var edge_data: Dictionary = {}
 
+# --- ZONES LAYER ---
+@export var zones: Array[GraphZone] = []
+
 # 2. Spatial partitioning
 var _spatial_grid: SpatialGrid = null
 var _spatial_grid_dirty: bool = true  # Flag to indicate we need to rebuild
@@ -287,7 +290,21 @@ func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
 	# Note: We do NOT automatically update B->A here. 
 	# This allows for asymmetric weights (e.g. going uphill vs downhill).
 
+# --- ZONE MANAGEMENT ---
+func add_zone(zone: GraphZone) -> void:
+	zones.append(zone)
 
+func clear_zones() -> void:
+	zones.clear()
+
+# The "Sensor" for Walkers: What zone am I standing in?
+func get_zone_at(grid_pos: Vector2i) -> GraphZone:
+	# Iterate backwards (newest zones on top)
+	for i in range(zones.size() - 1, -1, -1):
+		var z = zones[i]
+		if z.has_cell(grid_pos):
+			return z
+	return null
 
 # Find node at exact position (for mouse picking)
 func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
