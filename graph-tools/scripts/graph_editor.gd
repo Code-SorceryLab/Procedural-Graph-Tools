@@ -14,6 +14,7 @@ signal active_tool_changed(tool_id: int)
 
 
 # --- REFERENCES ---
+@onready var grid_renderer: GridRenderer = $Grid
 @onready var renderer: GraphRenderer = $Renderer
 @onready var camera: GraphCamera = $Camera
 
@@ -63,6 +64,10 @@ func _ready() -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
+	
+	# Grid Renderer
+	if grid_renderer:
+		grid_renderer.camera_ref = camera
 	
 	# --- Connect Signals for Reactive Renderer ---
 	graph_modified.connect(func(): 

@@ -42,21 +42,17 @@ func get_settings() -> Array[Dictionary]:
 	]
 
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
-	# 1. Extract params safely
-	# We use the exact keys defined in 'name' above
+	# 1. Extract params
 	var wedge_count = int(params.get("wedges", 6))
 	var max_radius = int(params.get("radius", 8))
 	var use_jitter = params.get("use_jitter", false)
-	
-	# Note: The UI returns floats for spinboxes, so cast if needed
 	var jitter_val = float(params.get("jitter_amount", 10.0))
-	
-	var jitter_amount = 0.0
-	if use_jitter:
-		jitter_amount = jitter_val
+	var jitter_amount = jitter_val if use_jitter else 0.0
 	
 	var merge_overlaps = params.get("merge_overlaps", true)
-	var cell_size = GraphSettings.CELL_SIZE
+	
+	# [REFACTOR] Get Vector Spacing
+	var spacing = GraphSettings.GRID_SPACING
 	
 	# --- PASS 1: CREATE ALL NODES ---
 	var center_id = "polar:0:0:0"
@@ -69,18 +65,26 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 		for r in range(1, max_radius + 1):
 			for s in range(r):
 				var center_offset = (r - 1) / 2.0
-				var lateral_pos = (s - center_offset) * (cell_size * 0.8)
-				var forward_pos = r * cell_size
 				
-				var local_pos = Vector2(forward_pos, lateral_pos)
+				# [LOGIC CHANGE] 
+				# 1. Calculate in "Unit Space" first (as if grid was 1x1)
+				# 0.8 is the packing density factor
+				var unit_lateral = (s - center_offset) * 0.8
+				var unit_forward = float(r)
 				
+				# 2. Rotate the Unit Vector
+				var local_unit_pos = Vector2(unit_forward, unit_lateral).rotated(wedge_angle)
+				
+				# 3. Apply Ellipse Scaling (Multiply by Grid Spacing)
+				var final_pos = Vector2(local_unit_pos.x * spacing.x, local_unit_pos.y * spacing.y)
+				
+				# 4. Apply Jitter (in pixels)
 				if jitter_amount > 0:
-					local_pos += Vector2(
+					final_pos += Vector2(
 						randf_range(-jitter_amount, jitter_amount), 
 						randf_range(-jitter_amount, jitter_amount)
 					)
 				
-				var final_pos = local_pos.rotated(wedge_angle)
 				var id = "polar:%d:%d:%d" % [w, r, s]
 				
 				if merge_overlaps and not graph.get_node_at_position(final_pos, 5.0).is_empty():
@@ -88,7 +92,10 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					
 				graph.add_node(id, final_pos)
 
-	# --- PASS 2: CREATE CONNECTIONS ---
+	# --- PASS 2: CREATE CONNECTIONS (Unchanged) ---
+	# The topology logic relies on indices (w, r, s), so it works 
+	# perfectly regardless of whether the shape is a circle or ellipse.
+	
 	for w in range(wedge_count):
 		for r in range(1, max_radius + 1):
 			for s in range(r):

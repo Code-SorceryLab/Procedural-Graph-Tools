@@ -5,9 +5,9 @@ extends RefCounted
 var id: int
 var pos: Vector2
 var current_node_id: String
-var start_node_id: String # [NEW] Tracks origin for Green Marker
+var start_node_id: String 
 var step_count: int = 0 
-var history: Array[Dictionary] = [] # [NEW] Tracks path for Trail
+var history: Array[Dictionary] = [] 
 
 # --- SETTINGS ---
 var my_paint_type: int = 2 
@@ -21,11 +21,10 @@ func _init(uid: int, start_pos: Vector2, start_id: String, initial_type: int, de
 	id = uid
 	pos = start_pos
 	current_node_id = start_id
-	start_node_id = start_id # [NEW]
+	start_node_id = start_id
 	my_paint_type = initial_type
 	steps_per_round = default_steps
 	
-	# [NEW] Record initial state
 	if start_id != "":
 		history.append({ "node": start_id, "step": 0 })
 
@@ -33,7 +32,7 @@ func reset_state() -> void:
 	step_count = 0
 	current_node_id = ""
 	pos = Vector2.ZERO
-	history.clear() # [NEW]
+	history.clear()
 
 # --- INSPECTOR UI API ---
 func get_agent_settings() -> Array[Dictionary]:
@@ -52,7 +51,10 @@ func get_agent_settings() -> Array[Dictionary]:
 		{ "name": "mode", "type": TYPE_INT, "default": mode, "options": "Grow,Paint", "hint": "Behavior for this specific walker." },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": type_options, "hint": "Brush color." },
 		{ "name": "steps_per_round", "type": TYPE_INT, "default": steps_per_round, "min": 0, "max": 500, "hint": "Steps to take per Generate click." },
-		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "step": GraphSettings.CELL_SIZE, "hint": "Head position." },
+		
+		# [REFACTOR] Use GRID_SPACING.x for the step increment
+		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "step": GraphSettings.GRID_SPACING.x, "hint": "Head position." },
+		
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": snap_to_grid, "hint": "If true, aligns new nodes to the global grid." },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }
 	]
@@ -70,53 +72,80 @@ func apply_setting(key: String, value: Variant) -> void:
 			if value >= 0 and value < ids.size():
 				my_paint_type = ids[value]
 
-# --- BEHAVIORS ---
+# ==============================================================================
+# REFACTORED BEHAVIORS
+# ==============================================================================
 
-func step_grow(graph: GraphRecorder, cell_size: float, merge_overlaps: bool) -> String:
-	var dir_idx = randi() % 4
-	var step_vector = Vector2.ZERO
-	match dir_idx:
-		0: step_vector = Vector2(cell_size, 0)
-		1: step_vector = Vector2(-cell_size, 0)
-		2: step_vector = Vector2(0, cell_size)
-		3: step_vector = Vector2(0, -cell_size)
-		
-	var target_pos = pos + step_vector
+# SHARED LOGIC: The "Committer"
+func _commit_step(new_id: String, new_pos: Vector2) -> void:
+	pos = new_pos
+	current_node_id = new_id
+	step_count += 1
+	history.append({ "node": new_id, "step": step_count })
+
+# MODE A: GROW
+# [REFACTOR] Now accepts Vector2 spacing
+func step_grow(graph: GraphRecorder, grid_spacing: Vector2, merge_overlaps: bool) -> String:
+	# 1. Calculate Geometry
+	var target_pos = pos + _get_random_cardinal_vector(grid_spacing)
 	
 	if snap_to_grid:
-		target_pos = target_pos.snapped(Vector2(cell_size, cell_size))
+		# [REFACTOR] Snap using the vector
+		target_pos = target_pos.snapped(grid_spacing)
 	
-	step_count += 1
+	# 2. Determine ID (Find existing or Create new)
 	var new_id = ""
-	
 	var existing_id = graph.get_node_at_position(target_pos, 1.0)
 	
 	if merge_overlaps and not existing_id.is_empty():
 		new_id = existing_id
 	else:
-		new_id = "walk:%d:%d" % [id, step_count]
-		while graph.nodes.has(new_id):
-			step_count += 1
-			new_id = "walk:%d:%d" % [id, step_count]
+		new_id = _generate_unique_id(graph)
 		graph.add_node(new_id, target_pos)
 	
+	# 3. Connect Backwards
 	if not current_node_id.is_empty() and graph.nodes.has(current_node_id):
 		if current_node_id != new_id:
 			graph.add_edge(current_node_id, new_id)
 	
-	pos = target_pos
-	current_node_id = new_id
-	
-	# [NEW] Log History
-	history.append({ "node": new_id, "step": step_count })
-	
+	# 4. Commit
+	_commit_step(new_id, target_pos)
 	return new_id
 
+# MODE B: PAINT (Unchanged)
 func step_paint(graph: GraphRecorder, branch_randomly: bool, session_path: Array) -> String:
 	if not current_node_id.is_empty():
 		graph.set_node_type(current_node_id, my_paint_type)
 	
-	var neighbors = graph.get_neighbors(current_node_id)
+	var next_id = _pick_next_paint_node(graph, branch_randomly, session_path)
+	
+	if next_id != "":
+		var next_pos = graph.get_node_pos(next_id)
+		_commit_step(next_id, next_pos)
+		
+	return current_node_id
+
+# --- INTERNAL HELPERS ---
+
+# [REFACTOR] Use Vector2 scale to allow rectangular steps
+func _get_random_cardinal_vector(scale: Vector2) -> Vector2:
+	var dir_idx = randi() % 4
+	match dir_idx:
+		0: return Vector2(scale.x, 0)  # Right
+		1: return Vector2(-scale.x, 0) # Left
+		2: return Vector2(0, scale.y)  # Down
+		3: return Vector2(0, -scale.y) # Up
+	return Vector2.ZERO
+
+func _generate_unique_id(graph: GraphRecorder) -> String:
+	var temp_count = step_count + 1 
+	var new_id = "walk:%d:%d" % [id, temp_count]
+	while graph.nodes.has(new_id):
+		temp_count += 1
+		new_id = "walk:%d:%d" % [id, temp_count]
+	return new_id
+
+func _pick_next_paint_node(graph: GraphRecorder, branch_randomly: bool, session_path: Array) -> String:
 	var next_id = ""
 	
 	if branch_randomly and randf() < 0.2 and not session_path.is_empty():
@@ -125,6 +154,7 @@ func step_paint(graph: GraphRecorder, branch_randomly: bool, session_path: Array
 			next_id = candidate
 	
 	if next_id == "":
+		var neighbors = graph.get_neighbors(current_node_id)
 		if neighbors.is_empty():
 			if not session_path.is_empty():
 				next_id = session_path.pick_random()
@@ -133,20 +163,11 @@ func step_paint(graph: GraphRecorder, branch_randomly: bool, session_path: Array
 				if not all.is_empty(): next_id = all.pick_random()
 		else:
 			next_id = neighbors.pick_random()
-	
-	if next_id != "":
-		current_node_id = next_id
-		pos = graph.get_node_pos(next_id)
-		
-		# [NEW] Log History
-		history.append({ "node": next_id, "step": step_count })
-		
-	return current_node_id
+			
+	return next_id
 
+# --- VISUALIZATION API ---
 
-# --- VISUALIZATION HELPERS ---
-
-# Returns a Dictionary { node_id: "1:0, 1:5" } representing this agent's history
 func get_history_labels() -> Dictionary:
 	var labels = {}
 	for entry in history:

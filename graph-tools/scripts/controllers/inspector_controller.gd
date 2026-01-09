@@ -169,28 +169,31 @@ func _refresh_all_views() -> void:
 # EDGE VIEW LOGIC 
 # ==============================================================================
 
-func _rebuild_edge_inspector_ui() -> void:
-	# 1. Clean up old UI
-	for child in edge_settings_box.get_children():
-		child.queue_free()
-	_edge_inputs.clear()
+# 4. Edge Schema Generator
+# Calculates weights/directions and returns the UI settings list.
+func _get_edge_inspector_schema() -> Array:
+	if _tracked_edges.is_empty(): return []
 	
-	if _tracked_edges.is_empty(): return
-
-	# 2. Determine Mode (Single vs Group)
-	var schema = []
 	var graph = graph_editor.graph 
 	
+	# --- CASE A: SINGLE EDGE ---
 	if _tracked_edges.size() == 1:
-		# --- SINGLE EDGE MODE (Unchanged) ---
 		var pair = _tracked_edges[0]
-		var id_a = pair[0]
-		var id_b = pair[1]
+		var id_a = pair[0] # Alphabetically first
+		var id_b = pair[1] # Alphabetically second
 		
 		lbl_edge_header.text = "%s <-> %s" % [id_a, id_b]
 		
-		var data = graph.get_edge_data(id_a, id_b)
-		var weight = data.get("weight", 1.0)
+		# [FIX START] Check direction to get correct weight
+		var weight = 1.0
+		
+		# Check forward
+		if graph.has_edge(id_a, id_b):
+			weight = graph.get_edge_weight(id_a, id_b)
+		# Check reverse
+		elif graph.has_edge(id_b, id_a):
+			weight = graph.get_edge_weight(id_b, id_a)
+		# [FIX END]
 		
 		var has_ab = graph.has_edge(id_a, id_b)
 		var has_ba = graph.has_edge(id_b, id_a)
@@ -199,7 +202,7 @@ func _rebuild_edge_inspector_ui() -> void:
 		if has_ab and not has_ba: current_mode = 1
 		elif not has_ab and has_ba: current_mode = 2
 		
-		schema = [
+		return [
 			{
 				"name": "weight", 
 				"type": TYPE_FLOAT, 
@@ -216,8 +219,8 @@ func _rebuild_edge_inspector_ui() -> void:
 			}
 		]
 		
+	# --- CASE B: GROUP EDGES ---
 	else:
-		# --- GROUP EDGE MODE ---
 		var count = _tracked_edges.size()
 		lbl_edge_header.text = "Selected %d Edges" % count
 		
@@ -227,7 +230,7 @@ func _rebuild_edge_inspector_ui() -> void:
 		var display_mode = -1
 		var label_dir = "Orientation (Bulk)"
 		
-		# OPTIMIZATION: Only analyze if count is small
+		# Optimization limit
 		if count <= GraphSettings.MAX_ANALYSIS_COUNT:
 			var total_w = 0.0
 			var first_w = -1.0
@@ -277,7 +280,7 @@ func _rebuild_edge_inspector_ui() -> void:
 				display_mode = first_mode
 				label_dir = "Orientation"
 		
-		schema = [
+		return [
 			{
 				"name": "weight", 
 				"label": label_w,
@@ -295,14 +298,21 @@ func _rebuild_edge_inspector_ui() -> void:
 			}
 		]
 
-	# 3. Build UI
-	_edge_inputs = SettingsUIBuilder.build_ui(schema, edge_settings_box)
+func _rebuild_edge_inspector_ui() -> void:
+	# 1. Get Schema
+	var schema = _get_edge_inspector_schema()
 	
-	# 4. Connect Signals
-	SettingsUIBuilder.connect_live_updates(_edge_inputs, _on_edge_setting_changed)
+	# 2. Render
+	_edge_inputs = _render_dynamic_section(
+		edge_settings_box, 
+		schema, 
+		_on_edge_setting_changed
+	)
 
 func _on_edge_setting_changed(key: String, value: Variant) -> void:
 	if _tracked_edges.is_empty(): return
+	
+	var graph = graph_editor.graph # Get reference for checking existence
 	
 	for pair in _tracked_edges:
 		var u = pair[0]
@@ -310,9 +320,14 @@ func _on_edge_setting_changed(key: String, value: Variant) -> void:
 		
 		match key:
 			"weight":
-				graph_editor.set_edge_weight(u, v, value)
+				# [FIX] Apply to whichever direction(s) actually exist
+				if graph.has_edge(u, v):
+					graph_editor.set_edge_weight(u, v, value)
+				
+				if graph.has_edge(v, u):
+					graph_editor.set_edge_weight(v, u, value)
+					
 			"direction":
-				# Call the correctly named function with the INT value
 				graph_editor.set_edge_directionality(u, v, int(value))
 
 # --- VIEW LOGIC ---
@@ -328,7 +343,7 @@ func _update_single_inspector(node_id: String) -> void:
 	
 	_is_updating_ui = true
 	
-	# 1. Standard Node Data
+	# 1. Update Static Node Controls
 	lbl_id.text = "ID: %s" % node_id
 	
 	var x_focus = spin_pos_x.get_line_edit().has_focus()
@@ -337,7 +352,6 @@ func _update_single_inspector(node_id: String) -> void:
 	if not y_focus: spin_pos_y.value = node_data.position.y
 		
 	if not option_type.has_focus():
-		# [FIX] We select from the cached list instead of rebuilding it
 		var idx = option_type.get_item_index(node_data.type)
 		if option_type.selected != idx:
 			option_type.selected = idx
@@ -348,68 +362,8 @@ func _update_single_inspector(node_id: String) -> void:
 		neighbor_text += "- %s\n" % n_id
 	lbl_neighbors.text = neighbor_text
 	
-	# ---------------------------------------------------------
-	# 2. WALKER INSPECTION LOGIC (DYNAMIC)
-	# ---------------------------------------------------------
-	var show_walker = false
-	var new_walker_list = []
-	
-	if strategy_controller and strategy_controller.current_strategy:
-		var strat = strategy_controller.current_strategy
-		if strat.has_method("get_walkers_at_node"):
-			new_walker_list = strat.get_walkers_at_node(node_id)
-	
-	if not new_walker_list.is_empty():
-		show_walker = true
-		
-		# A. Handle List Changes
-		if new_walker_list != _current_walker_list:
-			_current_walker_list = new_walker_list
-			
-			opt_walker_select.clear()
-			var selected_idx = 0
-			for i in range(_current_walker_list.size()):
-				var w = _current_walker_list[i]
-				var status = "" if w.get("active") else " (Paused)"
-				opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
-				
-				# Maintain selection if possible
-				if _current_walker_ref and _current_walker_ref == w:
-					selected_idx = i
-			
-			opt_walker_select.selected = selected_idx
-			
-			# [FIX] Force activation of the first/selected agent immediately
-			_activate_walker_visuals(_current_walker_list[selected_idx])
-
-		# B. Handle Edge Case (Dropdown manually changed while staying on same node)
-		# (Usually covered by the signal, but good for safety)
-		var current_dropdown_idx = opt_walker_select.selected
-		if current_dropdown_idx >= 0 and current_dropdown_idx < _current_walker_list.size():
-			var selected_agent = _current_walker_list[current_dropdown_idx]
-			if selected_agent != _current_walker_ref:
-				_activate_walker_visuals(selected_agent)
-
-	else:
-		# [FIX] No walkers on this node? Wipe the visuals!
-		if _current_walker_ref != null:
-			graph_editor.set_node_labels({})
-			
-		_current_walker_list.clear()
-		_current_walker_ref = null
-
-	# Refresh Dynamic Values (Polling)
-	# We only update the Label here. The generated controls update themselves 
-	# via the builder unless we wanted to support 2-way sync (Agent -> UI).
-	# For now, we assume UI drives Agent.
-	if show_walker and _current_walker_ref:
-		opt_walker_select.visible = (_current_walker_list.size() > 1)
-		var steps = _current_walker_ref.get("step_count")
-		lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, steps]
-	
-	if walker_container:
-		walker_container.visible = show_walker
-	# ---------------------------------------------------------
+	# 2. Update Walker State (Delegated)
+	_refresh_walker_list_state(node_id)
 	
 	_is_updating_ui = false
 
@@ -419,22 +373,14 @@ func _rebuild_walker_ui() -> void:
 	if not _current_walker_ref: return
 	
 	# 1. Ask Agent for Schema
-	# This calls the function we added to WalkerAgent earlier
 	var settings = _current_walker_ref.get_agent_settings()
 	
-	# 2. Setup Container
-	# We create a specific VBox for settings so we don't delete the Selector/Label
-	var settings_box = walker_container.get_node_or_null("SettingsBox")
-	if not settings_box:
-		settings_box = VBoxContainer.new()
-		settings_box.name = "SettingsBox"
-		walker_container.add_child(settings_box)
-		
-	# 3. Generate Controls
-	_walker_inputs = SettingsUIBuilder.build_ui(settings, settings_box)
-	
-	# 4. Bind Live Updates
-	SettingsUIBuilder.connect_live_updates(_walker_inputs, _on_walker_setting_changed)
+	# 2. Render
+	_walker_inputs = _render_dynamic_section(
+		walker_container, 
+		settings, 
+		_on_walker_setting_changed
+	)
 
 
 func _update_group_inspector(nodes: Array[String]) -> void:
@@ -542,9 +488,67 @@ func _on_group_type_selected(index: int) -> void:
 
 # --- WALKER HANDLERS ---
 
-# 1. Selection Handler (Meta-Control) - KEEPER
-# [MODIFIED] Handle Selection
-# --- WALKER HANDLERS ---
+# 3. State Manager (Refactored)
+# Handles fetching the list, diffing it, updating the dropdown, and auto-selecting.
+func _refresh_walker_list_state(node_id: String) -> void:
+	var new_walker_list = []
+	
+	# A. Fetch Data
+	if strategy_controller and strategy_controller.current_strategy:
+		var strat = strategy_controller.current_strategy
+		if strat.has_method("get_walkers_at_node"):
+			new_walker_list = strat.get_walkers_at_node(node_id)
+			
+	var show_walker = not new_walker_list.is_empty()
+	
+	if show_walker:
+		# B. Handle List Changes (Diffing)
+		if new_walker_list != _current_walker_list:
+			_current_walker_list = new_walker_list
+			
+			opt_walker_select.clear()
+			var selected_idx = 0
+			
+			for i in range(_current_walker_list.size()):
+				var w = _current_walker_list[i]
+				var status = "" if w.get("active") else " (Paused)"
+				opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
+				
+				# Maintain previous selection if it still exists in the list
+				if _current_walker_ref and _current_walker_ref == w:
+					selected_idx = i
+			
+			opt_walker_select.selected = selected_idx
+			
+			# Force activation of the new selection
+			_activate_walker_visuals(_current_walker_list[selected_idx])
+			
+		# C. Safety Check (Sync Dropdown if needed)
+		var current_dropdown_idx = opt_walker_select.selected
+		if current_dropdown_idx >= 0 and current_dropdown_idx < _current_walker_list.size():
+			var selected_agent = _current_walker_list[current_dropdown_idx]
+			# If our reference drifted (rare), fix it
+			if selected_agent != _current_walker_ref:
+				_activate_walker_visuals(selected_agent)
+				
+		# D. Update Static Labels
+		opt_walker_select.visible = (_current_walker_list.size() > 1)
+		if _current_walker_ref:
+			var steps = _current_walker_ref.get("step_count")
+			lbl_walker_id.text = "Agent #%d (Steps: %d)" % [_current_walker_ref.id, steps]
+			
+	else:
+		# E. Cleanup (No walkers here)
+		if _current_walker_ref != null:
+			# Wipe the trails because we moved to a node with no agent
+			graph_editor.set_node_labels({})
+			
+		_current_walker_list.clear()
+		_current_walker_ref = null
+		
+	# F. Visibility
+	if walker_container:
+		walker_container.visible = show_walker
 
 # 1. Signal Handler (Response to Dropdown Click)
 func _on_walker_dropdown_selected(index: int) -> void:
@@ -617,3 +621,29 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 		
 	print("Inspector: Updated %s -> %s" % [key, value])
 		
+# --- GENERIC UI HELPER ---
+# 1. Clears the container.
+# 2. Builds the UI from the schema.
+# 3. Connects all live update signals to the callback.
+# Returns the dictionary of input controls.
+func _render_dynamic_section(container: Control, schema: Array, callback: Callable) -> Dictionary:
+	# A. Setup Container
+	var content_box = container.get_node_or_null("ContentBox")
+	if not content_box:
+		# [FIX] Do NOT clear container children here. 
+		# That would delete the "opt_walker_select" dropdown which lives in the same parent!
+		
+		content_box = VBoxContainer.new()
+		content_box.name = "ContentBox"
+		content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		container.add_child(content_box)
+	
+	# B. Build UI
+	# Note: build_ui clears the *content_box* children, which is safe and correct.
+	var inputs = SettingsUIBuilder.build_ui(schema, content_box)
+	
+	# C. Connect Signals
+	SettingsUIBuilder.connect_live_updates(inputs, callback)
+	
+	return inputs

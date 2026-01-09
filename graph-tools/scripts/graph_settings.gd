@@ -3,9 +3,15 @@ class_name GraphSettings
 # ==============================================================================
 # 1. GRID & SPATIAL SETTINGS
 # ==============================================================================
-const CELL_SIZE: float = 60.0
-const SNAP_GRID_SIZE: Vector2 = Vector2(CELL_SIZE, CELL_SIZE)
+
+static var GRID_SPACING: Vector2 = Vector2(60.0, 60.0)
+
 const INSPECTOR_POS_STEP: float = 1.0
+static var SHOW_GRID: bool = true
+
+# Helper to update global grid settings safely
+static func set_global_grid_spacing(new_spacing: Vector2) -> void:
+	GRID_SPACING = new_spacing
 
 # ==============================================================================
 # 2. ALGORITHM & PARAMETER DEFINITIONS

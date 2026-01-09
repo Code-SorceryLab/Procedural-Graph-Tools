@@ -15,7 +15,6 @@ func get_settings() -> Array[Dictionary]:
 			"type": TYPE_INT, 
 			"default": 20, 
 			"min": 5, "max": 50,
-			# Reference the shared tooltip
 			"hint": GraphSettings.PARAM_TOOLTIPS.common.width
 		},
 		{ 
@@ -30,7 +29,6 @@ func get_settings() -> Array[Dictionary]:
 			"type": TYPE_INT, 
 			"default": 45, 
 			"min": 10, "max": 90, 
-			# Reference the CA specific tooltip
 			"hint": GraphSettings.PARAM_TOOLTIPS.ca.fill
 		},
 		{ 
@@ -60,13 +58,17 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		
 	# 3. Convert Grid to Graph Nodes
 	var final_nodes = []
-	var cell_size = GraphSettings.CELL_SIZE
+	
+	# [REFACTOR] Use Vector Spacing
+	var spacing = GraphSettings.GRID_SPACING
 	
 	for x in range(w):
 		for y in range(h):
 			if grid[x][y]:
 				var id = "ca:%d:%d" % [x, y]
-				var pos = Vector2(x * cell_size, y * cell_size)
+				
+				# Use distinct X and Y spacing
+				var pos = Vector2(x * spacing.x, y * spacing.y)
 				
 				# Add Node
 				recorder.add_node(id, pos)

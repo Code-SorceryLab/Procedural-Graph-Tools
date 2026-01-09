@@ -51,7 +51,8 @@ func handle_input(event: InputEvent) -> void:
 			# 1. Calculate Anchor Position (Snap logic applies to the Anchor)
 			var anchor_pos = mouse_pos
 			if Input.is_key_pressed(KEY_SHIFT):
-				anchor_pos = anchor_pos.snapped(GraphSettings.SNAP_GRID_SIZE)
+				# [REFACTOR] Use the new global Vector2 spacing
+				anchor_pos = anchor_pos.snapped(GraphSettings.GRID_SPACING)
 			
 			# 2. Move the Anchor
 			_editor.set_node_position(_drag_node_id, anchor_pos)
@@ -176,12 +177,10 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	
 	if not is_shift and not is_ctrl:
 		# REPLACE Selection
-		# Optimization: Direct batch set (clears existing)
 		_editor.set_selection_batch(nodes_in_box, edges_in_box, true)
 		
 	elif is_shift:
 		# ADD to Selection (Union)
-		# Filter to avoid duplicates in the append operation
 		var nodes_to_add: Array[String] = []
 		for id in nodes_in_box:
 			if not _editor.selected_nodes.has(id):
@@ -194,12 +193,10 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 				edges_to_add.append(pair)
 		
 		if not nodes_to_add.is_empty() or not edges_to_add.is_empty():
-			# Optimization: Batch append (does NOT clear existing)
 			_editor.set_selection_batch(nodes_to_add, edges_to_add, false)
 		
 	elif is_ctrl:
 		# SUBTRACT Selection (Difference)
-		# We must calculate the final state manually, then set it batch-wise
 		var final_nodes = _editor.selected_nodes.duplicate()
 		for id in nodes_in_box:
 			if final_nodes.has(id):
@@ -211,7 +208,6 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 			if _editor.is_edge_selected(pair):
 				final_edges.erase(pair)
 		
-		# Optimization: Set the newly calculated reduced list
 		_editor.set_selection_batch(final_nodes, final_edges, true)
 			
 	# Cleanup

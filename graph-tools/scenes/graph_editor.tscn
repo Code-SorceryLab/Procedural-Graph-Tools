@@ -1,11 +1,15 @@
-[gd_scene load_steps=4 format=3 uid="uid://1extklmbdep0"]
+[gd_scene load_steps=5 format=3 uid="uid://1extklmbdep0"]
 
 [ext_resource type="Script" uid="uid://b6ofph7r0iee7" path="res://scripts/graph_editor.gd" id="1_r80di"]
+[ext_resource type="Script" uid="uid://ege2g4lmupp6" path="res://scripts/utils/grid_renderer.gd" id="2_2tk13"]
 [ext_resource type="Script" uid="uid://bau0ewcf0friy" path="res://scripts/graph_renderer.gd" id="2_4uk4p"]
 [ext_resource type="Script" uid="uid://be12ml2ly6l6q" path="res://scripts/graph_camera.gd" id="2_i0jwg"]
 
 [node name="GraphEditor" type="Node2D"]
 script = ExtResource("1_r80di")
+
+[node name="Grid" type="Node2D" parent="."]
+script = ExtResource("2_2tk13")
 
 [node name="Renderer" type="Node2D" parent="."]
 script = ExtResource("2_4uk4p")
