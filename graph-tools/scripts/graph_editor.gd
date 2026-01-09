@@ -34,6 +34,7 @@ var path_end_ids: Array[String] = []
 
 var current_path: Array[String] = []
 var new_nodes: Array[String] = [] 
+var node_labels: Dictionary = {}
 
 # Internal counters
 var _next_id_counter: int = 0
@@ -61,6 +62,7 @@ func _ready() -> void:
 	renderer.selected_edges_ref = selected_edges
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
+	renderer.node_labels_ref = node_labels
 	
 	# --- Connect Signals for Reactive Renderer ---
 	graph_modified.connect(func(): 
@@ -92,14 +94,17 @@ func _ready() -> void:
 	clipboard = GraphClipboard.new(self)
 	input_handler = GraphInputHandler.new(self, clipboard)
 	
-	# [REMOVED] tool_manager = GraphToolManager.new(self) 
-	# (Moved to _init above to prevent race conditions)
-	
 	# Start with the default tool
 	set_active_tool(GraphSettings.Tool.SELECT)
 	
 	renderer.queue_redraw()
 	
+	#Debug
+	#GraphSettings.print_custom_method_names(self)
+
+
+
+
 # ==============================================================================
 # 2. TOOL MANAGEMENT
 # ==============================================================================
@@ -360,6 +365,15 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 	if change_count > 0:
 		_commit_command(batch)
 
+# Sets labels for nodes
+func set_node_labels(labels: Dictionary) -> void:
+	# Always save the data locally
+	node_labels = labels
+	print("Editor: Received labels. Renderer exists? ", renderer != null)
+	# Only talk to the renderer if it is ready
+	if renderer:
+		renderer.node_labels_ref = node_labels
+		renderer.queue_redraw()
 
 # Dedicated function for modifying existing weights
 func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:

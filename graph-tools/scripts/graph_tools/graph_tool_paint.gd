@@ -15,7 +15,7 @@ var _cell_size: float = GraphSettings.CELL_SIZE
 var _brush_size: int = 1
 var _brush_shape: int = 0 # 0 = Circle, 1 = Square
 
-# --- TOOL OPTIONS API (NEW) ---
+# --- TOOL OPTIONS API ---
 
 func get_options_schema() -> Array:
 	return [

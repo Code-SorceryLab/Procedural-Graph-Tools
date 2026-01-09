@@ -1,6 +1,17 @@
 extends Node
 class_name StrategyController
 
+# --- STATIC INSTANCE (SINGLETON) ---
+static var instance: StrategyController
+
+func _enter_tree() -> void:
+	if instance == null:
+		instance = self
+
+func _exit_tree() -> void:
+	if instance == self:
+		instance = null
+
 # --- REFERENCES ---
 @export_group("Core Systems")
 @export var graph_editor: GraphEditor
@@ -23,7 +34,7 @@ var _active_inputs: Dictionary = {}
 # --- INITIALIZATION ---
 func _ready() -> void:
 	strategies.append(StrategyGrid.new())
-	strategies.append(StrategyWalker.new())
+	strategies.append(StrategyWalker.new()) # Index 1 (Usually)
 	strategies.append(StrategyMST.new())
 	strategies.append(StrategyDLA.new())
 	strategies.append(StrategyCA.new())
@@ -43,32 +54,56 @@ func _ready() -> void:
 	if strategies.size() > 0:
 		_on_algo_selected(0)
 
+# --- PUBLIC API (NEW) ---
+
+# Allows tools to force-switch the tab
+func switch_to_strategy_type(target_type_script) -> bool:
+	# 1. Check if we are already there
+	if is_instance_of(current_strategy, target_type_script):
+		return true
+		
+	# 2. Find the index of the requested strategy class
+	for i in range(strategies.size()):
+		if is_instance_of(strategies[i], target_type_script):
+			# Found it! Switch the UI.
+			algo_select.selected = i
+			_on_algo_selected(i) # Manually trigger the update
+			return true
+			
+	print("StrategyController: Could not find strategy of type ", target_type_script)
+	return false
+
 # --- DYNAMIC UI LOGIC ---
 func _on_algo_selected(index: int) -> void:
 	current_strategy = strategies[index]
 	_build_ui_for_strategy()
 
 func _build_ui_for_strategy() -> void:
-	# 1. Get Settings Schema
 	var settings = current_strategy.get_settings()
-	
-	# 2. Build UI Elements (REFACTORED)
-	# The builder automatically clears previous children and generates new ones.
 	_active_inputs = SettingsUIBuilder.build_ui(settings, settings_container)
-
-	# 3. Handle Buttons Visibility
-	grow_btn.visible = current_strategy.supports_grow
 	
+	# [NEW] Connect Signals
+	SettingsUIBuilder.connect_live_updates(_active_inputs, _on_live_setting_changed)
+
+	grow_btn.visible = current_strategy.supports_grow
 	if current_strategy.reset_on_generate:
 		generate_btn.text = "Generate"
 	else:
 		generate_btn.text = "Apply"
 
+# [NEW] Handler for Strategy Buttons
+func _on_live_setting_changed(key: String, _value: Variant) -> void:
+	if key == "action_clear_all" and current_strategy is StrategyWalker:
+		current_strategy.clear_agents()
+		
+		# Force redraw to remove red markers immediately
+		graph_editor.renderer.path_end_ids = []
+		graph_editor.renderer.queue_redraw()
+		
+		print("Controller: All agents cleared.")
+
 func _collect_params() -> Dictionary:
-	# 1. Collect Dynamic Params (REFACTORED)
 	var params = SettingsUIBuilder.collect_params(_active_inputs)
-	
-	# 2. Add Global Static Params
 	params["merge_overlaps"] = merge_chk.button_pressed
 	return params
 

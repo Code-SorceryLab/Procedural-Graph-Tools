@@ -16,9 +16,9 @@ func _ready() -> void:
 	var icon_tex = GraphSettings.get_tool_icon(tool_id)
 	
 	# --- DIAGNOSTIC PRINT (Remove after fixing) ---
-	print("DEBUG ToolButton [", tool_id, "]:")
-	print(" > Name: '", name_str, "'")
-	print(" > Key: '", key_str, "'")
+	#print("DEBUG ToolButton [", tool_id, "]:")
+	#print(" > Name: '", name_str, "'")
+	#print(" > Key: '", key_str, "'")
 	# ---------------------------------------------
 	
 	# 2. SETUP ICON

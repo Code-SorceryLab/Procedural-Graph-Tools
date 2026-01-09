@@ -17,5 +17,5 @@ func get_settings() -> Array[Dictionary]:
 
 # Virtual Function: All subclasses must override this.
 # UPDATED: We now accept 'recorder' instead of 'graph'.
-func execute(recorder: GraphRecorder, _params: Dictionary) -> void:
+func execute(_recorder: GraphRecorder, _params: Dictionary) -> void:
 	push_error("GraphStrategy: execute() method not implemented.")

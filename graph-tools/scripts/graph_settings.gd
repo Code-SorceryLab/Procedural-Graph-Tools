@@ -112,7 +112,7 @@ static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 # 6. TOOL DEFINITIONS
 # ==============================================================================
 # Reordered to match Input Map Keys (1 through 7)
-enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT }
+enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN }
 
 const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
@@ -124,7 +124,8 @@ static var TOOLBAR_LAYOUT: Array[Tool] = [
 	Tool.CONNECT,
 	Tool.CUT,
 	Tool.PAINT,
-	Tool.TYPE_PAINT
+	Tool.TYPE_PAINT,
+	Tool.SPAWN
 ]
 
 # 2. DEFINITIONS (Now includes the explicit 'action' again)
@@ -135,14 +136,15 @@ static var TOOL_DATA: Dictionary = {
 	Tool.CONNECT:    { "name": "Connect",    "action": "tool_connect", "icon_path": "res://assets/icons/tool_connect.png" },
 	Tool.CUT:        { "name": "Knife Cut",  "action": "tool_cut",     "icon_path": "res://assets/icons/tool_cut.png" },
 	Tool.PAINT:      { "name": "Paint",      "action": "tool_paint",   "icon_path": "res://assets/icons/tool_paint.png" },
-	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" }
+	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" },
+	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""}
 }
 # ==============================================================================
 # 7. COMMAND DEFINITIONS
 # ==============================================================================
 static var MAX_HISTORY_STEPS: int = 50
 static var USE_ATOMIC_UNDO: bool = false
-
+static var MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
 
 # ==============================================================================
 # 8. HELPER FUNCTIONS
@@ -199,3 +201,19 @@ static func register_custom_type(id: int, name: String, color: Color) -> void:
 static func reset_legend() -> void:
 	current_colors = DEFAULT_COLORS.duplicate()
 	current_names = DEFAULT_NAMES.duplicate()
+
+
+	# Helper function to get custom method names
+static func get_custom_method_names(object_instance: Object) -> PackedStringArray:
+	var method_names := PackedStringArray()
+	var script: Script = object_instance.get_script()
+	if script:
+		# Get methods defined in this script
+		var script_methods: Array = script.get_script_method_list()
+		for method_dict in script_methods:
+			method_names.append(method_dict["name"] as StringName)
+	
+	return method_names
+#Typical Use: GraphSettings.print_custom_method_names(self) in the ready of whatever object you want the functions of.
+static func print_custom_method_names(object_instance: Object) -> void:
+	print(get_custom_method_names(object_instance))

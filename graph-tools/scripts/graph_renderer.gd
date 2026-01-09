@@ -37,7 +37,7 @@ var selected_nodes_ref: Array[String] = []
 var current_path_ref: Array[String] = []
 var new_nodes_ref: Array[String] = [] 
 var pre_selection_ref: Array[String] = []
-
+var node_labels_ref: Dictionary = {}
 var selected_edges_ref: Array = []
 
 # ==============================================================================
@@ -71,6 +71,10 @@ func _draw() -> void:
 	# Layer 3: Nodes
 	_draw_nodes()
 	
+	# [NEW] Layer 3.5: Custom Labels (Walker Trails)
+	# We draw this separately so text always appears ON TOP of neighboring nodes
+	_draw_custom_labels()
+	
 	# Layer 4: Interactive Elements
 	_draw_interaction_overlays()
 
@@ -78,7 +82,6 @@ func _draw() -> void:
 	_draw_selection_box()
 	
 	# Layer 6: Dynamic Depth Overlay (NEW)
-	# Drawn last so numbers appear on top of nodes
 	if debug_show_depth:
 		_draw_depth_numbers()
 
@@ -168,6 +171,29 @@ func _draw_nodes() -> void:
 		
 		# 3. Draw Indicators
 		_draw_node_indicators(id, pos)
+
+# --- 3.5 HELPER: CUSTOM LABELS ---
+func _draw_custom_labels() -> void:
+	if node_labels_ref.is_empty():
+		return
+	
+	print("Renderer: Drawing %d labels." % node_labels_ref.size())
+	
+	# Draw text for every node in the dictionary
+	for id in node_labels_ref:
+		# Safety check: ensure the node actually exists in the graph
+		if not graph_ref.nodes.has(id):
+			continue
+			
+		var pos = graph_ref.get_node_pos(id)
+		var text = node_labels_ref[id]
+		
+		# Position: Top Right, slightly higher than the Red End Marker
+		# Red Marker is at Y = -radius + 8. We go up to Y = -radius - 8 to stack above it.
+		var text_pos = pos + Vector2(node_radius + 4, -node_radius - 8)
+		
+		# Draw with high opacity for readability
+		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.9))
 
 # --- HELPER: INTERACTIVE OVERLAYS ---
 func _draw_interaction_overlays() -> void:

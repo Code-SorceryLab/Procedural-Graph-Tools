@@ -24,7 +24,7 @@ func _ready() -> void:
 	# Note: We need the tool INSTANCE to get its settings schema.
 	if graph_editor.tool_manager:
 		graph_editor.tool_manager.tool_changed.connect(_on_tool_changed)
-		print("DEBUG: Connected to ToolManager.")
+		#print("DEBUG: Connected to ToolManager.")
 	else:
 		push_error("DEBUG ERROR: TopbarController could not find ToolManager!")
 	# --- FIX END ---
@@ -36,7 +36,7 @@ func _on_status_changed(msg: String) -> void:
 	status_label.text = msg
 
 func _on_tool_changed(_tool_id: int, tool_instance: GraphTool) -> void:
-	print("DEBUG: TopBar received signal!")
+	#print("DEBUG: TopBar received signal!")
 	# 1. Clear previous Tool Options
 	if tool_options_container:
 		for child in tool_options_container.get_children():
@@ -50,7 +50,7 @@ func _on_tool_changed(_tool_id: int, tool_instance: GraphTool) -> void:
 	# 3. Get the Schema (Data) from the new tool
 	# (We will add this function to GraphToolPaint next)
 	var schema = tool_instance.get_options_schema()
-	print("DEBUG: Schema received: ", schema)
+	#print("DEBUG: Schema received: ", schema)
 	if schema.is_empty():
 		return
 		

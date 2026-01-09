@@ -2,7 +2,7 @@ extends Node
 class_name InspectorController
 
 
-const MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
+
 
 # --- REFERENCES ---
 @export_group("Core Systems")
@@ -92,6 +92,7 @@ func _ready() -> void:
 	opt_walker_select.item_selected.connect(_on_walker_agent_selected)
 
 	_clear_inspector()
+	#GraphSettings.print_custom_method_names(self)
 
 # [NEW] Public function to force a rebuild of type lists
 # Called on _ready and when graph_loaded signal fires.
@@ -128,7 +129,7 @@ func _on_edge_selection_changed(selected_edges: Array) -> void:
 		
 	_refresh_all_views()
 
-# THE NEW VISIBILITY ROUTER (Replaces _show_view)
+# THE VISIBILITY ROUTER 
 func _refresh_all_views() -> void:
 	var has_nodes = not _tracked_nodes.is_empty()
 	var has_edges = not _tracked_edges.is_empty()
@@ -222,7 +223,7 @@ func _rebuild_edge_inspector_ui() -> void:
 		var label_dir = "Orientation (Bulk)"
 		
 		# OPTIMIZATION: Only analyze if count is small
-		if count <= MAX_ANALYSIS_COUNT:
+		if count <= GraphSettings.MAX_ANALYSIS_COUNT:
 			var total_w = 0.0
 			var first_w = -1.0
 			var is_mixed_w = false
@@ -455,7 +456,7 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	var size = max_pos - min_pos
 	
 	var internal_connections = -1
-	if count <= MAX_ANALYSIS_COUNT:
+	if count <= GraphSettings.MAX_ANALYSIS_COUNT:
 		var node_set = {}
 		for id in nodes: node_set[id] = true
 		internal_connections = 0
@@ -496,6 +497,11 @@ func _show_view(view_index: int) -> void:
 func _clear_inspector() -> void:
 	_tracked_nodes = []
 	_tracked_edges = []
+	
+	# Cleanup Walker Specifics
+	_current_walker_ref = null
+	graph_editor.set_node_labels({}) # Wipe the trails
+	
 	_refresh_all_views()
 
 # --- INPUT HANDLERS ---
@@ -528,36 +534,77 @@ func _on_group_type_selected(index: int) -> void:
 # --- WALKER HANDLERS ---
 
 # 1. Selection Handler (Meta-Control) - KEEPER
-func _on_walker_agent_selected(index: int) -> void:
-	# User selected a specific agent from the top dropdown
-	if index >= 0 and index < _current_walker_list.size():
-		_current_walker_ref = _current_walker_list[index]
-		# Rebuild the UI immediately for the new agent
-		_rebuild_walker_ui()
+# [MODIFIED] Handle Selection
+func _on_walker_agent_selected(agent: AgentWalker) -> void:
+	_current_walker_ref = agent
+	_rebuild_walker_ui()
+	
+	# BUILD TRAIL VISUALIZATION
+	var trail_labels = {}
+	print("Inspector: Building trail. History size: ", agent.history.size())
+	for entry in agent.history:
+		var node_id = entry["node"]
+		var step = entry["step"]
+		var text = "%d:%d" % [agent.id, step]
+		
+		if trail_labels.has(node_id):
+			trail_labels[node_id] += ", " + text
+		else:
+			trail_labels[node_id] = text
+	
+	
+	print("Inspector: Generated Labels: ", trail_labels)
+	graph_editor.set_node_labels(trail_labels)
+	
+	# Sync Markers
+	if StrategyController.instance.current_strategy is StrategyWalker:
+		var strat = StrategyController.instance.current_strategy
+		graph_editor.set_path_starts(strat.get_all_agent_starts())
+		graph_editor.set_path_ends(strat.get_all_agent_positions())
 
 # 2. Dynamic Update Handler - REPLACEMENT
 # This catches signals from ALL generated controls (SpinBoxes, CheckBoxes, etc.)
 func _on_walker_setting_changed(key: String, value: Variant) -> void:
-	if _current_walker_ref:
-		# 1. Update the Data
-		_current_walker_ref.apply_setting(key, value)
-		
-		# 2. RESTORED: Position Snapping Logic
-		# If we moved the walker manually, check if we landed on a valid node.
-		if key == "pos":
-			var graph = graph_editor.graph
-			# Strict tolerance (1.0) to ensure we are right on top of it
-			var landed_node_id = graph.get_node_at_position(value, 1.0)
+	if _current_walker_ref == null: return 
+
+	# [NEW] 0. Intercept Actions
+	if key == "action_delete":
+		# A. Remove from Strategy Logic
+		if StrategyController.instance.current_strategy is StrategyWalker:
+			var strat = StrategyController.instance.current_strategy
+			strat.remove_agent(_current_walker_ref)
 			
-			if not landed_node_id.is_empty():
-				_current_walker_ref.current_node_id = landed_node_id
-				print("Inspector: Walker snapped to node %s" % landed_node_id)
+			# [FIX] Refresh BOTH sets of visual markers
+			graph_editor.set_path_ends(strat.get_all_agent_positions()) # Red
+			graph_editor.set_path_starts(strat.get_all_agent_starts())  # Green
 		
-		# 3. UI Polish: Update Dropdown Label
-		if key == "active":
-			var idx = opt_walker_select.selected
-			var status = "" if value else " (Paused)"
-			opt_walker_select.set_item_text(idx, "Agent #%d%s" % [_current_walker_ref.id, status])
-			
-		print("Inspector: Updated %s -> %s" % [key, value])
+		# B. Clear UI & Selection & Trails
+		# Note: We must call this AFTER updating markers, or the clear might conflict
+		graph_editor.set_node_labels({}) # Clear the deleted agent's trail immediately
+		
+		_clear_inspector()
+		graph_editor.clear_selection()
+		
+		print("Inspector: Agent deleted successfully.")
+		return 
+
+	# 1. Update the Data (Existing Logic)
+	_current_walker_ref.apply_setting(key, value)
+	
+	# 2. Position Snapping Logic (Existing Logic)
+	if key == "pos":
+		var graph = graph_editor.graph
+		var landed_node_id = graph.get_node_at_position(value, 1.0)
+		
+		if not landed_node_id.is_empty():
+			_current_walker_ref.current_node_id = landed_node_id
+			print("Inspector: Walker snapped to node %s" % landed_node_id)
+	
+	# 3. UI Polish (Existing Logic)
+	if key == "active":
+		var idx = opt_walker_select.selected
+		var status = "" if value else " (Paused)"
+		opt_walker_select.set_item_text(idx, "Agent #%d%s" % [_current_walker_ref.id, status])
+		
+	print("Inspector: Updated %s -> %s" % [key, value])
 		

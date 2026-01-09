@@ -41,6 +41,8 @@ func set_active_tool(tool_id: int) -> void:
 			current_tool = GraphToolCut.new(_editor)
 		GraphSettings.Tool.TYPE_PAINT:
 			current_tool = GraphToolPropertyPaint.new(_editor)
+		GraphSettings.Tool.SPAWN:
+			current_tool = GraphToolSpawner.new(_editor)
 		_:
 			push_warning("ToolManager: Unknown tool ID %d. Defaulting to Select." % tool_id)
 			current_tool = GraphToolSelect.new(_editor)

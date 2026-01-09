@@ -3,7 +3,7 @@ class_name GraphTool
 extends RefCounted
 
 # References to the main systems
-var _editor: Node2D 
+var _editor: GraphEditor
 var _graph: Graph
 var _renderer: GraphRenderer
 
