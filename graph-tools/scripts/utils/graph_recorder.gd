@@ -29,7 +29,7 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 
 # --- MUTATOR OVERRIDES ---
 
-# [NEW] Handle Zone Registration
+# Handle Zone Registration
 func add_zone(zone: GraphZone) -> void:
 	# 1. Update Simulation (So this algorithm sees its own zone immediately)
 	super.add_zone(zone)
@@ -41,6 +41,18 @@ func add_zone(zone: GraphZone) -> void:
 		_target_graph.add_zone(zone)
 	else:
 		push_error("GraphRecorder: Target graph missing add_zone method.")
+
+# Override clear to sync with Target Graph
+func clear() -> void:
+	# 1. Clear Local Simulation
+	# This wipes the 'nodes' and 'zones' inside the Recorder, 
+	# so the algorithm thinks the board is empty.
+	super.clear()
+	
+	# 2. Force Clear Target Zones
+	# The renderer looks at _target_graph, so we MUST wipe this array manually.
+	if _target_graph and "zones" in _target_graph:
+		_target_graph.zones.clear()
 
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	var already_exists = nodes.has(id)

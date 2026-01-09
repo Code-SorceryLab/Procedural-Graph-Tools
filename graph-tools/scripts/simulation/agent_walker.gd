@@ -52,8 +52,7 @@ func get_agent_settings() -> Array[Dictionary]:
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": type_options, "hint": "Brush color." },
 		{ "name": "steps_per_round", "type": TYPE_INT, "default": steps_per_round, "min": 0, "max": 500, "hint": "Steps to take per Generate click." },
 		
-		# [REFACTOR] Use GRID_SPACING.x for the step increment
-		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "step": GraphSettings.GRID_SPACING.x, "hint": "Head position." },
+		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "hint": "Head position." },
 		
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": snap_to_grid, "hint": "If true, aligns new nodes to the global grid." },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }

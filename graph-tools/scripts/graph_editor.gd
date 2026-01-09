@@ -422,7 +422,7 @@ func commit_undo_transaction() -> void:
 # 5. GENERAL API
 # ==============================================================================
 func clear_graph() -> void:
-	if graph.nodes.is_empty():
+	if graph.nodes.is_empty() and graph.zones.is_empty():
 		return
 		
 	var batch = CmdBatch.new(graph, "Clear Graph")
@@ -430,6 +430,9 @@ func clear_graph() -> void:
 	for id in all_ids:
 		var cmd = CmdDeleteNode.new(graph, id)
 		batch.add_command(cmd)
+	
+	# [FIX] Manually wipe zones since we don't have a Command for it yet
+	graph.zones.clear() 
 	
 	_commit_command(batch)
 	_reset_local_state()

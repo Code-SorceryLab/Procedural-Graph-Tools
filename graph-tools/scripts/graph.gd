@@ -368,6 +368,13 @@ func get_spatial_stats() -> Dictionary:
 # Clear all nodes (update to handle spatial grid)
 func clear() -> void:
 	nodes.clear()
+	
+	# Clear Edge Data
+	edge_data.clear()
+	
+	# Clear visual/logical zones
+	zones.clear()
+	
 	if _spatial_grid != null:
 		_spatial_grid.clear()
 	_spatial_grid_dirty = true
