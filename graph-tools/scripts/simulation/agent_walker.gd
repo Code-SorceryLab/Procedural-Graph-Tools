@@ -142,3 +142,20 @@ func step_paint(graph: GraphRecorder, branch_randomly: bool, session_path: Array
 		history.append({ "node": next_id, "step": step_count })
 		
 	return current_node_id
+
+
+# --- VISUALIZATION HELPERS ---
+
+# Returns a Dictionary { node_id: "1:0, 1:5" } representing this agent's history
+func get_history_labels() -> Dictionary:
+	var labels = {}
+	for entry in history:
+		var node_id = entry["node"]
+		var step = entry["step"]
+		var text = "%d:%d" % [id, step]
+		
+		if labels.has(node_id):
+			labels[node_id] += ", " + text
+		else:
+			labels[node_id] = text
+	return labels

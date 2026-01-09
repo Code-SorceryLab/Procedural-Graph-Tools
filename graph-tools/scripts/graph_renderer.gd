@@ -177,7 +177,7 @@ func _draw_custom_labels() -> void:
 	if node_labels_ref.is_empty():
 		return
 	
-	print("Renderer: Drawing %d labels." % node_labels_ref.size())
+	#print("Renderer: Drawing %d labels." % node_labels_ref.size())
 	
 	# Draw text for every node in the dictionary
 	for id in node_labels_ref:

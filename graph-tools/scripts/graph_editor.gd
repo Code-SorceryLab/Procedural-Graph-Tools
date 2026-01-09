@@ -369,7 +369,7 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 func set_node_labels(labels: Dictionary) -> void:
 	# Always save the data locally
 	node_labels = labels
-	print("Editor: Received labels. Renderer exists? ", renderer != null)
+	#print("Editor: Received labels. Renderer exists? ", renderer != null)
 	# Only talk to the renderer if it is ready
 	if renderer:
 		renderer.node_labels_ref = node_labels

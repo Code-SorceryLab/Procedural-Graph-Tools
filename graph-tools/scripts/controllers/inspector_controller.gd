@@ -89,7 +89,7 @@ func _ready() -> void:
 	group_option_type.item_selected.connect(_on_group_type_selected)
 	
 	# WALKER SIGNALS
-	opt_walker_select.item_selected.connect(_on_walker_agent_selected)
+	opt_walker_select.item_selected.connect(_on_walker_dropdown_selected)
 
 	_clear_inspector()
 	#GraphSettings.print_custom_method_names(self)
@@ -118,7 +118,12 @@ func _setup_type_dropdown(btn: OptionButton) -> void:
 
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
-	_refresh_all_views()
+	
+	# If selection is empty, wipe everything (UI + Visuals)
+	if _tracked_nodes.is_empty():
+		_clear_inspector()
+	else:
+		_refresh_all_views()
 
 func _on_edge_selection_changed(selected_edges: Array) -> void:
 	_tracked_edges = selected_edges
@@ -357,7 +362,7 @@ func _update_single_inspector(node_id: String) -> void:
 	if not new_walker_list.is_empty():
 		show_walker = true
 		
-		# A. Handle List Changes (Only Rebuild if List Content Changed)
+		# A. Handle List Changes
 		if new_walker_list != _current_walker_list:
 			_current_walker_list = new_walker_list
 			
@@ -368,24 +373,28 @@ func _update_single_inspector(node_id: String) -> void:
 				var status = "" if w.get("active") else " (Paused)"
 				opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
 				
+				# Maintain selection if possible
 				if _current_walker_ref and _current_walker_ref == w:
 					selected_idx = i
 			
 			opt_walker_select.selected = selected_idx
-			_current_walker_ref = _current_walker_list[selected_idx]
 			
-			# REBUILD UI: Reference changed due to list update
-			_rebuild_walker_ui()
+			# [FIX] Force activation of the first/selected agent immediately
+			_activate_walker_visuals(_current_walker_list[selected_idx])
 
-		# B. Handle Manual Dropdown Changes
+		# B. Handle Edge Case (Dropdown manually changed while staying on same node)
+		# (Usually covered by the signal, but good for safety)
 		var current_dropdown_idx = opt_walker_select.selected
 		if current_dropdown_idx >= 0 and current_dropdown_idx < _current_walker_list.size():
 			var selected_agent = _current_walker_list[current_dropdown_idx]
 			if selected_agent != _current_walker_ref:
-				_current_walker_ref = selected_agent
-				# REBUILD UI: User selected different agent
-				_rebuild_walker_ui()
+				_activate_walker_visuals(selected_agent)
+
 	else:
+		# [FIX] No walkers on this node? Wipe the visuals!
+		if _current_walker_ref != null:
+			graph_editor.set_node_labels({})
+			
 		_current_walker_list.clear()
 		_current_walker_ref = null
 
@@ -535,25 +544,25 @@ func _on_group_type_selected(index: int) -> void:
 
 # 1. Selection Handler (Meta-Control) - KEEPER
 # [MODIFIED] Handle Selection
-func _on_walker_agent_selected(agent: AgentWalker) -> void:
+# --- WALKER HANDLERS ---
+
+# 1. Signal Handler (Response to Dropdown Click)
+func _on_walker_dropdown_selected(index: int) -> void:
+	if index < 0 or index >= _current_walker_list.size():
+		return
+	
+	var agent = _current_walker_list[index]
+	_activate_walker_visuals(agent)
+
+# 2. Visual Helper (The Core Logic)
+# This sets the ref, builds the UI, and draws the trails.
+func _activate_walker_visuals(agent: AgentWalker) -> void:
 	_current_walker_ref = agent
 	_rebuild_walker_ui()
 	
-	# BUILD TRAIL VISUALIZATION
-	var trail_labels = {}
-	print("Inspector: Building trail. History size: ", agent.history.size())
-	for entry in agent.history:
-		var node_id = entry["node"]
-		var step = entry["step"]
-		var text = "%d:%d" % [agent.id, step]
-		
-		if trail_labels.has(node_id):
-			trail_labels[node_id] += ", " + text
-		else:
-			trail_labels[node_id] = text
-	
-	
-	print("Inspector: Generated Labels: ", trail_labels)
+	# [NEW] BUILD TRAIL VISUALIZATION
+	# Uses the helper function we added to AgentWalker
+	var trail_labels = agent.get_history_labels()
 	graph_editor.set_node_labels(trail_labels)
 	
 	# Sync Markers
