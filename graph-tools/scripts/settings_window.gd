@@ -1,7 +1,7 @@
 extends PanelContainer
 
 # --- UI REFERENCES ---
-# We remove @onready hard references to prevent crash-on-load
+# We use standard variables, not @onready, to prevent crash-on-load
 var chk_atomic: CheckBox
 var spin_history: SpinBox
 var chk_grid: CheckBox
@@ -16,29 +16,36 @@ var _current_rebind_action: String = ""
 var _current_rebind_button: Button = null
 
 func _ready() -> void:
+	print("SettingsWindow: _ready started.")
+	
 	# 1. SAFE NODE LOOKUP
-	# We use find_child so the script works even if you change the MarginContainer hierarchy
+	# recursive=true, owned=false (Finds nodes even if they are sub-scene children)
 	chk_atomic = find_child("ChkAtomic", true, false)
 	spin_history = find_child("SpinHistory", true, false)
 	chk_grid = find_child("ChkGrid", true, false)
 	btn_close = find_child("BtnClose", true, false)
+	btn_reset = find_child("BtnResetInputs", true, false)
 	
-	# Find InputContainer safely (it's nested deep)
+	# Find InputContainer (it is nested deep, finding parent first helps debugging)
 	var scroll = find_child("ScrollInputs", true, false)
 	if scroll:
 		input_container = scroll.get_node_or_null("InputContainer")
 	
-	btn_reset = find_child("BtnResetInputs", true, false)
-	
-	# 2. SAFE CONNECTIONS (Connect Close button FIRST)
+	# 2. DEBUG PRINTS (Check Output Console!)
 	if btn_close:
+		print("SettingsWindow: BtnClose FOUND.")
 		btn_close.pressed.connect(_on_close_pressed)
+		print("SettingsWindow: BtnClose connected.")
 	else:
-		push_error("SettingsWindow: CRITICAL - BtnClose not found!")
+		push_error("SettingsWindow: CRITICAL ERROR - BtnClose node not found in tree!")
 
-	if btn_reset: btn_reset.pressed.connect(_on_reset_pressed)
-	
-	# 3. INITIALIZE VALUES (With Safety Checks)
+	if input_container:
+		print("SettingsWindow: InputContainer FOUND.")
+	else:
+		push_error("SettingsWindow: InputContainer not found.")
+
+	# 3. INITIALIZE VALUES
+	# We use 'if' checks so the script doesn't crash if a node is missing
 	if chk_atomic:
 		chk_atomic.button_pressed = GraphSettings.USE_ATOMIC_UNDO
 		chk_atomic.toggled.connect(_on_atomic_toggled)
@@ -48,7 +55,7 @@ func _ready() -> void:
 		spin_history.value_changed.connect(_on_history_changed)
 		
 	if chk_grid:
-		# CHECK if the variable exists before accessing it!
+		# Check if GraphSettings has the variable to avoid crash
 		if "SHOW_GRID" in GraphSettings:
 			chk_grid.button_pressed = GraphSettings.SHOW_GRID
 		chk_grid.toggled.connect(_on_grid_toggled)
@@ -59,19 +66,22 @@ func _ready() -> void:
 	# Start hidden
 	hide()
 	set_process_input(false)
+	print("SettingsWindow: _ready complete.")
 
 func show_settings() -> void:
+	print("SettingsWindow: show_settings called.")
+	
 	# Refresh values
 	if chk_atomic: chk_atomic.button_pressed = GraphSettings.USE_ATOMIC_UNDO
 	if spin_history: spin_history.value = GraphSettings.MAX_HISTORY_STEPS
-	
-	# [FIX] You were missing the Grid refresh in your previous code
 	if chk_grid and "SHOW_GRID" in GraphSettings:
 		chk_grid.button_pressed = GraphSettings.SHOW_GRID
 	
 	# Refresh inputs
 	_build_input_list()
+	
 	show()
+	move_to_front() # Ensure it pops over everything else
 
 # ==============================================================================
 # 1. SETTINGS LOGIC
@@ -83,13 +93,12 @@ func _on_history_changed(value: float) -> void:
 	GraphSettings.MAX_HISTORY_STEPS = int(value)
 
 func _on_grid_toggled(toggled_on: bool) -> void:
-	# Safety check for setting the variable
 	if "SHOW_GRID" in GraphSettings:
 		GraphSettings.SHOW_GRID = toggled_on
 
 func _on_close_pressed() -> void:
+	print("SettingsWindow: Close button pressed!")
 	_cancel_rebind()
-	# ConfigManager.save_config() # Uncomment if you have this class
 	hide()
 	closed.emit()
 
@@ -106,8 +115,9 @@ func _build_input_list() -> void:
 	for child in input_container.get_children():
 		child.queue_free()
 		
-	# Verify ConfigManager exists before accessing it
+	# Verify ConfigManager safely
 	if not ClassDB.class_exists("ConfigManager") and not get_tree().root.has_node("ConfigManager"):
+		# If ConfigManager is a static class script, we check if it has the constant
 		if not "INPUT_ACTIONS" in ConfigManager: return
 
 	for action in ConfigManager.INPUT_ACTIONS:
