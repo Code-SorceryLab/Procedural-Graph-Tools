@@ -51,6 +51,7 @@ class_name InspectorController
 # State tracking
 var _tracked_nodes: Array[String] = []
 var _tracked_edges: Array = []           # Array of [id_a, id_b] pairs
+var _tracked_agents: Array = []
 
 var _is_updating_ui: bool = false
 var _current_walker_ref: Object = null 
@@ -61,16 +62,24 @@ var _walker_inputs: Dictionary = {}
 var _edge_inputs: Dictionary = {}        # Store edge controls
 
 func _ready() -> void:
+	# 1. Connect Core Signals
 	graph_editor.selection_changed.connect(_on_selection_changed)
 	
 	if graph_editor.has_signal("edge_selection_changed"):
 		graph_editor.edge_selection_changed.connect(_on_edge_selection_changed)
+
+	# [CHECK THIS BLOCK]
+	if graph_editor.has_signal("agent_selection_changed"):
+		graph_editor.agent_selection_changed.connect(_on_agent_selection_changed)
+	else:
+		push_error("Inspector: GraphEditor missing 'agent_selection_changed' signal!")
 	
 	graph_editor.graph_loaded.connect(func(_g): refresh_type_options())
 	
-	# [NEW] Connect the request signal
 	if graph_editor.has_signal("request_inspector_view"):
 		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
+	
+
 	
 	set_process(false)
 	
@@ -138,51 +147,72 @@ func _setup_type_dropdown(btn: OptionButton) -> void:
 
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
-	
-	# If selection is empty, wipe everything (UI + Visuals)
-	if _tracked_nodes.is_empty():
+	_check_selection_state()
+
+func _on_edge_selection_changed(selected_edges: Array) -> void:
+	_tracked_edges = selected_edges
+	# Immediate rebuild for edges (legacy behavior preserved)
+	if not _tracked_edges.is_empty():
+		_rebuild_edge_inspector_ui()
+	_check_selection_state()
+
+# Handler for direct agent selection
+func _on_agent_selection_changed(selected_agents: Array) -> void:
+	print("Inspector: Agent Selection Signal Received. Count: ", selected_agents.size())
+	_tracked_agents = selected_agents
+	_check_selection_state()
+
+# Central State Checker
+# Decides if the Inspector should be open or closed
+func _check_selection_state() -> void:
+	if _tracked_nodes.is_empty() and _tracked_edges.is_empty() and _tracked_agents.is_empty():
 		_clear_inspector()
 	else:
 		_refresh_all_views()
 
-func _on_edge_selection_changed(selected_edges: Array) -> void:
-	_tracked_edges = selected_edges
-	
-	# Immediate UI rebuild when selection changes (for dynamic controls)
-	if not _tracked_edges.is_empty():
-		_rebuild_edge_inspector_ui()
-		
-	_refresh_all_views()
-
-# THE VISIBILITY ROUTER 
+# THE VISIBILITY ROUTER
 func _refresh_all_views() -> void:
 	var has_nodes = not _tracked_nodes.is_empty()
 	var has_edges = not _tracked_edges.is_empty()
+	var has_agents = not _tracked_agents.is_empty()
 	
-	# 1. No Selection State
-	lbl_no_selection.visible = (not has_nodes and not has_edges)
+	# 1. No Selection State (Only if ALL are empty)
+	lbl_no_selection.visible = (not has_nodes and not has_edges and not has_agents)
 	
 	# 2. Node Inspector Logic
 	if has_nodes:
 		single_container.visible = (_tracked_nodes.size() == 1)
 		group_container.visible = (_tracked_nodes.size() > 1)
 		
-		# Trigger updates immediately so we don't wait for next frame
+		# Trigger Node Updates
 		if _tracked_nodes.size() == 1:
 			_update_single_inspector(_tracked_nodes[0])
 		else:
 			_update_group_inspector(_tracked_nodes)
 	else:
-		single_container.visible = false
-		group_container.visible = false
-		
+		single_container.visible = false #THIS PART IS IMPORTANT FOR THE BUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		#group_container.visible = false
+		pass
 	# 3. Edge Inspector Logic (Independent)
-	if has_edges:
-		edge_container.visible = true
-	else:
-		edge_container.visible = false
+	edge_container.visible = has_edges
+	
+	# 4. Walker Inspector Logic (Decoupled)
+	var show_walkers = false
+	
+	if has_agents:
+		# Priority A: Direct Agent Selection
+		# If we clicked an agent specifically, SHOW IT.
+		show_walkers = true
+		_update_walker_inspector_from_selection()
 		
-	# 4. Processing (Only needed for live Node position updates)
+	elif has_nodes and _tracked_nodes.size() == 1:
+		# Priority B: Indirect Selection (Node Click)
+		# If we clicked a node, check if it has agents to show.
+		show_walkers = _update_walker_inspector_from_node(_tracked_nodes[0])
+		
+	walker_container.visible = show_walkers
+		
+	# 5. Processing (Only needed for live Node position updates)
 	set_process(has_nodes)
 
 # ==============================================================================
@@ -479,10 +509,11 @@ func _show_view(view_index: int) -> void:
 func _clear_inspector() -> void:
 	_tracked_nodes = []
 	_tracked_edges = []
+	_tracked_agents = []
 	
 	# Cleanup Walker Specifics
 	_current_walker_ref = null
-	graph_editor.set_node_labels({}) # Wipe the trails
+	graph_editor.set_node_labels({})
 	
 	_refresh_all_views()
 
@@ -577,6 +608,84 @@ func _refresh_walker_list_state(node_id: String) -> void:
 	# F. Visibility
 	if walker_container:
 		walker_container.visible = show_walker
+
+# Case A: We selected an agent directly
+# We populate the dropdown with siblings so you can still cycle through them.
+func _update_walker_inspector_from_selection() -> void:
+	if _tracked_agents.is_empty(): return
+	var agent = _tracked_agents[0]
+	
+	var context_node = agent.current_node_id
+	if context_node != "":
+		_populate_walker_dropdown(context_node, agent)
+	else:
+		# Fallback: Agent has no node (Floating)
+		_current_walker_list = [agent]
+		_populate_dropdown_ui(0)
+		
+		# [FIX] Ensure we activate even if list didn't change
+		if _current_walker_ref != agent:
+			_activate_walker_visuals(agent)
+
+# Case B: We selected a node, check if it has agents
+func _update_walker_inspector_from_node(node_id: String) -> bool:
+	# [FIX] Use Graph API directly
+	var list = graph_editor.graph.get_agents_at_node(node_id)
+	
+	if list.is_empty(): 
+		return false
+	
+	_populate_walker_dropdown(node_id, null) 
+	return true
+
+# Shared Helper to populate the list and dropdown
+func _populate_walker_dropdown(node_id: String, target_selection = null) -> void:
+	# Query Graph directly
+	var new_list = graph_editor.graph.get_agents_at_node(node_id)
+	
+	# Diffing logic
+	if new_list != _current_walker_list:
+		_current_walker_list = new_list
+		
+		var selected_idx = 0
+		if target_selection:
+			var found = _current_walker_list.find(target_selection)
+			if found != -1: selected_idx = found
+		
+		_populate_dropdown_ui(selected_idx)
+		
+		if not _current_walker_list.is_empty():
+			_activate_walker_visuals(_current_walker_list[selected_idx])
+		
+	else:
+		# [FIX] FORCE UPDATE if the UI is currently empty or mismatched
+		if target_selection:
+			var found = _current_walker_list.find(target_selection)
+			if found != -1:
+				# Trigger if:
+				# 1. The dropdown visual is wrong
+				# 2. OR The Inspector is blank (ref is null)
+				# 3. OR We are looking at a different object reference
+				if opt_walker_select.selected != found or _current_walker_ref != target_selection:
+					opt_walker_select.selected = found
+					_activate_walker_visuals(target_selection)
+
+# Helper to fill the OptionButton
+func _populate_dropdown_ui(select_index: int) -> void:
+	opt_walker_select.clear()
+	for i in range(_current_walker_list.size()):
+		var w = _current_walker_list[i]
+		var status = "" if w.get("active") else " (Paused)"
+		opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
+	
+	opt_walker_select.selected = select_index
+	opt_walker_select.visible = (_current_walker_list.size() > 1)
+
+# Helper to get strategy safely
+func _get_walker_strategy():
+	if strategy_controller and strategy_controller.current_strategy:
+		return strategy_controller.current_strategy
+	return null
 
 # 1. Signal Handler (Response to Dropdown Click)
 func _on_walker_dropdown_selected(index: int) -> void:

@@ -36,6 +36,7 @@ var selected_edges: Array = []
 # For now, we assume strategy.get_all_agents() returns objects, so we store refs or IDs.
 var selected_agent_ids: Array = []
 
+
 # [NEW] Tool Visualization Proxy
 # Tools write to this (generic name), and we forward it to the Renderer (specific name).
 var tool_overlay_rect: Rect2 = Rect2():
@@ -79,8 +80,7 @@ func _ready() -> void:
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
 	
-	# [NEW] Pass Agent Selection ref (We will add this property to Renderer next)
-	# renderer.selected_agent_ids_ref = selected_agent_ids 
+	renderer.selected_agent_ids_ref = selected_agent_ids
 	
 	if grid_renderer:
 		grid_renderer.camera_ref = camera
@@ -252,16 +252,17 @@ func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: boo
 	if clear_existing:
 		selected_nodes.clear()
 		selected_edges.clear()
+		
 		# [NEW] Selecting nodes usually implies clearing specific agent selection
 		selected_agent_ids.clear()
+		renderer.selected_agent_ids_ref = selected_agent_ids
 		agent_selection_changed.emit([])
-	
+		
 	selected_nodes.append_array(nodes)
 	selected_edges.append_array(edges)
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.selected_edges_ref = selected_edges
-	# renderer.selected_agent_ids_ref = selected_agent_ids
 	
 	selection_changed.emit(selected_nodes)
 	edge_selection_changed.emit(selected_edges)
@@ -298,20 +299,24 @@ func is_edge_selected(pair: Array) -> bool:
 	return selected_edges.has(pair)
 
 # [NEW] AGENT SELECTION API
-func set_agent_selection(ids: Array, clear_nodes: bool = true) -> void:
+func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	if clear_nodes:
 		# To keep the Inspector clean, we clear Node selection when picking Agents
 		selected_nodes.clear()
 		selected_edges.clear()
+		
 		renderer.selected_nodes_ref = selected_nodes
 		renderer.selected_edges_ref = selected_edges
-		selection_changed.emit([])
-		edge_selection_changed.emit([])
 		
-	selected_agent_ids = ids
+		# [FIX] Do not emit []. Emit the typed member variable 'selected_nodes'.
+		selection_changed.emit(selected_nodes)
+		edge_selection_changed.emit(selected_edges)
+		
+	# Store the actual objects or IDs. 
+	selected_agent_ids = agents
 	
-	# Future-proofing: Sync with Renderer
-	# renderer.selected_agent_ids_ref = selected_agent_ids
+	# Sync with Renderer
+	renderer.selected_agent_ids_ref = selected_agent_ids
 	
 	agent_selection_changed.emit(selected_agent_ids)
 	renderer.queue_redraw()
@@ -327,7 +332,7 @@ func clear_selection() -> void:
 	
 	# [NEW] Clear Agents
 	selected_agent_ids.clear()
-	# renderer.selected_agent_ids_ref = selected_agent_ids
+	renderer.selected_agent_ids_ref = selected_agent_ids
 	agent_selection_changed.emit(selected_agent_ids)
 
 # Edge Selection API

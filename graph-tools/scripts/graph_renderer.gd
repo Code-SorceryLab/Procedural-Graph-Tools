@@ -211,8 +211,66 @@ func _draw_nodes() -> void:
 # [NEW] AGENT RENDERING LOGIC
 # ==============================================================================
 
+# --- HIT TESTING API ---
+
+# Returns the top-most AgentWalker under the given local position.
+# Returns null if nothing is hit.
+func get_agent_at_position(local_pos: Vector2) -> AgentWalker:
+	if not graph_ref or graph_ref.agents.is_empty():
+		return null
+		
+	# 1. Group Agents (Same logic as _draw_agent_tokens)
+	var agents_by_node = {}
+	for w in graph_ref.agents: 
+		var node_id = w.current_node_id
+		if not agents_by_node.has(node_id):
+			agents_by_node[node_id] = []
+		agents_by_node[node_id].append(w)
+		
+	# 2. Check Hit vs Geometry
+	# We iterate all nodes that have agents
+	for node_id in agents_by_node:
+		if not graph_ref.nodes.has(node_id): continue
+		
+		var node_pos = graph_ref.get_node_pos(node_id)
+		var node_agents = agents_by_node[node_id]
+		var count = node_agents.size()
+		
+		# Optimization: Fast bounding box check
+		# If the click is miles away from this node, skip the math
+		# 50px radius squared = 2500
+		if local_pos.distance_squared_to(node_pos) > 2500:
+			continue
+			
+		# CASE A: Stack (> Threshold)
+		# We treat the stack as a single target hitting the *last* agent (top of stack)
+		if count > GraphSettings.AGENT_STACK_THRESHOLD:
+			# Stack is drawn at node_pos + (10, -10) usually, 
+			# but for simplicity let's check the node center area for stacks
+			if local_pos.distance_to(node_pos) < 20.0:
+				return node_agents.back() # Return the top one
+		
+		# CASE B: Individual Tokens
+		else:
+			for i in range(count):
+				var agent = node_agents[i]
+				var offset = Vector2.ZERO
+				
+				# Re-calculate the exact visual offset
+				if count > 1:
+					var angle = (TAU / count) * i
+					offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
+				
+				var agent_visual_pos = node_pos + offset
+				
+				# Hit Test (Radius approx 12px for the diamond)
+				if local_pos.distance_to(agent_visual_pos) < 12.0:
+					return agent
+					
+	return null
+
 func _draw_agent_tokens() -> void:
-	print("Drawing Agents: %d" % graph_ref.agents.size())
+	#print("Drawing Agents: %d" % graph_ref.agents.size())
 	# 1. Verify we have agents to draw
 	if not graph_ref or graph_ref.agents.is_empty():
 		return

@@ -69,7 +69,7 @@ func set_node_position(id: String, new_pos: Vector2) -> void:
 		_ensure_spatial_grid()
 		_spatial_grid.update_node(id, new_pos, _node_radius)
 
-# --- Agent Management [NEW] ---
+# --- Agent Management ---
 
 func add_agent(agent) -> void:
 	if not agents.has(agent):
@@ -79,6 +79,14 @@ func remove_agent(agent) -> void:
 	if agents.has(agent):
 		agents.erase(agent)
 
+# Query API
+# Returns all agents currently standing on the given node.
+func get_agents_at_node(node_id: String) -> Array:
+	var found = []
+	for agent in agents:
+		if agent.current_node_id == node_id:
+			found.append(agent)
+	return found
 # --- Edge Management ---
 
 # Now accepts an optional 'data' dictionary for future expansion

@@ -111,12 +111,42 @@ func _spawn_under_mouse() -> void:
 
 func _select_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
-	var mouse_pos = _editor.get_global_mouse_position()
-	var id = _get_node_at_pos(mouse_pos)
+	
+	# 1. Coordinate Conversion (Camera Safe)
+	var global_mouse = _editor.get_global_mouse_position()
+	var local_pos = _editor.renderer.to_local(global_mouse)
+	
+	# 2. Ask Renderer for precise hit
+	var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
+	
+	if hit_agent:
+		# HIT: Select the specific agent
+		
+		# A. Select the Node (So the Inspector opens)
+		var node_id = hit_agent.current_node_id
+		_editor.set_selection_batch([node_id], [])
+		
+		# B. [NEW] Select the Agent (So the Diamond glows)
+		# This is the line that was missing!
+		_editor.set_agent_selection([hit_agent])
+		
+		# Force Inspector
+		if _editor.has_signal("request_inspector_view"):
+			_editor.request_inspector_view.emit()
+			
+		_show_status("Selected Agent #%d" % hit_agent.id)
+		return
+
+	# 3. Fallback: Node Click
+	var id = _get_node_at_pos(global_mouse)
 	
 	if id != "":
-		# [FIX] Pass _editor.graph
-		var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
+		_editor.set_agent_selection([])
+		
+		# [FIX] Use Graph API instead of Strategy
+		# Old: var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
+		var agents = _editor.graph.get_agents_at_node(id)
+		
 		if not agents.is_empty():
 			_editor.set_selection_batch([id], [])
 			if _editor.has_signal("request_inspector_view"):
@@ -127,28 +157,43 @@ func _select_agent_under_mouse() -> void:
 			_editor.clear_selection()
 	else:
 		_editor.clear_selection()
+		# [NEW] Clear agent selection on empty click
+		_editor.set_agent_selection([])
 
 func _delete_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
-	var mouse_pos = _editor.get_global_mouse_position()
-	var id = _get_node_at_pos(mouse_pos)
 	
+	# 1. Check Precision Hit
+	var global_mouse = _editor.get_global_mouse_position()
+	var local_pos = _editor.renderer.to_local(global_mouse)
+	var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
+	
+	if hit_agent:
+		# Delete JUST this one agent
+		_editor.remove_agent(hit_agent)
+		
+		_editor.set_node_labels({}) 
+		_editor.clear_selection()   
+		_update_markers()           
+		_show_status("Deleted Agent #%d." % hit_agent.id)
+		return
+
+	# 2. Fallback: Bulk Delete at Node (Existing Logic)
+	var id = _get_node_at_pos(global_mouse)
 	if id == "": return
-	# Pass _editor.graph to get the list
-	var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
 	
+	var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
 	if agents.is_empty():
 		_show_status("Nothing to delete here.")
 		return
 
 	for agent in agents:
-		# [FIX] Use Editor to remove (supports Undo)
 		_editor.remove_agent(agent)
 	
 	_editor.set_node_labels({}) 
 	_editor.clear_selection()   
 	_update_markers()           
-	_show_status("Deleted %d Agent(s)." % agents.size())
+	_show_status("Deleted %d Agent(s) from Node." % agents.size())
 
 # --- HELPERS ---
 

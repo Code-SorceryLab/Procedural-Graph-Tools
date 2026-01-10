@@ -82,7 +82,7 @@ func _build_ui_for_strategy() -> void:
 	var settings = current_strategy.get_settings()
 	_active_inputs = SettingsUIBuilder.build_ui(settings, settings_container)
 	
-	# [NEW] Connect Signals
+	# Connect Signals
 	SettingsUIBuilder.connect_live_updates(_active_inputs, _on_live_setting_changed)
 
 	grow_btn.visible = current_strategy.supports_grow
@@ -91,16 +91,22 @@ func _build_ui_for_strategy() -> void:
 	else:
 		generate_btn.text = "Apply"
 
-# [NEW] Handler for Strategy Buttons
+# [FIXED] Handler for Strategy Buttons
 func _on_live_setting_changed(key: String, _value: Variant) -> void:
 	if key == "action_clear_all" and current_strategy is StrategyWalker:
-		current_strategy.clear_agents()
+		# [FIX] Strategy no longer manages data. We use the Editor to clear.
+		# We iterate a duplicate array to safely remove items while looping.
+		var agents_to_nuke = graph_editor.graph.agents.duplicate()
 		
-		# Force redraw to remove red markers immediately
-		graph_editor.renderer.path_end_ids = []
-		graph_editor.renderer.queue_redraw()
+		# Using remove_agent ensures the action is added to the Undo Stack!
+		for agent in agents_to_nuke:
+			graph_editor.remove_agent(agent)
 		
-		print("Controller: All agents cleared.")
+		# Clear visual markers
+		graph_editor.set_path_ends([])
+		graph_editor.set_path_starts([])
+		
+		print("Controller: All agents cleared (Undoable).")
 
 func _collect_params() -> Dictionary:
 	var params = SettingsUIBuilder.collect_params(_active_inputs)
