@@ -25,6 +25,9 @@ signal request_agent_tab_view(filter_node_id: String)
 # --- DATA MODEL ---
 var graph: Graph = Graph.new()
 
+# --- PHYSICS/LOGIC ENGINE ---
+var simulation: Simulation
+
 # --- STATE MANAGEMENT ---
 # Tool Manager
 var tool_manager: GraphToolManager
@@ -81,6 +84,10 @@ func _ready() -> void:
 	renderer.node_labels_ref = node_labels
 	
 	renderer.selected_agent_ids_ref = selected_agent_ids
+	
+	# [NEW] Initialize the Simulation Engine
+	# We pass the graph reference so the engine knows what to operate on.
+	simulation = Simulation.new(graph)
 	
 	if grid_renderer:
 		grid_renderer.camera_ref = camera
@@ -557,6 +564,11 @@ func redo() -> void:
 func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
 	history = GraphHistory.new(graph)
+	
+	# [NEW] Reconstruct the Simulation Engine
+	# This ensures we aren't using the old Simulation instance with the old Graph data
+	simulation = Simulation.new(graph)
+	
 	_reset_local_state()
 	_reconstruct_state_from_ids()
 	graph_loaded.emit(graph)

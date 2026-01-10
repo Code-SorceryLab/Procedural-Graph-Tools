@@ -27,3 +27,6 @@ func undo() -> void:
 
 func get_name() -> String:
 	return _name
+
+func get_command_count() -> int:
+	return _commands.size()

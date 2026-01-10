@@ -17,6 +17,11 @@ class_name AgentController
 var _roster_map: Dictionary = {}  # agent_id -> Control
 var _active_inputs: Dictionary = {} # For the Behavior Panel
 
+# [NEW] Playback State
+var is_playing: bool = false
+var play_timer: float = 0.0
+var play_speed: float = 0.1 # Seconds per tick (0.1 = 10 ticks/sec)
+
 func _ready() -> void:
 	# 1. Listen for Graph Changes
 	graph_editor.graph_modified.connect(_on_graph_modified)
@@ -27,12 +32,28 @@ func _ready() -> void:
 	
 	# 2. Playback Signals
 	if btn_step: btn_step.pressed.connect(_on_step_pressed)
-	if btn_play: btn_play.pressed.connect(_on_play_pressed)
 	if btn_reset: btn_reset.pressed.connect(_on_reset_pressed)
+	
+	# [UPDATED] Play Button is now a Toggle
+	if btn_play: 
+		btn_play.toggle_mode = true
+		btn_play.toggled.connect(_on_play_toggled)
+		# Safety: Disconnect old signal if it exists (from editor setups)
+		if btn_play.pressed.is_connected(_on_play_pressed):
+			btn_play.pressed.disconnect(_on_play_pressed)
 	
 	# 3. Build Initial UI
 	_full_roster_rebuild()
 	_build_behavior_ui()
+
+# [NEW] Heartbeat Loop for Auto-Play
+func _process(delta: float) -> void:
+	if not is_playing: return
+	
+	play_timer -= delta
+	if play_timer <= 0:
+		play_timer = play_speed
+		_perform_step()
 
 # ==============================================================================
 # 1. ROSTER LOGIC (Custom UI)
@@ -91,10 +112,6 @@ func _select_agent_from_roster(agent) -> void:
 	# Trigger Editor Selection
 	graph_editor.set_selection_batch([agent.current_node_id], [], true)
 	graph_editor.set_agent_selection([agent], false)
-	
-	# Optional: Center Camera
-	# var pos = graph_editor.graph.get_node_pos(agent.current_node_id)
-	# graph_editor.camera.center_on_position(pos)
 
 func _on_agent_selection_changed(selected_agents: Array) -> void:
 	# Highlight the row in the list
@@ -117,6 +134,32 @@ func _update_stats() -> void:
 func _on_graph_modified() -> void:
 	# Simple rebuild for now. In future, optimize to only update changed rows.
 	_full_roster_rebuild()
+
+# Updates the text/color of existing rows without destroying them (Fast)
+func _refresh_roster_status() -> void:
+	for id in _roster_map:
+		_update_row_visuals(id)
+
+# Updates a single row's UI based on the agent's current state
+func _update_row_visuals(agent_id: int) -> void:
+	if not _roster_map.has(agent_id): return
+	
+	var row = _roster_map[agent_id]
+	# Children order based on creation: [0]=Icon, [1]=Name, [2]=Location, [3]=Button
+	var icon = row.get_child(0) as ColorRect
+	var lbl_loc = row.get_child(2) as Label
+	
+	# Find the actual agent object in the graph
+	var agent = null
+	for a in graph_editor.graph.agents:
+		if a.id == agent_id:
+			agent = a
+			break
+			
+	if agent:
+		# Update UI values
+		lbl_loc.text = "@ %s" % agent.current_node_id
+		icon.color = Color.GREEN if agent.active else Color.RED
 
 # ==============================================================================
 # 2. BEHAVIOR LOGIC (Using SettingsUIBuilder)
@@ -161,17 +204,53 @@ func _on_behavior_changed(key: String, value: Variant) -> void:
 	# TODO: In Phase 4, we will loop through graph.agents and update their state here.
 
 # ==============================================================================
-# 3. PLAYBACK STUBS
+# 3. PLAYBACK CONTROLS
 # ==============================================================================
-func _on_step_pressed() -> void:
-	print("Step!")
 
+func _on_step_pressed() -> void:
+	# Pause auto-play if we step manually
+	if btn_play and is_playing: 
+		btn_play.button_pressed = false
+	_perform_step()
+
+func _perform_step() -> void:
+	var sim = graph_editor.simulation
+	if not sim: return
+	
+	# [UPDATED] Receive the command batch
+	var cmd = sim.step()
+	
+	if cmd:
+		# Commit to History (Enables Undo!)
+		graph_editor._commit_command(cmd)
+		# UI updates via _on_graph_modified -> _full_roster_rebuild
+		# BUT we call refresh here too for immediate visual feedback on stats
+		_update_stats()
+		_refresh_roster_status()
+	else:
+		# Simulation stalled or finished
+		print("Simulation Finished (or no changes).")
+		if btn_play: btn_play.button_pressed = false
+		
+		# Still update stats in case something stalled cleanly
+		_update_stats()
+		_refresh_roster_status()
+
+# [UPDATED] Replaces stub with proper Toggle logic
+func _on_play_toggled(toggled_on: bool) -> void:
+	is_playing = toggled_on
+	if btn_play:
+		btn_play.text = "Pause" if toggled_on else "Play"
+
+# Deprecated Stub - Removed/Disconnected in _ready
 func _on_play_pressed() -> void:
-	print("Play/Pause")
+	pass
 
 func _on_reset_pressed() -> void:
-	graph_editor.graph.agents.clear()
-	graph_editor.set_path_starts([])
-	graph_editor.set_path_ends([])
-	graph_editor.queue_redraw()
-	_full_roster_rebuild()
+	# Stop playing
+	if btn_play: btn_play.button_pressed = false
+	
+	if graph_editor.simulation:
+		graph_editor.simulation.reset_state()
+		graph_editor.queue_redraw()
+		_full_roster_rebuild()

@@ -6,7 +6,7 @@ var id: int
 var pos: Vector2
 var current_node_id: String
 var start_node_id: String 
-var step_count: int = 0 
+var step_count: int = 0  # <--- THIS IS THE COUNTER
 var history: Array[Dictionary] = [] 
 
 # --- SETTINGS ---
@@ -14,7 +14,7 @@ var my_paint_type: int = 2
 var active: bool = true
 var mode: int = 0 # 0 = Grow, 1 = Paint
 var snap_to_grid: bool = false
-var steps: int = 15 # [UPDATED] Default to 15
+var steps: int = 15     # <--- THIS IS THE LIMIT (Max Steps)
 var branch_randomly: bool = false
 
 # --- INITIALIZATION ---
@@ -36,9 +36,13 @@ func reset_state() -> void:
 	history.clear()
 
 # --- EXPLICIT ACTIONS ---
-func warp(new_pos: Vector2) -> void:
+
+# Unified movement function
+# If new_node_id is provided, we snap to that node.
+# If new_node_id is empty, the agent becomes "floating" at that position.
+func warp(new_pos: Vector2, new_node_id: String = "") -> void:
 	pos = new_pos
-	current_node_id = "" 
+	current_node_id = new_node_id
 
 # --- SHARED SCHEMA (Source of Truth) ---
 static func get_template_settings() -> Array[Dictionary]:
@@ -107,7 +111,7 @@ func apply_setting(key: String, value: Variant) -> void:
 		"pos": warp(value)
 
 # ==============================================================================
-# BEHAVIORS (Unchanged)
+# BEHAVIORS
 # ==============================================================================
 
 func _commit_step(new_id: String, new_pos: Vector2) -> void:
@@ -116,7 +120,7 @@ func _commit_step(new_id: String, new_pos: Vector2) -> void:
 	step_count += 1
 	history.append({ "node": new_id, "step": step_count })
 
-func step_grow(graph: GraphRecorder, grid_spacing: Vector2, merge_overlaps: bool) -> String:
+func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 	if current_node_id == "":
 		var under_feet = graph.get_node_at_position(pos, -1.0)
 		if not under_feet.is_empty(): current_node_id = under_feet
@@ -151,7 +155,7 @@ func step_grow(graph: GraphRecorder, grid_spacing: Vector2, merge_overlaps: bool
 	_commit_step(new_id, target_pos)
 	return new_id
 
-func step_paint(graph: GraphRecorder, _ignored_branch_param: bool, session_path: Array) -> String:
+func step_paint(graph, _ignored_branch_param: bool, session_path: Array) -> String:
 	if not current_node_id.is_empty():
 		graph.set_node_type(current_node_id, my_paint_type)
 	
@@ -172,7 +176,7 @@ func _get_random_cardinal_vector(scale: Vector2) -> Vector2:
 		3: return Vector2(0, -scale.y)
 	return Vector2.ZERO
 
-func _generate_unique_id(graph: GraphRecorder) -> String:
+func _generate_unique_id(graph) -> String:
 	var temp_count = step_count + 1 
 	var new_id = "walk:%d:%d" % [id, temp_count]
 	while graph.nodes.has(new_id):
@@ -180,7 +184,7 @@ func _generate_unique_id(graph: GraphRecorder) -> String:
 		new_id = "walk:%d:%d" % [id, temp_count]
 	return new_id
 
-func _pick_next_paint_node(graph: GraphRecorder, do_branch: bool, session_path: Array) -> String:
+func _pick_next_paint_node(graph, do_branch: bool, session_path: Array) -> String:
 	var next_id = ""
 	if do_branch and randf() < 0.2 and not session_path.is_empty():
 		var candidate = session_path.pick_random()
