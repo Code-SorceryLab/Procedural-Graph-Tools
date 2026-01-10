@@ -19,18 +19,29 @@ func handle_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				# --- CLICK DOWN ---
+				
+				# [NEW] 1. Check for Agent (Highest Priority)
+				var local_pos = _editor.renderer.to_local(mouse_pos)
+				var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
+				
+				if hit_agent:
+					_handle_agent_click(hit_agent)
+					# Return early to prevent dragging the node underneath immediately
+					return 
+				
+				# 2. Check for Node
 				var clicked_id = _get_node_at_pos(mouse_pos)
 				
 				if not clicked_id.is_empty():
 					_start_moving_node(clicked_id)
 				else:
-					# Check for Edge Click
+					# 3. Check for Edge Click
 					var clicked_edge = _graph.get_edge_at_position(mouse_pos)
 					
 					if not clicked_edge.is_empty():
 						_handle_edge_click(clicked_edge)
 					else:
-						# If neither node nor edge, start box select
+						# 4. If nothing else, start box select
 						_start_box_selection(mouse_pos)
 
 			else:
@@ -51,7 +62,6 @@ func handle_input(event: InputEvent) -> void:
 			# 1. Calculate Anchor Position (Snap logic applies to the Anchor)
 			var anchor_pos = mouse_pos
 			if Input.is_key_pressed(KEY_SHIFT):
-				# [REFACTOR] Use the new global Vector2 spacing
 				anchor_pos = anchor_pos.snapped(GraphSettings.GRID_SPACING)
 			
 			# 2. Move the Anchor
@@ -74,9 +84,34 @@ func handle_input(event: InputEvent) -> void:
 			_renderer.pre_selection_ref = potential_nodes
 			_renderer.queue_redraw()
 		
-		_update_hover(mouse_pos)
+		# [NOTE] Ensure _update_hover logic (if it exists in parent) runs
+		if has_method("_update_hover"):
+			call("_update_hover", mouse_pos)
 
 # --- HELPER FUNCTIONS ---
+
+# [NEW] Agent Selection Logic
+func _handle_agent_click(agent) -> void:
+	# Check modifiers
+	var is_shift = Input.is_key_pressed(KEY_SHIFT)
+	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
+	
+	if is_shift or is_ctrl:
+		# TODO: Multi-agent selection logic if needed. 
+		# For now, we support single select or switching focus.
+		pass
+	
+	# Standard Click:
+	# 1. Select the Node (Required for Inspector Context)
+	_editor.set_selection_batch([agent.current_node_id], [], true)
+	
+	# 2. Select the Agent (Visuals + Specific Inspector UI)
+	# Pass 'false' to KEEP the node selection active
+	_editor.set_agent_selection([agent], false)
+	
+	# 3. Open Inspector
+	if _editor.has_signal("request_inspector_view"):
+		_editor.request_inspector_view.emit()
 
 # Edge Selection Logic
 func _handle_edge_click(edge_pair: Array) -> void:
@@ -172,12 +207,21 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	var nodes_in_box = _graph.get_nodes_in_rect(rect)
 	var edges_in_box = _graph.get_edges_in_rect(rect)
 	
+	# [NEW] Gather Agents in Box
+	var agents_in_box = []
+	for id in nodes_in_box:
+		agents_in_box.append_array(_graph.get_agents_at_node(id))
+	
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
 	
 	if not is_shift and not is_ctrl:
 		# REPLACE Selection
 		_editor.set_selection_batch(nodes_in_box, edges_in_box, true)
+		
+		# Select agents found in box
+		if not agents_in_box.is_empty():
+			_editor.set_agent_selection(agents_in_box, false)
 		
 	elif is_shift:
 		# ADD to Selection (Union)
@@ -194,6 +238,14 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 		
 		if not nodes_to_add.is_empty() or not edges_to_add.is_empty():
 			_editor.set_selection_batch(nodes_to_add, edges_to_add, false)
+			
+			# Add agents to existing selection?
+			# For now, let's keep it simple: Adding nodes adds their agents too.
+			if not agents_in_box.is_empty():
+				var current_agents = _editor.selected_agent_ids.duplicate()
+				for a in agents_in_box:
+					if not current_agents.has(a): current_agents.append(a)
+				_editor.set_agent_selection(current_agents, false)
 		
 	elif is_ctrl:
 		# SUBTRACT Selection (Difference)
@@ -209,6 +261,13 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 				final_edges.erase(pair)
 		
 		_editor.set_selection_batch(final_nodes, final_edges, true)
+		
+		# Remove agents
+		if not agents_in_box.is_empty():
+			var final_agents = _editor.selected_agent_ids.duplicate()
+			for a in agents_in_box:
+				if final_agents.has(a): final_agents.erase(a)
+			_editor.set_agent_selection(final_agents, false)
 			
 	# Cleanup
 	_box_start_pos = Vector2.INF

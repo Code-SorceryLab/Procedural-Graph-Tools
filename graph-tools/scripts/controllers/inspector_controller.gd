@@ -29,7 +29,7 @@ class_name InspectorController
 
 # 3. WALKER CONTROLS
 @export_group("Walker Inspector")
-@export var walker_container: Control      
+@export var walker_container: VBoxContainer 
 @export var opt_walker_select: OptionButton 
 @export var lbl_walker_id: Label           
 
@@ -190,8 +190,8 @@ func _refresh_all_views() -> void:
 		else:
 			_update_group_inspector(_tracked_nodes)
 	else:
-		single_container.visible = false #THIS PART IS IMPORTANT FOR THE BUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		#group_container.visible = false
+		single_container.visible = false #This part is responsible for the hidden walkers
+		group_container.visible = false
 		pass
 	# 3. Edge Inspector Logic (Independent)
 	edge_container.visible = has_edges

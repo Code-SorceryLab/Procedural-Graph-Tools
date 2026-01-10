@@ -6,6 +6,7 @@ extends RefCounted
 signal clicked(position: Vector2)
 # Fired when the user finishes dragging a box (Perform Box Select)
 signal box_selected(rect: Rect2)
+signal drag_updated(rect: Rect2)
 
 # --- STATE ---
 var _editor: GraphEditor
@@ -54,6 +55,9 @@ func _update_visual(current_pos: Vector2) -> void:
 	var rect = Rect2(_drag_start_pos, current_pos - _drag_start_pos).abs()
 	_editor.tool_overlay_rect = rect
 	_editor.queue_redraw()
+	
+	# Emit signal so Tool can perform live highlighting
+	drag_updated.emit(rect)
 
 func _finish_drag() -> void:
 	var final_rect = _editor.tool_overlay_rect

@@ -37,6 +37,7 @@ var selected_nodes_ref: Array[String] = []
 var current_path_ref: Array[String] = []
 var new_nodes_ref: Array[String] = [] 
 var pre_selection_ref: Array[String] = []
+var pre_selected_agents_ref: Array = []
 var node_labels_ref: Dictionary = {}
 var selected_edges_ref: Array = []
 
@@ -313,12 +314,11 @@ func _draw_agent_tokens() -> void:
 				# Check selection (Assumes storing Object References)
 				var is_selected = selected_agent_ids_ref.has(current_agent) 
 				
-				_draw_diamond_token(draw_pos, is_selected)
+				_draw_diamond_token(draw_pos, is_selected, current_agent)
 
-func _draw_diamond_token(center: Vector2, is_selected: bool) -> void:
+func _draw_diamond_token(center: Vector2, is_selected: bool, agent_ref: Object) -> void:
 	var radius = GraphSettings.AGENT_RADIUS
 	
-	# Diamond Shape Points
 	var points = PackedVector2Array([
 		center + Vector2(0, -radius),
 		center + Vector2(radius, 0),
@@ -326,21 +326,42 @@ func _draw_diamond_token(center: Vector2, is_selected: bool) -> void:
 		center + Vector2(-radius, 0)
 	])
 	
-	# 1. Fill
+	# 1. Fill Logic
 	var fill_col = GraphSettings.COLOR_AGENT_NORMAL
+	
+	# If selected OR pre-selected, we can optionally light up the face too
 	if is_selected:
 		fill_col = GraphSettings.COLOR_AGENT_SELECTED
+	
 	draw_colored_polygon(points, fill_col)
 	
-	# 2. Outline
+	# 2. Outline Logic
 	var line_col = Color.WHITE
 	var width = 1.0
 	
+	# DEFINE GOLD COLOR (Matches your theme)
+	var selection_gold = Color(1, 0.8, 0.2) 
+	
 	if is_selected:
-		line_col = Color.WHITE
-		width = 2.0
+		# STATUS: CONFIRMED SELECTION
+		# Full Opacity, Thick Line
+		line_col = selection_gold
+		width = 3.0
 		
-	points.append(points[0]) # Close the loop
+	elif pre_selected_agents_ref.has(agent_ref):
+		# STATUS: HOVER / PRE-SELECTION
+		# Same Gold Color, slightly transparent, slightly thinner
+		# This says "I am about to be selected"
+		line_col = selection_gold
+		line_col.a = 0.7 
+		width = 3.0
+		
+	else:
+		# STATUS: NORMAL
+		line_col = Color.BLACK
+		width = 1.0
+		
+	points.append(points[0]) # Close loop
 	draw_polyline(points, line_col, width)
 
 func _draw_agent_stack_icon(center: Vector2, count: int) -> void:
@@ -360,6 +381,40 @@ func _draw_agent_stack_icon(center: Vector2, count: int) -> void:
 	# Move text slightly up/left to center it manually
 	var text_pos = center + Vector2(-4, 4) 
 	draw_string(font, text_pos, str(count), HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color.BLACK)
+
+# 2. Add Visual Hit Testing for Rects
+func get_agents_in_visual_rect(local_rect: Rect2) -> Array:
+	if not graph_ref: return []
+	var result = []
+	
+	var agents_by_node = {}
+	for w in graph_ref.agents: 
+		var node_id = w.current_node_id
+		if not agents_by_node.has(node_id): agents_by_node[node_id] = []
+		agents_by_node[node_id].append(w)
+		
+	for node_id in agents_by_node:
+		if not graph_ref.nodes.has(node_id): continue
+		
+		var node_pos = graph_ref.get_node_pos(node_id)
+		if not local_rect.grow(50).has_point(node_pos): continue
+			
+		var node_agents = agents_by_node[node_id]
+		var count = node_agents.size()
+		
+		for i in range(count):
+			var agent = node_agents[i]
+			var visual_pos = node_pos
+			
+			if count > 1 and count <= GraphSettings.AGENT_STACK_THRESHOLD:
+				var angle = (TAU / count) * i
+				var offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
+				visual_pos += offset
+			
+			if local_rect.has_point(visual_pos):
+				result.append(agent)
+				
+	return result
 
 # --- 3.5 HELPER: CUSTOM LABELS ---
 func _draw_custom_labels() -> void:
