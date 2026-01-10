@@ -6,12 +6,13 @@ class_name AgentController
 @export var graph_editor: GraphEditor
 
 @export_group("UI Nodes")
-@export var roster_list: VBoxContainer        # The VBox inside the ScrollContainer
-@export var behavior_settings_box: Control    # The VBox inside the Bottom Panel
+@export var roster_list: VBoxContainer		# The VBox inside the ScrollContainer
+@export var behavior_settings_box: Control	# The VBox inside the Bottom Panel
 @export var btn_step: Button
 @export var btn_play: Button
 @export var btn_reset: Button
 @export var lbl_stats: Label
+@export var sb_speed: SpinBox
 
 # --- STATE ---
 var _roster_map: Dictionary = {}  # agent_id -> Control
@@ -21,6 +22,12 @@ var _active_inputs: Dictionary = {} # For the Behavior Panel
 var is_playing: bool = false
 var play_timer: float = 0.0
 var play_speed: float = 0.1 # Seconds per tick (0.1 = 10 ticks/sec)
+
+# [NEW] Simulation Parameters (Passed to the engine)
+var sim_params: Dictionary = {
+	"merge_overlaps": true,
+	"grid_spacing": GraphSettings.GRID_SPACING
+}
 
 func _ready() -> void:
 	# 1. Listen for Graph Changes
@@ -34,13 +41,18 @@ func _ready() -> void:
 	if btn_step: btn_step.pressed.connect(_on_step_pressed)
 	if btn_reset: btn_reset.pressed.connect(_on_reset_pressed)
 	
-	# [UPDATED] Play Button is now a Toggle
 	if btn_play: 
 		btn_play.toggle_mode = true
 		btn_play.toggled.connect(_on_play_toggled)
 		# Safety: Disconnect old signal if it exists (from editor setups)
 		if btn_play.pressed.is_connected(_on_play_pressed):
 			btn_play.pressed.disconnect(_on_play_pressed)
+			
+	# Connect Speed Control
+	if sb_speed:
+		sb_speed.value_changed.connect(_on_speed_changed)
+		# Set initial value
+		_on_speed_changed(sb_speed.value)
 	
 	# 3. Build Initial UI
 	_full_roster_rebuild()
@@ -52,8 +64,27 @@ func _process(delta: float) -> void:
 	
 	play_timer -= delta
 	if play_timer <= 0:
-		play_timer = play_speed
+		play_timer = play_speed # Reset timer using the current speed
 		_perform_step()
+
+# [UPDATED] Speed Handler with Instant Feedback
+func _on_speed_changed(value: float) -> void:
+	# 1. Capture the old speed to check if we are speeding up
+	var old_delay = play_speed 
+	
+	# 2. Update the CORRECT variable (play_speed)
+	# Convert TPS (Ticks Per Second) to Delay (Seconds)
+	if value > 0:
+		play_speed = 1.0 / value
+	else:
+		# If user types 0, default to 1 second per tick (Slow)
+		play_speed = 1.0 
+		
+	# 3. Impatience Check
+	# If we sped up (delay got smaller) and the timer is waiting too long,
+	# cut the wait short so the user sees the speed change instantly.
+	if play_speed < old_delay and play_timer > play_speed:
+		play_timer = play_speed
 
 # ==============================================================================
 # 1. ROSTER LOGIC (Custom UI)
@@ -217,40 +248,42 @@ func _perform_step() -> void:
 	var sim = graph_editor.simulation
 	if not sim: return
 	
-	# [UPDATED] Receive the command batch
+	# [UPDATED] We could pass sim_params here if we update Simulation.step() signature later
 	var cmd = sim.step()
 	
 	if cmd:
-		# Commit to History (Enables Undo!)
 		graph_editor._commit_command(cmd)
-		# UI updates via _on_graph_modified -> _full_roster_rebuild
-		# BUT we call refresh here too for immediate visual feedback on stats
 		_update_stats()
 		_refresh_roster_status()
 	else:
-		# Simulation stalled or finished
-		print("Simulation Finished (or no changes).")
 		if btn_play: btn_play.button_pressed = false
-		
-		# Still update stats in case something stalled cleanly
 		_update_stats()
 		_refresh_roster_status()
 
 # [UPDATED] Replaces stub with proper Toggle logic
 func _on_play_toggled(toggled_on: bool) -> void:
 	is_playing = toggled_on
-	if btn_play:
-		btn_play.text = "Pause" if toggled_on else "Play"
+	if btn_play: btn_play.text = "Pause" if toggled_on else "Play"
 
 # Deprecated Stub - Removed/Disconnected in _ready
 func _on_play_pressed() -> void:
 	pass
 
+# [UPDATED] Reset Handler
 func _on_reset_pressed() -> void:
-	# Stop playing
 	if btn_play: btn_play.button_pressed = false
 	
 	if graph_editor.simulation:
+		# 1. Reset Logic
 		graph_editor.simulation.reset_state()
-		graph_editor.queue_redraw()
+		
+		# 2. Reset Visuals (The Fix)
+		# We must talk to the RENDERER, not just the editor root
+		if graph_editor.renderer:
+			graph_editor.renderer.queue_redraw()
+		else:
+			# Fallback if renderer isn't exposed directly
+			graph_editor.queue_redraw()
+			
+		# 3. Reset UI
 		_full_roster_rebuild()
