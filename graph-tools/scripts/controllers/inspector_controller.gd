@@ -9,7 +9,11 @@ class_name InspectorController
 @export var graph_editor: GraphEditor
 @export var strategy_controller: StrategyController
 
+
 @export_group("UI Inspector Tab")
+# 0. TAB CONTAINER
+@export var inspector_vbox: VBoxContainer
+
 # 1. THE VIEW CONTAINERS
 @export var lbl_no_selection: Label      
 @export var single_container: Control    
@@ -59,14 +63,14 @@ var _edge_inputs: Dictionary = {}        # Store edge controls
 func _ready() -> void:
 	graph_editor.selection_changed.connect(_on_selection_changed)
 	
-	# Connect Edge Selection
 	if graph_editor.has_signal("edge_selection_changed"):
 		graph_editor.edge_selection_changed.connect(_on_edge_selection_changed)
 	
-	# [FIX START] Listen for File Loads
-	# When a new graph loads, custom types might change. We must refresh the dropdowns.
 	graph_editor.graph_loaded.connect(func(_g): refresh_type_options())
-	# [FIX END]
+	
+	# [NEW] Connect the request signal
+	if graph_editor.has_signal("request_inspector_view"):
+		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
 	
 	set_process(false)
 	
@@ -94,7 +98,23 @@ func _ready() -> void:
 	_clear_inspector()
 	#GraphSettings.print_custom_method_names(self)
 
-# [NEW] Public function to force a rebuild of type lists
+# The Handler
+# This logic is robust: it works if you use a TabContainer OR just a normal layout.
+func _on_inspector_view_requested() -> void:
+	if not inspector_vbox: return
+	
+	var parent = inspector_vbox.get_parent()
+	
+	# Scenario A: It's inside a TabContainer (Your current setup)
+	# We must tell the parent to switch tabs, otherwise visibility won't change.
+	if parent is TabContainer:
+		parent.current_tab = inspector_vbox.get_index()
+		
+	# Scenario B: It's just a hidden panel (Future proofing)
+	else:
+		inspector_vbox.visible = true
+
+# Public function to force a rebuild of type lists
 # Called on _ready and when graph_loaded signal fires.
 func refresh_type_options() -> void:
 	_setup_type_dropdown(option_type)

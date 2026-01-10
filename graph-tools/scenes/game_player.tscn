@@ -46,10 +46,11 @@ btn_set_start = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer
 btn_set_end = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Pathfinding/BtnSetEnd")
 btn_run_path = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Pathfinding/BtnRunPath")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
+inspector_vbox = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector")
 lbl_no_selection = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
 single_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer")
 group_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer")

@@ -90,12 +90,12 @@ func _draw() -> void:
 # --- HELPER: ZONES ---
 func _draw_zones() -> void:
 	# --- DIAGNOSTIC PRINT ---
-	if graph_ref:
-		print("RENDERER DIAGNOSTIC: Drawing Frame. Zone Count: %d" % graph_ref.zones.size())
-		if not graph_ref.zones.is_empty():
-			print(" - First Zone: %s | Bounds: %s" % [graph_ref.zones[0].zone_name, graph_ref.zones[0].bounds])
-	else:
-		print("RENDERER DIAGNOSTIC: No Graph Ref!")
+	#if graph_ref:
+	#	print("RENDERER DIAGNOSTIC: Drawing Frame. Zone Count: %d" % graph_ref.zones.size())
+	#	if not graph_ref.zones.is_empty():
+	#		print(" - First Zone: %s | Bounds: %s" % [graph_ref.zones[0].zone_name, graph_ref.zones[0].bounds])
+	#else:
+	#	print("RENDERER DIAGNOSTIC: No Graph Ref!")
 	# ------------------------
 
 	if not graph_ref or graph_ref.zones.is_empty():

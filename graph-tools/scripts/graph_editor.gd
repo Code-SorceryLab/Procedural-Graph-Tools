@@ -11,7 +11,7 @@ signal graph_modified
 # Signal to notify UI (e.g. StatusBar) when a tool wants to display info
 signal status_message_changed(message: String)
 signal active_tool_changed(tool_id: int)
-
+signal request_inspector_view
 
 # --- REFERENCES ---
 @onready var grid_renderer: GridRenderer = $Grid
@@ -28,6 +28,15 @@ var tool_manager: GraphToolManager
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
+# [NEW] Tool Visualization Proxy
+# Tools write to this (generic name), and we forward it to the Renderer (specific name).
+var tool_overlay_rect: Rect2 = Rect2():
+	set(value):
+		tool_overlay_rect = value
+		if renderer:
+			# Map the Tool's generic request to the Renderer's existing variable
+			renderer.selection_rect = value
+			renderer.queue_redraw()
 
 # Arrays to support Multiple Walkers
 var path_start_ids: Array[String] = []
@@ -210,6 +219,8 @@ func delete_node(id: String) -> void:
 	_commit_command(cmd)
 
 # --- Selection Operations (BATCHING OPTIMIZATION) ---
+
+
 
 # Optimized Batch Selection to prevent signal storms
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
