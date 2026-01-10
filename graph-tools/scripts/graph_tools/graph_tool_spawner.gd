@@ -3,7 +3,7 @@ extends GraphTool
 
 # Dependencies
 var _target_strategy: StrategyWalker
-var _drag_handler: GraphDragHandler # [NEW] Component for handling Drag vs Click
+var _drag_handler: GraphDragHandler
 
 # Mode State
 enum Mode { CREATE = 0, SELECT = 1, DELETE = 2 }
@@ -15,11 +15,9 @@ func enter() -> void:
 		_drag_handler = GraphDragHandler.new(_editor)
 		
 		# 2. Connect Component Signals
-		# If user clicks (no drag), we execute the current mode (Spawn/Select/Delete)
 		if not _drag_handler.clicked.is_connected(_on_click_action):
 			_drag_handler.clicked.connect(_on_click_action)
 			
-		# If user drags, we perform a box selection (Override)
 		if not _drag_handler.box_selected.is_connected(_on_box_selection):
 			_drag_handler.box_selected.connect(_on_box_selection)
 		
@@ -54,7 +52,8 @@ func _on_box_selection(rect: Rect2) -> void:
 	# 2. Filter: Only pick nodes that have Walkers
 	var relevant_nodes: Array[String] = []
 	for id in nodes_in_area:
-		var agents = _target_strategy.get_walkers_at_node(id)
+		# [FIX] Pass _editor.graph to the updated strategy method
+		var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
 		if not agents.is_empty():
 			relevant_nodes.append(id)
 			
@@ -94,14 +93,21 @@ func _spawn_under_mouse() -> void:
 	var id = _get_node_at_pos(mouse_pos)
 	
 	if id != "":
-		_target_strategy.add_agent_at_node(id, _editor.graph)
-		_editor.set_selection_batch([id], [])
-		_update_markers()
+		# 1. Create the object (Factory)
+		# Note: We changed the function name in Step 2
+		var agent = _target_strategy.create_agent_for_node(id, _editor.graph)
 		
-		if _editor.has_signal("request_inspector_view"):
-			_editor.request_inspector_view.emit()
-		
-		_show_status("Agent Spawned!")
+		if agent:
+			# 2. Add via Editor (History/Undo)
+			_editor.add_agent(agent)
+			
+			_editor.set_selection_batch([id], [])
+			_update_markers()
+			
+			if _editor.has_signal("request_inspector_view"):
+				_editor.request_inspector_view.emit()
+			
+			_show_status("Agent Spawned!")
 
 func _select_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
@@ -109,7 +115,8 @@ func _select_agent_under_mouse() -> void:
 	var id = _get_node_at_pos(mouse_pos)
 	
 	if id != "":
-		var agents = _target_strategy.get_walkers_at_node(id)
+		# [FIX] Pass _editor.graph
+		var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
 		if not agents.is_empty():
 			_editor.set_selection_batch([id], [])
 			if _editor.has_signal("request_inspector_view"):
@@ -127,27 +134,30 @@ func _delete_agent_under_mouse() -> void:
 	var id = _get_node_at_pos(mouse_pos)
 	
 	if id == "": return
-	var agents = _target_strategy.get_walkers_at_node(id)
+	# Pass _editor.graph to get the list
+	var agents = _target_strategy.get_walkers_at_node(id, _editor.graph)
 	
 	if agents.is_empty():
 		_show_status("Nothing to delete here.")
 		return
 
 	for agent in agents:
-		_target_strategy.remove_agent(agent)
+		# [FIX] Use Editor to remove (supports Undo)
+		_editor.remove_agent(agent)
 	
 	_editor.set_node_labels({}) 
 	_editor.clear_selection()   
-	_update_markers()          
+	_update_markers()           
 	_show_status("Deleted %d Agent(s)." % agents.size())
 
 # --- HELPERS ---
 
 func _update_markers() -> void:
 	if _target_strategy:
-		var agent_positions = _target_strategy.get_all_agent_positions()
+		# [FIX] Pass _editor.graph
+		var agent_positions = _target_strategy.get_all_agent_positions(_editor.graph)
 		_editor.set_path_ends(agent_positions)
-		var agent_starts = _target_strategy.get_all_agent_starts()
+		var agent_starts = _target_strategy.get_all_agent_starts(_editor.graph)
 		_editor.set_path_starts(agent_starts)
 
 func _ensure_strategy_active() -> bool:

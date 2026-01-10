@@ -5,7 +5,6 @@ const PRIORITY_QUEUE = preload("res://scripts/priority_queue.gd")
 const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
 
 # 1. Export the main dictionary
-# Godot will now save dictionaries containing the external 'NodeData' resource perfectly.
 @export var nodes: Dictionary = {}
 
 # Stores rich data for edges [FromID][ToID] = { data }
@@ -14,12 +13,16 @@ const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
 # --- ZONES LAYER ---
 @export var zones: Array[GraphZone] = []
 
+# [NEW] AGENT DATA (Integrated Model)
+# This is the "Source of Truth" for all entities in the simulation.
+@export var agents: Array = [] # Type: Array[AgentWalker]
+
 # 2. Spatial partitioning
 var _spatial_grid: SpatialGrid = null
-var _spatial_grid_dirty: bool = true  # Flag to indicate we need to rebuild
-var _node_radius: float = GraphSettings.NODE_RADIUS  # For spatial queries
+var _spatial_grid_dirty: bool = true  
+var _node_radius: float = GraphSettings.NODE_RADIUS 
 
-# --- Node Management (Updated for Spatial Grid) ---
+# --- Node Management ---
 
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	if not nodes.has(id):
@@ -32,6 +35,17 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 func remove_node(id: String) -> void:
 	if not nodes.has(id):
 		return
+	
+	# [REMOVED] CRITICAL: Do NOT implicitly remove agents here.
+	# Why? Because CmdDeleteNode only knows how to restore the Node.
+	# If we delete agents here silently, Undo will restore the Node 
+	# but the Agents will be gone forever.
+	#
+	# OLD CODE (DELETE THIS):
+	# for i in range(agents.size() - 1, -1, -1):
+	# 	var agent = agents[i]
+	# 	if agent.current_node_id == id:
+	# 		agents.remove_at(i)
 	
 	# Remove from spatial grid first
 	if _spatial_grid != null:
@@ -54,6 +68,16 @@ func set_node_position(id: String, new_pos: Vector2) -> void:
 		# Update spatial grid
 		_ensure_spatial_grid()
 		_spatial_grid.update_node(id, new_pos, _node_radius)
+
+# --- Agent Management [NEW] ---
+
+func add_agent(agent) -> void:
+	if not agents.has(agent):
+		agents.append(agent)
+
+func remove_agent(agent) -> void:
+	if agents.has(agent):
+		agents.erase(agent)
 
 # --- Edge Management ---
 
@@ -374,6 +398,9 @@ func clear() -> void:
 	
 	# Clear visual/logical zones
 	zones.clear()
+	
+	# [NEW] Clear Agents
+	agents.clear()
 	
 	if _spatial_grid != null:
 		_spatial_grid.clear()

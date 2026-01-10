@@ -392,6 +392,10 @@ func _update_single_inspector(node_id: String) -> void:
 func _rebuild_walker_ui() -> void:
 	if not _current_walker_ref: return
 	
+	# Safety Check
+	if not _current_walker_ref.has_method("get_agent_settings"):
+		return
+
 	# 1. Ask Agent for Schema
 	var settings = _current_walker_ref.get_agent_settings()
 	
@@ -401,6 +405,9 @@ func _rebuild_walker_ui() -> void:
 		settings, 
 		_on_walker_setting_changed
 	)
+	
+	# [FIX] Explicitly show the container
+	walker_container.visible = true
 
 
 func _update_group_inspector(nodes: Array[String]) -> void:
@@ -517,7 +524,8 @@ func _refresh_walker_list_state(node_id: String) -> void:
 	if strategy_controller and strategy_controller.current_strategy:
 		var strat = strategy_controller.current_strategy
 		if strat.has_method("get_walkers_at_node"):
-			new_walker_list = strat.get_walkers_at_node(node_id)
+			# [FIX] Pass graph_editor.graph as the second argument
+			new_walker_list = strat.get_walkers_at_node(node_id, graph_editor.graph)
 			
 	var show_walker = not new_walker_list.is_empty()
 	
@@ -579,21 +587,31 @@ func _on_walker_dropdown_selected(index: int) -> void:
 	_activate_walker_visuals(agent)
 
 # 2. Visual Helper (The Core Logic)
-# This sets the ref, builds the UI, and draws the trails.
-func _activate_walker_visuals(agent: AgentWalker) -> void:
-	_current_walker_ref = agent
+func _activate_walker_visuals(walker_obj) -> void:
+	# [FIX] Restore the UI Rebuild Logic
+	_current_walker_ref = walker_obj
 	_rebuild_walker_ui()
 	
-	# [NEW] BUILD TRAIL VISUALIZATION
-	# Uses the helper function we added to AgentWalker
-	var trail_labels = agent.get_history_labels()
-	graph_editor.set_node_labels(trail_labels)
+	# [NEW] Build Trail Visualization
+	if walker_obj.has_method("get_history_labels"):
+		var trail_labels = walker_obj.get_history_labels()
+		graph_editor.set_node_labels(trail_labels)
 	
-	# Sync Markers
-	if StrategyController.instance.current_strategy is StrategyWalker:
-		var strat = StrategyController.instance.current_strategy
-		graph_editor.set_path_starts(strat.get_all_agent_starts())
-		graph_editor.set_path_ends(strat.get_all_agent_positions())
+	# --- Strategy Checks (Markers) ---
+	if not strategy_controller or not strategy_controller.current_strategy: 
+		return
+	
+	var strat = strategy_controller.current_strategy
+	
+	# 1. Update Start Positions (Green Markers)
+	if strat.has_method("get_all_agent_starts"):
+		var starts = strat.get_all_agent_starts(graph_editor.graph)
+		graph_editor.set_path_starts(starts)
+		
+	# 2. Update Current Positions (Red Markers)
+	if strat.has_method("get_all_agent_positions"):
+		var ends = strat.get_all_agent_positions(graph_editor.graph)
+		graph_editor.set_path_ends(ends)
 
 # 2. Dynamic Update Handler - REPLACEMENT
 # This catches signals from ALL generated controls (SpinBoxes, CheckBoxes, etc.)
@@ -602,19 +620,19 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 
 	# [NEW] 0. Intercept Actions
 	if key == "action_delete":
-		# A. Remove from Strategy Logic
-		if StrategyController.instance.current_strategy is StrategyWalker:
-			var strat = StrategyController.instance.current_strategy
-			strat.remove_agent(_current_walker_ref)
+		# [FIX] Use Editor for Undo Support
+		graph_editor.remove_agent(_current_walker_ref)
 			
-			# [FIX] Refresh BOTH sets of visual markers
-			graph_editor.set_path_ends(strat.get_all_agent_positions()) # Red
-			graph_editor.set_path_starts(strat.get_all_agent_starts())  # Green
+		# Refresh Markers
+		if StrategyController.instance.current_strategy:
+			var strat = StrategyController.instance.current_strategy
+			if strat.has_method("get_all_agent_positions"):
+				graph_editor.set_path_ends(strat.get_all_agent_positions(graph_editor.graph))
+			if strat.has_method("get_all_agent_starts"):
+				graph_editor.set_path_starts(strat.get_all_agent_starts(graph_editor.graph))
 		
 		# B. Clear UI & Selection & Trails
-		# Note: We must call this AFTER updating markers, or the clear might conflict
-		graph_editor.set_node_labels({}) # Clear the deleted agent's trail immediately
-		
+		graph_editor.set_node_labels({}) 
 		_clear_inspector()
 		graph_editor.clear_selection()
 		
@@ -624,7 +642,7 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 	# 1. Update the Data (Existing Logic)
 	_current_walker_ref.apply_setting(key, value)
 	
-	# 2. Position Snapping Logic (Existing Logic)
+	# 2. Position Snapping Logic
 	if key == "pos":
 		var graph = graph_editor.graph
 		var landed_node_id = graph.get_node_at_position(value, 1.0)
@@ -633,7 +651,7 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 			_current_walker_ref.current_node_id = landed_node_id
 			print("Inspector: Walker snapped to node %s" % landed_node_id)
 	
-	# 3. UI Polish (Existing Logic)
+	# 3. UI Polish
 	if key == "active":
 		var idx = opt_walker_select.selected
 		var status = "" if value else " (Paused)"

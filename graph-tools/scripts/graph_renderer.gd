@@ -26,7 +26,7 @@ var _depth_cache_dirty: bool = true
 var tool_line_start: Vector2 = Vector2.INF
 var tool_line_end: Vector2 = Vector2.INF
 
-# NEW: Font reference for drawing walker numbers
+# Font reference for drawing walker numbers
 var font: Font
 
 # ==============================================================================
@@ -39,6 +39,9 @@ var new_nodes_ref: Array[String] = []
 var pre_selection_ref: Array[String] = []
 var node_labels_ref: Dictionary = {}
 var selected_edges_ref: Array = []
+
+# [NEW] Reference for Agent Selection
+var selected_agent_ids_ref: Array = [] 
 
 # ==============================================================================
 # 3. INTERACTION STATE
@@ -55,14 +58,13 @@ var selection_rect: Rect2 = Rect2()
 # ==============================================================================
 
 func _ready() -> void:
-	# Get default font for drawing numbers
 	font = ThemeDB.get_fallback_font()
 
 func _draw() -> void:
 	if not graph_ref:
 		return
 	
-	# 0. Draw Zones (Background layer)
+	# 0. Draw Zones
 	_draw_zones()
 	
 	# Layer 1: Connections
@@ -74,8 +76,10 @@ func _draw() -> void:
 	# Layer 3: Nodes
 	_draw_nodes()
 	
-	# [NEW] Layer 3.5: Custom Labels (Walker Trails)
-	# We draw this separately so text always appears ON TOP of neighboring nodes
+	# [NEW] Layer 3.25: Agent Tokens (The Physical Bodies)
+	_draw_agent_tokens()
+	
+	# Layer 3.5: Custom Labels
 	_draw_custom_labels()
 	
 	# Layer 4: Interactive Elements
@@ -84,9 +88,11 @@ func _draw() -> void:
 	# Layer 5: Selection Box
 	_draw_selection_box()
 	
-	# Layer 6: Dynamic Depth Overlay (NEW)
+	# Layer 6: Dynamic Depth Overlay
 	if debug_show_depth:
 		_draw_depth_numbers()
+
+
 # --- HELPER: ZONES ---
 func _draw_zones() -> void:
 	# --- DIAGNOSTIC PRINT ---
@@ -200,6 +206,102 @@ func _draw_nodes() -> void:
 		
 		# 3. Draw Indicators
 		_draw_node_indicators(id, pos)
+
+# ==============================================================================
+# [NEW] AGENT RENDERING LOGIC
+# ==============================================================================
+
+func _draw_agent_tokens() -> void:
+	print("Drawing Agents: %d" % graph_ref.agents.size())
+	# 1. Verify we have agents to draw
+	if not graph_ref or graph_ref.agents.is_empty():
+		return
+	
+	# 2. Group Agents per Node (Bucket Sort)
+	var agents_by_node = {}
+	
+	for w in graph_ref.agents: 
+		var node_id = w.current_node_id
+		if not agents_by_node.has(node_id):
+			agents_by_node[node_id] = []
+		agents_by_node[node_id].append(w)
+		
+	# 3. Draw Tokens (Iterate by NODE, not by agent)
+	for node_id in agents_by_node:
+		if not graph_ref.nodes.has(node_id): continue
+		
+		var node_agents: Array = agents_by_node[node_id]
+		var count = node_agents.size()
+		var node_pos = graph_ref.get_node_pos(node_id)
+		
+		# CASE A: High Density Stack (> Threshold)
+		if count > GraphSettings.AGENT_STACK_THRESHOLD:
+			_draw_agent_stack_icon(node_pos, count)
+			
+		# CASE B: Individual Tokens (< Threshold)
+		else:
+			for i in range(count):
+				var current_agent = node_agents[i] # Fixed: unique name
+				var offset = Vector2.ZERO
+				
+				# Calculate Offset Ring
+				if count > 1:
+					var angle = (TAU / count) * i
+					# We offset them so they sit around the node rim
+					offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
+				
+				var draw_pos = node_pos + offset
+				
+				# Check selection (Assumes storing Object References)
+				var is_selected = selected_agent_ids_ref.has(current_agent) 
+				
+				_draw_diamond_token(draw_pos, is_selected)
+
+func _draw_diamond_token(center: Vector2, is_selected: bool) -> void:
+	var radius = GraphSettings.AGENT_RADIUS
+	
+	# Diamond Shape Points
+	var points = PackedVector2Array([
+		center + Vector2(0, -radius),
+		center + Vector2(radius, 0),
+		center + Vector2(0, radius),
+		center + Vector2(-radius, 0)
+	])
+	
+	# 1. Fill
+	var fill_col = GraphSettings.COLOR_AGENT_NORMAL
+	if is_selected:
+		fill_col = GraphSettings.COLOR_AGENT_SELECTED
+	draw_colored_polygon(points, fill_col)
+	
+	# 2. Outline
+	var line_col = Color.WHITE
+	var width = 1.0
+	
+	if is_selected:
+		line_col = Color.WHITE
+		width = 2.0
+		
+	points.append(points[0]) # Close the loop
+	draw_polyline(points, line_col, width)
+
+func _draw_agent_stack_icon(center: Vector2, count: int) -> void:
+	# Draw a slightly larger diamond
+	var radius = GraphSettings.AGENT_RADIUS * 1.5
+	var points = PackedVector2Array([
+		center + Vector2(0, -radius),
+		center + Vector2(radius, 0),
+		center + Vector2(0, radius),
+		center + Vector2(-radius, 0)
+	])
+	
+	# White background for stack
+	draw_colored_polygon(points, GraphSettings.COLOR_AGENT_STACK)
+	
+	# Draw Count Text
+	# Move text slightly up/left to center it manually
+	var text_pos = center + Vector2(-4, 4) 
+	draw_string(font, text_pos, str(count), HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color.BLACK)
 
 # --- 3.5 HELPER: CUSTOM LABELS ---
 func _draw_custom_labels() -> void:

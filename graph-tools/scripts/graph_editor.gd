@@ -13,6 +13,10 @@ signal status_message_changed(message: String)
 signal active_tool_changed(tool_id: int)
 signal request_inspector_view
 
+# Agent Selection Signals
+signal agent_selection_changed(agent_ids: Array)
+signal request_agent_tab_view(filter_node_id: String)
+
 # --- REFERENCES ---
 @onready var grid_renderer: GridRenderer = $Grid
 @onready var renderer: GraphRenderer = $Renderer
@@ -28,6 +32,10 @@ var tool_manager: GraphToolManager
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
+# [NEW] Selected Agent IDs (we use object refs or distinct IDs depending on implementation)
+# For now, we assume strategy.get_all_agents() returns objects, so we store refs or IDs.
+var selected_agent_ids: Array = []
+
 # [NEW] Tool Visualization Proxy
 # Tools write to this (generic name), and we forward it to the Renderer (specific name).
 var tool_overlay_rect: Rect2 = Rect2():
@@ -59,9 +67,6 @@ var input_handler: GraphInputHandler
 # 1. INITIALIZATION & SETUP
 # ==============================================================================
 
-# [CRITICAL FIX] 
-# Initialize the Manager in _init(). This runs when the object is created in memory,
-# strictly BEFORE it enters the tree and BEFORE any UI _ready() scripts run.
 func _init() -> void:
 	tool_manager = GraphToolManager.new(self)
 
@@ -74,17 +79,17 @@ func _ready() -> void:
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
 	
-	# Grid Renderer
+	# [NEW] Pass Agent Selection ref (We will add this property to Renderer next)
+	# renderer.selected_agent_ids_ref = selected_agent_ids 
+	
 	if grid_renderer:
 		grid_renderer.camera_ref = camera
 	
-	# --- Connect Signals for Reactive Renderer ---
 	graph_modified.connect(func(): 
 		renderer._depth_cache_dirty = true
 		if renderer.debug_show_depth:
 			renderer.queue_redraw()
 	)
-	
 	
 	selection_changed.connect(func(_selected_nodes):
 		renderer._depth_cache_dirty = true
@@ -92,7 +97,6 @@ func _ready() -> void:
 			renderer.queue_redraw()
 	)
 	
-	# Connect edge signal to renderer update
 	edge_selection_changed.connect(func(_edges):
 		renderer.queue_redraw()
 	)
@@ -101,16 +105,11 @@ func _ready() -> void:
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []
 	
-	# Initialize History
 	history = GraphHistory.new(graph)
-	
-	# Initialize Sub-systems
 	clipboard = GraphClipboard.new(self)
 	input_handler = GraphInputHandler.new(self, clipboard)
 	
-	# Start with the default tool
 	set_active_tool(GraphSettings.Tool.SELECT)
-	
 	renderer.queue_redraw()
 	
 	#Debug
@@ -203,7 +202,6 @@ func delete_node(id: String) -> void:
 		current_path.clear()
 		renderer.current_path_ref = current_path
 	
-	# CHANGED: Check arrays for the ID
 	if path_start_ids.has(id):
 		path_start_ids.erase(id)
 		renderer.path_start_ids = path_start_ids
@@ -214,29 +212,57 @@ func delete_node(id: String) -> void:
 		renderer.path_end_ids = path_end_ids
 		renderer.queue_redraw()
 	
-	# 3. EXECUTE COMMAND
-	var cmd = CmdDeleteNode.new(graph, id)
+	# 3. EXECUTE COMMAND (BATCH)
+	# [FIX] We use a Batch now to handle both Node and Agents
+	var batch = CmdBatch.new(graph, "Delete Node & Agents")
+	
+	# A. Identify Agents on this node
+	# We iterate backwards or just collect them first
+	var agents_on_node = []
+	if "agents" in graph:
+		for agent in graph.agents:
+			if agent.current_node_id == id:
+				agents_on_node.append(agent)
+	
+	# B. Add Agent Removal Commands
+	for agent in agents_on_node:
+		var cmd_agent = CmdRemoveAgent.new(graph, agent)
+		batch.add_command(cmd_agent)
+	
+	# C. Add Node Removal Command
+	var cmd_node = CmdDeleteNode.new(graph, id)
+	batch.add_command(cmd_node)
+	
+	_commit_command(batch)
+
+# --- Agent Operations (Undo/Redo Support) ---
+
+func add_agent(agent) -> void:
+	# create the command explicitly
+	var cmd = CmdAddAgent.new(graph, agent)
+	_commit_command(cmd)
+
+func remove_agent(agent) -> void:
+	var cmd = CmdRemoveAgent.new(graph, agent)
 	_commit_command(cmd)
 
 # --- Selection Operations (BATCHING OPTIMIZATION) ---
-
-
-
 # Optimized Batch Selection to prevent signal storms
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
 	if clear_existing:
 		selected_nodes.clear()
 		selected_edges.clear()
+		# [NEW] Selecting nodes usually implies clearing specific agent selection
+		selected_agent_ids.clear()
+		agent_selection_changed.emit([])
 	
-	# Bulk Append
 	selected_nodes.append_array(nodes)
 	selected_edges.append_array(edges)
 	
-	# Sync Renderer
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.selected_edges_ref = selected_edges
+	# renderer.selected_agent_ids_ref = selected_agent_ids
 	
-	# Emit ONCE
 	selection_changed.emit(selected_nodes)
 	edge_selection_changed.emit(selected_edges)
 	
@@ -271,15 +297,38 @@ func is_edge_selected(pair: Array) -> bool:
 	pair.sort() 
 	return selected_edges.has(pair)
 
+# [NEW] AGENT SELECTION API
+func set_agent_selection(ids: Array, clear_nodes: bool = true) -> void:
+	if clear_nodes:
+		# To keep the Inspector clean, we clear Node selection when picking Agents
+		selected_nodes.clear()
+		selected_edges.clear()
+		renderer.selected_nodes_ref = selected_nodes
+		renderer.selected_edges_ref = selected_edges
+		selection_changed.emit([])
+		edge_selection_changed.emit([])
+		
+	selected_agent_ids = ids
+	
+	# Future-proofing: Sync with Renderer
+	# renderer.selected_agent_ids_ref = selected_agent_ids
+	
+	agent_selection_changed.emit(selected_agent_ids)
+	renderer.queue_redraw()
+
 func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
 	
-	# Clear Edges
 	selected_edges.clear()
 	renderer.selected_edges_ref = selected_edges
 	edge_selection_changed.emit(selected_edges)
+	
+	# [NEW] Clear Agents
+	selected_agent_ids.clear()
+	# renderer.selected_agent_ids_ref = selected_agent_ids
+	agent_selection_changed.emit(selected_agent_ids)
 
 # Edge Selection API
 func toggle_edge_selection(edge_pair: Array) -> void:
@@ -596,15 +645,18 @@ func _center_camera_on_graph() -> void:
 	var rect = Rect2(min_pos, max_pos - min_pos)
 	camera.center_on_rect(rect)
 
+
 func _reset_local_state() -> void:
 	selected_nodes.clear()
 	current_path.clear()
 	
-	# CHANGED: Clear array markers
 	path_start_ids.clear()
 	path_end_ids.clear()
+	
+	selected_agent_ids.clear()
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []
+	# renderer.selected_agent_ids_ref = []

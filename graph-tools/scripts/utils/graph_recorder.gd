@@ -22,12 +22,35 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 		# 3. Rebuild spatial grid
 		_rebuild_spatial_grid()
 		
-		# 4. Clone Existing Zones (So algorithms can see existing claims)
-		# We duplicate the array so we don't accidentally modify the real list directly
+		# 4. Clone Existing Zones
 		if "zones" in target:
 			zones = target.zones.duplicate()
+			
+		# [NEW] 5. Clone Existing Agents
+		# We duplicate the array to avoid modifying the real list during simulation
+		if "agents" in target:
+			agents = target.agents.duplicate()
 
 # --- MUTATOR OVERRIDES ---
+
+# [NEW] Handle Agent Addition
+func add_agent(agent: AgentWalker) -> void:
+	# 1. Update Local Simulation (So the strategy sees it immediately)
+	super.add_agent(agent)
+	
+	# 2. Record Command
+	# This ensures the agent is added to the Real Graph when we commit
+	var cmd = CmdAddAgent.new(_target_graph, agent)
+	recorded_commands.append(cmd)
+
+# Handle Agent Removal
+func remove_agent(agent) -> void:
+	# 1. Update Local Simulation
+	super.remove_agent(agent)
+	
+	# 2. Record Command
+	var cmd = CmdRemoveAgent.new(_target_graph, agent)
+	recorded_commands.append(cmd)
 
 # Handle Zone Registration
 func add_zone(zone: GraphZone) -> void:
@@ -43,16 +66,14 @@ func add_zone(zone: GraphZone) -> void:
 		push_error("GraphRecorder: Target graph missing add_zone method.")
 
 # Override clear to sync with Target Graph
+# Override clear to sync with Target Graph
 func clear() -> void:
-	# 1. Clear Local Simulation
-	# This wipes the 'nodes' and 'zones' inside the Recorder, 
-	# so the algorithm thinks the board is empty.
 	super.clear()
-	
-	# 2. Force Clear Target Zones
-	# The renderer looks at _target_graph, so we MUST wipe this array manually.
 	if _target_graph and "zones" in _target_graph:
 		_target_graph.zones.clear()
+	# [NEW] Clear target agents too if we are wiping the board
+	if _target_graph and "agents" in _target_graph:
+		_target_graph.agents.clear()
 
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	var already_exists = nodes.has(id)

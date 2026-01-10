@@ -64,6 +64,12 @@ const PARAM_TOOLTIPS = {
 const NODE_RADIUS: float = 12.0
 const EDGE_WIDTH: float = 3.0
 
+# [NEW] AGENT VISUALS
+const AGENT_RADIUS: float = 5.0          # Smaller than nodes (12.0)
+const AGENT_CLICK_RADIUS: float = 7.0    # Slightly larger hit-box for easier clicking
+const AGENT_STACK_THRESHOLD: int = 5     # 6+ agents become a "Stack Icon"
+const AGENT_RING_OFFSET: float = 16.0    # Distance from node center to agent token
+
 # ==============================================================================
 # 4. UI STATE COLORS
 # ==============================================================================
@@ -81,6 +87,11 @@ const COLOR_PATH_START: Color = Color(0.2, 0.8, 0.2)
 const COLOR_PATH_END: Color = Color(0.9, 0.2, 0.2)
 
 const COLOR_EDGE: Color = Color(0.8, 0.8, 0.8)
+
+# AGENT COLORS
+const COLOR_AGENT_NORMAL: Color = Color(0.5, 0.3, 0.9)   # Purple-ish
+const COLOR_AGENT_SELECTED: Color = Color(1.0, 0.9, 0.2) # Gold
+const COLOR_AGENT_STACK: Color = Color(1.0, 1.0, 1.0)    # White (for the text/icon)
 
 const COLOR_UI_SUCCESS: Color = Color(0.2, 0.8, 0.2)
 const COLOR_UI_ERROR: Color = Color(0.8, 0.3, 0.3)
