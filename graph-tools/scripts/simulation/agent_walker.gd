@@ -9,6 +9,11 @@ var start_node_id: String
 var step_count: int = 0  # <--- THIS IS THE COUNTER
 var history: Array[Dictionary] = [] 
 
+# Brain Parameters
+var behavior_mode: int = 0  # 0=Hold, 1=Paint, 2=Grow, 3=Seek
+var movement_algo: int = 0  # 0=Random, 1=BFS, 2=DFS, 3=A*
+var target_node_id: String = ""
+
 # --- SETTINGS ---
 var my_paint_type: int = 2 
 var active: bool = true
@@ -16,6 +21,8 @@ var mode: int = 0 # 0 = Grow, 1 = Paint
 var snap_to_grid: bool = false
 var steps: int = 15     # <--- THIS IS THE LIMIT (Max Steps)
 var branch_randomly: bool = false
+
+
 
 # --- INITIALIZATION ---
 func _init(uid: int, start_pos: Vector2, start_id: String, initial_type: int, default_steps: int) -> void:
@@ -98,8 +105,11 @@ func get_agent_settings() -> Array[Dictionary]:
 
 func apply_setting(key: String, value: Variant) -> void:
 	match key:
+		"global_behavior": behavior_mode = value
+		"movement_algo": movement_algo = value
+		"target_node": target_node_id = value
 		"active": active = value
-		"mode": mode = value
+		"mode": pass # Keep for backward compatibility or map to behavior_mode
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
 		"branch_randomly": branch_randomly = value
@@ -120,7 +130,27 @@ func _commit_step(new_id: String, new_pos: Vector2) -> void:
 	step_count += 1
 	history.append({ "node": new_id, "step": step_count })
 
+# --- NEW GENERIC STEP FUNCTION ---
+# This replaces the specific step_grow/step_paint logic for the "Seek" behavior
+func step_seek(graph) -> String:
+	# 1. Ask Navigator for the next step
+	var next_id = AgentNavigator.get_next_step(
+		current_node_id, 
+		target_node_id, 
+		movement_algo, 
+		graph
+	)
+	
+	# 2. Execute Move
+	if next_id != "":
+		var next_pos = graph.get_node_pos(next_id)
+		_commit_step(next_id, next_pos)
+		
+	return current_node_id
+
+# 0. GROW BEHAVIOR (Expansion)
 func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
+	# If falling into the void, snap to underfoot
 	if current_node_id == "":
 		var under_feet = graph.get_node_at_position(pos, -1.0)
 		if not under_feet.is_empty(): current_node_id = under_feet
@@ -128,12 +158,18 @@ func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 	var start_point = pos
 	if snap_to_grid: start_point = pos.snapped(grid_spacing)
 
+	# Pick random direction
 	var target_pos = start_point + _get_random_cardinal_vector(grid_spacing)
 	
+	# Check Zone Permissions
 	var gx = round(target_pos.x / grid_spacing.x)
 	var gy = round(target_pos.y / grid_spacing.y)
-	var zone = graph.get_zone_at(Vector2i(gx, gy))
-	if zone and not zone.allow_new_nodes: return current_node_id
+	
+	# Note: In Simulation, 'graph' might be the raw graph or recorder. 
+	# We use safe access for zones.
+	if graph.has_method("get_zone_at"):
+		var zone = graph.get_zone_at(Vector2i(gx, gy))
+		if zone and not zone.allow_new_nodes: return current_node_id
 
 	var new_id = ""
 	var existing_id = graph.get_node_at_position(target_pos, -1.0)
@@ -149,16 +185,20 @@ func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 		if current_node_id != new_id:
 			var prev_pos = graph.get_node_pos(current_node_id)
 			var dist = prev_pos.distance_to(target_pos)
+			# Only connect if close enough (prevent cross-map jumps)
 			if dist < grid_spacing.length() * 1.5:
 				graph.add_edge(current_node_id, new_id)
 	
 	_commit_step(new_id, target_pos)
 	return new_id
 
+# 1. PAINT BEHAVIOR (Random Walk)
 func step_paint(graph, _ignored_branch_param: bool, session_path: Array) -> String:
 	if not current_node_id.is_empty():
+		# Action: Paint the ground
 		graph.set_node_type(current_node_id, my_paint_type)
 	
+	# Movement: Random Walk (Different from Seek!)
 	var next_id = _pick_next_paint_node(graph, branch_randomly, session_path)
 	
 	if next_id != "":

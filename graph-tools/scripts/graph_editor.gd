@@ -32,6 +32,11 @@ var simulation: Simulation
 # Tool Manager
 var tool_manager: GraphToolManager
 
+# --- STATE ---
+var is_picking_mode: bool = false
+var _pick_callback: Callable
+
+
 # Editor State (Public so tools can read/modify them safely)
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
@@ -139,13 +144,33 @@ func send_status_message(message: String) -> void:
 # 3. INPUT ROUTING
 # ==============================================================================
 func _unhandled_input(event: InputEvent) -> void:
-	# 1. Global Shortcuts (Delegated to Handler)
+	# 1. Global Shortcuts (Undo/Redo)
 	input_handler.handle_input(event)
-	
-	# 2. Tool Logic (Delegated to Manager)
-	# Only pass input if the Handler didn't already consume it (like a hotkey)
-	if not get_viewport().is_input_handled():
-		tool_manager.handle_input(event)
+	if get_viewport().is_input_handled(): return
+
+	# [FIX] 2. Picking Mode Interception (Prioritize this over Tools)
+	if is_picking_mode:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var mouse_pos = get_global_mouse_position() # or renderer.get_local_mouse_position() depending on setup
+			# We need to convert screen/viewport coordinates to Graph coordinates if using a Camera2D
+			if camera:
+				mouse_pos = camera.get_global_mouse_position()
+				
+			var hit_id = graph.get_node_at_position(mouse_pos, GraphSettings.NODE_RADIUS * 1.5)
+			
+			if hit_id != "":
+				_handle_node_picked(hit_id)
+				get_viewport().set_input_as_handled()
+				return
+			else:
+				# Clicked empty space? Cancel picking
+				is_picking_mode = false
+				send_status_message("Picking cancelled.")
+				get_viewport().set_input_as_handled()
+				return
+
+	# 3. Tool Logic (Normal operation)
+	tool_manager.handle_input(event)
 
 
 
@@ -276,8 +301,30 @@ func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: boo
 	
 	renderer.queue_redraw()
 
+# [NEW] API to start picking
+func request_node_pick(callback: Callable) -> void:
+	is_picking_mode = true
+	_pick_callback = callback
+	send_status_message("Pick a target node...")
+	# Optional: Change cursor shape here
+
+# [NEW] Handle the Pick
+func _handle_node_picked(id: String) -> void:
+	if is_picking_mode:
+		is_picking_mode = false
+		if _pick_callback.is_valid():
+			_pick_callback.call(id)
+		send_status_message("Target Set: " + id)
+		return
+
+
+
 # Standard Selection Helpers
 func toggle_selection(id: String) -> void:
+	# [NEW] Intercept for Picking Mode
+	if is_picking_mode:
+		_handle_node_picked(id)
+		return
 	if selected_nodes.has(id):
 		selected_nodes.erase(id)
 	else:

@@ -26,18 +26,19 @@ func step() -> GraphCommand:
 	var grid_spacing = GraphSettings.GRID_SPACING
 	var any_active = false
 	
-	# 1. Setup Recorder (Captures new nodes/edges/paints)
+	# 1. Create a Recorder wrapper around the LIVE graph
 	var recorder = GraphRecorder.new(graph)
 	
-	# 2. Snapshot Agent States (Captures movement)
+	# 2. Snapshot Movement State (Pre-step)
 	var pre_sim_states = {}
 	for agent in graph.agents:
 		if agent.active:
 			pre_sim_states[agent.id] = _snapshot_agent(agent)
 	
-	# 3. Run Logic
+	# 3. Execution Loop
 	for agent in graph.agents:
 		if agent.active:
+			# Check limits
 			if agent.steps > 0 and agent.step_count >= agent.steps:
 				agent.active = false
 				continue
@@ -45,11 +46,22 @@ func step() -> GraphCommand:
 			any_active = true
 			var visited_id = ""
 			
-			# PASS THE RECORDER, NOT THE GRAPH
-			if agent.mode == 0: # Grow
-				visited_id = agent.step_grow(recorder, grid_spacing, true)
-			else: # Paint
-				visited_id = agent.step_paint(recorder, false, _session_path)
+			# [UPDATED] Switch based on Behavior Mode
+			# 0=Hold, 1=Paint, 2=Grow, 3=Seek
+			match agent.behavior_mode:
+				0: # Hold Position
+					pass 
+				
+				1: # Paint
+					# Ensure you kept step_paint in AgentWalker!
+					visited_id = agent.step_paint(recorder, false, _session_path)
+					
+				2: # Grow
+					# Ensure you kept step_grow in AgentWalker!
+					visited_id = agent.step_grow(recorder, grid_spacing, true)
+					
+				3: # Seek (New)
+					visited_id = agent.step_seek(recorder)
 			
 			if visited_id != "":
 				_session_path.append(visited_id)
@@ -61,25 +73,21 @@ func step() -> GraphCommand:
 	tick_count += 1
 	step_completed.emit(tick_count)
 	
-	# 4. Compile Undo Batch
+	# 4. Compile Batch for Undo (Unchanged)
 	var batch = CmdBatch.new(graph, "Simulation Step %d" % tick_count)
 	
-	# A. Add Structural Changes (Nodes/Edges created during step)
 	for cmd in recorder.recorded_commands:
 		batch.add_command(cmd)
 		
-	# B. Add Agent Movement (Diff against snapshot)
 	for agent in graph.agents:
 		if pre_sim_states.has(agent.id):
-			var start_state = pre_sim_states[agent.id]
-			var end_state = _snapshot_agent(agent)
-			
-			# If agent changed position or active state, record it
-			if start_state.hash() != end_state.hash():
-				var move_cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
+			var start = pre_sim_states[agent.id]
+			var end = _snapshot_agent(agent)
+			if start.hash() != end.hash():
+				var move_cmd = CmdUpdateAgent.new(graph, agent, start, end)
 				batch.add_command(move_cmd)
-	
-	# Only return batch if something actually happened
+				
+	# Return batch if valid...
 	if batch.get_command_count() > 0:
 		return batch
 		

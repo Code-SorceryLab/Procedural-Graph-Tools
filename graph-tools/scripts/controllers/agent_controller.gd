@@ -145,14 +145,42 @@ func _select_agent_from_roster(agent) -> void:
 	graph_editor.set_agent_selection([agent], false)
 
 func _on_agent_selection_changed(selected_agents: Array) -> void:
-	# Highlight the row in the list
+	# 1. Highlight the row (Existing logic)
 	for id in _roster_map:
 		_roster_map[id].modulate = Color.WHITE
 		
-	if not selected_agents.is_empty():
-		var id = selected_agents[0].id
-		if _roster_map.has(id):
-			_roster_map[id].modulate = Color(1, 0.8, 0.2) # Gold Highlight
+	if selected_agents.is_empty():
+		return
+
+	var primary_agent = selected_agents[0]
+	var id = primary_agent.id
+	if _roster_map.has(id):
+		_roster_map[id].modulate = Color(1, 0.8, 0.2) # Gold Highlight
+
+	# [FIX] 2. Sync UI to Selected Agent
+	_sync_inputs_to_agent(primary_agent)
+
+# [NEW] Helper to push Agent Data -> UI Inputs
+func _sync_inputs_to_agent(agent: AgentWalker) -> void:
+	# We access the UI controls stored in _active_inputs and update them
+	
+	# Global Behavior (Dropdown)
+	if _active_inputs.has("global_behavior"):
+		var opt = _active_inputs["global_behavior"] as OptionButton
+		if opt: opt.selected = agent.behavior_mode
+		
+	# Movement Algo (Dropdown)
+	if _active_inputs.has("movement_algo"):
+		var opt = _active_inputs["movement_algo"] as OptionButton
+		if opt: opt.selected = agent.movement_algo
+		
+	# Target Node (LineEdit)
+	if _active_inputs.has("target_node"):
+		var field = _active_inputs["target_node"] as LineEdit
+		if field: field.text = agent.target_node_id
+		
+	# Add any other fields here (e.g. Paint Color) if you added them to the schema
+
 
 func _update_stats() -> void:
 	if lbl_stats:
@@ -199,7 +227,6 @@ func _update_row_visuals(agent_id: int) -> void:
 func _build_behavior_ui() -> void:
 	if not behavior_settings_box: return
 	
-	# DEFINE SCHEMA (This is where Phase 3 & 4 happen)
 	var schema = [
 		{ 
 			"name": "global_behavior", 
@@ -217,6 +244,13 @@ func _build_behavior_ui() -> void:
 			"hint": "enum",
 			"hint_string": "Random Walk,Breadth-First,Depth-First,A-Star"
 		},
+		# [NEW] Pick Button (Action)
+		{
+			"name": "action_pick_target",
+			"label": "Pick Target Node",
+			"type": TYPE_BOOL, # Type doesn't matter for actions
+			"hint": "action"   # Tells builder to make a button
+		},
 		{
 			"name": "target_node",
 			"label": "Target Node ID",
@@ -226,13 +260,43 @@ func _build_behavior_ui() -> void:
 		}
 	]
 	
-	# BUILD UI
 	_active_inputs = SettingsUIBuilder.build_ui(schema, behavior_settings_box)
 	SettingsUIBuilder.connect_live_updates(_active_inputs, _on_behavior_changed)
 
 func _on_behavior_changed(key: String, value: Variant) -> void:
-	print("Global Behavior Change: %s -> %s" % [key, value])
-	# TODO: In Phase 4, we will loop through graph.agents and update their state here.
+	# [NEW] Handle Pick Action
+	if key == "action_pick_target":
+		graph_editor.request_node_pick(_on_target_picked)
+		return
+	# 1. Get Selected Agents
+	var agents_to_update = []
+	
+	if not graph_editor.selected_agent_ids.is_empty():
+		# [FIX] The array already contains AgentWalker objects (passed from Roster).
+		# We don't need to search for them by ID.
+		agents_to_update = graph_editor.selected_agent_ids
+	else:
+		# Fallback: Update everyone if nothing selected (Global Order)
+		agents_to_update = graph_editor.graph.agents
+	
+	# 2. Apply Value
+	for agent in agents_to_update:
+		# Safety check to ensure we are talking to a Walker
+		if agent.has_method("apply_setting"):
+			agent.apply_setting(key, value)
+		
+	print("Updated %d agents: %s -> %s" % [agents_to_update.size(), key, value])
+
+# [NEW] Callback when node is clicked
+func _on_target_picked(node_id: String) -> void:
+	# 1. Update the UI Text Box (so the user sees the ID)
+	if _active_inputs.has("target_node"):
+		var line_edit = _active_inputs["target_node"] as LineEdit
+		line_edit.text = node_id
+		# Trigger the change event manually to update agents
+		_on_behavior_changed("target_node", node_id)
+		
+	print("Picked Target Node: ", node_id)
 
 # ==============================================================================
 # 3. PLAYBACK CONTROLS
