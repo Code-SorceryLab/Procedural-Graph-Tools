@@ -1,12 +1,16 @@
 class_name AgentWalker
 extends RefCounted
 
+# --- CONSTANTS ---
+const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target"
+const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star"
+
 # --- STATE ---
 var id: int
 var pos: Vector2
 var current_node_id: String
 var start_node_id: String 
-var step_count: int = 0  # <--- THIS IS THE COUNTER
+var step_count: int = 0 
 var history: Array[Dictionary] = [] 
 
 # Brain Parameters
@@ -17,11 +21,10 @@ var target_node_id: String = ""
 # --- SETTINGS ---
 var my_paint_type: int = 2 
 var active: bool = true
-var mode: int = 0 # 0 = Grow, 1 = Paint
+var mode: int = 0 # Deprecated, mapped to behavior_mode
 var snap_to_grid: bool = false
-var steps: int = 15     # <--- THIS IS THE LIMIT (Max Steps)
+var steps: int = 15
 var branch_randomly: bool = false
-
 
 
 # --- INITIALIZATION ---
@@ -43,10 +46,6 @@ func reset_state() -> void:
 	history.clear()
 
 # --- EXPLICIT ACTIONS ---
-
-# Unified movement function
-# If new_node_id is provided, we snap to that node.
-# If new_node_id is empty, the agent becomes "floating" at that position.
 func warp(new_pos: Vector2, new_node_id: String = "") -> void:
 	pos = new_pos
 	current_node_id = new_node_id
@@ -64,14 +63,17 @@ static func get_template_settings() -> Array[Dictionary]:
 	var options_string = ",".join(names)
 	
 	return [
+		# --- BRAIN SECTION (New) ---
+		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR, "hint": "Main objective." },
+		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO, "hint": "Movement logic." },
+		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "", "hint": "Destination node ID." },
+		
+		# --- BODY SECTION ---
 		{ "name": "active", "type": TYPE_BOOL, "default": true, "hint": "If true, walker will move on Generate." },
-		
-		{ "name": "mode", "type": TYPE_INT, "default": 0, "options": "Grow,Paint", "hint": "Behavior mode." },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string, "hint": "Brush color." },
+		{ "name": "steps", "type": TYPE_INT, "default": 15, "min": 0, "max": 500, "hint": "Max steps allowed." },
 		
-		# [UPDATED] Default 15, Min 0
-		{ "name": "steps", "type": TYPE_INT, "default": 15, "min": 0, "max": 500, "hint": "Steps per Generate click." },
-		
+		# --- FLAGS ---
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false, "hint": "Align new nodes to grid." },
 		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false, "hint": "Randomly branch path." }
 	]
@@ -84,10 +86,15 @@ func get_agent_settings() -> Array[Dictionary]:
 	# 2. Sync Defaults with Current State
 	for s in settings:
 		if s.name == "active": s.default = active
-		elif s.name == "mode": s.default = mode
 		elif s.name == "steps": s.default = steps
 		elif s.name == "snap_to_grid": s.default = snap_to_grid
 		elif s.name == "branch_randomly": s.default = branch_randomly
+		
+		# Sync Brain
+		elif s.name == "global_behavior": s.default = behavior_mode
+		elif s.name == "movement_algo": s.default = movement_algo
+		elif s.name == "target_node": s.default = target_node_id
+		
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
@@ -95,7 +102,6 @@ func get_agent_settings() -> Array[Dictionary]:
 			if idx != -1: s.default = idx
 			
 	# 3. Add Runtime-Only Controls (Pos, Delete)
-	# (Active is now handled in the loop above)
 	settings.append_array([
 		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "hint": "Head position." },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }
@@ -109,7 +115,7 @@ func apply_setting(key: String, value: Variant) -> void:
 		"movement_algo": movement_algo = value
 		"target_node": target_node_id = value
 		"active": active = value
-		"mode": pass # Keep for backward compatibility or map to behavior_mode
+		"mode": pass 
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
 		"branch_randomly": branch_randomly = value
@@ -130,25 +136,7 @@ func _commit_step(new_id: String, new_pos: Vector2) -> void:
 	step_count += 1
 	history.append({ "node": new_id, "step": step_count })
 
-# --- NEW GENERIC STEP FUNCTION ---
-# This replaces the specific step_grow/step_paint logic for the "Seek" behavior
-func step_seek(graph) -> String:
-	# 1. Ask Navigator for the next step
-	var next_id = AgentNavigator.get_next_step(
-		current_node_id, 
-		target_node_id, 
-		movement_algo, 
-		graph
-	)
-	
-	# 2. Execute Move
-	if next_id != "":
-		var next_pos = graph.get_node_pos(next_id)
-		_commit_step(next_id, next_pos)
-		
-	return current_node_id
-
-# 0. GROW BEHAVIOR (Expansion)
+# 0. GROW BEHAVIOR
 func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 	# If falling into the void, snap to underfoot
 	if current_node_id == "":
@@ -158,15 +146,11 @@ func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 	var start_point = pos
 	if snap_to_grid: start_point = pos.snapped(grid_spacing)
 
-	# Pick random direction
 	var target_pos = start_point + _get_random_cardinal_vector(grid_spacing)
 	
-	# Check Zone Permissions
 	var gx = round(target_pos.x / grid_spacing.x)
 	var gy = round(target_pos.y / grid_spacing.y)
 	
-	# Note: In Simulation, 'graph' might be the raw graph or recorder. 
-	# We use safe access for zones.
 	if graph.has_method("get_zone_at"):
 		var zone = graph.get_zone_at(Vector2i(gx, gy))
 		if zone and not zone.allow_new_nodes: return current_node_id
@@ -185,25 +169,37 @@ func step_grow(graph, grid_spacing: Vector2, merge_overlaps: bool) -> String:
 		if current_node_id != new_id:
 			var prev_pos = graph.get_node_pos(current_node_id)
 			var dist = prev_pos.distance_to(target_pos)
-			# Only connect if close enough (prevent cross-map jumps)
 			if dist < grid_spacing.length() * 1.5:
 				graph.add_edge(current_node_id, new_id)
 	
 	_commit_step(new_id, target_pos)
 	return new_id
 
-# 1. PAINT BEHAVIOR (Random Walk)
+# 1. PAINT BEHAVIOR
 func step_paint(graph, _ignored_branch_param: bool, session_path: Array) -> String:
 	if not current_node_id.is_empty():
-		# Action: Paint the ground
 		graph.set_node_type(current_node_id, my_paint_type)
 	
-	# Movement: Random Walk (Different from Seek!)
 	var next_id = _pick_next_paint_node(graph, branch_randomly, session_path)
 	
 	if next_id != "":
 		var next_pos = graph.get_node_pos(next_id)
 		_commit_step(next_id, next_pos)
+	return current_node_id
+
+# 2. SEEK BEHAVIOR
+func step_seek(graph) -> String:
+	var next_id = AgentNavigator.get_next_step(
+		current_node_id, 
+		target_node_id, 
+		movement_algo, 
+		graph
+	)
+	
+	if next_id != "":
+		var next_pos = graph.get_node_pos(next_id)
+		_commit_step(next_id, next_pos)
+		
 	return current_node_id
 
 # ... Internal Helpers ...

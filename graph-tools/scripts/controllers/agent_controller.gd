@@ -8,20 +8,13 @@ class_name AgentController
 @export_group("UI Nodes")
 @export var roster_list: VBoxContainer		# The VBox inside the ScrollContainer
 @export var behavior_settings_box: Control	# The VBox inside the Bottom Panel
-@export var btn_step: Button
-@export var btn_play: Button
-@export var btn_reset: Button
 @export var lbl_stats: Label
-@export var sb_speed: SpinBox
+
 
 # --- STATE ---
 var _roster_map: Dictionary = {}  # agent_id -> Control
 var _active_inputs: Dictionary = {} # For the Behavior Panel
 
-# [NEW] Playback State
-var is_playing: bool = false
-var play_timer: float = 0.0
-var play_speed: float = 0.1 # Seconds per tick (0.1 = 10 ticks/sec)
 
 # [NEW] Simulation Parameters (Passed to the engine)
 var sim_params: Dictionary = {
@@ -37,54 +30,13 @@ func _ready() -> void:
 	if graph_editor.has_signal("agent_selection_changed"):
 		graph_editor.agent_selection_changed.connect(_on_agent_selection_changed)
 	
-	# 2. Playback Signals
-	if btn_step: btn_step.pressed.connect(_on_step_pressed)
-	if btn_reset: btn_reset.pressed.connect(_on_reset_pressed)
+
 	
-	if btn_play: 
-		btn_play.toggle_mode = true
-		btn_play.toggled.connect(_on_play_toggled)
-		# Safety: Disconnect old signal if it exists (from editor setups)
-		if btn_play.pressed.is_connected(_on_play_pressed):
-			btn_play.pressed.disconnect(_on_play_pressed)
-			
-	# Connect Speed Control
-	if sb_speed:
-		sb_speed.value_changed.connect(_on_speed_changed)
-		# Set initial value
-		_on_speed_changed(sb_speed.value)
-	
-	# 3. Build Initial UI
+	# 2. Build Initial UI
 	_full_roster_rebuild()
 	_build_behavior_ui()
 
-# [NEW] Heartbeat Loop for Auto-Play
-func _process(delta: float) -> void:
-	if not is_playing: return
-	
-	play_timer -= delta
-	if play_timer <= 0:
-		play_timer = play_speed # Reset timer using the current speed
-		_perform_step()
 
-# [UPDATED] Speed Handler with Instant Feedback
-func _on_speed_changed(value: float) -> void:
-	# 1. Capture the old speed to check if we are speeding up
-	var old_delay = play_speed 
-	
-	# 2. Update the CORRECT variable (play_speed)
-	# Convert TPS (Ticks Per Second) to Delay (Seconds)
-	if value > 0:
-		play_speed = 1.0 / value
-	else:
-		# If user types 0, default to 1 second per tick (Slow)
-		play_speed = 1.0 
-		
-	# 3. Impatience Check
-	# If we sped up (delay got smaller) and the timer is waiting too long,
-	# cut the wait short so the user sees the speed change instantly.
-	if play_speed < old_delay and play_timer > play_speed:
-		play_timer = play_speed
 
 # ==============================================================================
 # 1. ROSTER LOGIC (Custom UI)
@@ -107,7 +59,6 @@ func _full_roster_rebuild() -> void:
 func _create_agent_row(agent) -> void:
 	var row = HBoxContainer.new()
 	row.name = "Row_%d" % agent.id
-	
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	# A. Status Icon
@@ -129,12 +80,30 @@ func _create_agent_row(agent) -> void:
 	lbl_loc.modulate = Color(1, 1, 1, 0.7)
 	row.add_child(lbl_loc)
 	
-	# D. Select Button
-	var btn = Button.new()
-	btn.text = "View"
-	btn.flat = true
-	btn.pressed.connect(func(): _select_agent_from_roster(agent))
-	row.add_child(btn)
+	# D. View Button (Focus Camera)
+	var btn_view = Button.new()
+	btn_view.text = "View"
+	btn_view.flat = true
+	# "View" selects AND focuses camera
+	btn_view.pressed.connect(func(): 
+		_select_agent_from_roster(agent)
+		# Optional: Add camera jump logic here if not already in selection
+	)
+	row.add_child(btn_view)
+
+	# E. Settings Button (Gear)
+	var btn_edit = Button.new()
+	btn_edit.text = "⚙" # Unicode Gear
+	btn_edit.tooltip_text = "Edit Agent Behavior"
+	# "Gear" just selects the agent (which updates the bottom panel inputs)
+	btn_edit.pressed.connect(func(): 
+		_select_agent_from_roster(agent)
+		
+	# Reuse the existing signal pipeline
+		if graph_editor.has_signal("request_inspector_view"):
+			graph_editor.request_inspector_view.emit()
+	)
+	row.add_child(btn_edit)
 	
 	roster_list.add_child(row)
 	_roster_map[agent.id] = row
@@ -157,10 +126,10 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 	if _roster_map.has(id):
 		_roster_map[id].modulate = Color(1, 0.8, 0.2) # Gold Highlight
 
-	# [FIX] 2. Sync UI to Selected Agent
+	# 2. Sync UI to Selected Agent
 	_sync_inputs_to_agent(primary_agent)
 
-# [NEW] Helper to push Agent Data -> UI Inputs
+# Helper to push Agent Data -> UI Inputs
 func _sync_inputs_to_agent(agent: AgentWalker) -> void:
 	# We access the UI controls stored in _active_inputs and update them
 	
@@ -297,58 +266,3 @@ func _on_target_picked(node_id: String) -> void:
 		_on_behavior_changed("target_node", node_id)
 		
 	print("Picked Target Node: ", node_id)
-
-# ==============================================================================
-# 3. PLAYBACK CONTROLS
-# ==============================================================================
-
-func _on_step_pressed() -> void:
-	# Pause auto-play if we step manually
-	if btn_play and is_playing: 
-		btn_play.button_pressed = false
-	_perform_step()
-
-func _perform_step() -> void:
-	var sim = graph_editor.simulation
-	if not sim: return
-	
-	# [UPDATED] We could pass sim_params here if we update Simulation.step() signature later
-	var cmd = sim.step()
-	
-	if cmd:
-		graph_editor._commit_command(cmd)
-		_update_stats()
-		_refresh_roster_status()
-	else:
-		if btn_play: btn_play.button_pressed = false
-		_update_stats()
-		_refresh_roster_status()
-
-# [UPDATED] Replaces stub with proper Toggle logic
-func _on_play_toggled(toggled_on: bool) -> void:
-	is_playing = toggled_on
-	if btn_play: btn_play.text = "Pause" if toggled_on else "Play"
-
-# Deprecated Stub - Removed/Disconnected in _ready
-func _on_play_pressed() -> void:
-	pass
-
-# [UPDATED] Reset Handler
-func _on_reset_pressed() -> void:
-	# Stop playing
-	if btn_play: btn_play.button_pressed = false
-	
-	if graph_editor.simulation:
-		# 1. Get the Undo Command
-		var cmd = graph_editor.simulation.reset_state()
-		
-		# 2. Commit it (if valid)
-		if cmd:
-			graph_editor._commit_command(cmd)
-		
-		# 3. Force Visual Refresh
-		if graph_editor.renderer:
-			graph_editor.renderer.queue_redraw()
-		
-		# 4. Update UI
-		_full_roster_rebuild()
