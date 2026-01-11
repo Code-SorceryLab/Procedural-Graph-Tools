@@ -97,23 +97,57 @@ func _snapshot_agent(agent) -> Dictionary:
 
 # Resets the state without deleting the agents (Acts like "Rewind")
 # Note: To fully clear the board, the Controller should call graph.agents.clear()
-func reset_state() -> void:
+# [UPDATED] Now returns a Command for Undo/Redo
+func reset_state() -> GraphCommand:
+	var batch = CmdBatch.new(graph, "Reset Simulation")
+	
+	# 1. Snapshot Current State (Before Reset)
+	var pre_reset_states = {}
+	for agent in graph.agents:
+		pre_reset_states[agent.id] = _snapshot_agent(agent)
+
+	# 2. Reset Internal Sim State
 	tick_count = 0
 	_session_path.clear()
 	
+	# 3. Apply Reset & Record Differences
 	for agent in graph.agents:
+		var start_state = pre_reset_states[agent.id]
+		
+		# --- APPLY RESET LOGIC ---
 		agent.step_count = 0
 		agent.active = true
 		agent.history.clear()
 		
-		if agent.current_node_id != "":
-			agent.history.append({"node": agent.current_node_id, "step": 0})
+		# Logic to find start position
+		var target_pos = agent.pos 
+		var target_node = ""
 		
-		# [UPDATED] Use warp instead of jump_to_node
 		if agent.start_node_id != "" and graph.nodes.has(agent.start_node_id):
-			var start_pos = graph.get_node_pos(agent.start_node_id)
-			# Pass BOTH the position and the ID so the agent snaps correctly
-			agent.warp(start_pos, agent.start_node_id)
+			target_node = agent.start_node_id
+			target_pos = graph.get_node_pos(target_node)
+			
+		# Move Agent
+		agent.warp(target_pos, target_node)
+		
+		# Re-add initial history entry
+		if target_node != "":
+			agent.history.append({ "node": target_node, "step": 0 })
+			
+		# --- END RESET LOGIC ---
+
+		# 4. Snapshot New State & Create Command
+		var end_state = _snapshot_agent(agent)
+		
+		# Only record if state actually changed
+		if start_state.hash() != end_state.hash():
+			var cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
+			batch.add_command(cmd)
+			
+	if batch.get_command_count() > 0:
+		return batch
+		
+	return null
 
 # --- HELPERS ---
 

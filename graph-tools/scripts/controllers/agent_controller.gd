@@ -271,19 +271,20 @@ func _on_play_pressed() -> void:
 
 # [UPDATED] Reset Handler
 func _on_reset_pressed() -> void:
+	# Stop playing
 	if btn_play: btn_play.button_pressed = false
 	
 	if graph_editor.simulation:
-		# 1. Reset Logic
-		graph_editor.simulation.reset_state()
+		# 1. Get the Undo Command
+		var cmd = graph_editor.simulation.reset_state()
 		
-		# 2. Reset Visuals (The Fix)
-		# We must talk to the RENDERER, not just the editor root
+		# 2. Commit it (if valid)
+		if cmd:
+			graph_editor._commit_command(cmd)
+		
+		# 3. Force Visual Refresh
 		if graph_editor.renderer:
 			graph_editor.renderer.queue_redraw()
-		else:
-			# Fallback if renderer isn't exposed directly
-			graph_editor.queue_redraw()
-			
-		# 3. Reset UI
+		
+		# 4. Update UI
 		_full_roster_rebuild()
