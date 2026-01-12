@@ -7,26 +7,24 @@ signal step_completed(tick_index: int)
 # --- STATE ---
 var graph: Graph
 var tick_count: int = 0
-var _session_path: Array[String] = []
+# Note: _session_path logic moved inside individual behaviors (like BehaviorPaint), 
+# so we don't need to track it globally here anymore.
 
 # --- INITIALIZATION ---
 func _init(target_graph: Graph) -> void:
 	self.graph = target_graph
 	self.tick_count = 0
-	self._session_path.clear()
 
 # --- CORE API ---
 
 # Advances the simulation by exactly one "turn"
-# Returns TRUE if any agent performed an action (simulation is still alive)
-# Returns FALSE if all agents are stopped/inactive
 func step() -> GraphCommand:
 	if not graph: return null
 	
-	var grid_spacing = GraphSettings.GRID_SPACING
 	var any_active = false
 	
 	# 1. Create a Recorder wrapper around the LIVE graph
+	# Since GraphRecorder extends Graph, agents accept it as a valid 'graph'
 	var recorder = GraphRecorder.new(graph)
 	
 	# 2. Snapshot Movement State (Pre-step)
@@ -37,36 +35,19 @@ func step() -> GraphCommand:
 	
 	# 3. Execution Loop
 	for agent in graph.agents:
-		if agent.active:
+		# [FIX] Logic Check: Is it enabled AND not done?
+		if agent.active and not agent.is_finished:
+			
 			# Check limits
 			if agent.steps > 0 and agent.step_count >= agent.steps:
-				agent.active = false
+				agent.is_finished = true # [FIX] Set finished flag, don't disable agent
 				continue
-				
+			
 			any_active = true
-			var visited_id = ""
 			
-			# [UPDATED] Switch based on Behavior Mode
-			# 0=Hold, 1=Paint, 2=Grow, 3=Seek
-			match agent.behavior_mode:
-				0: # Hold Position
-					pass 
-				
-				1: # Paint
-					# Ensure you kept step_paint in AgentWalker!
-					visited_id = agent.step_paint(recorder, false, _session_path)
-					
-				2: # Grow
-					# Ensure you kept step_grow in AgentWalker!
-					visited_id = agent.step_grow(recorder, grid_spacing, true)
-					
-				3: # Seek (New)
-					visited_id = agent.step_seek(recorder)
+			# Step the agent
+			agent.step(recorder)
 			
-			if visited_id != "":
-				_session_path.append(visited_id)
-				agent.step_count += 1
-	
 	if not any_active:
 		return null
 		
@@ -76,13 +57,16 @@ func step() -> GraphCommand:
 	# 4. Compile Batch for Undo (Unchanged)
 	var batch = CmdBatch.new(graph, "Simulation Step %d" % tick_count)
 	
+	# A. Commands from Brains (Paint, Grow, etc.)
 	for cmd in recorder.recorded_commands:
 		batch.add_command(cmd)
 		
+	# B. Movement Updates (Position/State changes)
 	for agent in graph.agents:
 		if pre_sim_states.has(agent.id):
 			var start = pre_sim_states[agent.id]
 			var end = _snapshot_agent(agent)
+			# Only create command if physical state changed
 			if start.hash() != end.hash():
 				var move_cmd = CmdUpdateAgent.new(graph, agent, start, end)
 				batch.add_command(move_cmd)
@@ -103,29 +87,26 @@ func _snapshot_agent(agent) -> Dictionary:
 		"active": agent.active
 	}
 
-# Resets the state without deleting the agents (Acts like "Rewind")
-# Note: To fully clear the board, the Controller should call graph.agents.clear()
-# [UPDATED] Now returns a Command for Undo/Redo
+# Resets the state (Rewind Logic)
 func reset_state() -> GraphCommand:
 	var batch = CmdBatch.new(graph, "Reset Simulation")
 	
-	# 1. Snapshot Current State (Before Reset)
+	# 1. Snapshot Current State
 	var pre_reset_states = {}
 	for agent in graph.agents:
 		pre_reset_states[agent.id] = _snapshot_agent(agent)
 
 	# 2. Reset Internal Sim State
 	tick_count = 0
-	_session_path.clear()
 	
 	# 3. Apply Reset & Record Differences
 	for agent in graph.agents:
 		var start_state = pre_reset_states[agent.id]
 		
 		# --- APPLY RESET LOGIC ---
-		agent.step_count = 0
-		agent.active = true
-		agent.history.clear()
+		# [FIX] Just call reset. It handles is_finished = false.
+		# We NO LONGER force agent.active = true here.
+		agent.reset_state()
 		
 		# Logic to find start position
 		var target_pos = agent.pos 
@@ -147,7 +128,6 @@ func reset_state() -> GraphCommand:
 		# 4. Snapshot New State & Create Command
 		var end_state = _snapshot_agent(agent)
 		
-		# Only record if state actually changed
 		if start_state.hash() != end_state.hash():
 			var cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
 			batch.add_command(cmd)
@@ -156,8 +136,3 @@ func reset_state() -> GraphCommand:
 		return batch
 		
 	return null
-
-# --- HELPERS ---
-
-func get_session_path() -> Array[String]:
-	return _session_path

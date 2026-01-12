@@ -190,7 +190,8 @@ func set_path_ends(ids: Array) -> void:
 	renderer.path_end_ids = ids
 	renderer.queue_redraw()
 
-func _refresh_path() -> void:
+# [UPDATED] Uses AgentNavigator
+func _refresh_path(algo_index: int = 3) -> void:
 	# Only pathfind if we have exactly 1 start and 1 end
 	if path_start_ids.size() == 1 and path_end_ids.size() == 1:
 		var start = path_start_ids[0]
@@ -199,8 +200,8 @@ func _refresh_path() -> void:
 		if not graph.nodes.has(start) or not graph.nodes.has(end):
 			return
 		
-		var path = graph.get_astar_path(start, end)
-		current_path = path
+		# Use the Navigator to get the specific algorithm's path
+		current_path = AgentNavigator.get_projected_path(start, end, algo_index, graph)
 		renderer.current_path_ref = current_path
 	else:
 		current_path.clear()
@@ -686,11 +687,12 @@ func _reconstruct_state_from_ids() -> void:
 					
 	print("GraphEditor: State Reconstructed. Manual Counter reset to: ", _manual_counter)
 
-func run_pathfinding() -> void:
-	_refresh_path()
+func run_pathfinding(algo_index: int = 3) -> void:
+	_refresh_path(algo_index)
 	
 	if not current_path.is_empty():
-		print("A* Path found: %d nodes" % [current_path.size()])
+		# Optional: You can print debug info here
+		pass
 
 func _center_camera_on_graph() -> void:
 	if graph.nodes.is_empty():

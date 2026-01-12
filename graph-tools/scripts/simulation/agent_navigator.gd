@@ -11,8 +11,8 @@ enum Algo {
 
 # --- PUBLIC API ---
 
+# 1. Used by the Agent to Move (Returns Node ID)
 static func get_next_step(current_id: String, target_id: String, algo: int, graph: Graph) -> String:
-	# If we are already there or data is invalid, stop.
 	if current_id == target_id or not graph.nodes.has(current_id):
 		return ""
 
@@ -20,13 +20,34 @@ static func get_next_step(current_id: String, target_id: String, algo: int, grap
 		Algo.RANDOM:
 			return _solve_random(current_id, graph)
 		Algo.BFS:
-			return _solve_bfs(current_id, target_id, graph)
+			var path = _solve_bfs_full(current_id, target_id, graph)
+			if path.size() > 1: return path[1] # [0] is current, [1] is next
 		Algo.DFS:
-			return _solve_dfs(current_id, target_id, graph)
+			var path = _solve_dfs_full(current_id, target_id, graph)
+			if path.size() > 1: return path[1]
 		Algo.ASTAR:
-			return _solve_astar(current_id, target_id, graph)
+			# Use the optimized graph function for A*
+			var path = graph.get_astar_path(current_id, target_id)
+			if path.size() > 1: return path[1]
 			
 	return ""
+
+# 2. Used by the Editor to Draw Lines (Returns Array of IDs)
+static func get_projected_path(current_id: String, target_id: String, algo: int, graph: Graph) -> Array[String]:
+	if current_id == target_id or target_id == "" or not graph.nodes.has(current_id):
+		return []
+
+	match algo:
+		Algo.RANDOM:
+			return [] # Random has no projected path (we draw yellow arrows instead)
+		Algo.BFS:
+			return _solve_bfs_full(current_id, target_id, graph)
+		Algo.DFS:
+			return _solve_dfs_full(current_id, target_id, graph)
+		Algo.ASTAR:
+			return graph.get_astar_path(current_id, target_id)
+			
+	return []
 
 # --- ALGORITHMS ---
 
@@ -35,9 +56,11 @@ static func _solve_random(current_id: String, graph: Graph) -> String:
 	if neighbors.is_empty(): return ""
 	return neighbors.pick_random()
 
-static func _solve_bfs(start_id: String, target_id: String, graph: Graph) -> String:
-	# Breadth-First Search (Shortest path in unweighted graph)
-	if start_id == target_id: return ""
+# --- FULL PATH SOLVERS ---
+
+# Breadth-First Search (Shortest path in unweighted graph)
+static func _solve_bfs_full(start_id: String, target_id: String, graph: Graph) -> Array[String]:
+	if start_id == target_id: return []
 	
 	var queue = [start_id]
 	var visited = { start_id: true }
@@ -45,8 +68,10 @@ static func _solve_bfs(start_id: String, target_id: String, graph: Graph) -> Str
 	
 	while not queue.is_empty():
 		var current = queue.pop_front()
+		
+		# Found Target! Reconstruct and return the full chain.
 		if current == target_id:
-			return _reconstruct_first_step(parent, start_id, target_id)
+			return _reconstruct_full_path(parent, target_id)
 		
 		for next in graph.get_neighbors(current):
 			if not visited.has(next):
@@ -54,73 +79,44 @@ static func _solve_bfs(start_id: String, target_id: String, graph: Graph) -> Str
 				parent[next] = current
 				queue.append(next)
 				
-	return "" # No path found
+	return [] # No path found
 
-static func _solve_dfs(start_id: String, target_id: String, graph: Graph) -> String:
-	# Depth-First Search (Wanders deep, not shortest)
-	# NOTE: Iterative DFS to avoid stack overflow
+# Depth-First Search (Wanders deep)
+static func _solve_dfs_full(start_id: String, target_id: String, graph: Graph) -> Array[String]:
 	var stack = [start_id]
 	var visited = { start_id: true }
 	var parent = {}
 	
 	while not stack.is_empty():
 		var current = stack.pop_back()
-		if current == target_id:
-			return _reconstruct_first_step(parent, start_id, target_id)
 		
-		for next in graph.get_neighbors(current):
+		if current == target_id:
+			return _reconstruct_full_path(parent, target_id)
+		
+		var neighbors = graph.get_neighbors(current)
+		
+		# NOTE: We keep standard order here to match the visualization.
+		# If you shuffle neighbors here, the "Ghost Line" will flicker 
+		# every frame because DFS is sensitive to order.
+		for next in neighbors:
 			if not visited.has(next):
 				visited[next] = true
 				parent[next] = current
 				stack.append(next)
 				
-	return ""
+	return []
 
-static func _solve_astar(start_id: String, target_id: String, graph: Graph) -> String:
-	# A* Search using PriorityQueue
-	if start_id == target_id: return ""
-	if not graph.nodes.has(target_id): return "" # Target must exist
-	
-	var pq = PriorityQueue.new()
-	pq.push(start_id, 0.0)
-	
-	var parent = {}
-	var g_score = { start_id: 0.0 }
-	
-	var end_pos = graph.get_node_pos(target_id)
-	
-	while not pq.is_empty():
-		var current = pq.pop()
-		
-		if current == target_id:
-			return _reconstruct_first_step(parent, start_id, target_id)
-		
-		for neighbor in graph.get_neighbors(current):
-			# Weight is typically distance, but we can default to 1.0 or edge weight
-			# Let's use Euclidean distance for accuracy
-			var dist = graph.get_node_pos(current).distance_to(graph.get_node_pos(neighbor))
-			var tentative_g = g_score[current] + dist
-			
-			if not g_score.has(neighbor) or tentative_g < g_score[neighbor]:
-				parent[neighbor] = current
-				g_score[neighbor] = tentative_g
-				var h = graph.get_node_pos(neighbor).distance_to(end_pos) # Heuristic
-				var f = tentative_g + h
-				
-				if pq.contains(neighbor):
-					pq.update_priority(neighbor, f)
-				else:
-					pq.push(neighbor, f)
-					
-	return ""
+# --- HELPERS ---
 
-# --- HELPER ---
-static func _reconstruct_first_step(parent_map: Dictionary, start: String, end: String) -> String:
+# Reconstructs the entire path array [Start, A, B, ... End]
+static func _reconstruct_full_path(parent_map: Dictionary, end: String) -> Array[String]:
+	var path: Array[String] = []
 	var curr = end
+	
 	# Backtrack from end to start
-	while parent_map.has(curr):
-		var p = parent_map[curr]
-		if p == start:
-			return curr # This is the immediate next step from start
-		curr = p
-	return ""
+	while curr != null:
+		path.append(curr)
+		curr = parent_map.get(curr) # Returns null if key missing
+	
+	path.reverse() # Flip to be Start -> End
+	return path

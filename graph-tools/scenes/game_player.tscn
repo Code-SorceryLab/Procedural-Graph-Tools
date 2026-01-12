@@ -39,12 +39,13 @@ settings_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/
 confirm_discard = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/ConfirmDiscard")
 settings_window = NodePath("../UI/SettingsWindow")
 
-[node name="AgentController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "roster_list", "behavior_settings_box", "lbl_stats")]
+[node name="AgentController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "roster_list", "behavior_settings_box", "lbl_stats", "lbl_edit_mode")]
 script = ExtResource("4_5u163")
 graph_editor = NodePath("../GraphEditor")
 roster_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/RosterPanel/RosterList")
 behavior_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/BehaviourSettingsBox")
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/LblStats")
+lbl_edit_mode = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/LblEditMode")
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
 script = ExtResource("5_5u163")
@@ -334,6 +335,9 @@ text = "Total Agents: 0 (0 Active)"
 horizontal_alignment = 1
 
 [node name="BehaviourPanel" type="PanelContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
+layout_mode = 2
+
+[node name="LblEditMode" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]
 layout_mode = 2
 
 [node name="BehaviourSettingsBox" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]

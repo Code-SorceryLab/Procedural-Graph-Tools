@@ -41,9 +41,10 @@ var pre_selected_agents_ref: Array = []
 var node_labels_ref: Dictionary = {}
 var selected_edges_ref: Array = []
 
-# [NEW] Reference for Agent Selection
+# Reference for Agent Selection
 var selected_agent_ids_ref: Array = [] 
-
+# Reference for Agent Selection (Objects)
+var selected_agents_ref: Array = []
 # ==============================================================================
 # 3. INTERACTION STATE
 # ==============================================================================
@@ -270,22 +271,18 @@ func get_agent_at_position(local_pos: Vector2) -> AgentWalker:
 					
 	return null
 
+# [UPDATED] Draw the physical agents
 func _draw_agent_tokens() -> void:
-	#print("Drawing Agents: %d" % graph_ref.agents.size())
-	# 1. Verify we have agents to draw
 	if not graph_ref or graph_ref.agents.is_empty():
 		return
 	
-	# 2. Group Agents per Node (Bucket Sort)
+	# ... (Keep your existing bucket sort / grouping logic) ...
 	var agents_by_node = {}
-	
 	for w in graph_ref.agents: 
 		var node_id = w.current_node_id
-		if not agents_by_node.has(node_id):
-			agents_by_node[node_id] = []
+		if not agents_by_node.has(node_id): agents_by_node[node_id] = []
 		agents_by_node[node_id].append(w)
 		
-	# 3. Draw Tokens (Iterate by NODE, not by agent)
 	for node_id in agents_by_node:
 		if not graph_ref.nodes.has(node_id): continue
 		
@@ -293,28 +290,32 @@ func _draw_agent_tokens() -> void:
 		var count = node_agents.size()
 		var node_pos = graph_ref.get_node_pos(node_id)
 		
-		# CASE A: High Density Stack (> Threshold)
+		# CASE A: Stack
 		if count > GraphSettings.AGENT_STACK_THRESHOLD:
 			_draw_agent_stack_icon(node_pos, count)
 			
-		# CASE B: Individual Tokens (< Threshold)
+		# CASE B: Individual Tokens
 		else:
 			for i in range(count):
-				var current_agent = node_agents[i] # Fixed: unique name
-				var offset = Vector2.ZERO
+				var current_agent = node_agents[i]
 				
-				# Calculate Offset Ring
+				# Calculate Offset (Keep your existing math)
+				var offset = Vector2.ZERO
 				if count > 1:
 					var angle = (TAU / count) * i
-					# We offset them so they sit around the node rim
 					offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
 				
 				var draw_pos = node_pos + offset
 				
-				# Check selection (Assumes storing Object References)
-				var is_selected = selected_agent_ids_ref.has(current_agent) 
+				# [FIX] Check selection using the variable from GraphEditor
+				# GraphEditor passes Objects, so .has() works by reference
+				var is_selected = selected_agent_ids_ref.has(current_agent)
 				
 				_draw_diamond_token(draw_pos, is_selected, current_agent)
+				
+				# [NEW] VISUALIZE BRAIN
+				if is_selected:
+					_draw_agent_brain(current_agent)
 
 func _draw_diamond_token(center: Vector2, is_selected: bool, agent_ref: Object) -> void:
 	var radius = GraphSettings.AGENT_RADIUS
@@ -415,6 +416,43 @@ func get_agents_in_visual_rect(local_rect: Rect2) -> Array:
 				result.append(agent)
 				
 	return result
+
+# BRAIN VISUALIZATION HELPER
+func _draw_agent_brain(agent) -> void:
+	# 1. VISUALIZE RANDOM WALK (Mode 1: Paint/Random or Mode 3 with Algo 0)
+	# If agent is set to "Paint" OR "Seek" with "Random Algo"
+	if agent.behavior_mode == 1 or (agent.behavior_mode == 3 and agent.movement_algo == 0):
+		var neighbors = graph_ref.get_neighbors(agent.current_node_id)
+		for n_id in neighbors:
+			var n_pos = graph_ref.get_node_pos(n_id)
+			var dir = (n_pos - agent.pos).normalized()
+			var arrow_start = agent.pos + (dir * 10.0)
+			var arrow_end = agent.pos + (dir * 25.0) # Short stubby arrow
+			
+			# Draw Arrows indicating "I might go here"
+			_draw_arrow_head_visual(arrow_start, arrow_end, Color(1, 1, 0, 0.6))
+			
+	# 2. VISUALIZE TARGET SEEKING (Mode 3)
+	elif agent.behavior_mode == 3 and agent.target_node_id != "":
+		if graph_ref.nodes.has(agent.target_node_id):
+			var target_pos = graph_ref.get_node_pos(agent.target_node_id)
+			
+			# Draw Dashed Line (Intent)
+			draw_dashed_line(agent.pos, target_pos, Color(1, 1, 1, 0.5), 2.0, 10.0)
+			
+			# Draw Target Reticle
+			draw_circle(target_pos, 4.0, Color(1, 0, 0, 0.5))
+			draw_arc(target_pos, 8.0, 0, TAU, 16, Color(1, 0, 0, 0.5), 1.0)
+
+# Helper for drawing small visual arrows
+func _draw_arrow_head_visual(from: Vector2, to: Vector2, color: Color) -> void:
+	draw_line(from, to, color, 2.0)
+	var dir = (to - from).normalized()
+	var tip = to
+	var size = 6.0
+	var angle = PI / 5.0
+	draw_line(tip, tip - dir.rotated(angle) * size, color, 2.0)
+	draw_line(tip, tip - dir.rotated(-angle) * size, color, 2.0)
 
 # --- 3.5 HELPER: CUSTOM LABELS ---
 func _draw_custom_labels() -> void:

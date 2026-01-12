@@ -29,7 +29,7 @@ func get_options_schema() -> Array:
 
 # Called when the user changes a value in the Top Bar
 # Override this to apply the changes (e.g., update brush size)
-func apply_option(param_name: String, value: Variant) -> void:
+func apply_option(_param_name: String, _value: Variant) -> void:
 	pass
 
 # Shared Helpers

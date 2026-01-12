@@ -40,6 +40,8 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 	
 	var agent = AgentWalker.new(new_id, pos, node_id, 2, 50)
 	
+	agent.apply_template_defaults()
+	
 	print("StrategyWalker: Created Agent Object for %s" % node_id)
 	return agent
 
