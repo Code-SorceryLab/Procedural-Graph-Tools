@@ -17,15 +17,26 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 		var hint_string = setting.get("hint_string", "")
 		var options_str = setting.get("options", "")
 		
-		# Skip Label for Actions
+		# [CHANGE 1] Create a "Row" container for this setting
+		var row = HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		container.add_child(row) # Add row to main container
+		
+		# --- 1. LABEL ---
+		# Skip Label for Actions (Buttons usually describe themselves)
 		if hint_text != "action":
 			var label = Label.new()
-			label.text = setting.get("label", setting.name.capitalize())
+			label.text = setting.get("label", key.capitalize())
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL # Push input to right
+			label.size_flags_stretch_ratio = 0.4 # Takes up 40% of width
+			
 			if hint_text != "" and hint_text != "enum":
 				label.tooltip_text = hint_text
 				label.mouse_filter = Control.MOUSE_FILTER_STOP
-			container.add_child(label)
+			
+			row.add_child(label) # Add to ROW, not container
 		
+		# --- 2. CONTROL ---
 		var control: Control
 		
 		if options_str != "":
@@ -76,11 +87,10 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 						chk.button_pressed = bool(default)
 						control = chk
 					
-					# [NEW] STRING SUPPORT
 					TYPE_STRING:
 						var line_edit = LineEdit.new()
 						line_edit.text = str(default)
-						line_edit.placeholder_text = hint_string # Use hint_string for placeholder
+						line_edit.placeholder_text = hint_string
 						control = line_edit
 
 					TYPE_VECTOR2:
@@ -107,10 +117,15 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 				control.tooltip_text = hint_text
 			
 			control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			container.add_child(control)
+			control.size_flags_stretch_ratio = 0.6 # Takes up 60% of width
+			row.add_child(control) # Add to ROW
+			
+			# Register map
 			active_inputs[key] = control
 			
 	return active_inputs
+
+# ... (collect_params and connect_live_updates remain exactly the same) ...
 
 static func collect_params(active_inputs: Dictionary) -> Dictionary:
 	var params = {}
@@ -119,7 +134,7 @@ static func collect_params(active_inputs: Dictionary) -> Dictionary:
 		if control is SpinBox: params[key] = control.value
 		elif control is CheckBox: params[key] = control.button_pressed
 		elif control is OptionButton: params[key] = control.selected
-		elif control is LineEdit: params[key] = control.text # [NEW]
+		elif control is LineEdit: params[key] = control.text 
 		elif control is HBoxContainer:
 			var spin_x = control.get_child(0) as SpinBox
 			var spin_y = control.get_child(1) as SpinBox
@@ -136,8 +151,7 @@ static func connect_live_updates(active_inputs: Dictionary, callback: Callable) 
 			control.toggled.connect(func(val): callback.call(key, val))
 		elif control is OptionButton:
 			control.item_selected.connect(func(val): callback.call(key, val))
-		elif control is LineEdit: # [NEW]
-			# Using text_changed for instant updates, or text_submitted for Enter key
+		elif control is LineEdit:
 			control.text_changed.connect(func(val): callback.call(key, val))
 		elif control is HBoxContainer:
 			var spin_x = control.get_child(0)

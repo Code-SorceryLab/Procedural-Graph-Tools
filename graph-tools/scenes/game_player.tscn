@@ -17,16 +17,17 @@ bg_color = Color(0.1764706, 0.1764706, 0.1764706, 1)
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
 
-[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "debug_depth_chk", "merge_chk", "grow_btn", "generate_btn", "clear_btn")]
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn", "spawn_btn", "clear_agents_btn")]
 script = ExtResource("2_hgyw2")
 graph_editor = NodePath("../GraphEditor")
 algo_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
 settings_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/InputContainer")
 debug_depth_chk = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/DebugDepthChk")
-merge_chk = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/MergeChk")
 grow_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GrowBtn")
 generate_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
 clear_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ClearBtn")
+spawn_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/SpawnBtn")
+clear_agents_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/ClearAgentsBtn")
 
 [node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog", "settings_btn", "confirm_discard", "settings_window")]
 script = ExtResource("3_u2lal")
@@ -246,7 +247,19 @@ text = "Generate"
 
 [node name="ClearBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
-text = "Clear"
+text = "Clear Graph"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="SpawnBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer"]
+layout_mode = 2
+text = "Spawn Agents"
+
+[node name="ClearAgentsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer"]
+modulate = Color(0.83, 0.18260002, 0.18260002, 1)
+layout_mode = 2
+text = "Clear Agents"
 
 [node name="ScrollGen" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
 layout_mode = 2
