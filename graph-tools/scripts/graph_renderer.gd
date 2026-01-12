@@ -210,73 +210,86 @@ func _draw_nodes() -> void:
 		_draw_node_indicators(id, pos)
 
 # ==============================================================================
-# [NEW] AGENT RENDERING LOGIC
+# AGENT RENDERING LOGIC
 # ==============================================================================
 
-# --- HIT TESTING API ---
+# --- VISUAL POSITION HELPER ---
+# Calculates where an agent should be drawn/clicked based on grouping
+func get_agent_visual_position(agent, all_agents_at_node: Array) -> Vector2:
+	if agent.current_node_id == "" or not graph_ref.nodes.has(agent.current_node_id):
+		return agent.pos # Floating agent
+		
+	var node_pos = graph_ref.get_node_pos(agent.current_node_id)
+	var count = all_agents_at_node.size()
+	
+	# Optimization: If stack threshold reached, we don't calculate individual orbits
+	if count > GraphSettings.AGENT_STACK_THRESHOLD:
+		# Return the stack position (usually slightly offset or centered)
+		return node_pos # Simplified for stack logic
+		
+	# CASE 1: SINGLE AGENT
+	# Move slightly Up-Right so the Node Center is clickable
+	if count == 1:
+		return node_pos + Vector2(10, -10)
+		
+	# CASE 2: MULTIPLE AGENTS (Orbit)
+	var index = all_agents_at_node.find(agent)
+	var angle = (TAU / count) * index
+	# Slightly larger radius for the ring to clear the node visual
+	var orbit_radius = GraphSettings.AGENT_RING_OFFSET # e.g., 16.0 or 20.0
+	var offset = Vector2(cos(angle), sin(angle)) * orbit_radius
+	return node_pos + offset
 
-# Returns the top-most AgentWalker under the given local position.
-# Returns null if nothing is hit.
+# --- HIT TESTING API ---
 func get_agent_at_position(local_pos: Vector2) -> AgentWalker:
 	if not graph_ref or graph_ref.agents.is_empty():
 		return null
 		
-	# 1. Group Agents (Same logic as _draw_agent_tokens)
+	# 1. Group Agents (Cache this if performance becomes an issue)
 	var agents_by_node = {}
 	for w in graph_ref.agents: 
 		var node_id = w.current_node_id
-		if not agents_by_node.has(node_id):
-			agents_by_node[node_id] = []
+		if not agents_by_node.has(node_id): agents_by_node[node_id] = []
 		agents_by_node[node_id].append(w)
 		
-	# 2. Check Hit vs Geometry
-	# We iterate all nodes that have agents
+	var best_agent = null
+	var best_dist = INF
+	var hit_radius = 10.0 # Match visual size (approx 10px radius)
+	
 	for node_id in agents_by_node:
 		if not graph_ref.nodes.has(node_id): continue
 		
 		var node_pos = graph_ref.get_node_pos(node_id)
+		# Fast bounding check
+		if local_pos.distance_squared_to(node_pos) > 3600: # 60px^2
+			continue
+			
 		var node_agents = agents_by_node[node_id]
 		var count = node_agents.size()
 		
-		# Optimization: Fast bounding box check
-		# If the click is miles away from this node, skip the math
-		# 50px radius squared = 2500
-		if local_pos.distance_squared_to(node_pos) > 2500:
-			continue
-			
-		# CASE A: Stack (> Threshold)
-		# We treat the stack as a single target hitting the *last* agent (top of stack)
+		# CASE A: Stack
 		if count > GraphSettings.AGENT_STACK_THRESHOLD:
-			# Stack is drawn at node_pos + (10, -10) usually, 
-			# but for simplicity let's check the node center area for stacks
+			# Stack logic: hit the node center area
 			if local_pos.distance_to(node_pos) < 20.0:
-				return node_agents.back() # Return the top one
+				return node_agents.back()
 		
 		# CASE B: Individual Tokens
 		else:
-			for i in range(count):
-				var agent = node_agents[i]
-				var offset = Vector2.ZERO
+			for agent in node_agents:
+				var visual_pos = get_agent_visual_position(agent, node_agents)
+				var dist = local_pos.distance_to(visual_pos)
 				
-				# Re-calculate the exact visual offset
-				if count > 1:
-					var angle = (TAU / count) * i
-					offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
-				
-				var agent_visual_pos = node_pos + offset
-				
-				# Hit Test (Radius approx 12px for the diamond)
-				if local_pos.distance_to(agent_visual_pos) < 12.0:
-					return agent
+				if dist < hit_radius and dist < best_dist:
+					best_dist = dist
+					best_agent = agent
 					
-	return null
+	return best_agent
 
-# [UPDATED] Draw the physical agents
+# --- DRAWING ---
 func _draw_agent_tokens() -> void:
 	if not graph_ref or graph_ref.agents.is_empty():
 		return
 	
-	# ... (Keep your existing bucket sort / grouping logic) ...
 	var agents_by_node = {}
 	for w in graph_ref.agents: 
 		var node_id = w.current_node_id
@@ -286,36 +299,22 @@ func _draw_agent_tokens() -> void:
 	for node_id in agents_by_node:
 		if not graph_ref.nodes.has(node_id): continue
 		
-		var node_agents: Array = agents_by_node[node_id]
+		var node_agents = agents_by_node[node_id]
 		var count = node_agents.size()
 		var node_pos = graph_ref.get_node_pos(node_id)
 		
-		# CASE A: Stack
 		if count > GraphSettings.AGENT_STACK_THRESHOLD:
 			_draw_agent_stack_icon(node_pos, count)
-			
-		# CASE B: Individual Tokens
 		else:
-			for i in range(count):
-				var current_agent = node_agents[i]
+			for agent in node_agents:
+				# [FIX] Use shared visual logic
+				var draw_pos = get_agent_visual_position(agent, node_agents)
 				
-				# Calculate Offset (Keep your existing math)
-				var offset = Vector2.ZERO
-				if count > 1:
-					var angle = (TAU / count) * i
-					offset = Vector2(cos(angle), sin(angle)) * GraphSettings.AGENT_RING_OFFSET
+				var is_selected = selected_agent_ids_ref.has(agent)
+				_draw_diamond_token(draw_pos, is_selected, agent)
 				
-				var draw_pos = node_pos + offset
-				
-				# [FIX] Check selection using the variable from GraphEditor
-				# GraphEditor passes Objects, so .has() works by reference
-				var is_selected = selected_agent_ids_ref.has(current_agent)
-				
-				_draw_diamond_token(draw_pos, is_selected, current_agent)
-				
-				# [NEW] VISUALIZE BRAIN
 				if is_selected:
-					_draw_agent_brain(current_agent)
+					_draw_agent_brain(agent)
 
 func _draw_diamond_token(center: Vector2, is_selected: bool, agent_ref: Object) -> void:
 	var radius = GraphSettings.AGENT_RADIUS

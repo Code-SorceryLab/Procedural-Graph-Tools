@@ -105,3 +105,26 @@ static func _deserialize_legend(legend_data: Dictionary) -> void:
 		var color = Color(color_html)
 		
 		GraphSettings.register_custom_type(id, name, color)
+
+
+
+
+static func generate_uuid() -> String:
+	# Generates a pseudo-random UUID v4 string
+	# Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+	var uuid = ""
+	var chars = "0123456789abcdef"
+	
+	for i in range(36):
+		if i == 8 or i == 13 or i == 18 or i == 23:
+			uuid += "-"
+		elif i == 14:
+			uuid += "4" # UUID v4 signature
+		elif i == 19:
+			# variant 10xx
+			var idx = randi() % 4
+			uuid += chars[8 + idx] 
+		else:
+			uuid += chars[randi() % 16]
+			
+	return uuid
