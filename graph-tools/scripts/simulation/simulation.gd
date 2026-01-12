@@ -1,14 +1,9 @@
 class_name Simulation
 extends RefCounted
 
-# --- SIGNALS ---
-signal step_completed(tick_index: int)
-
 # --- STATE ---
 var graph: Graph
 var tick_count: int = 0
-# Note: _session_path logic moved inside individual behaviors (like BehaviorPaint), 
-# so we don't need to track it globally here anymore.
 
 # --- INITIALIZATION ---
 func _init(target_graph: Graph) -> void:
@@ -24,7 +19,6 @@ func step() -> GraphCommand:
 	var any_active = false
 	
 	# 1. Create a Recorder wrapper around the LIVE graph
-	# Since GraphRecorder extends Graph, agents accept it as a valid 'graph'
 	var recorder = GraphRecorder.new(graph)
 	
 	# 2. Snapshot Movement State (Pre-step)
@@ -40,21 +34,23 @@ func step() -> GraphCommand:
 			
 			# Check limits
 			if agent.steps > 0 and agent.step_count >= agent.steps:
-				agent.is_finished = true # [FIX] Set finished flag, don't disable agent
+				agent.is_finished = true # [FIX] Mark as done, do not touch 'active'
 				continue
 			
 			any_active = true
 			
-			# Step the agent
+			# Step the agent (Delegates to Brain)
 			agent.step(recorder)
 			
 	if not any_active:
 		return null
 		
 	tick_count += 1
-	step_completed.emit(tick_count)
 	
-	# 4. Compile Batch for Undo (Unchanged)
+	# [CHANGE] Emit to Global Bus instead of local signal
+	SignalManager.simulation_stepped.emit(tick_count)
+	
+	# 4. Compile Batch for Undo
 	var batch = CmdBatch.new(graph, "Simulation Step %d" % tick_count)
 	
 	# A. Commands from Brains (Paint, Grow, etc.)
@@ -71,7 +67,7 @@ func step() -> GraphCommand:
 				var move_cmd = CmdUpdateAgent.new(graph, agent, start, end)
 				batch.add_command(move_cmd)
 				
-	# Return batch if valid...
+	# Return batch if valid
 	if batch.get_command_count() > 0:
 		return batch
 		
@@ -84,7 +80,8 @@ func _snapshot_agent(agent) -> Dictionary:
 		"node_id": agent.current_node_id,
 		"step_count": agent.step_count,
 		"history": agent.history.duplicate(),
-		"active": agent.active
+		"active": agent.active,
+		"is_finished": agent.is_finished # [CRITICAL] Must track this for Undo/Redo to work!
 	}
 
 # Resets the state (Rewind Logic)
@@ -104,9 +101,8 @@ func reset_state() -> GraphCommand:
 		var start_state = pre_reset_states[agent.id]
 		
 		# --- APPLY RESET LOGIC ---
-		# [FIX] Just call reset. It handles is_finished = false.
-		# We NO LONGER force agent.active = true here.
-		agent.reset_state()
+		# Calls agent.reset_state(), which sets is_finished = false
+		agent.reset_state() 
 		
 		# Logic to find start position
 		var target_pos = agent.pos 
@@ -131,6 +127,9 @@ func reset_state() -> GraphCommand:
 		if start_state.hash() != end_state.hash():
 			var cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
 			batch.add_command(cmd)
+	
+	# [CHANGE] Notify Global Bus
+	SignalManager.simulation_reset.emit()
 			
 	if batch.get_command_count() > 0:
 		return batch

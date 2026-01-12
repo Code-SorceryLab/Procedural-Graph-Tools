@@ -10,12 +10,13 @@ class_name ToolbarController
 
 # --- INITIALIZATION ---
 func _ready() -> void:
-	# 1. UI -> Logic (User Clicks Button)
+	# 1. UI -> Logic (User Clicks Button) - Unchanged
 	toolbar.tool_changed.connect(_on_ui_tool_changed)
 	
 	# 2. Logic -> UI (User Presses Shortcut Key 1-7)
-	# This ensures the button highlights even if we didn't click it
-	graph_editor.active_tool_changed.connect(_on_editor_tool_changed)
+	# [FIX] Listen to Global Bus instead of GraphEditor
+	if SignalManager.has_signal("active_tool_changed"):
+		SignalManager.active_tool_changed.connect(_on_editor_tool_changed)
 
 # --- EVENT HANDLERS ---
 

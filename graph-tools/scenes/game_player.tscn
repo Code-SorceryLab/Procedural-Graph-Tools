@@ -334,7 +334,7 @@ layout_mode = 2
 text = "Total Agents: 0 (0 Active)"
 horizontal_alignment = 1
 
-[node name="BehaviourPanel" type="PanelContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
+[node name="BehaviourPanel" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
 layout_mode = 2
 
 [node name="LblEditMode" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]
@@ -342,6 +342,7 @@ layout_mode = 2
 
 [node name="BehaviourSettingsBox" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]

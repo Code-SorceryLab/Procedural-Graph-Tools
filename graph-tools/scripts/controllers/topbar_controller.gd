@@ -26,20 +26,23 @@ func _ready() -> void:
 		push_warning("TopbarController: Missing references.")
 		return
 		
-	# 1. Listen for Status Updates
-	graph_editor.status_message_changed.connect(_on_status_changed)
+	# 1. Listen for Status Updates (MOVED TO GLOBAL BUS)
+	if SignalManager.has_signal("status_message_changed"):
+		SignalManager.status_message_changed.connect(_on_status_changed)
+	
 	status_label.text = "Ready"
 	
 	# 2. Listen for Tool Changes
-	if graph_editor.tool_manager:
-		graph_editor.tool_manager.tool_changed.connect(_on_tool_changed)
-	else:
-		push_error("DEBUG ERROR: TopbarController could not find ToolManager!")
+	# Note: We also moved 'active_tool_changed' to SignalManager. 
+	# If your tool_manager logic is working, keep it, but relying on the bus is safer now.
+	if SignalManager.has_signal("active_tool_changed"):
+		SignalManager.active_tool_changed.connect(_on_tool_changed)
 		
-	# [NEW] 3. Setup Simulation Controls
+	# 3. Setup Simulation Controls
 	_setup_simulation_controls()
-
-# [NEW] Heartbeat Loop
+	
+	
+# Heartbeat Loop
 func _process(delta: float) -> void:
 	if not is_playing: return
 	
@@ -116,14 +119,23 @@ func _perform_step() -> void:
 func _on_status_changed(msg: String) -> void:
 	status_label.text = msg
 
-func _on_tool_changed(_tool_id: int, tool_instance: GraphTool) -> void:
+func _on_tool_changed(tool_id: int) -> void:
+	# 1. Clean up old UI
 	if tool_options_container:
 		for child in tool_options_container.get_children():
 			child.queue_free()
 	_active_tool_inputs.clear()
 	
+	# 2. Manually fetch the tool instance from the Editor
+	var tool_instance = null
+	if graph_editor and graph_editor.tool_manager:
+		# Safety check: ensure the manager is actually on the tool we expect
+		if graph_editor.tool_manager.active_tool_id == tool_id:
+			tool_instance = graph_editor.tool_manager.current_tool
+
 	if not tool_instance: return
 
+	# 3. Build new UI (Logic remains the same)
 	var schema = tool_instance.get_options_schema()
 	if schema.is_empty(): return
 		

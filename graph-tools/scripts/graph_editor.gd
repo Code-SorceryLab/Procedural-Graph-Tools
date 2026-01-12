@@ -1,20 +1,16 @@
 extends Node2D
 class_name GraphEditor
 
-# Signal to notify the rest of the game when a new graph is loaded or generated
+# --- SIGNALS (Structural / Local) ---
+# These remain local because they relate to THIS editor instance specifically.
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
 signal edge_selection_changed(selected_edges: Array)
 signal request_save_graph(graph: Graph)
 signal graph_modified
 
-# Signal to notify UI (e.g. StatusBar) when a tool wants to display info
-signal status_message_changed(message: String)
-signal active_tool_changed(tool_id: int)
+# UI Focus Requests (Can remain local or move to bus later)
 signal request_inspector_view
-
-# Agent Selection Signals
-signal agent_selection_changed(agent_ids: Array)
 signal request_agent_tab_view(filter_node_id: String)
 
 # --- REFERENCES ---
@@ -29,36 +25,26 @@ var graph: Graph = Graph.new()
 var simulation: Simulation
 
 # --- STATE MANAGEMENT ---
-# Tool Manager
 var tool_manager: GraphToolManager
-
-# --- STATE ---
 var is_picking_mode: bool = false
 var _pick_callback: Callable
 
-
-# Editor State (Public so tools can read/modify them safely)
+# Editor State (Public)
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
-# [NEW] Selected Agent IDs (we use object refs or distinct IDs depending on implementation)
-# For now, we assume strategy.get_all_agents() returns objects, so we store refs or IDs.
 var selected_agent_ids: Array = []
 
-
-# [NEW] Tool Visualization Proxy
-# Tools write to this (generic name), and we forward it to the Renderer (specific name).
+# Tool Visualization Proxy
 var tool_overlay_rect: Rect2 = Rect2():
 	set(value):
 		tool_overlay_rect = value
 		if renderer:
-			# Map the Tool's generic request to the Renderer's existing variable
 			renderer.selection_rect = value
 			renderer.queue_redraw()
 
 # Arrays to support Multiple Walkers
 var path_start_ids: Array[String] = []
 var path_end_ids: Array[String] = []
-
 var current_path: Array[String] = []
 var new_nodes: Array[String] = [] 
 var node_labels: Dictionary = {}
@@ -87,11 +73,9 @@ func _ready() -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
-	
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	
-	# [NEW] Initialize the Simulation Engine
-	# We pass the graph reference so the engine knows what to operate on.
+	# Initialize the Simulation Engine
 	simulation = Simulation.new(graph)
 	
 	if grid_renderer:
@@ -123,22 +107,19 @@ func _ready() -> void:
 	
 	set_active_tool(GraphSettings.Tool.SELECT)
 	renderer.queue_redraw()
-	
-	#Debug
-	#GraphSettings.print_custom_method_names(self)
-
-
-
 
 # ==============================================================================
 # 2. TOOL MANAGEMENT
 # ==============================================================================
 func set_active_tool(tool_id: int) -> void:
 	tool_manager.set_active_tool(tool_id)
-	active_tool_changed.emit(tool_id) # Triggers the UI update
+	
+	# [CHANGE] Emit to Global Bus
+	SignalManager.active_tool_changed.emit(tool_id)
 
 func send_status_message(message: String) -> void:
-	status_message_changed.emit(message)
+	# [CHANGE] Emit to Global Bus
+	SignalManager.status_message_changed.emit(message)
 	
 # ==============================================================================
 # 3. INPUT ROUTING
@@ -148,11 +129,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	input_handler.handle_input(event)
 	if get_viewport().is_input_handled(): return
 
-	# [FIX] 2. Picking Mode Interception (Prioritize this over Tools)
+	# 2. Picking Mode Interception (Prioritize this over Tools)
 	if is_picking_mode:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			var mouse_pos = get_global_mouse_position() # or renderer.get_local_mouse_position() depending on setup
-			# We need to convert screen/viewport coordinates to Graph coordinates if using a Camera2D
+			var mouse_pos = get_global_mouse_position() 
 			if camera:
 				mouse_pos = camera.get_global_mouse_position()
 				
@@ -172,27 +152,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	# 3. Tool Logic (Normal operation)
 	tool_manager.handle_input(event)
 
-
-
 # ==============================================================================
 # 4. PUBLIC API FOR TOOLS
 # ==============================================================================
 
-# CHANGED: Supports Array input for Multi-Walker
 func set_path_starts(ids: Array) -> void:
 	path_start_ids.assign(ids)
 	renderer.path_start_ids = ids
 	renderer.queue_redraw()
 
-# CHANGED: Supports Array input
 func set_path_ends(ids: Array) -> void:
 	path_end_ids.assign(ids)
 	renderer.path_end_ids = ids
 	renderer.queue_redraw()
 
-# [UPDATED] Uses AgentNavigator
 func _refresh_path(algo_index: int = 3) -> void:
-	# Only pathfind if we have exactly 1 start and 1 end
 	if path_start_ids.size() == 1 and path_end_ids.size() == 1:
 		var start = path_start_ids[0]
 		var end = path_end_ids[0]
@@ -200,7 +174,6 @@ func _refresh_path(algo_index: int = 3) -> void:
 		if not graph.nodes.has(start) or not graph.nodes.has(end):
 			return
 		
-		# Use the Navigator to get the specific algorithm's path
 		current_path = AgentNavigator.get_projected_path(start, end, algo_index, graph)
 		renderer.current_path_ref = current_path
 	else:
@@ -246,32 +219,26 @@ func delete_node(id: String) -> void:
 		renderer.queue_redraw()
 	
 	# 3. EXECUTE COMMAND (BATCH)
-	# [FIX] We use a Batch now to handle both Node and Agents
 	var batch = CmdBatch.new(graph, "Delete Node & Agents")
 	
-	# A. Identify Agents on this node
-	# We iterate backwards or just collect them first
 	var agents_on_node = []
 	if "agents" in graph:
 		for agent in graph.agents:
 			if agent.current_node_id == id:
 				agents_on_node.append(agent)
 	
-	# B. Add Agent Removal Commands
 	for agent in agents_on_node:
 		var cmd_agent = CmdRemoveAgent.new(graph, agent)
 		batch.add_command(cmd_agent)
 	
-	# C. Add Node Removal Command
 	var cmd_node = CmdDeleteNode.new(graph, id)
 	batch.add_command(cmd_node)
 	
 	_commit_command(batch)
 
-# --- Agent Operations (Undo/Redo Support) ---
+# --- Agent Operations ---
 
 func add_agent(agent) -> void:
-	# create the command explicitly
 	var cmd = CmdAddAgent.new(graph, agent)
 	_commit_command(cmd)
 
@@ -279,17 +246,18 @@ func remove_agent(agent) -> void:
 	var cmd = CmdRemoveAgent.new(graph, agent)
 	_commit_command(cmd)
 
-# --- Selection Operations (BATCHING OPTIMIZATION) ---
-# Optimized Batch Selection to prevent signal storms
+# --- Selection Operations ---
+
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
 	if clear_existing:
 		selected_nodes.clear()
 		selected_edges.clear()
 		
-		# [NEW] Selecting nodes usually implies clearing specific agent selection
+		# Selecting nodes implies clearing Agent selection
 		selected_agent_ids.clear()
 		renderer.selected_agent_ids_ref = selected_agent_ids
-		agent_selection_changed.emit([])
+		# [CHANGE] Emit Global Signal
+		SignalManager.agent_selection_changed.emit([])
 		
 	selected_nodes.append_array(nodes)
 	selected_edges.append_array(edges)
@@ -302,14 +270,11 @@ func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: boo
 	
 	renderer.queue_redraw()
 
-# [NEW] API to start picking
 func request_node_pick(callback: Callable) -> void:
 	is_picking_mode = true
 	_pick_callback = callback
 	send_status_message("Pick a target node...")
-	# Optional: Change cursor shape here
 
-# [NEW] Handle the Pick
 func _handle_node_picked(id: String) -> void:
 	if is_picking_mode:
 		is_picking_mode = false
@@ -318,11 +283,7 @@ func _handle_node_picked(id: String) -> void:
 		send_status_message("Target Set: " + id)
 		return
 
-
-
-# Standard Selection Helpers
 func toggle_selection(id: String) -> void:
-	# [NEW] Intercept for Picking Mode
 	if is_picking_mode:
 		_handle_node_picked(id)
 		return
@@ -349,31 +310,26 @@ func add_edge_selection(edge_pair: Array) -> void:
 		edge_selection_changed.emit(selected_edges)
 
 func is_edge_selected(pair: Array) -> bool:
-	# Ensure the pair we check matches the sorted format in selected_edges
 	pair.sort() 
 	return selected_edges.has(pair)
 
 # [NEW] AGENT SELECTION API
 func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	if clear_nodes:
-		# To keep the Inspector clean, we clear Node selection when picking Agents
 		selected_nodes.clear()
 		selected_edges.clear()
 		
 		renderer.selected_nodes_ref = selected_nodes
 		renderer.selected_edges_ref = selected_edges
 		
-		# [FIX] Do not emit []. Emit the typed member variable 'selected_nodes'.
 		selection_changed.emit(selected_nodes)
 		edge_selection_changed.emit(selected_edges)
 		
-	# Store the actual objects or IDs. 
 	selected_agent_ids = agents
-	
-	# Sync with Renderer
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	
-	agent_selection_changed.emit(selected_agent_ids)
+	# [CHANGE] Emit Global Signal
+	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 	renderer.queue_redraw()
 
 func clear_selection() -> void:
@@ -385,16 +341,14 @@ func clear_selection() -> void:
 	renderer.selected_edges_ref = selected_edges
 	edge_selection_changed.emit(selected_edges)
 	
-	# [NEW] Clear Agents
 	selected_agent_ids.clear()
 	renderer.selected_agent_ids_ref = selected_agent_ids
-	agent_selection_changed.emit(selected_agent_ids)
+	# [CHANGE] Emit Global Signal
+	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 
 # Edge Selection API
 func toggle_edge_selection(edge_pair: Array) -> void:
-	# Ensure sorted key
 	edge_pair.sort()
-	
 	if selected_edges.has(edge_pair):
 		selected_edges.erase(edge_pair)
 	else:
@@ -412,18 +366,13 @@ func set_edge_selection(edge_pair: Array) -> void:
 # --- Connection Operations ---
 
 func connect_nodes(id_a: String, id_b: String, weight: float = 1.0) -> void:
-	if graph.has_edge(id_a, id_b):
-		return
-
+	if graph.has_edge(id_a, id_b): return
 	var cmd = CmdConnect.new(graph, id_a, id_b, weight)
 	_commit_command(cmd)
 
 func disconnect_nodes(id_a: String, id_b: String) -> void:
-	if not graph.has_edge(id_a, id_b):
-		return
-		
+	if not graph.has_edge(id_a, id_b): return
 	var weight = graph.get_edge_weight(id_a, id_b)
-	
 	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight)
 	_commit_command(cmd)
 
@@ -435,19 +384,14 @@ func set_node_position(id: String, new_pos: Vector2) -> void:
 	renderer.queue_redraw()
 
 func commit_move_batch(move_data: Dictionary) -> void:
-	if move_data.is_empty():
-		return
-		
+	if move_data.is_empty(): return
 	var batch = CmdBatch.new(graph, "Move Nodes", false) 
 	
 	for id in move_data:
 		var data = move_data[id]
 		var old = data["from"]
 		var new = data["to"]
-		
-		if old.distance_squared_to(new) < 0.1:
-			continue
-			
+		if old.distance_squared_to(new) < 0.1: continue
 		var cmd = CmdMoveNode.new(graph, id, old, new)
 		batch.add_command(cmd)
 		
@@ -455,23 +399,15 @@ func commit_move_batch(move_data: Dictionary) -> void:
 		_commit_command(batch)
 
 func set_node_type(id: String, type_index: int) -> void:
-	if not graph.nodes.has(id):
-		return
-		
+	if not graph.nodes.has(id): return
 	var old_type = graph.nodes[id].type
-	
-	if old_type == type_index:
-		return
-		
+	if old_type == type_index: return
 	var cmd = CmdSetType.new(graph, id, old_type, type_index)
 	_commit_command(cmd)
 
 func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
-	print("Bulk Update called with %d nodes. Atomic Mode: %s" % [ids.size(), GraphSettings.USE_ATOMIC_UNDO])
-	
 	if GraphSettings.USE_ATOMIC_UNDO:
-		for id in ids:
-			set_node_type(id, type_index) 
+		for id in ids: set_node_type(id, type_index) 
 		return
 
 	var batch = CmdBatch.new(graph, "Bulk Type Change")
@@ -479,9 +415,7 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 	
 	for id in ids:
 		if not graph.nodes.has(id): continue
-		
 		var old_type = graph.nodes[id].type
-		
 		if old_type != type_index:
 			var cmd = CmdSetType.new(graph, id, old_type, type_index)
 			batch.add_command(cmd) 
@@ -490,30 +424,19 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 	if change_count > 0:
 		_commit_command(batch)
 
-# Sets labels for nodes
 func set_node_labels(labels: Dictionary) -> void:
-	# Always save the data locally
 	node_labels = labels
-	#print("Editor: Received labels. Renderer exists? ", renderer != null)
-	# Only talk to the renderer if it is ready
 	if renderer:
 		renderer.node_labels_ref = node_labels
 		renderer.queue_redraw()
 
-# Dedicated function for modifying existing weights
 func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
-	if not graph.has_edge(id_a, id_b):
-		return
-		
+	if not graph.has_edge(id_a, id_b): return
 	var current_w = graph.get_edge_weight(id_a, id_b)
-	if is_equal_approx(current_w, weight):
-		return # No change
-		
+	if is_equal_approx(current_w, weight): return
 	var cmd = CmdSetEdgeWeight.new(graph, id_a, id_b, weight)
 	_commit_command(cmd)
 
-# Helper for Directionality (One-Way vs Bi-Dir)
-# UPDATED: Accepts 'mode' (0=Bi, 1=Fwd, 2=Rev) instead of bool
 func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var has_ab = graph.has_edge(id_a, id_b)
 	var has_ba = graph.has_edge(id_b, id_a)
@@ -522,9 +445,7 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	if has_ab and not has_ba: current_mode = 1
 	if not has_ab and has_ba: current_mode = 2
 	
-	if current_mode == mode:
-		return
-
+	if current_mode == mode: return
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
@@ -535,34 +456,24 @@ func start_undo_transaction(action_name: String, refocus_camera: bool = true) ->
 
 func commit_undo_transaction() -> void:
 	var batch = history.commit_transaction()
-	if batch:
-		mark_modified()
+	if batch: mark_modified()
 
 # ==============================================================================
 # 5. GENERAL API
 # ==============================================================================
 func clear_graph() -> void:
-	if graph.nodes.is_empty() and graph.zones.is_empty():
-		return
-		
+	if graph.nodes.is_empty() and graph.zones.is_empty(): return
 	var batch = CmdBatch.new(graph, "Clear Graph")
-	var all_ids = graph.nodes.keys()
-	for id in all_ids:
+	for id in graph.nodes:
 		var cmd = CmdDeleteNode.new(graph, id)
 		batch.add_command(cmd)
-	
-	# [FIX] Manually wipe zones since we don't have a Command for it yet
 	graph.zones.clear() 
-	
 	_commit_command(batch)
 	_reset_local_state()
-	
 	camera.reset_view()
 
 func mark_modified() -> void:
 	graph_modified.emit()
-
-# --- HISTORY MANAGEMENT ---
 
 func _commit_command(cmd: GraphCommand) -> void:
 	history.add_command(cmd)
@@ -573,48 +484,33 @@ func _commit_command(cmd: GraphCommand) -> void:
 
 func undo() -> void:
 	var cmd = history.undo()
-	
 	if cmd:
 		mark_modified()
 		renderer.queue_redraw()
-		print("Undo: %s" % cmd.get_name())
-		
 		if cmd is CmdBatch:
 			if cmd.center_on_undo:
 				_center_camera_on_graph()
-			
 			new_nodes.clear()
 			renderer.new_nodes_ref = new_nodes
-			
-			# CHANGED: Clear array markers
 			set_path_starts([])
 			set_path_ends([])
 
 func redo() -> void:
 	var cmd = history.redo()
-	
 	if cmd:
 		mark_modified()
 		renderer.queue_redraw()
-		print("Redo: %s" % cmd.get_name())
-		
 		if cmd is CmdBatch:
 			if cmd.center_on_undo:
 				_center_camera_on_graph()
-				
 			new_nodes.clear()
 			renderer.new_nodes_ref = new_nodes
-			
-			# CHANGED: Clear array markers
 			set_path_starts([])
 			set_path_ends([])
 
 func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
 	history = GraphHistory.new(graph)
-	
-	# [NEW] Reconstruct the Simulation Engine
-	# This ensures we aren't using the old Simulation instance with the old Graph data
 	simulation = Simulation.new(graph)
 	
 	_reset_local_state()
@@ -626,11 +522,8 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	
-	# --- FIXED TOOL REFRESH ---
 	if tool_manager:
-		# Instead of manually patching references, we simply RESTART the active tool.
-		# 1. This creates a NEW tool instance (which reads the NEW self.graph automatically).
-		# 2. It emits 'tool_changed', which forces the TopBar UI to rebuild the dropdowns.
+		# Restart active tool to pick up new graph reference
 		tool_manager.set_active_tool(tool_manager.active_tool_id)
 		
 	_center_camera_on_graph()
@@ -638,27 +531,15 @@ func load_new_graph(new_graph: Graph) -> void:
 
 func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 	var existing_ids = {}
-	for id in graph.nodes:
-		existing_ids[id] = true
-	
+	for id in graph.nodes: existing_ids[id] = true
 	_reset_local_state()
 
-	# 1. Execute Logic
-	# This populates 'params' with visual data (highlights) even if no commands are generated.
 	var batch = StrategyExecutor.execute(self, strategy, params)
 	
-	# 2. Commit Structural Changes (Undo/Redo)
-	# We check if batch exists AND if it actually has commands inside.
-	# This prevents empty batches from triggering camera jumps.
 	if batch and not batch._commands.is_empty():
 		_commit_command(batch)
-		
-		# [KEEP INSIDE] Only center camera if the graph structure actually grew/changed.
 		_center_camera_on_graph()
 	
-	# 3. Update Visualization (ALWAYS)
-	# [FIX] We run this even if 'batch' was null or empty.
-	# This ensures Walkers are seen immediately when traversing existing nodes.
 	StrategyExecutor.process_visualization(self, params, existing_ids)
 
 # ==============================================================================
@@ -672,8 +553,7 @@ func _reconstruct_state_from_ids() -> void:
 	for id: String in graph.nodes:
 		if id.is_valid_int():
 			var val = id.to_int()
-			if val > _next_id_counter:
-				_next_id_counter = val
+			if val > _next_id_counter: _next_id_counter = val
 				
 		var parts = id.split(":")
 		if parts.size() >= 2:
@@ -682,22 +562,15 @@ func _reconstruct_state_from_ids() -> void:
 			
 			if id_namespace == "man" and index_part.is_valid_int():
 				var val = index_part.to_int()
-				if val > _manual_counter:
-					_manual_counter = val
+				if val > _manual_counter: _manual_counter = val
 					
 	print("GraphEditor: State Reconstructed. Manual Counter reset to: ", _manual_counter)
 
 func run_pathfinding(algo_index: int = 3) -> void:
 	_refresh_path(algo_index)
-	
-	if not current_path.is_empty():
-		# Optional: You can print debug info here
-		pass
 
 func _center_camera_on_graph() -> void:
-	if graph.nodes.is_empty():
-		return
-		
+	if graph.nodes.is_empty(): return
 	var min_pos := Vector2(INF, INF)
 	var max_pos := Vector2(-INF, -INF)
 	
@@ -711,18 +584,14 @@ func _center_camera_on_graph() -> void:
 	var rect = Rect2(min_pos, max_pos - min_pos)
 	camera.center_on_rect(rect)
 
-
 func _reset_local_state() -> void:
 	selected_nodes.clear()
 	current_path.clear()
-	
 	path_start_ids.clear()
 	path_end_ids.clear()
-	
 	selected_agent_ids.clear()
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []
-	# renderer.selected_agent_ids_ref = []

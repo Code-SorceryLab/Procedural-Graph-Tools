@@ -23,14 +23,14 @@ func get_settings() -> Array[Dictionary]:
 		{ "name": "use_override_pos", "type": TYPE_BOOL, "default": false, "label": "Use Manual Start", "hint": "If checked, forces spawn at the coordinates below." },
 		{ "name": "start_pos", "type": TYPE_VECTOR2, "default": Vector2.ZERO, "label": "Start Position", "hint": "Coordinates to spawn at (if 'Use Manual Start' is on)." },
 		{ "name": "action_clear_all", "type": TYPE_BOOL, "hint": "action", "label": "Clear All Agents" },
+		{ "name": "merge_overlaps", "type": TYPE_BOOL, "default": true, "label": "Merge Overlaps", "hint": "If true, growing onto an existing node connects to it instead of overlapping." }
 	])
 	
 	return settings
 
 # --- PUBLIC API ---
 
-# [FACTORY] Creates an agent object (but does not add it to graph)
-# Used by the Manual Spawner Tool
+# [FACTORY] Creates an agent object
 func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 	if node_id == "" or not graph.nodes.has(node_id): 
 		return null
@@ -70,7 +70,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 		_spawn_initial_population(graph, target_count, params, manual_start)
 	
 	# ==============================================================================
-	# 3. RUN SIMULATION
+	# 3. RUN SIMULATION (Instant Mode)
 	# ==============================================================================
 	
 	# A. SNAPSHOT BEFORE MOVEMENT (For Undo)
@@ -88,18 +88,16 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	for w in graph.agents:
 		effective_starts[w.id] = w.current_node_id if w.current_node_id != "" else ""
 	
-	var grid_spacing = GraphSettings.GRID_SPACING
-	var merge = params.get("merge_overlaps", true)
-	
-	# C. Main Loop
+	# C. Main Loop (Fast-Forward)
 	for tick in range(max_ticks):
 		for w in graph.agents:
-			if w.active and tick < w.steps:
-				var visited_id = ""
-				if w.mode == 0: # Grow
-					visited_id = w.step_grow(graph, grid_spacing, merge)
-				else: # Paint
-					visited_id = w.step_paint(graph, false, _session_path)
+			if w.active and not w.is_finished and tick < w.steps:
+				
+				# [FIX] Polymorphic Step
+				# We pass 'params' so behaviors like Grow can read 'merge_overlaps'
+				w.step(graph, params)
+				
+				var visited_id = w.current_node_id
 				
 				if visited_id != "":
 					_session_path.append(visited_id)
@@ -148,7 +146,6 @@ func get_all_agent_starts(graph: Graph) -> Array[String]:
 		if w.start_node_id != "": list.append(w.start_node_id)
 	return list
 
-# [UPDATED] Delegated to Graph
 func get_walkers_at_node(node_id: String, graph: Graph) -> Array:
 	return graph.get_agents_at_node(node_id)
 
@@ -160,7 +157,8 @@ func _snapshot_agent(agent) -> Dictionary:
 		"node_id": agent.current_node_id,
 		"step_count": agent.step_count, 
 		"history": agent.history.duplicate(),
-		"active": agent.active
+		"active": agent.active,
+		"is_finished": agent.is_finished # [FIX] Added to match Simulation logic
 	}
 
 func _spawn_initial_population(graph: GraphRecorder, count: int, params: Dictionary, manual_pos: Vector2 = Vector2.INF) -> void:

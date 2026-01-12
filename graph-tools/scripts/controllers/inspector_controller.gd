@@ -62,23 +62,22 @@ var _walker_inputs: Dictionary = {}
 var _edge_inputs: Dictionary = {}        # Store edge controls
 
 func _ready() -> void:
-	# 1. Connect Core Signals
+	# 1. Connect Core Signals (Structure changes still live on GraphEditor)
 	graph_editor.selection_changed.connect(_on_selection_changed)
 	
 	if graph_editor.has_signal("edge_selection_changed"):
 		graph_editor.edge_selection_changed.connect(_on_edge_selection_changed)
 
-	# [CHECK THIS BLOCK]
-	if graph_editor.has_signal("agent_selection_changed"):
-		graph_editor.agent_selection_changed.connect(_on_agent_selection_changed)
-	else:
-		push_error("Inspector: GraphEditor missing 'agent_selection_changed' signal!")
+	# [FIX] Listen to Global Bus for Agent Selection
+	# We removed the 'if has_signal' check because SignalManager is always there.
+	if SignalManager.has_signal("agent_selection_changed"):
+		SignalManager.agent_selection_changed.connect(_on_agent_selection_changed)
 	
+	# Keep the rest same
 	graph_editor.graph_loaded.connect(func(_g): refresh_type_options())
 	
 	if graph_editor.has_signal("request_inspector_view"):
 		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
-	
 
 	
 	set_process(false)

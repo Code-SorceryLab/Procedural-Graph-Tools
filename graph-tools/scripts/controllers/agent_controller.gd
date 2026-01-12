@@ -15,26 +15,57 @@ class_name AgentController
 var _roster_map: Dictionary = {}  # agent_id -> Control
 var _active_inputs: Dictionary = {} # For the Behavior Panel
 
-# [NEW] Simulation Parameters
+# Simulation Parameters (Used if we add global sim settings later)
 var sim_params: Dictionary = {
 	"merge_overlaps": true,
 	"grid_spacing": GraphSettings.GRID_SPACING
 }
 
 func _ready() -> void:
-	# 1. Listen for Graph Changes
+	# 1. Listen for Graph Structure Changes (Editor owns the structure)
 	graph_editor.graph_modified.connect(_on_graph_modified)
 	graph_editor.graph_loaded.connect(func(_g): _full_roster_rebuild())
 	
 	if graph_editor.has_signal("agent_selection_changed"):
 		graph_editor.agent_selection_changed.connect(_on_agent_selection_changed)
 	
-	# 2. Build Initial UI
+	# 2. [NEW] Listen to the Global Event Bus (Simulation Lifecycle)
+	SignalManager.simulation_stepped.connect(_on_simulation_stepped)
+	SignalManager.simulation_reset.connect(_on_simulation_reset)
+	
+	# 3. Build Initial UI
 	_full_roster_rebuild()
 	_build_behavior_ui()
 
 # ==============================================================================
-# 1. ROSTER LOGIC
+# 1. SIMULATION HANDLERS (NEW)
+# ==============================================================================
+
+# Called every time the simulation ticks (via SignalManager)
+func _on_simulation_stepped(_tick: int) -> void:
+	# A. Update Roster Status Lights (Green/Yellow/Red)
+	_refresh_roster_status()
+	
+	# B. If we are inspecting an agent, update their live stats
+	if not graph_editor.selected_agent_ids.is_empty():
+		var agent = graph_editor.selected_agent_ids[0]
+		_sync_inputs_to_agent(agent)
+		
+		# C. Update the visual path (Green Line) as they move
+		_update_visualization(agent)
+
+# Called when the user hits "Reset" (via SignalManager)
+func _on_simulation_reset() -> void:
+	_refresh_roster_status()
+	
+	# Reset visuals to start position
+	if not graph_editor.selected_agent_ids.is_empty():
+		var agent = graph_editor.selected_agent_ids[0]
+		_sync_inputs_to_agent(agent)
+		_update_visualization(agent)
+
+# ==============================================================================
+# 2. ROSTER LOGIC
 # ==============================================================================
 
 func _full_roster_rebuild() -> void:
@@ -60,7 +91,11 @@ func _create_agent_row(agent) -> void:
 	var icon = ColorRect.new()
 	icon.custom_minimum_size = Vector2(12, 12)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	icon.color = Color.GREEN if agent.active else Color.RED
+	# Initial Color State
+	if not agent.active: icon.color = Color.RED
+	elif agent.is_finished: icon.color = Color.YELLOW
+	else: icon.color = Color.GREEN
+	
 	row.add_child(icon)
 	
 	# B. Name
@@ -84,7 +119,7 @@ func _create_agent_row(agent) -> void:
 	)
 	row.add_child(btn_view)
 
-	# E. Settings Button (Gear)
+	# E. Settings Button
 	var btn_edit = Button.new()
 	btn_edit.text = "⚙"
 	btn_edit.tooltip_text = "Edit Agent Behavior"
@@ -115,7 +150,6 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 			lbl_edit_mode.text = "EDITING: Global Defaults (New Agents)"
 			lbl_edit_mode.modulate = Color(0.7, 0.7, 0.7)
 			
-		# [NEW] Clear Visualization when nothing selected
 		_update_visualization(null)
 		return
 
@@ -131,23 +165,25 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 		lbl_edit_mode.text = "EDITING: Agent #%d" % primary_agent.id
 		lbl_edit_mode.modulate = Color(1, 0.8, 0.2)
 
-	# [NEW] Trigger Visualization (Green/Red Rings)
 	_update_visualization(primary_agent)
 
-# [NEW] HELPER: DRIVES THE GRAPHEDITOR VISUALS
+# DRIVES THE GRAPHEDITOR VISUALS (Red/Green Rings and Lines)
 func _update_visualization(agent) -> void:
 	if not graph_editor: return
 	
 	if agent and agent.active:
+		# 1. Show Start Position (Green Ring)
 		graph_editor.set_path_starts([agent.current_node_id])
 		
+		# 2. Show Target/Path (Red Ring + Green Line)
+		# Only if in 'Seek' mode (3) and has a valid target
 		if agent.behavior_mode == 3 and agent.target_node_id != "":
 			graph_editor.set_path_ends([agent.target_node_id])
 			
-			# [FIX] Pass the agent's algorithm to the pathfinder
 			if graph_editor.has_method("run_pathfinding"):
 				graph_editor.run_pathfinding(agent.movement_algo)
 		else:
+			# Clear path if not seeking
 			graph_editor.set_path_ends([])
 			graph_editor.current_path.clear()
 			graph_editor.renderer.current_path_ref = []
@@ -193,8 +229,7 @@ func _update_stats() -> void:
 
 func _on_graph_modified() -> void:
 	_full_roster_rebuild()
-	
-	# [NEW] Keep visualization updated if the agent moves (Sim Step)
+	# Keep visualization updated if nodes were deleted/moved
 	if not graph_editor.selected_agent_ids.is_empty():
 		_update_visualization(graph_editor.selected_agent_ids[0])
 
@@ -204,6 +239,7 @@ func _refresh_roster_status() -> void:
 
 func _update_row_visuals(agent_id: int) -> void:
 	if not _roster_map.has(agent_id): return
+	
 	var row = _roster_map[agent_id]
 	var icon = row.get_child(0) as ColorRect
 	var lbl_loc = row.get_child(2) as Label
@@ -216,15 +252,17 @@ func _update_row_visuals(agent_id: int) -> void:
 			
 	if agent:
 		lbl_loc.text = "@ %s" % agent.current_node_id
+		
+		# [FIX] Visual Status Logic (Green/Yellow/Red)
 		if not agent.active:
-			icon.color = Color.RED       # Disabled by User
+			icon.color = Color.RED          # Disabled manually
 		elif agent.is_finished:
-			icon.color = Color.YELLOW    # Enabled, but Done
+			icon.color = Color.YELLOW       # Active but finished
 		else:
-			icon.color = Color.GREEN     # Running
+			icon.color = Color.GREEN        # Active and running
 
 # ==============================================================================
-# 2. BEHAVIOR LOGIC
+# 3. BEHAVIOR UI LOGIC
 # ==============================================================================
 
 func _build_behavior_ui() -> void:
@@ -272,23 +310,21 @@ func _on_behavior_changed(key: String, value: Variant) -> void:
 
 	if graph_editor.selected_agent_ids.is_empty():
 		AgentWalker.update_template(key, value)
-		print("Updated Global Template: %s -> %s" % [key, value])
 	else:
 		var agents_to_update = graph_editor.selected_agent_ids
 		for agent in agents_to_update:
 			if agent.has_method("apply_setting"):
 				agent.apply_setting(key, value)
 				
-		# [NEW] Refresh visuals instantly (e.g., if Target ID changed)
+		# [FIX] Force Visual Update immediately after changing setting
 		if not agents_to_update.is_empty():
 			_update_visualization(agents_to_update[0])
-			
-		print("Updated %d Selected Agents" % agents_to_update.size())
 
 func _on_target_picked(node_id: String) -> void:
 	if _active_inputs.has("target_node"):
 		var line_edit = _active_inputs["target_node"] as LineEdit
 		line_edit.text = node_id
+		# This triggers _on_behavior_changed -> which triggers _update_visualization
 		_on_behavior_changed("target_node", node_id)
 		
 	print("Picked Target Node: ", node_id)
