@@ -6,14 +6,16 @@ class_name AgentController
 @export var graph_editor: GraphEditor
 
 @export_group("UI Nodes")
-@export var roster_list: VBoxContainer        # The VBox inside the ScrollContainer
-@export var behavior_settings_box: Control    # The VBox inside the Bottom Panel
+@export var roster_list: VBoxContainer        
+@export var behavior_settings_box: Control    
 @export var lbl_stats: Label
 @export var lbl_edit_mode: Label
 
 # --- STATE ---
-var _roster_map: Dictionary = {}  # agent_id -> Control
-var _active_inputs: Dictionary = {} # For the Behavior Panel
+# Key: AgentWalker Object | Value: Control (The Row)
+# Using the Object as the key prevents ID collisions from breaking the UI.
+var _roster_map: Dictionary = {}  
+var _active_inputs: Dictionary = {} 
 
 # Simulation Parameters
 var sim_params: Dictionary = {
@@ -45,6 +47,7 @@ func _on_simulation_stepped(_tick: int) -> void:
 	_refresh_roster_status()
 	
 	if not graph_editor.selected_agent_ids.is_empty():
+		# Note: selected_agent_ids now holds Objects, so this is safe
 		var agent = graph_editor.selected_agent_ids[0]
 		_sync_inputs_to_agent(agent)
 		_update_visualization(agent)
@@ -58,7 +61,7 @@ func _on_simulation_reset() -> void:
 		_update_visualization(agent)
 
 # ==============================================================================
-# 2. ROSTER LOGIC
+# 2. ROSTER LOGIC (The Fix)
 # ==============================================================================
 
 func _full_roster_rebuild() -> void:
@@ -77,21 +80,22 @@ func _full_roster_rebuild() -> void:
 
 func _create_agent_row(agent) -> void:
 	var row = HBoxContainer.new()
-	row.name = "Row_%d" % agent.id
+	# Use UUID or Memory Address for unique Node Name to avoid Godot renaming spam
+	row.name = "Row_%s" % [agent.uuid if "uuid" in agent else agent.get_instance_id()]
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	# A. Status Icon
 	var icon = ColorRect.new()
 	icon.custom_minimum_size = Vector2(12, 12)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	if not agent.active: icon.color = Color.RED
-	elif agent.is_finished: icon.color = Color.YELLOW
-	else: icon.color = Color.GREEN
+	_update_icon_color(icon, agent) # Extracted helper
 	row.add_child(icon)
 	
 	# B. Name
 	var lbl = Label.new()
-	lbl.text = "Agent #%d" % agent.id
+	# Use display_id if available, fallback to id
+	var d_id = agent.display_id if "display_id" in agent else agent.id
+	lbl.text = "Agent #%d" % d_id
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
 	
@@ -122,7 +126,9 @@ func _create_agent_row(agent) -> void:
 	row.add_child(btn_edit)
 	
 	roster_list.add_child(row)
-	_roster_map[agent.id] = row
+	
+	# [FIX] Map Key is the OBJECT, not the ID
+	_roster_map[agent] = row
 
 func _select_agent_from_roster(agent) -> void:
 	graph_editor.set_selection_batch([agent.current_node_id], [], true)
@@ -130,8 +136,8 @@ func _select_agent_from_roster(agent) -> void:
 
 func _on_agent_selection_changed(selected_agents: Array) -> void:
 	# 1. Reset Highlight
-	for id in _roster_map:
-		_roster_map[id].modulate = Color.WHITE
+	for a in _roster_map:
+		_roster_map[a].modulate = Color.WHITE
 	
 	if selected_agents.is_empty():
 		# CASE A: No Selection -> Edit Global Template
@@ -147,13 +153,15 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 	# CASE B: Selection -> Edit Specific Agent
 	var primary_agent = selected_agents[0]
 	
-	if _roster_map.has(primary_agent.id):
-		_roster_map[primary_agent.id].modulate = Color(1, 0.8, 0.2)
+	# Direct Object Lookup (Fast & Safe)
+	if _roster_map.has(primary_agent):
+		_roster_map[primary_agent].modulate = Color(1, 0.8, 0.2)
 		
 	_sync_inputs_to_agent(primary_agent)
 	
 	if lbl_edit_mode:
-		lbl_edit_mode.text = "EDITING: Agent #%d" % primary_agent.id
+		var d_id = primary_agent.display_id if "display_id" in primary_agent else primary_agent.id
+		lbl_edit_mode.text = "EDITING: Agent #%d" % d_id
 		lbl_edit_mode.modulate = Color(1, 0.8, 0.2)
 
 	_update_visualization(primary_agent)
@@ -195,7 +203,6 @@ func _sync_inputs_to_agent(agent: AgentWalker) -> void:
 		var field = _active_inputs["target_node"] as LineEdit
 		if field: 
 			field.text = agent.target_node_id
-			# [NEW] Sync Button Visuals (Green/White)
 			SettingsUIBuilder.sync_picker_button(_active_inputs, "action_pick_target", "Target Node", agent.target_node_id)
 
 func _sync_inputs_to_dictionary(data: Dictionary) -> void:
@@ -207,7 +214,6 @@ func _sync_inputs_to_dictionary(data: Dictionary) -> void:
 		
 	if _active_inputs.has("target_node") and data.has("target_node_id"):
 		_active_inputs["target_node"].text = data["target_node_id"]
-		# [NEW] Sync Button Visuals
 		SettingsUIBuilder.sync_picker_button(_active_inputs, "action_pick_target", "Target Node", data["target_node_id"])
 
 func _update_stats() -> void:
@@ -224,31 +230,29 @@ func _on_graph_modified() -> void:
 		_update_visualization(graph_editor.selected_agent_ids[0])
 
 func _refresh_roster_status() -> void:
-	for id in _roster_map:
-		_update_row_visuals(id)
+	# Iterate KEYS (Agents) directly
+	for agent in _roster_map:
+		_update_row_visuals(agent)
 
-func _update_row_visuals(agent_id: int) -> void:
-	if not _roster_map.has(agent_id): return
+# [FIXED] Takes Agent Object, not ID
+func _update_row_visuals(agent) -> void:
+	if not _roster_map.has(agent): return
 	
-	var row = _roster_map[agent_id]
+	var row = _roster_map[agent]
 	var icon = row.get_child(0) as ColorRect
 	var lbl_loc = row.get_child(2) as Label
 	
-	var agent = null
-	for a in graph_editor.graph.agents:
-		if a.id == agent_id:
-			agent = a
-			break
-			
-	if agent:
-		lbl_loc.text = "@ %s" % agent.current_node_id
-		
-		if not agent.active:
-			icon.color = Color.RED
-		elif agent.is_finished:
-			icon.color = Color.YELLOW
-		else:
-			icon.color = Color.GREEN
+	# No loop needed! We have the direct object reference.
+	lbl_loc.text = "@ %s" % agent.current_node_id
+	_update_icon_color(icon, agent)
+
+func _update_icon_color(rect: ColorRect, agent) -> void:
+	if not agent.active:
+		rect.color = Color.RED
+	elif agent.is_finished:
+		rect.color = Color.YELLOW
+	else:
+		rect.color = Color.GREEN
 
 # ==============================================================================
 # 3. BEHAVIOR UI LOGIC
@@ -276,7 +280,7 @@ func _build_behavior_ui() -> void:
 		},
 		{
 			"name": "action_pick_target",
-			"label": "Pick Target Node (None)", # [CHANGE] Default label to match state
+			"label": "Pick Target Node (None)", 
 			"type": TYPE_BOOL, 
 			"hint": "action"   
 		},
@@ -297,7 +301,6 @@ func _on_behavior_changed(key: String, value: Variant) -> void:
 		graph_editor.request_node_pick(_on_target_picked)
 		return
 
-	# [NEW] Sync Button Visuals when Text Field changes manually
 	if key == "target_node":
 		SettingsUIBuilder.sync_picker_button(_active_inputs, "action_pick_target", "Target Node", value)
 
@@ -317,7 +320,6 @@ func _on_target_picked(node_id: String) -> void:
 	if _active_inputs.has("target_node"):
 		var line_edit = _active_inputs["target_node"] as LineEdit
 		line_edit.text = node_id
-		# This triggers _on_behavior_changed -> which triggers _update_visualization AND _sync_picker_button
 		_on_behavior_changed("target_node", node_id)
 		
 	print("Picked Target Node: ", node_id)

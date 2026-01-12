@@ -13,9 +13,14 @@ const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
 # --- ZONES LAYER ---
 @export var zones: Array[GraphZone] = []
 
-# [NEW] AGENT DATA (Integrated Model)
-# This is the "Source of Truth" for all entities in the simulation.
-@export var agents: Array = [] # Type: Array[AgentWalker]
+# [NEW] The Ticket Counter
+# We export it so it saves/loads with the resource!
+@export var agents: Array = [] # Stores AgentWalker objects
+
+# --- ID MANAGEMENT ---
+# The "Ticket Counter" for UI readability (1, 2, 3...)
+# Saved with the graph so numbers don't reset/duplicate on load
+@export var _next_display_id: int = 1
 
 # 2. Spatial partitioning
 var _spatial_grid: SpatialGrid = null
@@ -35,17 +40,6 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 func remove_node(id: String) -> void:
 	if not nodes.has(id):
 		return
-	
-	# [REMOVED] CRITICAL: Do NOT implicitly remove agents here.
-	# Why? Because CmdDeleteNode only knows how to restore the Node.
-	# If we delete agents here silently, Undo will restore the Node 
-	# but the Agents will be gone forever.
-	#
-	# OLD CODE (DELETE THIS):
-	# for i in range(agents.size() - 1, -1, -1):
-	# 	var agent = agents[i]
-	# 	if agent.current_node_id == id:
-	# 		agents.remove_at(i)
 	
 	# Remove from spatial grid first
 	if _spatial_grid != null:
@@ -87,6 +81,30 @@ func get_agents_at_node(node_id: String) -> Array:
 		if agent.current_node_id == node_id:
 			found.append(agent)
 	return found
+
+# --- HELPERS ---
+
+# 1. Frontend: Get a nice number for the UI
+func get_next_display_id() -> int:
+	var id = _next_display_id
+	_next_display_id += 1
+	return id
+
+# 2. Backend: Find agent by UUID (Used during Merging/Loading)
+func get_agent_by_uuid(uuid: String) -> AgentWalker:
+	for agent in agents:
+		if agent.uuid == uuid:
+			return agent
+	return null
+
+# 3. Merging Support (Future Proofing)
+# When importing an agent from another graph, we keep its UUID 
+# but assign it a NEW display_id valid for THIS graph.
+func register_imported_agent(agent: AgentWalker) -> void:
+	# Generate a new local ticket number to avoid collisions
+	agent.display_id = get_next_display_id()
+	agents.append(agent)
+
 # --- Edge Management ---
 
 # Now accepts an optional 'data' dictionary for future expansion
@@ -163,8 +181,6 @@ func get_node_pos(id: String) -> Vector2:
 	if nodes.has(id):
 		return nodes[id].position
 	return Vector2.ZERO
-	
-
 
 # --- Spatial Grid Methods ---
 

@@ -25,8 +25,7 @@ class_name InspectorController
 # 3. DYNAMIC WALKER CONTROLS
 @export_group("Walker Inspector")
 @export var walker_container: VBoxContainer 
-@export var opt_walker_select: OptionButton            
-# [REMOVED] lbl_walker_id is gone
+@export var opt_walker_select: OptionButton
 
 # 4. GROUP CONTROLS
 @export_group("Group Inspector")
@@ -337,39 +336,121 @@ func _update_single_inspector(node_id: String) -> void:
 	_is_updating_ui = false
 
 func _rebuild_walker_ui() -> void:
-	if not _current_walker_ref: return
+	var tracked_count = _tracked_agents.size()
+	if tracked_count == 0: return
 	
-	# 1. Ask Agent for Schema
-	var raw_settings = _current_walker_ref.get_agent_settings()
-	
-	# 2. [NEW] Inject Picker Button into Schema
+	var ref_agent = _tracked_agents[0]
+	var raw_settings = ref_agent.get_agent_settings()
 	var final_settings = []
+
+	# --- 1. THE HEADER (Dynamic & Read-Only) ---
+	var header_text = ""
+	if tracked_count == 1:
+		var d_id = ref_agent.display_id if "display_id" in ref_agent else ref_agent.id
+		# Truncated UUID for verification
+		var uid = ref_agent.uuid.left(6) if "uuid" in ref_agent else "???"
+		header_text = "Agent #%d [%s]" % [d_id, uid]
+	else:
+		header_text = "%d Agents Selected" % tracked_count
+
+	final_settings.append({
+		"name": "identity_display",
+		"label": "Walker Selection", 
+		"type": TYPE_STRING,
+		"default": header_text,
+		"hint": "read_only" 
+	})
+
+	# --- 2. FUTURE STATS (Example of why this system is better) ---
+	# You can easily add more stats here without new Label nodes:
+	if tracked_count == 1:
+		final_settings.append({
+			"name": "status_display",
+			"label": "Current State",
+			"type": TYPE_STRING,
+			"default": "Active" if ref_agent.active else "Paused",
+			"hint": "read_only"
+		})
+
+	# 3. DETECT MIXED VALUES (Including Position)
+	var mixed_keys = {}
+	
+	if tracked_count > 1:
+		for item in raw_settings:
+			var key = item.name
+			# Skip actions/read-only from the check loop
+			if item.get("hint") == "action": continue 
+			
+			var ref_val = _get_agent_value(ref_agent, key)
+			
+			for i in range(1, tracked_count):
+				var other = _tracked_agents[i]
+				var other_val = _get_agent_value(other, key)
+				
+				# Special Check for Vector2 (Position)
+				if key == "pos" and ref_val is Vector2 and other_val is Vector2:
+					if ref_val.distance_squared_to(other_val) > 0.1: # Tolerance check
+						mixed_keys[key] = true
+						break
+				# Standard Check
+				elif str(other_val) != str(ref_val):
+					mixed_keys[key] = true
+					break
+
+	# 4. BUILD SETTINGS LIST
 	for item in raw_settings:
-		# Detect the target_node field
-		if item.name == "target_node":
-			# Add our Picker Action Button right before it
+		var key = item.name
+		var new_item = item.duplicate()
+		
+		# [CHANGED] Dynamic Delete Button Label
+		if key == "action_delete":
+			if tracked_count > 1:
+				new_item["label"] = "Delete %d Agents" % tracked_count
+			else:
+				new_item["label"] = "Delete Agent"
+		
+		# Apply Mixed Flag
+		if mixed_keys.has(key):
+			new_item["mixed"] = true
+		
+		# Inject Picker Button (Target Node)
+		if key == "target_node":
 			final_settings.append({
 				"name": "action_pick_target",
-				"label": "Pick Target Node", # Default Label
+				"label": "Pick Target Node",
 				"type": TYPE_BOOL, 
-				"hint": "action"   
+				"hint": "action",
+				"mixed": mixed_keys.get("target_node", false)
 			})
 			
-		final_settings.append(item)
+		final_settings.append(new_item)
 	
-	# 3. Render
+	# 5. RENDER
 	_walker_inputs = _render_dynamic_section(
 		walker_container, 
 		final_settings, 
 		_on_walker_setting_changed
 	)
 	
-	# 4. [NEW] Sync the Button State immediately
-	# This ensures if the agent already has a target, the button turns green instantly
-	if _current_walker_ref.get("target_node_id"):
-		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", _current_walker_ref.target_node_id)
+	# Sync Picker Button Visuals (only if not mixed)
+	if not mixed_keys.get("target_node", false):
+		var t_node = ref_agent.get("target_node_id")
+		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", t_node)
 	
 	walker_container.visible = true
+
+# Helper to safely get value (Dictionary vs Object)
+func _get_agent_value(agent, key: String):
+	# AgentWalker is an Object, but some scripts might treat it as Dict.
+	# We use 'get()' if available, otherwise direct access is tricky in GDScript without string lookup.
+	# AgentWalker has 'apply_setting' but not a generic 'get_setting'.
+	# We rely on property access.
+	if key == "global_behavior": return agent.behavior_mode
+	if key == "movement_algo": return agent.movement_algo
+	if key == "target_node": return agent.target_node_id
+	if key == "paint_type": return agent.my_paint_type
+	if key in agent: return agent.get(key)
+	return null
 
 func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
@@ -542,21 +623,20 @@ func _on_walker_dropdown_selected(index: int) -> void:
 	var agent = _current_walker_list[index]
 	_activate_walker_visuals(agent)
 
-# Replace the previous implementation of this function:
+
 
 func _activate_walker_visuals(walker_obj) -> void:
 	_current_walker_ref = walker_obj
 	
-	# 1. Build UI
+	# 1. Build Dynamic UI (Identity Display is now handled here)
 	_rebuild_walker_ui()
 	
 	# 2. Visuals (Trails)
 	if walker_obj.has_method("get_history_labels"):
 		graph_editor.set_node_labels(walker_obj.get_history_labels())
 	
-	# 3. [FIX] Markers (Direct Graph Access)
-	# No longer dependent on 'strategy_controller.current_strategy'
-	
+	# 3. Markers (Direct Graph Access)
+	# Collects all active paths from the graph to update visual markers
 	var all_starts: Array[String] = []
 	var all_ends: Array[String] = []
 	
@@ -571,36 +651,30 @@ func _activate_walker_visuals(walker_obj) -> void:
 	graph_editor.set_path_ends(all_ends)
 
 func _on_walker_setting_changed(key: String, value: Variant) -> void:
-	if _current_walker_ref == null: return 
+	if _tracked_agents.is_empty(): return
 
-	# [NEW] PICKER LOGIC
+	# 1. SPECIAL ACTIONS
 	if key == "action_pick_target":
 		graph_editor.request_node_pick(_on_inspector_target_picked)
 		return
 		
-	if key == "target_node":
-		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", value)
-
-	# [NEW] DELETE LOGIC
 	if key == "action_delete":
-		graph_editor.remove_agent(_current_walker_ref)
+		# Batch Delete
+		var list_copy = _tracked_agents.duplicate()
+		for a in list_copy:
+			graph_editor.remove_agent(a)
 		_clear_inspector()
 		graph_editor.clear_selection()
 		return 
 
-	# Standard Update
-	_current_walker_ref.apply_setting(key, value)
-	
-	# Position Snap
-	if key == "pos":
-		var landed = graph_editor.graph.get_node_at_position(value, 1.0)
-		if not landed.is_empty(): _current_walker_ref.current_node_id = landed
-
-	# Dropdown Update
-	if key == "active":
-		var idx = opt_walker_select.selected
-		var status = "" if value else " (Paused)"
-		opt_walker_select.set_item_text(idx, "Agent #%d%s" % [_current_walker_ref.id, status])
+	# 2. BATCH APPLY
+	for agent in _tracked_agents:
+		if agent.has_method("apply_setting"):
+			agent.apply_setting(key, value)
+			
+	# 3. SYNC VISUALS (If needed)
+	if key == "target_node":
+		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", value)
 
 func _on_inspector_target_picked(node_id: String) -> void:
 	if _walker_inputs.has("target_node"):

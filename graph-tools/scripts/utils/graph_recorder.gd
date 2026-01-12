@@ -52,6 +52,15 @@ func remove_agent(agent) -> void:
 	var cmd = CmdRemoveAgent.new(_target_graph, agent)
 	recorded_commands.append(cmd)
 
+# Forward ID requests to the Real Graph.
+# This ensures that even if we are "Recording", we increment the 
+# persistent ticket counter on the actual document immediately.
+func get_next_display_id() -> int:
+	if _target_graph:
+		return _target_graph.get_next_display_id()
+	# Fallback to local if no target (shouldn't happen)
+	return super.get_next_display_id()
+
 # Handle Zone Registration
 func add_zone(zone: GraphZone) -> void:
 	# 1. Update Simulation (So this algorithm sees its own zone immediately)

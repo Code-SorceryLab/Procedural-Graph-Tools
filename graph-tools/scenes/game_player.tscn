@@ -464,7 +464,3 @@ layout_mode = 2
 
 [node name="OptWalkerSelect" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer"]
 layout_mode = 2
-
-[node name="LblWalkerID" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer"]
-layout_mode = 2
-text = "Walker ID: "

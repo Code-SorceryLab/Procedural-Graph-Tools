@@ -48,28 +48,23 @@ func get_settings() -> Array[Dictionary]:
 		
 		var item = s.duplicate()
 		
-		# [NEW] Inject Picker Button for Target Node
+		# Inject Picker Button for Target Node
 		if item.name == "target_node":
-			# Add the button definition first
 			settings.append({
 				"name": "action_pick_target",
 				"type": TYPE_BOOL,
 				"hint": "action",
 				"label": "Pick Target Node",
-				"advanced": true # Keep inside Advanced section
+				"advanced": true 
 			})
-			
-			# Then configure the text field to be advanced
 			item["advanced"] = true
 			item["label"] = "Target Node ID"
 
-		# Define other Advanced Settings
 		elif item.name in ["movement_algo", "active", "snap_to_grid"]:
 			item["advanced"] = true
 			
-		# Enforce Defaults for Generator Feel
 		if item.name == "global_behavior":
-			item.default = 2 # Default to Grow
+			item.default = 2 
 		if item.name == "snap_to_grid":
 			item.default = true
 			
@@ -84,39 +79,36 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 		return null
 		
 	var pos = graph.get_node_pos(node_id)
-	var new_id = graph.agents.size()
 	
-	var agent = AgentWalker.new(new_id, pos, node_id, 2, 50)
+	# [FIX] Use helper to generate IDs
+	var ids = _generate_identity(graph)
+	
+	# 3. Create Agent with 6 arguments
+	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, 2, 50)
+	
 	agent.apply_template_defaults()
-	
 	return agent
 
 # --- EXECUTION ---
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	_session_path.clear()
 	
-	
-	
 	# 1. HANDLE "SPAWN ONLY" ACTION
 	if params.get("spawn_only", false):
 		var target_count = int(params.get("count", 1))
 		var start_node = params.get("start_pos_node", "")
-		
-		# This helper handles creating the "start_0" node if the graph is empty
 		_spawn_initial_population(graph, target_count, params, start_node)
-		return # <--- EXIT HERE (Do not run simulation)
+		return 
 
-	# 2. STANDARD EXECUTION (Spawn if empty, then Run)
+	# 2. STANDARD EXECUTION
 	var step_budget = int(params.get("steps", 50))
 	
 	if graph.agents.is_empty():
-		# Auto-Spawn if board is empty and we hit "Generate"
 		var target_count = int(params.get("count", 1))
 		if target_count > 0:
 			var start_node = params.get("start_pos_node", "")
 			_spawn_initial_population(graph, target_count, params, start_node)
 	else:
-		# Extend existing agents
 		for agent in graph.agents:
 			if agent.active:
 				agent.steps += step_budget
@@ -124,16 +116,11 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 				if agent.branch_randomly:
 					_teleport_to_random_branch_point(graph, agent)
 	
-	# ==============================================================================
-	# 3. RUN SIMULATION (Instant Mode)
-	# ==============================================================================
-	
-	# A. SNAPSHOT BEFORE MOVEMENT
+	# 3. RUN SIMULATION
 	var pre_sim_states = {}
 	for w in graph.agents:
 		pre_sim_states[w.id] = _snapshot_agent(w)
 
-	# B. Determine Max Ticks needed (We use the budget we just set/added)
 	var max_ticks = 0
 	for w in graph.agents:
 		if w.active and w.steps > max_ticks:
@@ -143,12 +130,9 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	for w in graph.agents:
 		effective_starts[w.id] = w.current_node_id
 	
-	# C. Main Loop
 	for tick in range(max_ticks):
 		for w in graph.agents:
 			if w.active and not w.is_finished and w.step_count < w.steps:
-				
-				# Hardcode 'merge_overlaps' to true for the Generator Strategy
 				var step_params = params.duplicate()
 				step_params["merge_overlaps"] = true
 				
@@ -160,7 +144,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					if effective_starts[w.id] == "":
 						effective_starts[w.id] = visited_id
 	
-	# D. SNAPSHOT AFTER MOVEMENT
+	# SNAPSHOT AFTER MOVEMENT
 	for w in graph.agents:
 		if not pre_sim_states.has(w.id): continue
 		var start_state = pre_sim_states[w.id]
@@ -171,9 +155,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 			if "recorded_commands" in graph:
 				graph.recorded_commands.append(cmd)
 
-	# ==============================================================================
 	# 4. COMPILE OUTPUT
-	# ==============================================================================
 	var start_ids = []
 	for uid in effective_starts:
 		if effective_starts[uid] != "": start_ids.append(effective_starts[uid])
@@ -187,6 +169,24 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	params["out_head_nodes"] = head_ids
 
 # --- INTERNAL HELPERS ---
+
+# ID GENERATION HELPER
+# Returns Dictionary { "uuid": String, "display_id": int }
+func _generate_identity(graph_context) -> Dictionary:
+	var new_uuid = GraphSerializer.generate_uuid()
+	var new_display_id = 1
+	
+	# Thanks to the fix in GraphRecorder, we can just call this directly.
+	# It works for both Graph and GraphRecorder now.
+	if graph_context.has_method("get_next_display_id"):
+		new_display_id = graph_context.get_next_display_id()
+	else:
+		# Emergency Fallback
+		var base = 0
+		if "agents" in graph_context: base = graph_context.agents.size()
+		new_display_id = base + 1 + (randi() % 9999)
+		
+	return { "uuid": new_uuid, "display_id": new_display_id }
 
 func _snapshot_agent(agent) -> Dictionary:
 	return {
@@ -204,7 +204,6 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 	var root_id = force_node_id
 	var root_pos = Vector2.ZERO
 	
-	# If no specific node picked, pick random or create origin
 	if root_id == "" or not graph.nodes.has(root_id):
 		if not graph.nodes.is_empty():
 			var keys = graph.nodes.keys()
@@ -224,13 +223,14 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 	
 	# 3. Spawn Agents
 	for i in range(count):
-		# Random start logic (if multiple and no forced start)
 		if force_node_id == "" and not graph.nodes.is_empty() and i > 0:
 			var keys = graph.nodes.keys()
 			root_id = keys[randi() % keys.size()]
 			root_pos = graph.get_node_pos(root_id)
 		
-		var agent = AgentWalker.new(i, root_pos, root_id, default_paint, default_steps)
+		# [FIX] Use Helper + New Constructor Signature
+		var ids = _generate_identity(graph)
+		var agent = AgentWalker.new(ids.uuid, ids.display_id, root_pos, root_id, default_paint, default_steps)
 		
 		for setting in template:
 			var key = setting.name
@@ -243,12 +243,8 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 
 func _teleport_to_random_branch_point(graph: Graph, agent: AgentWalker) -> void:
 	if graph.nodes.is_empty(): return
-	
-	# Pick a random existing node to start a new branch
 	var all_nodes = graph.nodes.keys()
 	var branch_id = all_nodes.pick_random()
 	var branch_pos = graph.get_node_pos(branch_id)
-	
 	agent.warp(branch_pos, branch_id)
-	# Important: Add a history entry so logic that checks "last node" works
 	agent.history.append({ "node": branch_id, "step": agent.step_count })
