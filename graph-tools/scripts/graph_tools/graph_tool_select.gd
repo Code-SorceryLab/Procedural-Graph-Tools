@@ -90,23 +90,43 @@ func handle_input(event: InputEvent) -> void:
 
 # --- HELPER FUNCTIONS ---
 
-# [NEW] Agent Selection Logic
 func _handle_agent_click(agent) -> void:
-	# Check modifiers
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
 	
+	# 1. HANDLE MODIFIERS (Multi-Select)
 	if is_shift or is_ctrl:
-		# TODO: Multi-agent selection logic if needed. 
-		# For now, we support single select or switching focus.
-		pass
-	
-	# Standard Click:
-	# 1. Select the Node (Required for Inspector Context)
+		# Copy the current list of selected OBJECTS
+		var current_selection = _editor.selected_agent_ids.duplicate()
+		
+		# A. Toggle Logic (Ctrl)
+		if is_ctrl:
+			if agent in current_selection:
+				current_selection.erase(agent)
+				_editor.set_agent_selection(current_selection, false)
+			else:
+				current_selection.append(agent)
+				_editor.set_agent_selection(current_selection, false)
+				
+		# B. Additive Logic (Shift)
+		elif is_shift:
+			if not agent in current_selection:
+				current_selection.append(agent)
+				_editor.set_agent_selection(current_selection, false)
+
+		# C. Sync Node Selection (Optional Polish)
+		# Usually, if you select an agent, you want its node selected too so you don't lose context.
+		if is_shift:
+			_editor.add_to_selection(agent.current_node_id)
+			
+		return # Stop here to avoid the exclusive block below
+
+	# 2. STANDARD CLICK (Exclusive)
+	# Select the Node (Required for Inspector Context)
 	_editor.set_selection_batch([agent.current_node_id], [], true)
 	
-	# 2. Select the Agent (Visuals + Specific Inspector UI)
-	# Pass 'false' to KEEP the node selection active
+	# Select the Agent (Visuals + Specific Inspector UI)
+	# Pass 'false' to KEEP the node selection active we just set
 	_editor.set_agent_selection([agent], false)
 	
 	# 3. Open Inspector

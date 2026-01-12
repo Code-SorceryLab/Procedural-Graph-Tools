@@ -108,51 +108,70 @@ func _on_click_action(_pos: Vector2) -> void:
 
 # --- BOX SELECTION (UPDATED) ---
 func _on_box_selection(rect: Rect2) -> void:
-	# 1. Transform Coords
+	# 1. Convert Rect
 	var global_tl = rect.position
 	var global_br = rect.end
 	var local_tl = _editor.renderer.to_local(global_tl)
 	var local_br = _editor.renderer.to_local(global_br)
 	var local_rect = Rect2(local_tl, local_br - local_tl).abs()
 	
-	# 2. Get Agents in Box
-	var agents_in_area = _editor.renderer.get_agents_in_visual_rect(local_rect)
+	# 2. Find Agents in Box
+	var agents_in_box = _editor.renderer.get_agents_in_visual_rect(local_rect)
 	
-	# Clear Pre-selection visuals
 	_editor.renderer.pre_selected_agents_ref = []
 	_editor.renderer.queue_redraw()
 	
-	# 3. Apply Logic
-	if not agents_in_area.is_empty():
-		if _current_mode == Mode.DELETE:
-			for agent in agents_in_area:
-				_editor.remove_agent(agent)
+	if _current_mode == Mode.DELETE:
+		# ... (Delete logic same as before)
+		if not agents_in_box.is_empty():
+			for a in agents_in_box: _editor.remove_agent(a)
 			_editor.clear_selection()
 			_update_markers()
-			_show_status("Deleted %d Agents." % agents_in_area.size())
 			
-		else: # SELECT or CREATE modes
-			# [FIX] Exclusive Agent Box Selection
-			# We explicitly DO NOT select nodes here.
+	else: # SELECT MODE
+		var is_shift = Input.is_key_pressed(KEY_SHIFT)
+		var is_ctrl = Input.is_key_pressed(KEY_CTRL)
+		
+		# [FIX] Empty Box Logic
+		if agents_in_box.is_empty():
+			# If checking empty space without modifiers, clear selection
+			if not is_shift and not is_ctrl:
+				_editor.clear_selection()
+				_editor.set_agent_selection([], false)
+			return
+
+		# [FIX] Multi-Select Logic
+		var final_selection = []
+		
+		if is_ctrl:
+			# SUBTRACT: Start with EVERYTHING we currently have
+			final_selection = _get_selected_agent_objects()
 			
-			var additive = Input.is_key_pressed(KEY_SHIFT)
+			# Remove items found in the box
+			for agent in agents_in_box:
+				if agent in final_selection:
+					final_selection.erase(agent)
+					
+		elif is_shift:
+			# ADD: Start with EVERYTHING we currently have
+			final_selection = _get_selected_agent_objects()
 			
-			if not additive:
-				# Clear previous selection if not holding shift
-				_editor.clear_selection()       # Clear Nodes
-				_editor.set_agent_selection([], false) # Clear Agents
-			
-			# Select only the agents found
-			_editor.set_agent_selection(agents_in_area, true) 
-			
-			_show_status("Selected %d Agents." % agents_in_area.size())
-			
-			if _editor.has_signal("request_inspector_view"):
-				_editor.request_inspector_view.emit()
-	else:
-		if not Input.is_key_pressed(KEY_SHIFT):
-			_editor.clear_selection()
-			_editor.set_agent_selection([])
+			# Add items found in the box (avoid duplicates)
+			for agent in agents_in_box:
+				if not agent in final_selection:
+					final_selection.append(agent)
+					
+		else:
+			# REPLACE: Only what is in the box
+			_editor.clear_selection() # Clear nodes
+			final_selection = agents_in_box
+
+		# Apply
+		_editor.set_agent_selection(final_selection, false)
+		_show_status("Selected %d Agents." % final_selection.size())
+		
+		if _editor.has_signal("request_inspector_view"):
+			_editor.request_inspector_view.emit()
 
 # --- MODE LOGIC ---
 
@@ -160,7 +179,7 @@ func _cycle_mode() -> void:
 	_current_mode = (_current_mode + 1) % 3
 	_update_status_display()
 	
-	# [NEW] Clear highlight immediately on mode switch
+	# Clear highlight immediately on mode switch
 	_editor.tool_overlay_rect = Rect2()
 
 func _update_status_display() -> void:
@@ -199,96 +218,83 @@ func _spawn_under_mouse() -> void:
 func _select_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
 	
-	var additive = Input.is_key_pressed(KEY_SHIFT)
-	var subtractive = Input.is_key_pressed(KEY_CTRL) # [NEW] Ctrl support
+	var is_shift = Input.is_key_pressed(KEY_SHIFT)
+	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
 	
-	# 1. Check Agent Hit
 	var global_mouse = _editor.get_global_mouse_position()
 	var local_pos = _editor.renderer.to_local(global_mouse)
 	var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
 	
 	if hit_agent:
-		# --- AGENT LOGIC ---
+		# Use the list directly since it holds Objects
+		var current_selection = _editor.selected_agent_ids.duplicate()
+		var is_already_selected = hit_agent in current_selection
 		
-		# CASE A: Subtract (Ctrl+Click)
-		if subtractive:
-			# We need to manually calculate the new list
-			var current_selection = _editor.selected_agent_ids.duplicate() # Assuming editor tracks IDs or Agents
-			# If editor tracks objects directly, use that list. 
-			# Assuming generic set_agent_selection takes objects:
-			var new_list = []
-			# (Pseudo-code depending on how your Editor tracks selection. 
-			#  If it relies on IDs, we filter IDs. If objects, objects.)
-			#  Let's assume standard behavior:
-			_editor.set_agent_selection([hit_agent], false) # This might be tricky if subtract isn't native.
-			# Simpler Subtraction:
-			# If your system supports "toggle", use that. 
-			# Otherwise, we assume the user just wants to deselect this one.
-			# For now, let's treat Ctrl as "Toggle Off" by re-selecting everyone else?
-			# Actually, most Godot tools handle this inside the Editor class. 
-			# If not, let's stick to standard "Replace" or "Add".
-			pass 
-			
-		# [FIX] Standard Logic handling
-		if additive:
-			# Shift+Click: Add this agent to existing
-			_editor.set_agent_selection([hit_agent], true)
-			
-		elif subtractive:
-			# Ctrl+Click: Remove this agent
-			# We pass 'false' for additive, but we need the list WITHOUT this agent.
-			# Since that's complex to fetch from here, a UI standard is often:
-			# Ctrl+Click acts as Toggle. 
-			# For this implementation, let's just make Ctrl behave like Additive 
-			# but implied 'toggle' if your underlying system supports it.
-			# If not, let's just stick to Additive for now to ensure stability, 
-			# or implement a specific 'deselect' call if available.
-			# _editor.deselect_agent(hit_agent) # Ideal if exists
-			pass 
+		if is_ctrl:
+			# SUBTRACT / TOGGLE
+			if is_already_selected:
+				current_selection.erase(hit_agent)
+				_editor.set_agent_selection(current_selection, false)
+				_show_status("Deselected Agent #%d" % hit_agent.id)
+			else:
+				current_selection.append(hit_agent)
+				_editor.set_agent_selection(current_selection, false)
+				_show_status("Added Agent #%d" % hit_agent.id)
+				
+		elif is_shift:
+			# ADDITIVE
+			if not is_already_selected:
+				current_selection.append(hit_agent)
+				_editor.set_agent_selection(current_selection, false)
+				_show_status("Added Agent #%d" % hit_agent.id)
 
 		else:
-			# Normal Click: Exclusive Select
-			# 1. [CRITICAL FIX] Clear everything FIRST
-			_editor.clear_selection()      # Clears Nodes
-			_editor.set_agent_selection([], false) # Clears Agents
-			
-			# 2. THEN Select the Agent
+			# EXCLUSIVE (Normal Click)
+			_editor.clear_selection()
 			_editor.set_agent_selection([hit_agent], false)
-			
-		_show_status("Selected Agent #%d" % hit_agent.id)
+			_show_status("Selected Agent #%d" % hit_agent.id)
 		
-		# Force Inspector Update
 		if _editor.has_signal("request_inspector_view"):
 			_editor.request_inspector_view.emit()
 		return
 
+	# ... (Node Selection Logic follows below - kept same as previous) ...
 	# 2. Check Node Hit (Fallback)
 	var id = _get_node_at_pos(global_mouse)
-	
 	if id != "":
-		# --- NODE LOGIC ---
-		if additive:
-			_editor.set_selection_batch([id], [], true)
-		elif subtractive:
-			# Implement node deselect if needed
-			pass
-		else:
-			# Normal Click: Exclusive Node
-			_editor.set_agent_selection([], false) # Clear Agents FIRST
-			_editor.clear_selection()      # Clear other Nodes
-			_editor.set_selection_batch([id], [], false)
+		# Ensure we clear agent selection if clicking a node without modifiers
+		if not is_shift and not is_ctrl:
+			_editor.set_agent_selection([], false)
+			_editor.clear_selection()
 			
-		_show_status("Selected Node %s" % id)
-		
-		if _editor.has_signal("request_inspector_view"):
-			_editor.request_inspector_view.emit()
+		# Standard Node selection logic...
+		if is_shift: _editor.add_to_selection(id)
+		elif is_ctrl: _editor.toggle_selection(id)
+		else: _editor.set_selection_batch([id], [], false)
 		return
 
 	# 3. Background Click
-	if not additive and not subtractive:
+	if not is_shift and not is_ctrl:
 		_editor.clear_selection()
-		_editor.set_agent_selection([])
+		_editor.set_agent_selection([], false)
 		_show_status("Selection Cleared.")
+
+# --- HELPER ---
+# --- HELPER: Get Actual Objects ---
+func _get_selected_agent_objects() -> Array:
+	var list = []
+	if not _editor or not _editor.graph: return list
+	
+	# If nothing is selected, return empty immediately
+	if _editor.selected_agent_ids.is_empty():
+		return list
+		
+	for agent in _editor.graph.agents:
+		# Check if this agent's ID is in the selected list
+		if agent.id in _editor.selected_agent_ids:
+			list.append(agent)
+			
+	return list
 
 func _delete_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
