@@ -17,24 +17,23 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 		var hint_string = setting.get("hint_string", "")
 		var options_str = setting.get("options", "")
 		
-		# [CHANGE 1] Create a "Row" container for this setting
+		# Create Row Container
 		var row = HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		container.add_child(row) # Add row to main container
+		container.add_child(row)
 		
 		# --- 1. LABEL ---
-		# Skip Label for Actions (Buttons usually describe themselves)
 		if hint_text != "action":
 			var label = Label.new()
 			label.text = setting.get("label", key.capitalize())
-			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL # Push input to right
-			label.size_flags_stretch_ratio = 0.4 # Takes up 40% of width
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+			label.size_flags_stretch_ratio = 0.4 
 			
 			if hint_text != "" and hint_text != "enum":
 				label.tooltip_text = hint_text
 				label.mouse_filter = Control.MOUSE_FILTER_STOP
 			
-			row.add_child(label) # Add to ROW, not container
+			row.add_child(label) 
 		
 		# --- 2. CONTROL ---
 		var control: Control
@@ -117,10 +116,8 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 				control.tooltip_text = hint_text
 			
 			control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			control.size_flags_stretch_ratio = 0.6 # Takes up 60% of width
-			row.add_child(control) # Add to ROW
-			
-			# Register map
+			control.size_flags_stretch_ratio = 0.6 
+			row.add_child(control) 
 			active_inputs[key] = control
 			
 	return active_inputs
@@ -160,3 +157,17 @@ static func connect_live_updates(active_inputs: Dictionary, callback: Callable) 
 			spin_y.value_changed.connect(func(val): callback.call(key, Vector2(spin_x.value, val)))
 		elif control is Button:
 			control.pressed.connect(func(): callback.call(key, true))
+
+# --- REUSABLE COMPONENT LOGIC ---
+static func sync_picker_button(active_inputs: Dictionary, btn_key: String, label_prefix: String, value: Variant) -> void:
+	if active_inputs.has(btn_key):
+		var btn = active_inputs[btn_key] as Button
+		if btn:
+			if str(value) == "":
+				# Default State
+				btn.text = "Pick %s (Random/None)" % label_prefix
+				btn.modulate = Color.WHITE
+			else:
+				# Selected State
+				btn.text = "%s: %s" % [label_prefix, value]
+				btn.modulate = Color(0.7, 1.0, 0.7) # Green Tint

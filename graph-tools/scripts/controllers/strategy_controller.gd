@@ -19,8 +19,8 @@ func _exit_tree() -> void:
 @export var settings_container: Control 
 
 @export var debug_depth_chk: CheckBox
-@export var grow_btn: Button      # [MAPPED]: "Extend Branch"
-@export var generate_btn: Button  # [MAPPED]: "Create New Graph"
+@export var grow_btn: Button      # "Extend Branch"
+@export var generate_btn: Button  # "Create New Graph"
 @export var clear_btn: Button
 @export var spawn_btn: Button
 @export var clear_agents_btn: Button # "Clear Agents Only"
@@ -60,8 +60,6 @@ func _ready() -> void:
 		clear_agents_btn.pressed.connect(_on_clear_agents_pressed)
 	
 	debug_depth_chk.toggled.connect(_on_debug_depth_toggled)
-
-	
 	
 	if strategies.size() > 0:
 		_on_algo_selected(0)
@@ -144,29 +142,41 @@ func _update_button_states() -> void:
 # --- HANDLER FOR ACTIONS ---
 
 func _on_live_setting_changed(key: String, value: Variant) -> void:
-	# If behavior changes (e.g. Grow -> Paint), update buttons immediately
+	# 1. Update Buttons if Behavior Mode changes (Grow vs Paint)
 	if key == "global_behavior":
 		_update_button_states()
 
-	# Picker Logic
+	# --- START NODE PICKER ---
 	if key == "action_pick_node":
-		graph_editor.request_node_pick(_on_node_picked)
+		graph_editor.request_node_pick(_on_start_node_picked)
 		return
-		
-	# Legacy "Clear All" Logic
-	if key == "action_clear_all" and current_strategy is StrategyWalker:
-		var agents_to_nuke = graph_editor.graph.agents.duplicate()
-		for agent in agents_to_nuke:
-			graph_editor.remove_agent(agent)
-		graph_editor.set_path_ends([])
-		graph_editor.set_path_starts([])
 
-func _on_node_picked(node_id: String) -> void:
-	if _active_inputs.has("target_node"):
-		_active_inputs["target_node"].text = node_id
+	if key == "start_pos_node":
+		SettingsUIBuilder.sync_picker_button(_active_inputs, "action_pick_node", "Start Node", value)
+
+	# --- TARGET NODE PICKER ---
+	if key == "action_pick_target":
+		graph_editor.request_node_pick(_on_target_node_picked)
+		return
+
+	if key == "target_node":
+		SettingsUIBuilder.sync_picker_button(_active_inputs, "action_pick_target", "Target Node", value)
+
+func _on_start_node_picked(node_id: String) -> void:
 	if _active_inputs.has("start_pos_node"):
 		_active_inputs["start_pos_node"].text = node_id
+		# Trigger sync manually
+		_on_live_setting_changed("start_pos_node", node_id)
+		print("StrategyController: Set Start Node -> ", node_id)
 
+func _on_target_node_picked(node_id: String) -> void:
+	if _active_inputs.has("target_node"):
+		_active_inputs["target_node"].text = node_id
+		# Trigger sync manually
+		_on_live_setting_changed("target_node", node_id)
+		print("StrategyController: Set Target Node -> ", node_id)
+
+# --- HELPER WRAPPER ---
 func _collect_params() -> Dictionary:
 	return SettingsUIBuilder.collect_params(_active_inputs)
 
@@ -177,10 +187,7 @@ func _on_create_new_pressed() -> void:
 	var params = _collect_params()
 	
 	if current_strategy is StrategyWalker:
-		# Explicitly wipe everything first
 		graph_editor.clear_graph()
-		# StrategyWalker.execute will see empty agents and trigger a Spawn
-	
 	elif current_strategy.reset_on_generate:
 		graph_editor.clear_graph()
 		
@@ -189,32 +196,27 @@ func _on_create_new_pressed() -> void:
 # Button 1: "Extend Branch" (Additive)
 func _on_extend_pressed() -> void:
 	var params = _collect_params()
-	# We pass a flag, though Walker logic handles "Existing Agents" automatically
 	params["append"] = true 
 	graph_editor.apply_strategy(current_strategy, params)
 
 func _on_clear_pressed() -> void:
 	graph_editor.clear_graph()
 
-# [NEW] Button 3: "Spawn Agents" (Additive, No Sim)
+# Button 3: "Spawn Agents" (Additive, No Sim)
 func _on_spawn_pressed() -> void:
 	var params = _collect_params()
 	params["spawn_only"] = true
 	graph_editor.apply_strategy(current_strategy, params)
 
-# [NEW] Button 4: "Clear Agents" (Destructive, Agents Only)
+# Button 4: "Clear Agents" (Destructive, Agents Only)
 func _on_clear_agents_pressed() -> void:
 	if not graph_editor or graph_editor.graph.agents.is_empty():
 		return
 		
-	# We iterate a duplicate array so we can modify the original safely
 	var agents_to_nuke = graph_editor.graph.agents.duplicate()
-	
-	# Using remove_agent ensures the action is added to the Undo Stack
 	for agent in agents_to_nuke:
 		graph_editor.remove_agent(agent)
 	
-	# Clear visual markers
 	graph_editor.set_path_ends([])
 	graph_editor.set_path_starts([])
 	

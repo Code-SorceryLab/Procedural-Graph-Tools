@@ -13,7 +13,7 @@ var start_node_id: String
 var step_count: int = 0 
 var history: Array[Dictionary] = [] 
 
-# [NEW] THE BRAIN
+# THE BRAIN
 var brain: AgentBehavior
 
 # --- CONFIGURATION (Data for the Brain) ---

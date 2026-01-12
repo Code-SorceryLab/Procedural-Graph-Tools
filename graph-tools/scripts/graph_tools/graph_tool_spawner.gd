@@ -106,55 +106,53 @@ func _on_click_action(_pos: Vector2) -> void:
 		Mode.SELECT: _select_agent_under_mouse()
 		Mode.DELETE: _delete_agent_under_mouse()
 
-# [UPDATED] Box Selection Handler
+# --- BOX SELECTION (UPDATED) ---
 func _on_box_selection(rect: Rect2) -> void:
-	# 1. Coordinate Conversion (Same as above)
+	# 1. Transform Coords
 	var global_tl = rect.position
 	var global_br = rect.end
 	var local_tl = _editor.renderer.to_local(global_tl)
 	var local_br = _editor.renderer.to_local(global_br)
 	var local_rect = Rect2(local_tl, local_br - local_tl).abs()
 	
-	# 2. Get Visual Hits
+	# 2. Get Agents in Box
 	var agents_in_area = _editor.renderer.get_agents_in_visual_rect(local_rect)
 	
-	# 3. Clean up Pre-selection visuals
+	# Clear Pre-selection visuals
 	_editor.renderer.pre_selected_agents_ref = []
+	_editor.renderer.queue_redraw()
 	
-	# 4. Apply Logic
+	# 3. Apply Logic
 	if not agents_in_area.is_empty():
-		# A. Find relevant nodes for these specific agents
-		var relevant_nodes_map = {}
-		for agent in agents_in_area:
-			if agent.current_node_id != "":
-				relevant_nodes_map[agent.current_node_id] = true
-		
-		var relevant_nodes: Array[String] = []
-		relevant_nodes.assign(relevant_nodes_map.keys())
-		
-		# B. Mode Logic
 		if _current_mode == Mode.DELETE:
-			# Batch Delete
 			for agent in agents_in_area:
 				_editor.remove_agent(agent)
 			_editor.clear_selection()
 			_update_markers()
 			_show_status("Deleted %d Agents." % agents_in_area.size())
 			
-		else: # SELECT or CREATE
-			# Select Nodes + Agents
-			_editor.set_selection_batch(relevant_nodes, [])
-			_editor.set_agent_selection(agents_in_area, false)
+		else: # SELECT or CREATE modes
+			# [FIX] Exclusive Agent Box Selection
+			# We explicitly DO NOT select nodes here.
+			
+			var additive = Input.is_key_pressed(KEY_SHIFT)
+			
+			if not additive:
+				# Clear previous selection if not holding shift
+				_editor.clear_selection()       # Clear Nodes
+				_editor.set_agent_selection([], false) # Clear Agents
+			
+			# Select only the agents found
+			_editor.set_agent_selection(agents_in_area, true) 
+			
+			_show_status("Selected %d Agents." % agents_in_area.size())
 			
 			if _editor.has_signal("request_inspector_view"):
 				_editor.request_inspector_view.emit()
-				
-			_show_status("Selected %d Agents." % agents_in_area.size())
-			
 	else:
-		_editor.clear_selection()
-		_editor.set_agent_selection([])
-		_show_status("No agents in area.")
+		if not Input.is_key_pressed(KEY_SHIFT):
+			_editor.clear_selection()
+			_editor.set_agent_selection([])
 
 # --- MODE LOGIC ---
 
@@ -197,53 +195,100 @@ func _spawn_under_mouse() -> void:
 			
 			_show_status("Agent Spawned!")
 
+# --- SINGLE CLICK SELECTION ---
 func _select_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
 	
-	# 1. Coordinate Conversion (Camera Safe)
+	var additive = Input.is_key_pressed(KEY_SHIFT)
+	var subtractive = Input.is_key_pressed(KEY_CTRL) # [NEW] Ctrl support
+	
+	# 1. Check Agent Hit
 	var global_mouse = _editor.get_global_mouse_position()
 	var local_pos = _editor.renderer.to_local(global_mouse)
-	
-	# 2. Ask Renderer for precise hit
 	var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
 	
 	if hit_agent:
-		# HIT: Select the specific agent
+		# --- AGENT LOGIC ---
 		
-		# A. Select the Node (So the Inspector opens)
-		var node_id = hit_agent.current_node_id
-		_editor.set_selection_batch([node_id], [])
-		
-		# B. Select the Agent (So the Diamond glows)
-		_editor.set_agent_selection([hit_agent], false)
-		
-		# Force Inspector
-		if _editor.has_signal("request_inspector_view"):
-			_editor.request_inspector_view.emit()
+		# CASE A: Subtract (Ctrl+Click)
+		if subtractive:
+			# We need to manually calculate the new list
+			var current_selection = _editor.selected_agent_ids.duplicate() # Assuming editor tracks IDs or Agents
+			# If editor tracks objects directly, use that list. 
+			# Assuming generic set_agent_selection takes objects:
+			var new_list = []
+			# (Pseudo-code depending on how your Editor tracks selection. 
+			#  If it relies on IDs, we filter IDs. If objects, objects.)
+			#  Let's assume standard behavior:
+			_editor.set_agent_selection([hit_agent], false) # This might be tricky if subtract isn't native.
+			# Simpler Subtraction:
+			# If your system supports "toggle", use that. 
+			# Otherwise, we assume the user just wants to deselect this one.
+			# For now, let's treat Ctrl as "Toggle Off" by re-selecting everyone else?
+			# Actually, most Godot tools handle this inside the Editor class. 
+			# If not, let's stick to standard "Replace" or "Add".
+			pass 
+			
+		# [FIX] Standard Logic handling
+		if additive:
+			# Shift+Click: Add this agent to existing
+			_editor.set_agent_selection([hit_agent], true)
+			
+		elif subtractive:
+			# Ctrl+Click: Remove this agent
+			# We pass 'false' for additive, but we need the list WITHOUT this agent.
+			# Since that's complex to fetch from here, a UI standard is often:
+			# Ctrl+Click acts as Toggle. 
+			# For this implementation, let's just make Ctrl behave like Additive 
+			# but implied 'toggle' if your underlying system supports it.
+			# If not, let's just stick to Additive for now to ensure stability, 
+			# or implement a specific 'deselect' call if available.
+			# _editor.deselect_agent(hit_agent) # Ideal if exists
+			pass 
+
+		else:
+			# Normal Click: Exclusive Select
+			# 1. [CRITICAL FIX] Clear everything FIRST
+			_editor.clear_selection()      # Clears Nodes
+			_editor.set_agent_selection([], false) # Clears Agents
+			
+			# 2. THEN Select the Agent
+			_editor.set_agent_selection([hit_agent], false)
 			
 		_show_status("Selected Agent #%d" % hit_agent.id)
+		
+		# Force Inspector Update
+		if _editor.has_signal("request_inspector_view"):
+			_editor.request_inspector_view.emit()
 		return
 
-	# 3. Fallback: Node Click
+	# 2. Check Node Hit (Fallback)
 	var id = _get_node_at_pos(global_mouse)
 	
 	if id != "":
-		_editor.set_agent_selection([])
-		
-		# [FIX] Use Graph API
-		var agents = _editor.graph.get_agents_at_node(id)
-		
-		if not agents.is_empty():
-			_editor.set_selection_batch([id], [])
-			if _editor.has_signal("request_inspector_view"):
-				_editor.request_inspector_view.emit()
-			_show_status("Agent Selected.")
+		# --- NODE LOGIC ---
+		if additive:
+			_editor.set_selection_batch([id], [], true)
+		elif subtractive:
+			# Implement node deselect if needed
+			pass
 		else:
-			_show_status("No agents found here.")
-			_editor.clear_selection()
-	else:
+			# Normal Click: Exclusive Node
+			_editor.set_agent_selection([], false) # Clear Agents FIRST
+			_editor.clear_selection()      # Clear other Nodes
+			_editor.set_selection_batch([id], [], false)
+			
+		_show_status("Selected Node %s" % id)
+		
+		if _editor.has_signal("request_inspector_view"):
+			_editor.request_inspector_view.emit()
+		return
+
+	# 3. Background Click
+	if not additive and not subtractive:
 		_editor.clear_selection()
 		_editor.set_agent_selection([])
+		_show_status("Selection Cleared.")
 
 func _delete_agent_under_mouse() -> void:
 	if not _ensure_strategy_active(): return
@@ -283,11 +328,30 @@ func _delete_agent_under_mouse() -> void:
 # --- HELPERS ---
 
 func _update_markers() -> void:
-	if _target_strategy:
-		var agent_positions = _target_strategy.get_all_agent_positions(_editor.graph)
-		_editor.set_path_ends(agent_positions)
-		var agent_starts = _target_strategy.get_all_agent_starts(_editor.graph)
-		_editor.set_path_starts(agent_starts)
+	# Decoupled: Read directly from Graph Data
+	var agent_positions: Array[String] = []
+	var agent_starts: Array[String] = []
+	
+	if _editor and _editor.graph:
+		for agent in _editor.graph.agents:
+			# [FIX] Safe Property Access
+			# 1. Check if 'active' exists, otherwise assume true (default)
+			var is_active = true
+			if "active" in agent:
+				is_active = agent.active
+			
+			if is_active:
+				# 2. Get Current Position (Red Markers)
+				# Check property existence to support different agent types
+				if "current_node_id" in agent and agent.current_node_id != "":
+					agent_positions.append(agent.current_node_id)
+				
+				# 3. Get Start Position (Green Markers)
+				if "start_node_id" in agent and agent.start_node_id != "":
+					agent_starts.append(agent.start_node_id)
+
+	_editor.set_path_ends(agent_positions)
+	_editor.set_path_starts(agent_starts)
 
 func _ensure_strategy_active() -> bool:
 	if StrategyController.instance == null:

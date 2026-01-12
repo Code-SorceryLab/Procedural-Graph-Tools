@@ -27,7 +27,7 @@ func get_settings() -> Array[Dictionary]:
 		"name": "action_pick_node", 
 		"type": TYPE_BOOL, 
 		"hint": "action", 
-		"label": "Pick Start Node" 
+		"label": "Pick Start Node (Random)" 
 	})
 	
 	settings.append({ 
@@ -35,34 +35,45 @@ func get_settings() -> Array[Dictionary]:
 		"type": TYPE_STRING, 
 		"default": "", 
 		"label": "Start Node ID",
-		"hint": "Agents will spawn here. Leave empty for random start."
+		"hint": "Agents will spawn here. Leave empty for random start.",
+		"advanced": true 
 	})
 	
 	# 2. Agent Template Settings (With Advanced Filters)
 	var raw_template = AgentWalker.get_template_settings()
 	
 	for s in raw_template:
+		# Skip obsolete merge toggle
+		if s.name == "merge_overlaps": continue 
+		
 		var item = s.duplicate()
 		
-		# Define what is "Advanced" (Hidden by default)
-		if item.name in ["movement_algo", "target_node", "active", "snap_to_grid"]:
+		# [NEW] Inject Picker Button for Target Node
+		if item.name == "target_node":
+			# Add the button definition first
+			settings.append({
+				"name": "action_pick_target",
+				"type": TYPE_BOOL,
+				"hint": "action",
+				"label": "Pick Target Node",
+				"advanced": true # Keep inside Advanced section
+			})
+			
+			# Then configure the text field to be advanced
+			item["advanced"] = true
+			item["label"] = "Target Node ID"
+
+		# Define other Advanced Settings
+		elif item.name in ["movement_algo", "active", "snap_to_grid"]:
 			item["advanced"] = true
 			
 		# Enforce Defaults for Generator Feel
 		if item.name == "global_behavior":
-			item.default = 2 # Default to Grow (was 0/Hold)
+			item.default = 2 # Default to Grow
 		if item.name == "snap_to_grid":
 			item.default = true
 			
 		settings.append(item)
-	
-	# 3. Strategy Actions
-	settings.append({ 
-		"name": "action_clear_all", 
-		"type": TYPE_BOOL, 
-		"hint": "action", 
-		"label": "Clear All Agents" 
-	})
 	
 	return settings
 
@@ -84,12 +95,9 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	_session_path.clear()
 	
-	# 1. Handle "Clear All" Action
-	if params.get("action_clear_all", false):
-		graph.agents.clear()
-		return
 	
-	# 2. [NEW] HANDLE "SPAWN ONLY" ACTION
+	
+	# 1. HANDLE "SPAWN ONLY" ACTION
 	if params.get("spawn_only", false):
 		var target_count = int(params.get("count", 1))
 		var start_node = params.get("start_pos_node", "")
@@ -98,7 +106,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 		_spawn_initial_population(graph, target_count, params, start_node)
 		return # <--- EXIT HERE (Do not run simulation)
 
-	# 3. STANDARD EXECUTION (Spawn if empty, then Run)
+	# 2. STANDARD EXECUTION (Spawn if empty, then Run)
 	var step_budget = int(params.get("steps", 50))
 	
 	if graph.agents.is_empty():
@@ -117,7 +125,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					_teleport_to_random_branch_point(graph, agent)
 	
 	# ==============================================================================
-	# 4. RUN SIMULATION (Instant Mode)
+	# 3. RUN SIMULATION (Instant Mode)
 	# ==============================================================================
 	
 	# A. SNAPSHOT BEFORE MOVEMENT
@@ -164,7 +172,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 				graph.recorded_commands.append(cmd)
 
 	# ==============================================================================
-	# 5. COMPILE OUTPUT
+	# 4. COMPILE OUTPUT
 	# ==============================================================================
 	var start_ids = []
 	for uid in effective_starts:

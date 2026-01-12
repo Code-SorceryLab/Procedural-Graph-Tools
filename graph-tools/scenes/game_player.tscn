@@ -48,7 +48,7 @@ behavior_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabC
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/LblStats")
 lbl_edit_mode = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/LblEditMode")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_walker_id", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
@@ -64,7 +64,6 @@ lbl_edges = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Ins
 lbl_neighbors = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/LblNeighbors")
 walker_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer")
 opt_walker_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/OptWalkerSelect")
-lbl_walker_id = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/LblWalkerID")
 lbl_group_count = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupCount")
 lbl_group_center = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupCenter")
 lbl_group_bounds = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupBounds")
