@@ -449,7 +449,31 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
+# [NEW] Generic Edge Property Setter
+func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
+	if not graph.has_edge(id_a, id_b): return
+	
+	# 1. Capture Old State for Undo
+	var current_data = graph.get_edge_data(id_a, id_b)
+	var old_value = current_data.get(key)
+	
+	# 2. Optimization: Don't spam commands if nothing changed
+	if str(value) == str(old_value): return
+	
+	# 3. Create & Commit
+	var cmd = CmdSetEdgeProperty.new(graph, id_a, id_b, key, value, old_value)
+	_commit_command(cmd)
 
+# Helper to get edge property regardless of direction
+func get_edge_property(id_a: String, id_b: String, key: String, default: Variant = null) -> Variant:
+	if graph.has_edge(id_a, id_b):
+		var d = graph.get_edge_data(id_a, id_b)
+		return d.get(key, default)
+	elif graph.has_edge(id_b, id_a):
+		# Fallback to reverse if bi-directional (symmetric data)
+		var d = graph.get_edge_data(id_b, id_a)
+		return d.get(key, default)
+	return default
 
 # --- TRANSACTION MANAGEMENT ---
 

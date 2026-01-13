@@ -175,113 +175,136 @@ func _get_edge_inspector_schema() -> Array:
 	if _tracked_edges.is_empty(): return []
 	var graph = graph_editor.graph
 	
-	# --- CASE A: SINGLE EDGE ---
-	if _tracked_edges.size() == 1:
-		var pair = _tracked_edges[0]
-		var id_a = pair[0] # Alphabetically first
-		var id_b = pair[1] # Alphabetically second
+	# 1. SETUP REFERENCE (Use the first selected edge as the "Truth")
+	var first_pair = _tracked_edges[0]
+	var u = first_pair[0]
+	var v = first_pair[1]
+	
+	# Fetch Physical Data
+	# We check both directions to ensure we get a valid weight
+	var ref_weight = 1.0
+	if graph.has_edge(u, v): ref_weight = graph.get_edge_weight(u, v)
+	elif graph.has_edge(v, u): ref_weight = graph.get_edge_weight(v, u)
+	
+	# Fetch Directionality
+	var has_ab = graph.has_edge(u, v)
+	var has_ba = graph.has_edge(v, u)
+	var ref_dir = 0 # 0 = Bi-Directional
+	if has_ab and not has_ba: ref_dir = 1 # Forward
+	elif not has_ab and has_ba: ref_dir = 2 # Reverse
+	
+	# Fetch Semantic Data (Type, Lock Level)
+	# Note: get_edge_data returns {} if the specific direction doesn't exist in edge_data.
+	# We try A->B first, then fallback to B->A to ensure we find the custom fields.
+	var ref_data = graph.get_edge_data(u, v)
+	if ref_data.is_empty() and has_ba:
+		ref_data = graph.get_edge_data(v, u)
 		
-		lbl_edge_header.text = "%s <-> %s" % [id_a, id_b]
-		
-		# [FIX START] Check direction to get correct weight
-		var weight = 1.0
-		
-		# Check forward
-		if graph.has_edge(id_a, id_b):
-			weight = graph.get_edge_weight(id_a, id_b)
-		# Check reverse
-		elif graph.has_edge(id_b, id_a):
-			weight = graph.get_edge_weight(id_b, id_a)
-		# [FIX END]
-		
-		var has_ab = graph.has_edge(id_a, id_b)
-		var has_ba = graph.has_edge(id_b, id_a)
-		
-		var current_mode = 0 
-		if has_ab and not has_ba: current_mode = 1
-		elif not has_ab and has_ba: current_mode = 2
-		
-		return [
-			{
-				"name": "weight", 
-				"type": TYPE_FLOAT, 
-				"default": weight, 
-				"min": 0.1, "max": 100.0, "step": 0.1
-			},
-			{
-				"name": "direction", 
-				"label": "Orientation", 
-				"type": TYPE_INT, 
-				"default": current_mode, 
-				"hint": "enum", 
-				"hint_string": "Bi-Directional,Forward (A->B),Reverse (B->A)"
-			}
-		]
-		
-	# --- CASE B: GROUP EDGES ---
-	else:
-		var count = _tracked_edges.size()
-		lbl_edge_header.text = "Selected %d Edges" % count
-		
-		var display_w = 1.0
-		var label_w = "Weight (Bulk)"
-		
-		var display_mode = -1
-		var label_dir = "Orientation (Bulk)"
-		
-		# Optimization limit
-		if count <= GraphSettings.MAX_ANALYSIS_COUNT:
-			var total_w = 0.0
-			var first_w = -1.0
-			var is_mixed_w = false
+	var ref_type = ref_data.get("type", 0)
+	var ref_lock = ref_data.get("lock_level", 0)
+	
+	# 2. DETECT MIXED STATE (Compare others against Reference)
+	var mixed = {
+		"weight": false, 
+		"direction": false, 
+		"type": false, 
+		"lock_level": false
+	}
+	
+	var count = _tracked_edges.size()
+	
+	# Update legacy label if it exists
+	if lbl_edge_header:
+		if count == 1:
+			lbl_edge_header.text = "%s <-> %s" % [u, v]
+		else:
+			lbl_edge_header.text = "Selected %d Edges" % count
 			
-			var first_mode = -1
-			var is_mixed_dir = false
-			
-			for i in range(count):
-				var pair = _tracked_edges[i]
-				var u = pair[0] 
-				var v = pair[1] 
-				
-				# 1. Weight Analysis
-				var w = 1.0
-				if graph.has_edge(u, v):
-					w = graph.get_edge_weight(u, v)
-				elif graph.has_edge(v, u):
-					w = graph.get_edge_weight(v, u)
-				
-				if i == 0: first_w = w
-				elif not is_equal_approx(w, first_w): is_mixed_w = true
-				total_w += w
-				
-				# 2. Direction Analysis
-				var has_ab = graph.has_edge(u, v)
-				var has_ba = graph.has_edge(v, u)
-				var mode = 0 
-				if has_ab and not has_ba: mode = 1 
-				elif not has_ab and has_ba: mode = 2 
-				
-				if i == 0: first_mode = mode
-				elif mode != first_mode: is_mixed_dir = true
-			
-			# Set precise labels
-			if is_mixed_w:
-				display_w = total_w / count
-				label_w = "Weight (Average)"
-			else:
-				display_w = first_w
-				label_w = "Weight"
-				
-			if is_mixed_dir:
-				display_mode = -1
-				label_dir = "Orientation (Mixed)"
-			else:
-				display_mode = first_mode
-				label_dir = "Orientation"
+	# Optimization: For massive groups, checking the first 50 is usually enough to detect "Mixed"
+	var limit = min(count, GraphSettings.MAX_ANALYSIS_COUNT)
+	
+	for i in range(1, limit):
+		var pair = _tracked_edges[i]
+		var a = pair[0]; var b = pair[1]
 		
-		return [
-		{ "name": "weight", "type": TYPE_FLOAT, "default": display_w, "min": 0.1, "max": 100.0, "step": 0.1 },
-		{ "name": "direction", "type": TYPE_INT, "default": display_mode, "hint": "enum", "hint_string": "Bi-Directional,Forward,Reverse" }
+		# A. Weight Check
+		var w = 1.0
+		if graph.has_edge(a, b): w = graph.get_edge_weight(a, b)
+		elif graph.has_edge(b, a): w = graph.get_edge_weight(b, a)
+		if not is_equal_approx(w, ref_weight): mixed.weight = true
+		
+		# B. Direction Check
+		var ab = graph.has_edge(a, b); var ba = graph.has_edge(b, a)
+		var dir = 0
+		if ab and not ba: dir = 1
+		elif not ab and ba: dir = 2
+		if dir != ref_dir: mixed.direction = true
+		
+		# C. Semantic Check
+		var d = graph.get_edge_data(a, b)
+		if d.is_empty() and ba: d = graph.get_edge_data(b, a)
+		
+		if int(d.get("type", 0)) != ref_type: mixed.type = true
+		if int(d.get("lock_level", 0)) != ref_lock: mixed.lock_level = true
+		
+	# 3. BUILD SCHEMA
+	return [
+		# --- Header (Read Only) ---
+		# Replaces the need for lbl_edge_header eventually
+		{ 
+			"name": "header_basic", 
+			"label": "Selection", 
+			"type": TYPE_STRING, 
+			"default": "%d Edge(s)" % count, 
+			"hint": "read_only" 
+		},
+		
+		# --- Physical Properties ---
+		{ 
+			"name": "weight", 
+			"label": "Weight (Cost)", 
+			"type": TYPE_FLOAT, 
+			"default": ref_weight, 
+			"min": 0.1, "max": 100.0, "step": 0.1,
+			"mixed": mixed.weight
+		},
+		{
+			"name": "direction", 
+			"label": "Orientation", 
+			"type": TYPE_INT, 
+			"default": ref_dir, 
+			"hint": "enum", 
+			"hint_string": "Bi-Directional,Forward (A->B),Reverse (B->A)",
+			"mixed": mixed.direction
+		},
+		
+		# --- Logic & Gameplay (New Section) ---
+		{ 
+			"name": "header_semantic", 
+			"label": "Logic & Gameplay", 
+			"type": TYPE_STRING, 
+			"default": "Custom Data", 
+			"hint": "read_only" 
+		},
+		{
+			"name": "type", 
+			"label": "Edge Type", 
+			"type": TYPE_INT,
+			"default": ref_type, 
+			"hint": "enum",
+			# You can expand this string as your game needs more types
+			"hint_string": "Corridor,Door (Open),Door (Locked),Secret Passage,Climbable",
+			"mixed": mixed.type
+		},
+		{
+			"name": "lock_level", 
+			"label": "Lock Level", 
+			"type": TYPE_INT,
+			"default": ref_lock,
+			"min": 0, "max": 10,
+			"mixed": mixed.lock_level,
+			"hint": "0 = Unlocked, 1+ = Required Key ID"
+		}
 	]
 
 func _rebuild_edge_inspector_ui() -> void:
@@ -297,9 +320,20 @@ func _on_edge_setting_changed(key: String, value: Variant) -> void:
 		match key:
 			"weight":
 				if graph.has_edge(u, v): graph_editor.set_edge_weight(u, v, value)
+				# Only update reverse if it exists (Bi-Directional)
 				if graph.has_edge(v, u): graph_editor.set_edge_weight(v, u, value)
+			
 			"direction":
 				graph_editor.set_edge_directionality(u, v, int(value))
+			
+			# [NEW] Semantic Properties
+			"type", "lock_level":
+				# Update A->B
+				graph_editor.set_edge_property(u, v, key, value)
+				# Update B->A (Symmetric Data)
+				# Unlike direction, 'type' usually applies to the whole connection
+				if graph.has_edge(v, u):
+					graph_editor.set_edge_property(v, u, key, value)
 
 # --- VIEW LOGIC ---
 
