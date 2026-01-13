@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=13 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/agent_controller.gd" id="4_5u163"]
 [ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
+[ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/property_wizard.tscn" id="6_gea6l"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
 
@@ -48,30 +49,18 @@ behavior_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabC
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/LblStats")
 lbl_edit_mode = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/LblEditMode")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "lbl_id", "spin_pos_x", "spin_pos_y", "option_type", "lbl_edges", "lbl_neighbors", "walker_container", "opt_walker_select", "lbl_group_count", "lbl_group_center", "lbl_group_bounds", "lbl_group_density", "group_option_type", "edge_container", "lbl_edge_header", "edge_settings_box")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "walker_container", "opt_walker_select", "edge_container")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
 inspector_vbox = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector")
+property_wizard_scene = ExtResource("6_gea6l")
 lbl_no_selection = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
 single_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer")
 group_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer")
-lbl_id = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/LblID")
-spin_pos_x = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow/SpinPosX")
-spin_pos_y = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow/SpinPosY")
-option_type = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow/OptionType")
-lbl_edges = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/LblEdges")
-lbl_neighbors = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/LblNeighbors")
 walker_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer")
 opt_walker_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/OptWalkerSelect")
-lbl_group_count = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupCount")
-lbl_group_center = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupCenter")
-lbl_group_bounds = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupBounds")
-lbl_group_density = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/LblGroupDensity")
-group_option_type = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer/GroupOptionType")
 edge_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer")
-lbl_edge_header = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer/LblEdgeHeader")
-edge_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer/EdgeSettingsBox")
 
 [node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
 script = ExtResource("5_u2lal")
@@ -381,82 +370,11 @@ size_flags_horizontal = 3
 [node name="SingleNodeContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
 layout_mode = 2
 
-[node name="LblID" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-
-[node name="HSeparator" type="HSeparator" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-
-[node name="LblPos" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-text = "Position: "
-
-[node name="PositionRow" type="GridContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-columns = 3
-
-[node name="SpinPosX" type="SpinBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow"]
-layout_mode = 2
-min_value = -9999.0
-max_value = 9999.0
-step = 60.0
-
-[node name="SpinPosY" type="SpinBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow"]
-layout_mode = 2
-min_value = -9999.0
-max_value = 9999.0
-
-[node name="OptionType" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer/PositionRow"]
-layout_mode = 2
-
-[node name="LblType" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-text = "Type: "
-
-[node name="HSeparator2" type="HSeparator" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-
-[node name="LblEdges" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-text = "Edges: "
-
-[node name="LblNeighbors" type="RichTextLabel" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer"]
-layout_mode = 2
-text = "Neighbors: "
-
 [node name="GroupContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
 visible = false
 layout_mode = 2
 
-[node name="LblGroupCount" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="LblGroupCenter" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="LblGroupBounds" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="LblGroupDensity" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="LblBulkEditHeader" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="HSeparator" type="HSeparator" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
-[node name="GroupOptionType" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer"]
-layout_mode = 2
-
 [node name="EdgeContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
-layout_mode = 2
-
-[node name="LblEdgeHeader" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer"]
-layout_mode = 2
-text = "Edge Selection"
-
-[node name="EdgeSettingsBox" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer"]
 layout_mode = 2
 
 [node name="WalkerContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
@@ -464,3 +382,5 @@ layout_mode = 2
 
 [node name="OptWalkerSelect" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer"]
 layout_mode = 2
+
+[node name="PropertyWizard" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody" instance=ExtResource("6_gea6l")]

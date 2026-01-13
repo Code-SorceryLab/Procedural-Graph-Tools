@@ -1,0 +1,67 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8s5vkkqy6b61"]
+
+[ext_resource type="Script" uid="uid://dturpvg2phmfu" path="res://scripts/property_wizard.gd" id="1_ufafa"]
+
+[node name="PropertyWizard" type="AcceptDialog"]
+oversampling_override = 1.0
+title = "Define Custom Property"
+initial_position = 2
+size = Vector2i(300, 250)
+script = ExtResource("1_ufafa")
+
+[node name="TabContainer" type="TabContainer" parent="."]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 201.0
+current_tab = 0
+
+[node name="Create New" type="VBoxContainer" parent="TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="GridContainer" type="GridContainer" parent="TabContainer/Create New"]
+layout_mode = 2
+columns = 2
+
+[node name="Label" type="Label" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+text = "Property Name:"
+
+[node name="InputName" type="LineEdit" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+placeholder_text = "e.g. is_magma"
+
+[node name="Label2" type="Label" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+text = "Apply To:"
+
+[node name="InputTarget" type="OptionButton" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+text = "Data Type:"
+
+[node name="InputType" type="OptionButton" parent="TabContainer/Create New/GridContainer"]
+layout_mode = 2
+
+[node name="LblError" type="Label" parent="TabContainer/Create New"]
+modulate = Color(1, 0, 0, 1)
+layout_mode = 2
+
+[node name="Manage" type="VBoxContainer" parent="TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="SchemaTree" type="Tree" parent="TabContainer/Manage"]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+size_flags_vertical = 3
+columns = 3
+column_titles_visible = true
+
+[node name="BtnDelete" type="Button" parent="TabContainer/Manage"]
+layout_mode = 2
+text = "Delete Selected Definition"

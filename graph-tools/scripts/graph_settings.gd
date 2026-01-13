@@ -156,15 +156,50 @@ static var TOOL_DATA: Dictionary = {
 	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" },
 	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""}
 }
+
 # ==============================================================================
-# 7. COMMAND DEFINITIONS
+# 7. DYNAMIC PROPERTY DEFINITIONS
+# ==============================================================================
+
+# --- DYNAMIC PROPERTY SCHEMA ---
+# Stores definitions for custom data fields.
+# Structure: { "property_name": { "target": "NODE", "type": TYPE_FLOAT, "default": 0.0 } }
+static var property_definitions: Dictionary = {}
+
+const TARGET_NODE = "NODE"
+const TARGET_EDGE = "EDGE"
+const TARGET_AGENT = "AGENT"
+
+static func register_property(prop_name: String, target: String, type: int, default_val: Variant) -> void:
+	property_definitions[prop_name] = {
+		"target": target,
+		"type": type,
+		"default": default_val
+	}
+
+static func unregister_property(prop_name: String) -> void:
+	if property_definitions.has(prop_name):
+		property_definitions.erase(prop_name)
+
+static func get_properties_for_target(target: String) -> Dictionary:
+	var result = {}
+	for key in property_definitions:
+		if property_definitions[key]["target"] == target:
+			result[key] = property_definitions[key]
+	return result
+
+static func clear_schema() -> void:
+	property_definitions.clear()
+
+# ==============================================================================
+# 8. COMMAND DEFINITIONS
 # ==============================================================================
 static var MAX_HISTORY_STEPS: int = 50
 static var USE_ATOMIC_UNDO: bool = false
 static var MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
 
 # ==============================================================================
-# 8. HELPER FUNCTIONS
+# 9. HELPER FUNCTIONS
 # ==============================================================================
 
 static func get_tool_icon(tool_id: int) -> Texture2D:

@@ -314,6 +314,12 @@ func apply_setting(key: String, value: Variant) -> void:
 			if value >= 0 and value < ids.size():
 				my_paint_type = ids[value]
 		"pos": warp(value)
+		
+		# [FIX] Catch-all for Dynamic Properties
+		_:
+			# If the key isn't one of the hardcoded settings above,
+			# assume it's a Custom Property and save it to the dictionary.
+			custom_data[key] = value
 	
 	if brain_dirty:
 		_refresh_brain()

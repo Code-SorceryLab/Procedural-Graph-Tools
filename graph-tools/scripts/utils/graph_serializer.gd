@@ -6,12 +6,12 @@ extends RefCounted
 static func serialize(graph: Graph) -> String:
 	var data = {
 		"meta": {
-			"version": "1.2", # Bumped for Hybrid IDs + Rich Data
+			"version": "1.3", # Bumped for Schema Support
 			"timestamp": Time.get_datetime_string_from_system(),
-			# [CRITICAL] Save the Ticket Counter so IDs don't reset on load
-			"next_ticket": graph._next_display_id 
+			"next_ticket": graph._next_display_id
 		},
-		"legend": _serialize_legend(), 
+		"legend": _serialize_legend(),
+		"schema": GraphSettings.property_definitions, # [NEW] Save the Rules
 		"nodes": [],
 		"edges": [],
 		"agents": []
@@ -92,6 +92,22 @@ static func deserialize(json_string: String) -> Graph:
 		_deserialize_legend(data["legend"])
 	else:
 		GraphSettings.reset_legend()
+	
+	# 2. [NEW] Restore Property Schema
+	# We must do this first so the Inspector knows what to show
+	GraphSettings.clear_schema()
+	if data.has("schema"):
+		var loaded_schema = data["schema"]
+		# Strict type casting for safety
+		for key in loaded_schema:
+			var def = loaded_schema[key]
+			var target = def.get("target", "NODE")
+			var type = int(def.get("type", TYPE_STRING))
+			var default = def.get("default", null)
+			
+			# Validate types during load to prevent crashes
+			if target in ["NODE", "EDGE", "AGENT"]:
+				GraphSettings.register_property(key, target, type, default)
 		
 	var new_graph = Graph.new()
 	

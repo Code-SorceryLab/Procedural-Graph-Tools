@@ -33,7 +33,7 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 				label.tooltip_text = hint_text
 				label.mouse_filter = Control.MOUSE_FILTER_STOP
 			
-			# [NEW] Italicize label if mixed
+			# Italicize label if mixed
 			if is_mixed:
 				label.modulate = Color(1, 1, 1, 0.7)
 				
@@ -59,12 +59,26 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 			control = opt
 			
 		else:
-			if hint_text == "action":
+			# [FIX] Check for "button" OR "action"
+			if hint_text == "action" or hint_text == "button":
 				var btn = Button.new()
 				btn.text = setting.get("label", "Action")
+				
+				# Color Coding
 				if "Delete" in btn.text or "Clear" in btn.text:
-					btn.modulate = Color(1, 0.5, 0.5) 
+					btn.modulate = Color(1, 0.5, 0.5) # Red for danger
+				elif "Add" in btn.text: 
+					btn.modulate = Color(0.6, 1.0, 0.6) # Green for creation
+					
 				control = btn
+			
+			elif setting.get("hint") == "separator":
+				var sep = HSeparator.new()
+				# Add some breathing room (15px top/bottom)
+				sep.add_theme_constant_override("separation", 30) 
+				sep.modulate = Color(1, 1, 1, 0.5) # Dim it slightly
+				container.add_child(sep)
+				continue # Skip the rest of the loop for this item
 			
 			else:
 				match type:

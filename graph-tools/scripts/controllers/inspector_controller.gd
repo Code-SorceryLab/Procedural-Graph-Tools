@@ -9,37 +9,25 @@ class_name InspectorController
 @export_group("UI Inspector Tab")
 @export var inspector_vbox: VBoxContainer    # The main container
 
+@export var property_wizard_scene: PackedScene
+var _wizard_instance: PropertyWizard
+
 # 1. VIEW CONTAINERS
 @export var lbl_no_selection: Label      
 @export var single_container: Control     
 @export var group_container: Control      
 
-# 2. STATIC NODE CONTROLS
-@export var lbl_id: Label
-@export var spin_pos_x: SpinBox
-@export var spin_pos_y: SpinBox
-@export var option_type: OptionButton
-@export var lbl_edges: Label
-@export var lbl_neighbors: RichTextLabel
+
 
 # 3. DYNAMIC WALKER CONTROLS
 @export_group("Walker Inspector")
 @export var walker_container: VBoxContainer 
 @export var opt_walker_select: OptionButton
 
-# 4. GROUP CONTROLS
-@export_group("Group Inspector")
-@export var lbl_group_count: Label
-@export var lbl_group_center: Label
-@export var lbl_group_bounds: Label
-@export var lbl_group_density: Label
-@export var group_option_type: OptionButton 
 
 # 5. EDGE CONTROLS
 @export_group("Edge Inspector")
-@export var edge_container: Control      
-@export var lbl_edge_header: Label       
-@export var edge_settings_box: Control   
+@export var edge_container: Control
 
 # --- STATE ---
 var _tracked_nodes: Array[String] = []
@@ -53,9 +41,11 @@ var _current_walker_list: Array = []
 # Maps for dynamic controls
 var _walker_inputs: Dictionary = {}
 var _edge_inputs: Dictionary = {}
+var _node_inputs: Dictionary = {}  # Track node inputs
+var _group_inputs: Dictionary = {} # Track group inputs
 
 func _ready() -> void:
-	# 1. Connect Signals
+	# 1. Connect Core Signals
 	graph_editor.selection_changed.connect(_on_selection_changed)
 	
 	if graph_editor.has_signal("edge_selection_changed"):
@@ -65,26 +55,31 @@ func _ready() -> void:
 	if SignalManager.has_signal("agent_selection_changed"):
 		SignalManager.agent_selection_changed.connect(_on_agent_selection_changed)
 	
-	graph_editor.graph_loaded.connect(func(_g): refresh_type_options())
-	
+	# Inspector View Requests
 	if graph_editor.has_signal("request_inspector_view"):
 		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
 
+	# Refresh Options on Load (still useful for Schema enums)
+	graph_editor.graph_loaded.connect(func(_g): _refresh_all_views())
+
 	set_process(false)
 	
-	# 2. Configure Static Controls
-	spin_pos_x.step = GraphSettings.INSPECTOR_POS_STEP
-	spin_pos_y.step = GraphSettings.INSPECTOR_POS_STEP
+	# 2. Configure Controls
+	# [REMOVED] All spin_pos_x / option_type connections
 	
-	spin_pos_x.value_changed.connect(_on_pos_value_changed)
-	spin_pos_y.value_changed.connect(_on_pos_value_changed)
-	
-	refresh_type_options()
-
-	option_type.item_selected.connect(_on_type_selected)
-	group_option_type.item_selected.connect(_on_group_type_selected)
+	# We still need this for the Walker Dropdown (which we kept)
 	opt_walker_select.item_selected.connect(_on_walker_dropdown_selected)
-
+	
+	# 3. Initialize Wizard
+	if property_wizard_scene:
+		_wizard_instance = property_wizard_scene.instantiate()
+		add_child(_wizard_instance)
+		_wizard_instance.property_defined.connect(func(_n): _rebuild_ui_after_schema_change())
+		
+		# [NEW] Connect Purge Signal
+		_wizard_instance.purge_requested.connect(_on_purge_requested)
+		
+		
 	_clear_inspector()
 
 # --- UTILITY ---
@@ -96,19 +91,7 @@ func _on_inspector_view_requested() -> void:
 	else:
 		inspector_vbox.visible = true
 
-func refresh_type_options() -> void:
-	_setup_type_dropdown(option_type)
-	_setup_type_dropdown(group_option_type)
-	group_option_type.add_separator()
-	group_option_type.add_item("-- Mixed --", -1)
 
-func _setup_type_dropdown(btn: OptionButton) -> void:
-	btn.clear()
-	var ids = GraphSettings.current_names.keys()
-	ids.sort() 
-	for id in ids:
-		var type_name = GraphSettings.get_type_name(id)
-		btn.add_item(type_name, id)
 
 # ==============================================================================
 # SELECTION HANDLERS
@@ -175,13 +158,19 @@ func _get_edge_inspector_schema() -> Array:
 	if _tracked_edges.is_empty(): return []
 	var graph = graph_editor.graph
 	
+	var schema = [] # Start fresh
+	
+	# Conditional Separator
+	# If we have nodes selected, the Node Inspector is above us. Add a line.
+	if not _tracked_nodes.is_empty():
+		schema.append({ "name": "sep_edge", "type": TYPE_NIL, "hint": "separator" })
+
 	# 1. SETUP REFERENCE (Use the first selected edge as the "Truth")
 	var first_pair = _tracked_edges[0]
 	var u = first_pair[0]
 	var v = first_pair[1]
 	
 	# Fetch Physical Data
-	# We check both directions to ensure we get a valid weight
 	var ref_weight = 1.0
 	if graph.has_edge(u, v): ref_weight = graph.get_edge_weight(u, v)
 	elif graph.has_edge(v, u): ref_weight = graph.get_edge_weight(v, u)
@@ -189,13 +178,11 @@ func _get_edge_inspector_schema() -> Array:
 	# Fetch Directionality
 	var has_ab = graph.has_edge(u, v)
 	var has_ba = graph.has_edge(v, u)
-	var ref_dir = 0 # 0 = Bi-Directional
-	if has_ab and not has_ba: ref_dir = 1 # Forward
-	elif not has_ab and has_ba: ref_dir = 2 # Reverse
-	
-	# Fetch Semantic Data (Type, Lock Level)
-	# Note: get_edge_data returns {} if the specific direction doesn't exist in edge_data.
-	# We try A->B first, then fallback to B->A to ensure we find the custom fields.
+	var ref_dir = 0 
+	if has_ab and not has_ba: ref_dir = 1
+	elif not has_ab and has_ba: ref_dir = 2
+
+	# Fetch Semantic Data
 	var ref_data = graph.get_edge_data(u, v)
 	if ref_data.is_empty() and has_ba:
 		ref_data = graph.get_edge_data(v, u)
@@ -203,54 +190,30 @@ func _get_edge_inspector_schema() -> Array:
 	var ref_type = ref_data.get("type", 0)
 	var ref_lock = ref_data.get("lock_level", 0)
 	
-	# 2. DETECT MIXED STATE (Compare others against Reference)
-	var mixed = {
-		"weight": false, 
-		"direction": false, 
-		"type": false, 
-		"lock_level": false
-	}
-	
+	# 2. DETECT MIXED STATE
+	var mixed = { "weight": false, "direction": false, "type": false, "lock_level": false }
 	var count = _tracked_edges.size()
-	
-	# Update legacy label if it exists
-	if lbl_edge_header:
-		if count == 1:
-			lbl_edge_header.text = "%s <-> %s" % [u, v]
-		else:
-			lbl_edge_header.text = "Selected %d Edges" % count
-			
-	# Optimization: For massive groups, checking the first 50 is usually enough to detect "Mixed"
 	var limit = min(count, GraphSettings.MAX_ANALYSIS_COUNT)
 	
 	for i in range(1, limit):
 		var pair = _tracked_edges[i]
 		var a = pair[0]; var b = pair[1]
 		
-		# A. Weight Check
+		# (Your existing Mixed Logic...)
 		var w = 1.0
 		if graph.has_edge(a, b): w = graph.get_edge_weight(a, b)
 		elif graph.has_edge(b, a): w = graph.get_edge_weight(b, a)
 		if not is_equal_approx(w, ref_weight): mixed.weight = true
 		
-		# B. Direction Check
-		var ab = graph.has_edge(a, b); var ba = graph.has_edge(b, a)
-		var dir = 0
-		if ab and not ba: dir = 1
-		elif not ab and ba: dir = 2
-		if dir != ref_dir: mixed.direction = true
-		
-		# C. Semantic Check
+		# ... (Direction & Semantic Checks) ...
 		var d = graph.get_edge_data(a, b)
-		if d.is_empty() and ba: d = graph.get_edge_data(b, a)
-		
+		if d.is_empty() and graph.has_edge(b, a): d = graph.get_edge_data(b, a)
 		if int(d.get("type", 0)) != ref_type: mixed.type = true
 		if int(d.get("lock_level", 0)) != ref_lock: mixed.lock_level = true
-		
-	# 3. BUILD SCHEMA
-	return [
-		# --- Header (Read Only) ---
-		# Replaces the need for lbl_edge_header eventually
+
+	# 3. APPEND STANDARD FIELDS TO SCHEMA
+	# We use append_array to add to our 'schema' variable which might contain the separator
+	schema.append_array([
 		{ 
 			"name": "header_basic", 
 			"label": "Selection", 
@@ -258,8 +221,6 @@ func _get_edge_inspector_schema() -> Array:
 			"default": "%d Edge(s)" % count, 
 			"hint": "read_only" 
 		},
-		
-		# --- Physical Properties ---
 		{ 
 			"name": "weight", 
 			"label": "Weight (Cost)", 
@@ -277,8 +238,6 @@ func _get_edge_inspector_schema() -> Array:
 			"hint_string": "Bi-Directional,Forward (A->B),Reverse (B->A)",
 			"mixed": mixed.direction
 		},
-		
-		# --- Logic & Gameplay (New Section) ---
 		{ 
 			"name": "header_semantic", 
 			"label": "Logic & Gameplay", 
@@ -292,7 +251,6 @@ func _get_edge_inspector_schema() -> Array:
 			"type": TYPE_INT,
 			"default": ref_type, 
 			"hint": "enum",
-			# You can expand this string as your game needs more types
 			"hint_string": "Corridor,Door (Open),Door (Locked),Secret Passage,Climbable",
 			"mixed": mixed.type
 		},
@@ -305,18 +263,56 @@ func _get_edge_inspector_schema() -> Array:
 			"mixed": mixed.lock_level,
 			"hint": "0 = Unlocked, 1+ = Required Key ID"
 		}
-	]
+	])
+	
+	# [PHASE 5] INJECT DYNAMIC EDGE PROPERTIES
+	var registered_props = GraphSettings.get_properties_for_target("EDGE")
+	
+	for key in registered_props:
+		var def = registered_props[key]
+		# Need to fetch actual value from ref_data (which we got earlier in the function)
+		var val = ref_data.get(key, def.default)
+		
+		# (Optional: Add mixed check for dynamic props here)
+		
+		schema.append({
+			"name": key,
+			"label": key.capitalize(),
+			"type": def.type,
+			"default": val
+		})
+
+	# [PHASE 5] ADD BUTTON
+	schema.append({
+		"name": "action_add_property",
+		"label": "Add Custom Data...",
+		"type": TYPE_NIL,
+		"hint": "button"
+	})
+	
+	return schema
 
 func _rebuild_edge_inspector_ui() -> void:
 	var schema = _get_edge_inspector_schema()
-	_edge_inputs = _render_dynamic_section(edge_settings_box, schema, _on_edge_setting_changed)
+	_edge_inputs = _render_dynamic_section(edge_container, schema, _on_edge_setting_changed)
 
 func _on_edge_setting_changed(key: String, value: Variant) -> void:
 	if _tracked_edges.is_empty(): return
+	
+	# 1. HANDLE GLOBAL ACTIONS (Wizard)
+	# Check this first so we don't loop through edges for a UI event
+	if key == "action_add_property":
+		if _wizard_instance: 
+			_wizard_instance.input_target.selected = 1 # Select "EDGE" (index 1)
+			_wizard_instance.popup_wizard()
+		return
+
 	var graph = graph_editor.graph 
 	
+	# 2. APPLY TO SELECTION
 	for pair in _tracked_edges:
 		var u = pair[0]; var v = pair[1]
+		
 		match key:
 			"weight":
 				if graph.has_edge(u, v): graph_editor.set_edge_weight(u, v, value)
@@ -326,48 +322,85 @@ func _on_edge_setting_changed(key: String, value: Variant) -> void:
 			"direction":
 				graph_editor.set_edge_directionality(u, v, int(value))
 			
-			# [NEW] Semantic Properties
+			# Hardcoded Semantic Properties (Legacy/Core)
 			"type", "lock_level":
-				# Update A->B
 				graph_editor.set_edge_property(u, v, key, value)
-				# Update B->A (Symmetric Data)
-				# Unlike direction, 'type' usually applies to the whole connection
+				# Symmetric update for bi-directional edges
 				if graph.has_edge(v, u):
 					graph_editor.set_edge_property(v, u, key, value)
+			
+			# [NEW] DYNAMIC CATCH-ALL
+			# Any custom property added via the Wizard (e.g. "is_slippery", "cost") falls here.
+			_:
+				# We treat custom data as symmetric by default for edges.
+				graph_editor.set_edge_property(u, v, key, value)
+				if graph.has_edge(v, u):
+					graph_editor.set_edge_property(v, u, key, value)
+		
 
 # --- VIEW LOGIC ---
 
 func _update_single_inspector(node_id: String) -> void:
 	var graph = graph_editor.graph
-	if not graph.nodes.has(node_id):
-		_on_selection_changed([]) 
-		return
-
+	if not graph.nodes.has(node_id): return
+	
 	var node_data = graph.nodes[node_id]
 	var neighbors = graph.get_neighbors(node_id)
 	
-	_is_updating_ui = true
-	
-	lbl_id.text = "ID: %s" % node_id
-	
-	var x_focus = spin_pos_x.get_line_edit().has_focus()
-	var y_focus = spin_pos_y.get_line_edit().has_focus()
-	if not x_focus: spin_pos_x.value = node_data.position.x
-	if not y_focus: spin_pos_y.value = node_data.position.y
-		
-	if not option_type.has_focus():
-		var idx = option_type.get_item_index(node_data.type)
-		if option_type.selected != idx:
-			option_type.selected = idx
-	
-	lbl_edges.text = "Connections: %d" % neighbors.size()
+	# 1. PREPARE DATA Strings
 	var neighbor_text = ""
-	for n_id in neighbors:
-		neighbor_text += "- %s\n" % n_id
-	lbl_neighbors.text = neighbor_text
+	for n_id in neighbors: neighbor_text += "%s\n" % n_id
+	if neighbor_text == "": neighbor_text = "(None)"
 	
+	# Build Enum String for "Type"
+	var ids = GraphSettings.current_names.keys()
+	ids.sort() 
+	var type_names = []
+	for id in ids: type_names.append(GraphSettings.get_type_name(id))
+	var type_hint = ",".join(type_names)
+	
+	# 2. BUILD SCHEMA
+	var schema = [
+		{ "name": "head", "label": "ID: %s" % node_id, "type": TYPE_STRING, "default": "", "hint": "read_only" },
+		
+		# Split Position for safety (works with standard Float SpinBoxes)
+		{ "name": "pos_x", "label": "Position X", "type": TYPE_FLOAT, "default": node_data.position.x, "step": GraphSettings.INSPECTOR_POS_STEP },
+		{ "name": "pos_y", "label": "Position Y", "type": TYPE_FLOAT, "default": node_data.position.y, "step": GraphSettings.INSPECTOR_POS_STEP },
+		
+		{ "name": "type", "label": "Room Type", "type": TYPE_INT, "default": node_data.type, "hint": "enum", "hint_string": type_hint },
+		
+		{ "name": "info_n", "label": "Neighbors", "type": TYPE_STRING, "default": neighbor_text, "hint": "read_only_multiline" }
+	]
+	
+	# 3. INJECT DYNAMIC PROPERTIES
+	var registered_props = GraphSettings.get_properties_for_target("NODE")
+	for key in registered_props:
+		var def = registered_props[key]
+		# Use get_data helper if available, else direct dict access
+		var val = def.default
+		if "custom_data" in node_data:
+			val = node_data.custom_data.get(key, def.default)
+			
+		schema.append({
+			"name": key,
+			"label": key.capitalize(),
+			"type": def.type,
+			"default": val
+		})
+
+	# 4. ADD WIZARD BUTTON
+	schema.append({
+		"name": "action_add_property",
+		"label": "Add Custom Data...",
+		"type": TYPE_NIL,
+		"hint": "button"
+	})
+
+	# 5. RENDER
+	_node_inputs = _render_dynamic_section(single_container, schema, _on_node_setting_changed)
+	
+	# Refresh walker list (logic kept separate)
 	_refresh_walker_list_state(node_id)
-	_is_updating_ui = false
 
 func _rebuild_walker_ui() -> void:
 	var tracked_count = _tracked_agents.size()
@@ -376,12 +409,15 @@ func _rebuild_walker_ui() -> void:
 	var ref_agent = _tracked_agents[0]
 	var raw_settings = ref_agent.get_agent_settings()
 	var final_settings = []
-
-	# --- 1. THE HEADER (Dynamic & Read-Only) ---
+	
+	# [NEW] Conditional Separator
+	if not _tracked_nodes.is_empty() or not _tracked_edges.is_empty():
+		final_settings.append({ "name": "sep_walker", "type": TYPE_NIL, "hint": "separator" })
+	
+	# --- 1. THE HEADER ---
 	var header_text = ""
 	if tracked_count == 1:
 		var d_id = ref_agent.display_id if "display_id" in ref_agent else ref_agent.id
-		# Truncated UUID for verification
 		var uid = ref_agent.uuid.left(6) if "uuid" in ref_agent else "???"
 		header_text = "Agent #%d [%s]" % [d_id, uid]
 	else:
@@ -395,8 +431,7 @@ func _rebuild_walker_ui() -> void:
 		"hint": "read_only" 
 	})
 
-	# --- 2. FUTURE STATS (Example of why this system is better) ---
-	# You can easily add more stats here without new Label nodes:
+	# --- 2. STATUS ---
 	if tracked_count == 1:
 		final_settings.append({
 			"name": "status_display",
@@ -406,13 +441,12 @@ func _rebuild_walker_ui() -> void:
 			"hint": "read_only"
 		})
 
-	# 3. DETECT MIXED VALUES (Including Position)
+	# --- 3. DETECT MIXED VALUES ---
 	var mixed_keys = {}
 	
 	if tracked_count > 1:
 		for item in raw_settings:
 			var key = item.name
-			# Skip actions/read-only from the check loop
 			if item.get("hint") == "action": continue 
 			
 			var ref_val = _get_agent_value(ref_agent, key)
@@ -421,27 +455,26 @@ func _rebuild_walker_ui() -> void:
 				var other = _tracked_agents[i]
 				var other_val = _get_agent_value(other, key)
 				
-				# Special Check for Vector2 (Position)
 				if key == "pos" and ref_val is Vector2 and other_val is Vector2:
-					if ref_val.distance_squared_to(other_val) > 0.1: # Tolerance check
+					if ref_val.distance_squared_to(other_val) > 0.1:
 						mixed_keys[key] = true
 						break
-				# Standard Check
 				elif str(other_val) != str(ref_val):
 					mixed_keys[key] = true
 					break
 
-	# 4. BUILD SETTINGS LIST
+	# --- 4. BUILD SETTINGS LIST ---
+	var delete_action_item = null # Store this to append at the very end
+	
 	for item in raw_settings:
 		var key = item.name
-		var new_item = item.duplicate()
 		
-		# [CHANGED] Dynamic Delete Button Label
+		# [CHANGED] Capture Delete button to move it to the bottom
 		if key == "action_delete":
-			if tracked_count > 1:
-				new_item["label"] = "Delete %d Agents" % tracked_count
-			else:
-				new_item["label"] = "Delete Agent"
+			delete_action_item = item.duplicate()
+			continue
+			
+		var new_item = item.duplicate()
 		
 		# Apply Mixed Flag
 		if mixed_keys.has(key):
@@ -459,19 +492,113 @@ func _rebuild_walker_ui() -> void:
 			
 		final_settings.append(new_item)
 	
-	# 5. RENDER
+	# --- 5. INJECT DYNAMIC PROPERTIES (From Registry) ---
+	var registered_props = GraphSettings.get_properties_for_target("AGENT")
+	for key in registered_props:
+		var def = registered_props[key]
+		
+		# Access custom_data on the reference agent
+		var val = def.default
+		if "custom_data" in ref_agent:
+			val = ref_agent.custom_data.get(key, def.default)
+		
+		# (Optional: You could add mixed value checking for custom props here)
+		
+		final_settings.append({
+			"name": key,
+			"label": key.capitalize(),
+			"type": def.type,
+			"default": val
+		})
+
+	# --- 6. ADD WIZARD BUTTON ---
+	final_settings.append({
+		"name": "action_add_property",
+		"label": "Add Custom Data...",
+		"type": TYPE_NIL,
+		"hint": "button"
+	})
+	
+	# --- 7. APPEND DELETE BUTTON (At the bottom) ---
+	if delete_action_item:
+		if tracked_count > 1:
+			delete_action_item["label"] = "Delete %d Agents" % tracked_count
+		else:
+			delete_action_item["label"] = "Delete Agent"
+		final_settings.append(delete_action_item)
+	
+	# --- 8. RENDER ---
 	_walker_inputs = _render_dynamic_section(
 		walker_container, 
 		final_settings, 
 		_on_walker_setting_changed
 	)
 	
-	# Sync Picker Button Visuals (only if not mixed)
+	# Sync Picker Button Visuals
 	if not mixed_keys.get("target_node", false):
 		var t_node = ref_agent.get("target_node_id")
 		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", t_node)
 	
 	walker_container.visible = true
+
+func _rebuild_ui_after_schema_change() -> void:
+	# When a new property is defined, we must force a UI refresh
+	# so the new field appears immediately.
+	_refresh_all_views()
+
+# [NEW] THE HEAVY CLEANUP LOGIC
+func _on_purge_requested(key: String, target: String) -> void:
+	var graph = graph_editor.graph
+	var clean_count = 0
+	
+	match target:
+		"NODE":
+			for node_id in graph.nodes:
+				var node = graph.nodes[node_id]
+				# Check custom_data
+				if "custom_data" in node and node.custom_data.has(key):
+					node.custom_data.erase(key)
+					clean_count += 1
+					
+		"AGENT":
+			for agent in graph.agents:
+				# Check custom_data (AgentWalker stores dynamic props here)
+				if "custom_data" in agent and agent.custom_data.has(key):
+					agent.custom_data.erase(key)
+					clean_count += 1
+					
+		"EDGE":
+			# Edges are tricky (Adjacency List). We iterate unique pairs.
+			# Usually stored as graph.adj = { u: { v: {data...} } }
+			# Or graph.edges array depending on implementation.
+			
+			# Assuming standard iteration over all connections:
+			var visited_edges = {} # To avoid double-cleaning A-B and B-A
+			
+			for u in graph.nodes:
+				var neighbors = graph.get_neighbors(u)
+				for v in neighbors:
+					# Sort key to handle bi-directional uniqueness
+					var pair_key = [u, v]
+					pair_key.sort() 
+					if visited_edges.has(pair_key): continue
+					visited_edges[pair_key] = true
+					
+					# Clean A->B
+					var data_ab = graph.get_edge_data(u, v)
+					if data_ab.has(key): 
+						data_ab.erase(key)
+						clean_count += 1
+						
+					# Clean B->A (if symmetric)
+					if graph.has_edge(v, u):
+						var data_ba = graph.get_edge_data(v, u)
+						if data_ba.has(key): data_ba.erase(key)
+	
+	print("Purge Complete: Removed '%s' from %d %ss." % [key, clean_count, target.to_lower()])
+	
+	# Force UI Refresh in case we are looking at a purged item
+	_refresh_all_views()
 
 # Helper to safely get value (Dictionary vs Object)
 func _get_agent_value(agent, key: String):
@@ -490,60 +617,64 @@ func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
 	var count = nodes.size()
 	
-	# Basic Stats (Fast O(N))
+	# 1. CALCULATE STATS & MIXED STATE
 	var center_sum = Vector2.ZERO
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
-	var first_id = nodes[0]
-	var first_type = graph.nodes[first_id].type
-	var is_mixed = false
-
+	
+	var first_type = graph.nodes[nodes[0]].type
+	var is_mixed_type = false
+	
 	for id in nodes:
-		if not graph.nodes.has(id): continue
-		var pos = graph.nodes[id].position
-		center_sum += pos
-		min_pos.x = min(min_pos.x, pos.x)
-		min_pos.y = min(min_pos.y, pos.y)
-		max_pos.x = max(max_pos.x, pos.x)
-		max_pos.y = max(max_pos.y, pos.y)
+		var n = graph.nodes[id]
+		center_sum += n.position
+		min_pos.x = min(min_pos.x, n.position.x)
+		min_pos.y = min(min_pos.y, n.position.y)
+		max_pos.x = max(max_pos.x, n.position.x)
+		max_pos.y = max(max_pos.y, n.position.y)
 		
-		if graph.nodes[id].type != first_type:
-			is_mixed = true
-	
+		if n.type != first_type: is_mixed_type = true
+
 	var avg_center = center_sum / count
-	var size = max_pos - min_pos
+	var bounds = max_pos - min_pos
 	
-	var internal_connections = -1
-	if count <= GraphSettings.MAX_ANALYSIS_COUNT:
-		var node_set = {}
-		for id in nodes: node_set[id] = true
-		internal_connections = 0
-		for id in nodes:
-			if not graph.nodes.has(id): continue
-			var neighbors = graph.get_neighbors(id)
-			for n_id in neighbors:
-				if node_set.has(n_id):
-					internal_connections += 1
-		internal_connections /= 2 
-	
-	_is_updating_ui = true
-	
-	lbl_group_count.text = "Selected: %d Nodes" % count
-	lbl_group_center.text = "Center: (%.1f, %.1f)" % [avg_center.x, avg_center.y]
-	lbl_group_bounds.text = "Bounds: %.0f x %.0f" % [size.x, size.y]
-	
-	if internal_connections >= 0:
-		lbl_group_density.text = "Internal Edges: %d" % internal_connections
-	else:
-		lbl_group_density.text = "Density: (Skipped)"
-	
-	if is_mixed:
-		group_option_type.select(group_option_type.item_count - 1)
-	else:
-		var idx = group_option_type.get_item_index(first_type)
-		group_option_type.select(idx)
+	# Prepare Type Dropdown
+	var ids = GraphSettings.current_names.keys()
+	ids.sort() 
+	var type_names = []
+	for id in ids: type_names.append(GraphSettings.get_type_name(id))
+	var type_hint_string = ",".join(type_names)
+
+	# 2. BUILD SCHEMA
+	var schema = [
+		{ "name": "head", "label": "Selection", "type": TYPE_STRING, "default": "%d Nodes" % count, "hint": "read_only" },
 		
-	_is_updating_ui = false
+		# Read-Only Stats
+		{ "name": "stat_center", "label": "Center", "type": TYPE_VECTOR2, "default": avg_center, "hint": "read_only" },
+		{ "name": "stat_bounds", "label": "Bounds", "type": TYPE_VECTOR2, "default": bounds, "hint": "read_only" },
+		
+		# Editable Bulk Properties
+		{ 
+			"name": "type", "label": "Bulk Type", "type": TYPE_INT, 
+			"default": first_type, 
+			"hint": "enum", 
+			"hint_string": type_hint_string,
+			"mixed": is_mixed_type 
+		}
+	]
+	
+	# [OPTIONAL/FUTURE] Inject mixed-value checks for Custom Properties here
+
+	# ADD WIZARD BUTTON
+	schema.append({
+		"name": "action_add_property",
+		"label": "Add Custom Data...",
+		"type": TYPE_NIL,
+		"hint": "button"
+	})
+	
+	# 3. RENDER
+	_render_dynamic_section(group_container, schema, _on_node_setting_changed)
 
 func _clear_inspector() -> void:
 	_tracked_nodes = []
@@ -557,30 +688,45 @@ func _clear_inspector() -> void:
 
 # --- INPUT HANDLERS ---
 
-func _on_pos_value_changed(_val: float) -> void:
-	if _is_updating_ui: return
-	if _tracked_nodes.size() != 1: return
-	var id = _tracked_nodes[0]
-	var current_pos = graph_editor.graph.get_node_pos(id)
-	var new_pos = Vector2(spin_pos_x.value, spin_pos_y.value)
+func _on_node_setting_changed(key: String, value: Variant) -> void:
+	if _tracked_nodes.is_empty(): return
+	var graph = graph_editor.graph
 	
-	graph_editor.set_node_position(id, new_pos)
-	var move_data = { id: { "from": current_pos, "to": new_pos } }
-	graph_editor.commit_move_batch(move_data)
+	# Wizard Trigger
+	if key == "action_add_property":
+		if _wizard_instance:
+			_wizard_instance.input_target.selected = 0 # Target = NODE
+			_wizard_instance.popup_wizard()
+		return
 
-func _on_type_selected(index: int) -> void:
-	if _is_updating_ui: return
-	if _tracked_nodes.size() != 1: return
-	var id = _tracked_nodes[0]
-	var selected_type_id = option_type.get_item_id(index)
-	graph_editor.set_node_type(id, selected_type_id)
+	# Single Node Updates
+	if _tracked_nodes.size() == 1:
+		var id = _tracked_nodes[0]
+		var current_pos = graph.get_node_pos(id)
+		
+		match key:
+			"pos_x":
+				var new_pos = Vector2(value, current_pos.y)
+				graph_editor.set_node_position(id, new_pos)
+				# Optional: Commit Move Command
+			"pos_y":
+				var new_pos = Vector2(current_pos.x, value)
+				graph_editor.set_node_position(id, new_pos)
+			"type":
+				graph_editor.set_node_type(id, int(value))
+			_:
+				# Dynamic Property
+				var node_obj = graph.nodes[id]
+				if node_obj.has_method("set_data"):
+					node_obj.set_data(key, value)
+				elif "custom_data" in node_obj:
+					node_obj.custom_data[key] = value
 
-func _on_group_type_selected(index: int) -> void:
-	if _is_updating_ui: return
-	var selected_type_id = group_option_type.get_item_id(index)
-	if selected_type_id == -1: return 
-	graph_editor.set_node_type_bulk(_tracked_nodes, selected_type_id)
-	_update_group_inspector(_tracked_nodes)
+	# Batch Updates (Group)
+	else:
+		if key == "type":
+			graph_editor.set_node_type_bulk(_tracked_nodes, int(value))
+
 
 # --- WALKER HANDLERS ---
 
@@ -700,7 +846,13 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 		_clear_inspector()
 		graph_editor.clear_selection()
 		return 
-
+	
+	if key == "action_add_property":
+		if _wizard_instance: 
+			_wizard_instance.input_target.selected = 2 # Select "AGENT"
+			_wizard_instance.popup_wizard()
+		return
+	
 	# 2. BATCH APPLY
 	for agent in _tracked_agents:
 		if agent.has_method("apply_setting"):
