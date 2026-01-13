@@ -179,14 +179,30 @@ func _refresh_all_views() -> void:
 
 func _build_zone_inspector() -> void:
 	if _tracked_zones.is_empty(): return
-	
 	var zone = _tracked_zones[0] as GraphZone
 	
-	# 1. DEFINE SCHEMA
+	# 1. PREPARE DATA
+	# Get the count and the list
+	var roster_count = zone.registered_nodes.size()
+	var roster_text = ""
+	
+	if roster_count > 0:
+		# Sort for readability
+		var sorted_nodes = zone.registered_nodes.duplicate()
+		sorted_nodes.sort()
+		roster_text = "\n".join(sorted_nodes)
+	else:
+		roster_text = "(Empty)"
+
+	# 2. DEFINE SCHEMA (Standard Properties)
 	var schema = [
 		{ "name": "head", "label": "Zone Inspector", "type": TYPE_STRING, "default": "Properties", "hint": "read_only" },
 		{ "name": "zone_name", "label": "Name", "type": TYPE_STRING, "default": zone.zone_name },
+		{ "name": "zone_type", "label": "Type", "type": TYPE_INT, "default": zone.zone_type, "hint": "enum", "hint_string": "Geographical,Logical,RigidGroup" },
 		{ "name": "zone_color", "label": "Color", "type": TYPE_COLOR, "default": zone.zone_color },
+		
+		# Stats Readout
+		{ "name": "stat_count", "label": "Node Count", "type": TYPE_STRING, "default": str(roster_count), "hint": "read_only" },
 		
 		{ "name": "sep_rules", "type": TYPE_NIL, "hint": "separator" },
 		
@@ -197,33 +213,57 @@ func _build_zone_inspector() -> void:
 	
 	# 2. INJECT DYNAMIC PROPERTIES
 	var registered_props = GraphSettings.get_properties_for_target("ZONE")
-	
 	if not registered_props.is_empty():
 		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
-		
 	for key in registered_props:
 		var def = registered_props[key]
 		var val = def.default
-		if "custom_data" in zone:
-			val = zone.custom_data.get(key, def.default)
-			
-		schema.append({
-			"name": key,
-			"label": key.capitalize(),
-			"type": def.type,
-			"default": val
-		})
-		
-	# 3. ADD WIZARD BUTTON
-	schema.append({
-		"name": "action_add_property",
-		"label": "Add Custom Data...",
-		"type": TYPE_NIL,
-		"hint": "button"
-	})
+		if "custom_data" in zone: val = zone.custom_data.get(key, def.default)
+		schema.append({ "name": key, "label": key.capitalize(), "type": def.type, "default": val })
+
+	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
 	
-	# 4. RENDER (Using dedicated container)
+	# 3. RENDER MAIN UI
+	# Note: We must clear the container first since we are about to manually add children
+	SettingsUIBuilder.clear_ui(zone_container) 
+	
+	# We create a specific sub-container for the Builder so it doesn't delete our manual button next refresh
+	# Actually, simplest way: Just let Builder fill it, then add our nodes.
 	_render_dynamic_section(zone_container, schema, _on_zone_setting_changed)
+	
+	# 4. APPEND MANUAL COLLAPSIBLE SECTION
+	_add_roster_ui(zone_container, roster_count, roster_text)
+
+# [NEW] Manual UI Helper
+func _add_roster_ui(parent: Control, count: int, text_content: String) -> void:
+	if count == 0: return
+
+	# A. Spacer
+	parent.add_child(HSeparator.new())
+
+	# B. Toggle Button
+	var btn = Button.new()
+	btn.text = "Show Roster (%d Nodes)" % count
+	btn.toggle_mode = true
+	btn.flat = false
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	parent.add_child(btn)
+	
+	# C. The Content (Hidden by default)
+	var content = TextEdit.new()
+	content.text = text_content
+	content.editable = false
+	content.custom_minimum_size.y = 120
+	content.visible = false
+	# Style tweak: make it look like a list
+	content.add_theme_color_override("font_readonly_color", Color(0.8, 0.8, 0.8))
+	parent.add_child(content)
+	
+	# D. Connection
+	btn.toggled.connect(func(is_pressed):
+		content.visible = is_pressed
+		btn.text = ("Hide Roster" if is_pressed else "Show Roster (%d Nodes)" % count)
+	)
 
 func _on_zone_setting_changed(key: String, value: Variant) -> void:
 	if _tracked_zones.is_empty(): return
@@ -973,6 +1013,15 @@ func _on_inspector_target_picked(node_id: String) -> void:
 # --- GENERIC UI HELPER ---
 func _render_dynamic_section(container: Control, schema: Array, callback: Callable) -> Dictionary:
 	var content_box = container.get_node_or_null("ContentBox")
+	
+	# [FIX] CRITICAL: Check if the node we found is actually valid.
+	# If clear_ui() was just called, this node exists but is_queued_for_deletion() is true.
+	# We must NOT reuse it.
+	if content_box and content_box.is_queued_for_deletion():
+		# Rename it so we don't find it again in this frame if we call this function multiple times
+		content_box.name = "ContentBox_Trash" 
+		content_box = null
+	
 	if not content_box:
 		content_box = VBoxContainer.new()
 		content_box.name = "ContentBox"

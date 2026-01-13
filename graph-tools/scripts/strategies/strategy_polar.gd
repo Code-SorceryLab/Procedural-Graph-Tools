@@ -7,40 +7,46 @@ func _init() -> void:
 	supports_grow = false
 
 func get_settings() -> Array[Dictionary]:
-	# ... (Keep existing settings UI) ...
 	return [
 		{ "name": "wedges", "type": TYPE_INT, "default": 6, "min": 3, "max": 32, "hint": GraphSettings.PARAM_TOOLTIPS.polar.wedges },
 		{ "name": "radius", "type": TYPE_INT, "default": 8, "min": 2, "max": 50, "hint": GraphSettings.PARAM_TOOLTIPS.polar.radius },
 		{ "name": "use_jitter", "type": TYPE_BOOL, "default": false, "hint": GraphSettings.PARAM_TOOLTIPS.polar.jitter },
-		{ "name": "jitter_amount", "type": TYPE_FLOAT, "default": 10.0, "min": 0.0, "max": 50.0, "hint": GraphSettings.PARAM_TOOLTIPS.polar.amount }
+		{ "name": "jitter_amount", "type": TYPE_FLOAT, "default": 10.0, "min": 0.0, "max": 50.0, "hint": GraphSettings.PARAM_TOOLTIPS.polar.amount },
+		# [NEW] Add the toggle so the user can actually control it
+		{ "name": "use_zones", "type": TYPE_BOOL, "default": true, "label": "Generate Zone" }
 	]
 
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var wedge_count = int(params.get("wedges", 6))
-	var max_radius = int(params.get("radius", 8))
+	var max_radius_steps = int(params.get("radius", 8))
 	var use_jitter = params.get("use_jitter", false)
-	var jitter_val = float(params.get("jitter_amount", 10.0))
-	var jitter_amount = jitter_val if use_jitter else 0.0
+	var jitter_amount = float(params.get("jitter_amount", 10.0)) if use_jitter else 0.0
 	var merge_overlaps = params.get("merge_overlaps", true)
+	# [NEW] Get the toggle
+	var use_zones = params.get("use_zones", true)
 	
 	var spacing = GraphSettings.GRID_SPACING
 	
-	# --- PHASE 2 NEW LOGIC: Create the Zone ---
-	var my_zone = GraphZone.new("Polar Area", Color(0.0, 0.8, 1.0, 0.2)) # Cyan color
-	my_zone.allow_new_nodes = false # "Keep Out"
-	my_zone.traversal_cost = 0.0    # "Highway" (Encourage flow through, but no building)
+	# --- 1. CREATE ZONE ---
+	# We create it locally, but only populate it if use_zones is true
+	var my_zone = GraphZone.new("Polar Area", Color(0.0, 0.8, 1.0, 0.2)) 
+	my_zone.allow_new_nodes = false
+	my_zone.traversal_cost = 0.0 
 	
-	# --- PASS 1: NODES ---
+	# --- 2. GENERATE NODES ---
 	var center_id = "polar:0:0:0"
 	if not graph.nodes.has(center_id):
 		graph.add_node(center_id, Vector2.ZERO)
-		# Mark center cell
-		my_zone.add_cell(Vector2i(0,0), spacing)
+		
+		if use_zones:
+			my_zone.register_node(center_id)
+			# [FIX] Use the new GraphZone API instead of the dead local helper
+			my_zone.add_patch_at_world_pos(Vector2.ZERO, spacing, 0)
 	
 	for w in range(wedge_count):
 		var wedge_angle = (TAU / wedge_count) * w
 		
-		for r in range(1, max_radius + 1):
+		for r in range(1, max_radius_steps + 1):
 			for s in range(r):
 				var center_offset = (r - 1) / 2.0
 				var unit_lateral = (s - center_offset) * 0.8
@@ -59,19 +65,22 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					
 				graph.add_node(id, final_pos)
 				
-				# --- NEW: Register this cell in the zone ---
-				# We calculate which logical grid cell this node occupies
-				var gx = round(final_pos.x / spacing.x)
-				var gy = round(final_pos.y / spacing.y)
-				my_zone.add_cell(Vector2i(gx, gy), spacing)
+				# --- ZONE REGISTRATION ---
+				if use_zones:
+					# 1. Register Logic (Roster)
+					my_zone.register_node(id)
+					
+					# 2. Register Visuals (Smart 2x2 Patch)
+					my_zone.add_patch_at_world_pos(final_pos, spacing, 0)
 
-	# --- PASS 2: CONNECTIONS (Unchanged) ---
-	# ... (Keep your existing connection logic here) ...
+	# --- 3. GENERATE CONNECTIONS ---
+	# (Logic unchanged)
 	for w in range(wedge_count):
-		for r in range(1, max_radius + 1):
+		for r in range(1, max_radius_steps + 1):
 			for s in range(r):
 				var id = "polar:%d:%d:%d" % [w, r, s]
 				if not graph.nodes.has(id): continue
+				
 				if r == 1:
 					graph.add_edge(id, center_id)
 				else:
@@ -91,8 +100,6 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					if graph.nodes.has(seam_neighbor):
 						graph.add_edge(id, seam_neighbor)
 						
-	# --- REGISTER ZONE ---
-	# Note: GraphRecorder needs to expose a way to add zones, 
-	# OR we access the graph directly if Recorder is just a wrapper.
-	# Assuming Recorder wraps Graph:
-	graph.add_zone(my_zone)
+	# --- 4. FINALIZE ---
+	if use_zones:
+		graph.add_zone(my_zone)

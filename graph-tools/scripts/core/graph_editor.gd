@@ -402,10 +402,14 @@ func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 		
 	selected_zones = zones
 	
-	# [KEY CHANGE] Broadcast to Global Bus
+	# Update Renderer Reference
+	if renderer:
+		renderer.selected_zones_ref = selected_zones
+	
+	# Broadcast to Global Bus
 	SignalManager.zone_selection_changed.emit(selected_zones)
 	
-	# Optional: Trigger redraw if we later add zone selection highlights
+	# Trigger redraw
 	renderer.queue_redraw()
 
 # --- Connection Operations ---
@@ -425,8 +429,47 @@ func disconnect_nodes(id_a: String, id_b: String) -> void:
 
 func set_node_position(id: String, new_pos: Vector2) -> void:
 	graph.set_node_position(id, new_pos)
+	
+	# Update Geographical Zone Registration
+	_update_zone_membership(id, new_pos)
+	
 	mark_modified()
 	renderer.queue_redraw()
+	
+# The Membership Logic
+func _update_zone_membership(node_id: String, world_pos: Vector2) -> void:
+	# 1. Pre-calculate grid pos (Optimization: Do this once)
+	var spacing = GraphSettings.GRID_SPACING
+	var grid_pos = Vector2i(round(world_pos.x / spacing.x), round(world_pos.y / spacing.y))
+	
+	for zone in graph.zones:
+		if not zone.is_active: continue # Skip inactive zones
+		if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: continue
+		
+		# [OPTIMIZATION 1] Broad Phase AABB Check
+		# If we are nowhere near the zone, skip the expensive dictionary lookup.
+		# We assume 'zone.bounds' is a Rect2 updated whenever cells are added.
+		if not zone.bounds.has_point(world_pos):
+			# If we were in it, we definitely aren't now
+			if zone.registered_nodes.has(node_id):
+				zone.unregister_node(node_id)
+			continue
+
+		# [OPTIMIZATION 2] Detailed Check (unchanged)
+
+		if zone.has_cell(grid_pos):
+			# "Welcome to the zone."
+			if not zone.registered_nodes.has(node_id):
+				zone.register_node(node_id)
+				# Optional: 
+				#print("Node %s entered %s" % [node_id, zone.zone_name])
+		
+		# B. Is it outside?
+		else:
+			# "You have left the zone."
+			if zone.registered_nodes.has(node_id):
+				zone.unregister_node(node_id)
+				# Optional: print("Node %s left %s" % [node_id, zone.zone_name])
 
 func commit_move_batch(move_data: Dictionary) -> void:
 	if move_data.is_empty(): return

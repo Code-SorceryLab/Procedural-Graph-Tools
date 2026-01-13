@@ -99,30 +99,33 @@ func _draw() -> void:
 
 # --- HELPER: ZONES ---
 func _draw_zones() -> void:
-	# --- DIAGNOSTIC PRINT ---
-	#if graph_ref:
-	#	print("RENDERER DIAGNOSTIC: Drawing Frame. Zone Count: %d" % graph_ref.zones.size())
-	#	if not graph_ref.zones.is_empty():
-	#		print(" - First Zone: %s | Bounds: %s" % [graph_ref.zones[0].zone_name, graph_ref.zones[0].bounds])
-	#else:
-	#	print("RENDERER DIAGNOSTIC: No Graph Ref!")
-	# ------------------------
-
 	if not graph_ref or graph_ref.zones.is_empty():
 		return
 		
 	var spacing = GraphSettings.GRID_SPACING
-	# Half-size for centering the rect on the node point
 	var half_size = spacing / 2.0
 	
 	for zone in graph_ref.zones:
-		# Draw every cell in the zone
-		# (Optimized: In a real game we'd merge these into a polygon, but for an editor, drawing rects is fine)
+		# Check Selection Status
+		var is_selected = selected_zones_ref.has(zone)
+		
+		# Determine Border Style
+		var border_width = 1.0
+		var border_color = zone.zone_color.lightened(0.2)
+		
+		if is_selected:
+			border_width = 3.0 # Thicker
+			border_color = Color.WHITE # Brighter / High Contrast
+			# OR use a specific selection color: GraphSettings.COLOR_SELECTED
+		
 		for cell in zone.cells:
 			var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
 			var rect = Rect2(world_pos - half_size, spacing)
+			
 			draw_rect(rect, zone.zone_color, true) # Filled
-			draw_rect(rect, zone.zone_color.lightened(0.2), false, 1.0) # Border
+			
+			# Draw Border
+			draw_rect(rect, border_color, false, border_width)
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:
