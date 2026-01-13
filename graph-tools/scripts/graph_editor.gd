@@ -449,6 +449,8 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
+
+
 # --- TRANSACTION MANAGEMENT ---
 
 func start_undo_transaction(action_name: String, refocus_camera: bool = true) -> void:

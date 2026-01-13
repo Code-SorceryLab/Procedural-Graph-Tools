@@ -21,10 +21,11 @@ var id: int:
 
 # [PHYSICAL STATE]
 var pos: Vector2
+var _initial_pos: Vector2  # For resetting correctly
 var current_node_id: String
 var start_node_id: String 
-var step_count: int = 0 
-var history: Array[Dictionary] = [] 
+var step_count: int = 0    # [READ-ONLY STAT]
+var history: Array[Dictionary] = []
 
 # SEMANTIC DATA
 # Stores arbitrary game data (e.g., {"health": 100, "team": "red"})
@@ -68,6 +69,7 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	display_id = p_display_id
 	
 	pos = start_pos
+	_initial_pos = start_pos # Store for reset
 	current_node_id = start_node
 	start_node_id = start_node
 	my_paint_type = p_type
@@ -80,14 +82,14 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 
 func reset_state() -> void:
 	step_count = 0
-	current_node_id = ""
-	pos = Vector2.ZERO
+	current_node_id = start_node_id 
+	pos = _initial_pos              
 	history.clear()
 	
-	# Reset logic state, but keep 'active' configuration
+	if start_node_id != "":
+		history.append({ "node": start_node_id, "step": 0 })
+		
 	is_finished = false
-	
-	# Restart the Brain
 	if brain: brain.enter(self, null)
 
 # ==============================================================================
@@ -125,27 +127,30 @@ func serialize() -> Dictionary:
 # Factory Method: Reconstructs an Agent from a Dictionary
 static func deserialize(data: Dictionary) -> AgentWalker:
 	# 1. Extract Core Constructor Args
-	# We use .get() with defaults to prevent crashes on old save files
 	var d_uuid = data.get("uuid", "")
-	# If UUID is missing (very old save), we can't generate one here easily without Utils.
-	# We'll leave it empty and let the Graph fix it, or the Loader.
-	
 	var d_id = int(data.get("display_id", 1))
 	var d_pos = Vector2(data.get("pos_x", 0), data.get("pos_y", 0))
 	var d_start = data.get("start_node", "")
 	var d_paint = int(data.get("paint_type", 2))
 	var d_steps = int(data.get("steps", 15))
 	
-	# 2. Instantiate
 	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_paint, d_steps)
 	
-	# 3. Restore State
+	# 2. Restore State & History (The Fix)
 	agent.current_node_id = data.get("current_node", "")
 	agent.step_count = int(data.get("step_count", 0))
-	agent.history = data.get("history", []) # Warning: Array needs explicit cast if strict typed
+	
+	var raw_history = data.get("history", [])
+	if raw_history is Array:
+		# Clear the history created by the constructor (start node)
+		agent.history.clear() 
+		# Safely import the saved history
+		agent.history.assign(raw_history)
+	
 	agent.custom_data = data.get("custom_data", {})
 	
-	# 4. Restore Config
+	# 3. Restore Config
+	
 	agent.behavior_mode = int(data.get("behavior_mode", 0))
 	agent.movement_algo = int(data.get("movement_algo", 0))
 	agent.target_node_id = data.get("target_node", "")
@@ -154,7 +159,7 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	agent.snap_to_grid = data.get("snap_to_grid", false)
 	agent.branch_randomly = data.get("branch_randomly", false)
 	
-	# 5. Re-ignite the Brain
+	# 4. Re-ignite the Brain
 	agent._refresh_brain()
 	
 	return agent
@@ -163,9 +168,15 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 # 5. BEHAVIOR LOGIC
 # ==============================================================================
 
+# Update the Step Logic
 func step(graph: Graph, _context: Dictionary = {}) -> void:
 	if not active: return
 	
+	# [FIX] Check for Limit (If -1, we skip the limit check)
+	if steps != -1 and step_count >= steps:
+		is_finished = true
+		return
+
 	# Lazy Initialization safety check
 	if not brain: _refresh_brain()
 	
@@ -224,7 +235,6 @@ func generate_unique_id(graph) -> String:
 
 # Returns the definition list for the SettingsUIBuilder
 static func get_template_settings() -> Array[Dictionary]:
-	# 1. Fetch Types for Paint Dropdown
 	var ids = GraphSettings.current_names.keys()
 	ids.sort()
 	var names: PackedStringArray = []
@@ -237,14 +247,14 @@ static func get_template_settings() -> Array[Dictionary]:
 			
 	var options_string = ",".join(names)
 	
-	# 2. Return Schema
 	return [
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
 		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
 		{ "name": "active", "type": TYPE_BOOL, "default": true },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string },
-		{ "name": "steps", "type": TYPE_INT, "default": 15 },
+		# [UPDATED] Clearer Label
+		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, "hint": "Set to -1 for Endless Mode" },
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false },
 		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false }
 	]
@@ -253,7 +263,6 @@ static func get_template_settings() -> Array[Dictionary]:
 func get_agent_settings() -> Array[Dictionary]:
 	var settings = AgentWalker.get_template_settings()
 	
-	# Sync Defaults with Current State
 	for s in settings:
 		if s.name == "active": s.default = active
 		elif s.name == "steps": s.default = steps
@@ -268,7 +277,16 @@ func get_agent_settings() -> Array[Dictionary]:
 			var idx = ids.find(my_paint_type)
 			if idx != -1: s.default = idx
 			
-	# Append Instance Actions
+	# [NEW] Insert Read-Only Statistics
+	settings.append({ 
+		"name": "stat_steps", 
+		"label": "Steps Taken", 
+		"type": TYPE_STRING, 
+		"default": "%d / %d" % [step_count, steps], # Shows "0 / 15"
+		"hint": "read_only"
+	})
+
+	# Actions
 	settings.append_array([
 		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }

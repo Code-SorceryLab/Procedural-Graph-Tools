@@ -101,7 +101,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 		return 
 
 	# 2. STANDARD EXECUTION
-	var step_budget = int(params.get("steps", 50))
+	var step_budget = int(params.get("steps", 15))
 	
 	if graph.agents.is_empty():
 		var target_count = int(params.get("count", 1))
@@ -109,9 +109,15 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 			var start_node = params.get("start_pos_node", "")
 			_spawn_initial_population(graph, target_count, params, start_node)
 	else:
+		# Extending existing agents
 		for agent in graph.agents:
 			if agent.active:
-				agent.steps += step_budget
+				# [FIX] Handle Infinite Budget Logic
+				if step_budget == -1:
+					agent.steps = -1 # Set to infinite
+				elif agent.steps != -1:
+					agent.steps += step_budget # Normal addition
+				
 				agent.is_finished = false
 				if agent.branch_randomly:
 					_teleport_to_random_branch_point(graph, agent)
@@ -121,10 +127,18 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	for w in graph.agents:
 		pre_sim_states[w.id] = _snapshot_agent(w)
 
+	# [FIX] Safety Clamp for Instant Preview
+	# If an agent is infinite (-1), we only simulate 100 steps for the preview
+	# to prevent the editor from freezing in an infinite loop.
 	var max_ticks = 0
 	for w in graph.agents:
-		if w.active and w.steps > max_ticks:
-			max_ticks = w.steps
+		if w.active:
+			var effective_limit = w.steps
+			if effective_limit == -1: 
+				effective_limit = 100 # Safety Limit
+			
+			if effective_limit > max_ticks:
+				max_ticks = effective_limit
 			
 	var effective_starts = {} 
 	for w in graph.agents:
@@ -132,7 +146,8 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	
 	for tick in range(max_ticks):
 		for w in graph.agents:
-			if w.active and not w.is_finished and w.step_count < w.steps:
+			# [FIX] Check for Infinite (-1) OR within bounds
+			if w.active and not w.is_finished and (w.steps == -1 or w.step_count < w.steps):
 				var step_params = params.duplicate()
 				step_params["merge_overlaps"] = true
 				
