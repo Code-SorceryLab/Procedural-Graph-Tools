@@ -360,20 +360,22 @@ theme_override_constants/separation = 8
 layout_mode = 2
 metadata/_tab_index = 3
 
-[node name="ScrollContainer" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
-custom_minimum_size = Vector2(0, 300)
+[node name="BtnAddZone" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
 layout_mode = 2
+text = "Add Zone"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
 [node name="ZoneList" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer"]
 layout_mode = 2
 
-[node name="BtnAddZone" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
-layout_mode = 2
-text = "Add Zone"
-
 [node name="LblStats" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
 layout_mode = 2
+size_flags_vertical = 3
 text = "Stats: "
 
 [node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]

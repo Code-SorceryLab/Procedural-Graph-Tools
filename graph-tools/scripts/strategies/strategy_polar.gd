@@ -5,16 +5,23 @@ func _init() -> void:
 	strategy_name = "Polar Wedges"
 	reset_on_generate = true
 	supports_grow = false
+	supports_zones = true # [NEW] Enable standardized zone support
 
 func get_settings() -> Array[Dictionary]:
-	return [
+	var settings: Array[Dictionary] = [
 		{ "name": "wedges", "type": TYPE_INT, "default": 6, "min": 3, "max": 32, "hint": GraphSettings.PARAM_TOOLTIPS.polar.wedges },
 		{ "name": "radius", "type": TYPE_INT, "default": 8, "min": 2, "max": 50, "hint": GraphSettings.PARAM_TOOLTIPS.polar.radius },
 		{ "name": "use_jitter", "type": TYPE_BOOL, "default": false, "hint": GraphSettings.PARAM_TOOLTIPS.polar.jitter },
-		{ "name": "jitter_amount", "type": TYPE_FLOAT, "default": 10.0, "min": 0.0, "max": 50.0, "hint": GraphSettings.PARAM_TOOLTIPS.polar.amount },
-		# [NEW] Add the toggle so the user can actually control it
-		{ "name": "use_zones", "type": TYPE_BOOL, "default": true, "label": "Generate Zone" }
+		{ "name": "jitter_amount", "type": TYPE_FLOAT, "default": 10.0, "min": 0.0, "max": 50.0, "hint": GraphSettings.PARAM_TOOLTIPS.polar.amount }
 	]
+	
+	# Use Standardized Helper
+	if supports_zones:
+		var zone_def = _get_zone_setting_def()
+		zone_def["default"] = true 
+		settings.append(zone_def)
+		
+	return settings
 
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var wedge_count = int(params.get("wedges", 6))
@@ -22,26 +29,19 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var use_jitter = params.get("use_jitter", false)
 	var jitter_amount = float(params.get("jitter_amount", 10.0)) if use_jitter else 0.0
 	var merge_overlaps = params.get("merge_overlaps", true)
-	# [NEW] Get the toggle
-	var use_zones = params.get("use_zones", true)
+	var use_zones = bool(params.get("use_zones", true)) 
 	
 	var spacing = GraphSettings.GRID_SPACING
 	
-	# --- 1. CREATE ZONE ---
-	# We create it locally, but only populate it if use_zones is true
-	var my_zone = GraphZone.new("Polar Area", Color(0.0, 0.8, 1.0, 0.2)) 
-	my_zone.allow_new_nodes = false
-	my_zone.traversal_cost = 0.0 
+	# 1. START ZONE CONTEXT
+	if use_zones:
+		graph.start_zone("Polar Area", Color(0.0, 0.8, 1.0, 0.2)) 
 	
 	# --- 2. GENERATE NODES ---
 	var center_id = "polar:0:0:0"
 	if not graph.nodes.has(center_id):
+		# Automatic Registration happens inside add_node now!
 		graph.add_node(center_id, Vector2.ZERO)
-		
-		if use_zones:
-			my_zone.register_node(center_id)
-			# [FIX] Use the new GraphZone API instead of the dead local helper
-			my_zone.add_patch_at_world_pos(Vector2.ZERO, spacing, 0)
 	
 	for w in range(wedge_count):
 		var wedge_angle = (TAU / wedge_count) * w
@@ -62,19 +62,12 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 				
 				if merge_overlaps and not graph.get_node_at_position(final_pos, 5.0).is_empty():
 					continue 
-					
+				
+				# Automatic Registration + Smart 2x2 Patch happens here
 				graph.add_node(id, final_pos)
 				
-				# --- ZONE REGISTRATION ---
-				if use_zones:
-					# 1. Register Logic (Roster)
-					my_zone.register_node(id)
-					
-					# 2. Register Visuals (Smart 2x2 Patch)
-					my_zone.add_patch_at_world_pos(final_pos, spacing, 0)
 
 	# --- 3. GENERATE CONNECTIONS ---
-	# (Logic unchanged)
 	for w in range(wedge_count):
 		for r in range(1, max_radius_steps + 1):
 			for s in range(r):
@@ -100,6 +93,6 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					if graph.nodes.has(seam_neighbor):
 						graph.add_edge(id, seam_neighbor)
 						
-	# --- 4. FINALIZE ---
+	# 4. END ZONE CONTEXT
 	if use_zones:
-		graph.add_zone(my_zone)
+		graph.end_zone()

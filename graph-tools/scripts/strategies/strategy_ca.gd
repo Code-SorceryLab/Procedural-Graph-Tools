@@ -7,9 +7,10 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Cellular Automata (Cave)"
 	reset_on_generate = true
+	supports_zones = true # [NEW] Enable zone support
 
 func get_settings() -> Array[Dictionary]:
-	return [
+	var settings: Array[Dictionary] = [
 		{ 
 			"name": "width", 
 			"type": TYPE_INT, 
@@ -39,15 +40,24 @@ func get_settings() -> Array[Dictionary]:
 			"hint": GraphSettings.PARAM_TOOLTIPS.ca.iter 
 		}
 	]
+	
+	# [NEW] Add Zone Toggle (Defaulting to TRUE as requested)
+	if supports_zones:
+		var zone_def = _get_zone_setting_def()
+		zone_def["default"] = true 
+		settings.append(zone_def)
+		
+	return settings
 
 # ==============================================================================
 # EXECUTION LOGIC
 # ==============================================================================
 func execute(recorder: GraphRecorder, params: Dictionary) -> void:
-	var w = params.get("width", 20)
-	var h = params.get("height", 15)
-	var fill = params.get("fill_percent", 45) / 100.0
-	var steps = params.get("iterations", 4)
+	var w = int(params.get("width", 20))
+	var h = int(params.get("height", 15))
+	var fill = int(params.get("fill_percent", 45)) / 100.0
+	var steps = int(params.get("iterations", 4))
+	var use_zones = bool(params.get("use_zones", true)) # [NEW]
 	
 	# 1. Initialize Random Grid
 	var grid = _initialize_grid(w, h, fill)
@@ -58,27 +68,31 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		
 	# 3. Convert Grid to Graph Nodes
 	var final_nodes = []
-	
-	# [REFACTOR] Use Vector Spacing
 	var spacing = GraphSettings.GRID_SPACING
+	
+	# [NEW] Start Zone Context
+	if use_zones:
+		recorder.start_zone("Cave System", Color(0.6, 0.4, 0.2, 0.3)) # Brownish tint
 	
 	for x in range(w):
 		for y in range(h):
 			if grid[x][y]:
 				var id = "ca:%d:%d" % [x, y]
-				
-				# Use distinct X and Y spacing
 				var pos = Vector2(x * spacing.x, y * spacing.y)
 				
-				# Add Node
+				# Add Node (Recorder automatically handles zone registration + 3x3 patch)
 				recorder.add_node(id, pos)
 				final_nodes.append(id)
 				
-				# 4. Create Connections (Directly using Graph API)
+				# 4. Create Connections
 				if x > 0 and grid[x-1][y]:
 					recorder.add_edge(id, "ca:%d:%d" % [x-1, y])
 				if y > 0 and grid[x][y-1]:
 					recorder.add_edge(id, "ca:%d:%d" % [x, y-1])
+
+	# [NEW] End Zone Context
+	if use_zones:
+		recorder.end_zone()
 
 	# 5. Output Highlight info
 	params["out_highlight_nodes"] = final_nodes
@@ -86,6 +100,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 # ==============================================================================
 # INTERNAL SIMULATION HELPERS
 # ==============================================================================
+# (Helpers remain strictly logical, no zone logic needed here)
 
 func _initialize_grid(w: int, h: int, fill_prob: float) -> Array:
 	var grid = []
@@ -98,8 +113,7 @@ func _initialize_grid(w: int, h: int, fill_prob: float) -> Array:
 
 func _run_simulation_step(old_grid: Array, w: int, h: int) -> Array:
 	var new_grid = []
-	
-	# Create fresh array structure
+	# Create structure
 	for x in range(w):
 		var col = []
 		col.resize(h)
@@ -126,7 +140,7 @@ func _count_neighbors(grid: Array, x: int, y: int, w: int, h: int) -> int:
 	for i in range(-1, 2):
 		for j in range(-1, 2):
 			if i == 0 and j == 0: continue
-				
+			
 			var nx = x + i
 			var ny = y + j
 			

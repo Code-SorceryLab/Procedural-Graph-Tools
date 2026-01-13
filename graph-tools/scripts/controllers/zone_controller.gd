@@ -35,13 +35,54 @@ func _ready() -> void:
 # ==============================================================================
 
 func _on_add_zone_pressed() -> void:
-	# Create a random color for distinctness
+	# 1. Create Zone
 	var random_color = Color.from_hsv(randf(), 0.6, 0.8, 0.3)
 	var new_zone = GraphZone.new("New Zone", random_color)
 	
-	graph_editor.add_zone(new_zone)
+	var graph = graph_editor.graph
+	var spacing = GraphSettings.GRID_SPACING
 	
-	# Auto-select the new zone immediately
+	# CASE A: Nodes are Selected -> Wrap them!
+	if not graph_editor.selected_nodes.is_empty():
+		for id in graph_editor.selected_nodes:
+			if graph.nodes.has(id):
+				var pos = graph.nodes[id].position
+				
+				# 1. Register Logic
+				new_zone.register_node(id)
+				
+				# 2. Register Visuals (Smart 2x2 Patch)
+				# This creates the "tight fit" look around your selection
+				new_zone.add_patch_at_world_pos(pos, spacing, 0)
+				
+	# CASE B: No Selection -> Spawn a "Landing Pad"
+	else:
+		var spawn_pos = Vector2.ZERO
+		
+		# Find graph center (if nodes exist)
+		if graph and not graph.nodes.is_empty():
+			var sum = Vector2.ZERO
+			var count = 0
+			for id in graph.nodes:
+				sum += graph.nodes[id].position
+				count += 1
+				if count >= 10: break # Optimization
+			if count > 0:
+				spawn_pos = sum / count
+		
+		# Paint a larger 3x3 patch so it's easy to see
+		new_zone.add_patch_at_world_pos(spawn_pos, spacing, 1)
+		
+		# Auto-capture any lucky nodes sitting exactly on the landing pad
+		if graph:
+			for id in graph.nodes:
+				# Check if node center is inside the new 3x3 grid
+				var node_grid = Vector2i(round(graph.nodes[id].position.x / spacing.x), round(graph.nodes[id].position.y / spacing.y))
+				if new_zone.has_cell(node_grid):
+					new_zone.register_node(id)
+
+	# 3. Commit
+	graph_editor.add_zone(new_zone)
 	graph_editor.set_zone_selection([new_zone])
 
 func _full_zone_rebuild() -> void:
