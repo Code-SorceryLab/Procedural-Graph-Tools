@@ -1,6 +1,6 @@
-[gd_scene load_steps=13 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=14 format=3 uid="uid://b4kjmis7vpbxa"]
 
-[ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/game_player.gd" id="1_wv330"]
+[ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
 [ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
 [ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/agent_controller.gd" id="4_5u163"]
 [ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
+[ext_resource type="Script" uid="uid://c2ghhkic1gnd6" path="res://scripts/controllers/zone_controller.gd" id="5_xsqam"]
 [ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/property_wizard.tscn" id="6_gea6l"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
@@ -49,7 +50,14 @@ behavior_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabC
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/LblStats")
 lbl_edit_mode = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/LblEditMode")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "walker_container", "opt_walker_select", "edge_container")]
+[node name="ZoneController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "zone_list", "btn_add_zone", "lbl_stats")]
+script = ExtResource("5_xsqam")
+graph_editor = NodePath("../GraphEditor")
+zone_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer/ZoneList")
+btn_add_zone = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/BtnAddZone")
+lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/LblStats")
+
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "zone_container", "walker_container", "opt_walker_select", "edge_container")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
@@ -58,6 +66,7 @@ property_wizard_scene = ExtResource("6_gea6l")
 lbl_no_selection = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
 single_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer")
 group_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer")
+zone_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/ZoneContainer")
 walker_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer")
 opt_walker_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/OptWalkerSelect")
 edge_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer")
@@ -203,11 +212,12 @@ theme_override_constants/margin_bottom = 15
 [node name="TabContainer" type="TabContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin"]
 layout_mode = 2
 tab_alignment = 1
-current_tab = 0
+current_tab = 3
 drag_to_rearrange_enabled = true
 use_hidden_tabs_for_min_size = true
 
 [node name="Generation" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
 layout_mode = 2
 metadata/_tab_index = 0
 
@@ -346,10 +356,30 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
+[node name="Zone" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 3
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ZoneList" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer"]
+layout_mode = 2
+
+[node name="BtnAddZone" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+layout_mode = 2
+text = "Add Zone"
+
+[node name="LblStats" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+layout_mode = 2
+text = "Stats: "
+
 [node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false
 layout_mode = 2
-metadata/_tab_index = 3
+metadata/_tab_index = 4
 
 [node name="LblNoSelection" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector"]
 modulate = Color(1, 1, 1, 0.5)
@@ -381,6 +411,9 @@ layout_mode = 2
 layout_mode = 2
 
 [node name="OptWalkerSelect" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer"]
+layout_mode = 2
+
+[node name="ZoneContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
 layout_mode = 2
 
 [node name="PropertyWizard" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody" instance=ExtResource("6_gea6l")]

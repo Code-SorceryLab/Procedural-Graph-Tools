@@ -26,7 +26,7 @@ signal property_defined(name: String)
 
 # --- CONSTANTS ---
 const TYPES = [TYPE_BOOL, TYPE_INT, TYPE_FLOAT, TYPE_STRING, TYPE_COLOR]
-const TARGETS = ["NODE", "EDGE", "AGENT"]
+const TARGETS = ["NODE", "EDGE", "AGENT", "ZONE"]
 const TYPE_NAMES = {
 	TYPE_BOOL: "Boolean", TYPE_INT: "Integer", 
 	TYPE_FLOAT: "Float", TYPE_STRING: "String", 

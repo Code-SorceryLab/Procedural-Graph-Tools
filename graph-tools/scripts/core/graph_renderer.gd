@@ -45,6 +45,8 @@ var selected_edges_ref: Array = []
 var selected_agent_ids_ref: Array = [] 
 # Reference for Agent Selection (Objects)
 var selected_agents_ref: Array = []
+
+var selected_zones_ref: Array = []
 # ==============================================================================
 # 3. INTERACTION STATE
 # ==============================================================================

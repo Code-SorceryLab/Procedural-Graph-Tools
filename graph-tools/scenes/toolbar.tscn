@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://0615dqn17fo0"]
 
-[ext_resource type="Script" uid="uid://51ua2mcpael0" path="res://scripts/toolbar.gd" id="1_wdy5x"]
+[ext_resource type="Script" uid="uid://51ua2mcpael0" path="res://scripts/ui/toolbar.gd" id="1_wdy5x"]
 
 [node name="Toolbar" type="PanelContainer"]
 anchors_preset = 9

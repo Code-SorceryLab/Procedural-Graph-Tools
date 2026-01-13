@@ -1,8 +1,8 @@
 extends Resource
 class_name Graph
 
-const PRIORITY_QUEUE = preload("res://scripts/priority_queue.gd")
-const SPATIAL_GRID = preload("res://scripts/spatial_grid.gd")
+const PRIORITY_QUEUE = preload("res://scripts/utils/priority_queue.gd")
+const SPATIAL_GRID = preload("res://scripts/utils/spatial_grid.gd")
 
 # 1. Export the main dictionary
 @export var nodes: Dictionary = {}

@@ -33,6 +33,7 @@ var _pick_callback: Callable
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
 var selected_agent_ids: Array = []
+var selected_zones: Array = [] # Stores Objects (GraphZone), not IDs
 
 # Tool Visualization Proxy
 var tool_overlay_rect: Rect2 = Rect2():
@@ -343,7 +344,6 @@ func clear_selection() -> void:
 	
 	selected_agent_ids.clear()
 	renderer.selected_agent_ids_ref = selected_agent_ids
-	# [CHANGE] Emit Global Signal
 	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 
 # Edge Selection API
@@ -362,6 +362,51 @@ func set_edge_selection(edge_pair: Array) -> void:
 	selected_edges = [edge_pair]
 	renderer.selected_edges_ref = selected_edges
 	edge_selection_changed.emit(selected_edges)
+
+# --- ZONE API ---
+
+func add_zone(zone: GraphZone) -> void:
+	graph.add_zone(zone)
+	mark_modified()
+
+func remove_zone(zone: GraphZone) -> void:
+	if graph.zones.has(zone):
+		graph.zones.erase(zone)
+		
+		# Deselect if currently selected
+		if selected_zones.has(zone):
+			selected_zones.erase(zone)
+			# Recursive call to update selection state safely
+			set_zone_selection(selected_zones)
+			
+		mark_modified()
+		renderer.queue_redraw()
+
+func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
+	if clear_others:
+		# Clear Nodes/Edges
+		selected_nodes.clear()
+		selected_edges.clear()
+		renderer.selected_nodes_ref = []
+		renderer.selected_edges_ref = []
+		
+		var empty_nodes: Array[String] = []
+		selection_changed.emit(empty_nodes)
+
+		edge_selection_changed.emit([])
+		
+		# Clear Agents
+		selected_agent_ids.clear()
+		renderer.selected_agent_ids_ref = []
+		SignalManager.agent_selection_changed.emit([])
+		
+	selected_zones = zones
+	
+	# [KEY CHANGE] Broadcast to Global Bus
+	SignalManager.zone_selection_changed.emit(selected_zones)
+	
+	# Optional: Trigger redraw if we later add zone selection highlights
+	renderer.queue_redraw()
 
 # --- Connection Operations ---
 

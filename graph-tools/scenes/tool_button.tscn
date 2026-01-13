@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://cspael87hhc00"]
 
-[ext_resource type="Script" uid="uid://bw0atd0ht68me" path="res://scripts/tool_button.gd" id="1_b4wr0"]
+[ext_resource type="Script" uid="uid://bw0atd0ht68me" path="res://scripts/ui/tool_button.gd" id="1_b4wr0"]
 
 [node name="ToolButton" type="Button"]
 custom_minimum_size = Vector2(40, 40)

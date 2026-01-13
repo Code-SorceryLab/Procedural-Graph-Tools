@@ -6,15 +6,16 @@ extends RefCounted
 static func serialize(graph: Graph) -> String:
 	var data = {
 		"meta": {
-			"version": "1.3", # Bumped for Schema Support
+			"version": "1.4", # Bumped for Zone Support
 			"timestamp": Time.get_datetime_string_from_system(),
 			"next_ticket": graph._next_display_id
 		},
 		"legend": _serialize_legend(),
-		"schema": GraphSettings.property_definitions, # [NEW] Save the Rules
+		"schema": GraphSettings.property_definitions,
 		"nodes": [],
 		"edges": [],
-		"agents": []
+		"agents": [],
+		"zones": [] # Zone Container
 	}
 	
 	# 1. SERIALIZE NODES
@@ -27,19 +28,16 @@ static func serialize(graph: Graph) -> String:
 			"type": node_obj.type 
 		}
 		
-		# [FUTURE PROOFING] If NodeData eventually gets custom_data, save it here
 		if "custom_data" in node_obj:
 			node_dict["custom_data"] = node_obj.custom_data
 			
 		data["nodes"].append(node_dict)
 		
-	# 2. SERIALIZE EDGES (Smart Logic)
-	# We iterate edge_data to capture rich custom fields
-	var processed_pairs = {} # Keeps track of bidirectionals we already saved
+	# 2. SERIALIZE EDGES
+	var processed_pairs = {} 
 	
 	for id_a in graph.edge_data:
 		for id_b in graph.edge_data[id_a]:
-			# Check if we already handled this pair
 			var pair_key = [id_a, id_b]
 			pair_key.sort()
 			if processed_pairs.has(pair_key): continue
@@ -47,24 +45,19 @@ static func serialize(graph: Graph) -> String:
 			var data_ab = graph.edge_data[id_a][id_b]
 			var is_bidir = false
 			
-			# Check symmetry: Does B->A exist?
 			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
 				var data_ba = graph.edge_data[id_b][id_a]
-				# Deep Equality Check: Are they effectively the same edge?
 				if data_ab.hash() == data_ba.hash():
 					is_bidir = true
 			
 			if is_bidir:
-				# Save ONCE as Bi-Directional
 				processed_pairs[pair_key] = true
 				data["edges"].append({
 					"u": id_a, "v": id_b,
 					"bidir": true,
-					"data": data_ab # Saves weight, type, lock_level, etc.
+					"data": data_ab
 				})
 			else:
-				# Save as One-Way (Directed)
-				# We do NOT mark processed_pairs, so B->A will be checked later
 				data["edges"].append({
 					"u": id_a, "v": id_b,
 					"bidir": false,
@@ -75,6 +68,12 @@ static func serialize(graph: Graph) -> String:
 	for agent in graph.agents:
 		if agent.has_method("serialize"):
 			data["agents"].append(agent.serialize())
+
+	# 4. SERIALIZE ZONES [NEW]
+	if "zones" in graph:
+		for zone in graph.zones:
+			if zone.has_method("serialize"):
+				data["zones"].append(zone.serialize())
 			
 	return JSON.stringify(data, "\t")
 
@@ -87,31 +86,25 @@ static func deserialize(json_string: String) -> Graph:
 	
 	var data = json.data
 	
-	# 1. Restore Legend
-	if data.has("legend"):
-		_deserialize_legend(data["legend"])
-	else:
-		GraphSettings.reset_legend()
+	# 1. Restore Legend & Schema
+	if data.has("legend"): _deserialize_legend(data["legend"])
+	else: GraphSettings.reset_legend()
 	
-	# 2. [NEW] Restore Property Schema
-	# We must do this first so the Inspector knows what to show
 	GraphSettings.clear_schema()
 	if data.has("schema"):
 		var loaded_schema = data["schema"]
-		# Strict type casting for safety
 		for key in loaded_schema:
 			var def = loaded_schema[key]
 			var target = def.get("target", "NODE")
 			var type = int(def.get("type", TYPE_STRING))
 			var default = def.get("default", null)
 			
-			# Validate types during load to prevent crashes
 			if target in ["NODE", "EDGE", "AGENT"]:
 				GraphSettings.register_property(key, target, type, default)
 		
 	var new_graph = Graph.new()
 	
-	# 2. Restore Meta-Data (Ticket Counter)
+	# 2. Restore Meta-Data
 	if data.has("meta"):
 		new_graph._next_display_id = int(data["meta"].get("next_ticket", 1))
 	
@@ -126,34 +119,32 @@ static func deserialize(json_string: String) -> Graph:
 			if new_graph.nodes.has(id):
 				var node_ref = new_graph.nodes[id]
 				node_ref.type = type
-				# Restore Custom Data if present
 				if n.has("custom_data") and "custom_data" in node_ref:
 					node_ref.custom_data = n["custom_data"]
 				
 	# 4. Restore Edges
 	if data.has("edges"):
 		for e in data["edges"]:
-			# Support v1.0 ("from/to") and v1.2 ("u/v")
 			var u = e.get("u") if e.has("u") else e.get("from")
 			var v = e.get("v") if e.has("v") else e.get("to")
 			
-			if not new_graph.nodes.has(u) or not new_graph.nodes.has(v):
-				continue
+			if not new_graph.nodes.has(u) or not new_graph.nodes.has(v): continue
 				
-			# Extract Data
 			var edge_data = e.get("data", {})
-			# Compat: If v1.0 "w" exists, ensure it's in data
-			if e.has("w") and not edge_data.has("weight"):
-				edge_data["weight"] = e["w"]
+			if e.has("w") and not edge_data.has("weight"): edge_data["weight"] = e["w"]
 				
 			var weight = edge_data.get("weight", 1.0)
-			var is_bidir = e.get("bidir", true) # Default to true for old saves
+			var is_bidir = e.get("bidir", true)
 			
-			# Add to Graph
-			# Note: 'directed' param is the inverse of 'bidir'
 			new_graph.add_edge(u, v, weight, not is_bidir, edge_data)
 
-	# 5. Restore Agents
+	# 5. Restore Zones [NEW]
+	if data.has("zones"):
+		for z_data in data["zones"]:
+			var zone = GraphZone.deserialize(z_data)
+			new_graph.add_zone(zone)
+
+	# 6. Restore Agents
 	if data.has("agents"):
 		for a_data in data["agents"]:
 			var agent = AgentWalker.deserialize(a_data)

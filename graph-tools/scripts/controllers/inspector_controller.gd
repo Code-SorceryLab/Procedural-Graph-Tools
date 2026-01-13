@@ -17,7 +17,9 @@ var _wizard_instance: PropertyWizard
 @export var single_container: Control     
 @export var group_container: Control      
 
-
+# 2. ZONE CONTAINER
+@export_group("Zone Inspector")
+@export var zone_container: Control
 
 # 3. DYNAMIC WALKER CONTROLS
 @export_group("Walker Inspector")
@@ -33,6 +35,7 @@ var _wizard_instance: PropertyWizard
 var _tracked_nodes: Array[String] = []
 var _tracked_edges: Array = []           
 var _tracked_agents: Array = []
+var _tracked_zones: Array = []
 
 var _is_updating_ui: bool = false
 var _current_walker_ref: Object = null 
@@ -54,6 +57,10 @@ func _ready() -> void:
 	# Listen to Global Bus for Agent Selection
 	if SignalManager.has_signal("agent_selection_changed"):
 		SignalManager.agent_selection_changed.connect(_on_agent_selection_changed)
+	
+	# Listen for Zone Selection
+	if SignalManager.has_signal("zone_selection_changed"):
+		SignalManager.zone_selection_changed.connect(_on_zone_selection_changed)
 	
 	# Inspector View Requests
 	if graph_editor.has_signal("request_inspector_view"):
@@ -97,23 +104,32 @@ func _on_inspector_view_requested() -> void:
 # SELECTION HANDLERS
 # ==============================================================================
 
+# Node Handler
 func _on_selection_changed(selected_nodes: Array[String]) -> void:
 	_tracked_nodes = selected_nodes
 	_check_selection_state()
 
+# Edge Handler
 func _on_edge_selection_changed(selected_edges: Array) -> void:
 	_tracked_edges = selected_edges
 	if not _tracked_edges.is_empty():
 		_rebuild_edge_inspector_ui()
 	_check_selection_state()
 
+# Agent Handler
 func _on_agent_selection_changed(selected_agents: Array) -> void:
 	_tracked_agents = selected_agents
 	_check_selection_state()
 
+# Zone Handler
+func _on_zone_selection_changed(zones: Array) -> void:
+	_tracked_zones = zones
+	_check_selection_state()
+
 # Central State Checker
 func _check_selection_state() -> void:
-	if _tracked_nodes.is_empty() and _tracked_edges.is_empty() and _tracked_agents.is_empty():
+	# Check nodes, edges, agents, AND zones
+	if _tracked_nodes.is_empty() and _tracked_edges.is_empty() and _tracked_agents.is_empty() and _tracked_zones.is_empty():
 		_clear_inspector()
 	else:
 		_refresh_all_views()
@@ -123,9 +139,10 @@ func _refresh_all_views() -> void:
 	var has_nodes = not _tracked_nodes.is_empty()
 	var has_edges = not _tracked_edges.is_empty()
 	var has_agents = not _tracked_agents.is_empty()
+	var has_zones = not _tracked_zones.is_empty() # [NEW]
 	
 	# 1. No Selection
-	lbl_no_selection.visible = (not has_nodes and not has_edges and not has_agents)
+	lbl_no_selection.visible = (not has_nodes and not has_edges and not has_agents and not has_zones)
 	
 	# 2. Node Inspector
 	single_container.visible = (has_nodes and _tracked_nodes.size() == 1)
@@ -148,7 +165,92 @@ func _refresh_all_views() -> void:
 		show_walkers = _update_walker_inspector_from_node(_tracked_nodes[0])
 		
 	walker_container.visible = show_walkers
+	
+	# 5. Zone Inspector [NEW]
+	zone_container.visible = has_zones
+	if has_zones:
+		_build_zone_inspector()
+
 	set_process(has_nodes)
+	
+# ==============================================================================
+# ZONE INSPECTOR LOGIC
+# ==============================================================================
+
+func _build_zone_inspector() -> void:
+	if _tracked_zones.is_empty(): return
+	
+	var zone = _tracked_zones[0] as GraphZone
+	
+	# 1. DEFINE SCHEMA
+	var schema = [
+		{ "name": "head", "label": "Zone Inspector", "type": TYPE_STRING, "default": "Properties", "hint": "read_only" },
+		{ "name": "zone_name", "label": "Name", "type": TYPE_STRING, "default": zone.zone_name },
+		{ "name": "zone_color", "label": "Color", "type": TYPE_COLOR, "default": zone.zone_color },
+		
+		{ "name": "sep_rules", "type": TYPE_NIL, "hint": "separator" },
+		
+		{ "name": "allow_new_nodes", "label": "Allow New Nodes", "type": TYPE_BOOL, "default": zone.allow_new_nodes },
+		{ "name": "traversal_cost", "label": "Traversal Cost", "type": TYPE_FLOAT, "default": zone.traversal_cost, "step": 0.1, "min": 0.1 },
+		{ "name": "damage_per_tick", "label": "Damage / Tick", "type": TYPE_FLOAT, "default": zone.damage_per_tick, "step": 1.0 }
+	]
+	
+	# 2. INJECT DYNAMIC PROPERTIES
+	var registered_props = GraphSettings.get_properties_for_target("ZONE")
+	
+	if not registered_props.is_empty():
+		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
+		
+	for key in registered_props:
+		var def = registered_props[key]
+		var val = def.default
+		if "custom_data" in zone:
+			val = zone.custom_data.get(key, def.default)
+			
+		schema.append({
+			"name": key,
+			"label": key.capitalize(),
+			"type": def.type,
+			"default": val
+		})
+		
+	# 3. ADD WIZARD BUTTON
+	schema.append({
+		"name": "action_add_property",
+		"label": "Add Custom Data...",
+		"type": TYPE_NIL,
+		"hint": "button"
+	})
+	
+	# 4. RENDER (Using dedicated container)
+	_render_dynamic_section(zone_container, schema, _on_zone_setting_changed)
+
+func _on_zone_setting_changed(key: String, value: Variant) -> void:
+	if _tracked_zones.is_empty(): return
+	var zone = _tracked_zones[0] as GraphZone
+	
+	# 1. WIZARD ACTION
+	if key == "action_add_property":
+		if _wizard_instance:
+			# Assumes 'ZONE' is added to TARGETS in PropertyWizard at index 3
+			_wizard_instance.input_target.selected = 3 
+			_wizard_instance.popup_wizard()
+		return
+
+	# 2. CORE PROPERTIES
+	if key in ["zone_name", "zone_color", "allow_new_nodes", "traversal_cost", "damage_per_tick"]:
+		zone.set(key, value)
+		
+		if key == "zone_color":
+			graph_editor.renderer.queue_redraw()
+			graph_editor.mark_modified()
+		elif key == "zone_name":
+			graph_editor.mark_modified()
+			 
+	# 3. DYNAMIC PROPERTIES
+	else:
+		zone.custom_data[key] = value
+		graph_editor.mark_modified()
 
 # ==============================================================================
 # EDGE VIEW LOGIC 
@@ -680,6 +782,7 @@ func _clear_inspector() -> void:
 	_tracked_nodes = []
 	_tracked_edges = []
 	_tracked_agents = []
+	_tracked_zones = []
 	
 	_current_walker_ref = null
 	graph_editor.set_node_labels({})

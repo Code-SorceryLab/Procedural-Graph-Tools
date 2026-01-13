@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://7e6g2rbnyccx"]
 
-[ext_resource type="Script" uid="uid://cwftsv1argbc0" path="res://scripts/settings_window.gd" id="1_rtnku"]
+[ext_resource type="Script" uid="uid://cwftsv1argbc0" path="res://scripts/ui/settings_window.gd" id="1_rtnku"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_w8px2"]
 

@@ -20,3 +20,5 @@ signal active_tool_changed(tool_id: int)
 signal status_message_changed(message: String)
 @warning_ignore("unused_signal")
 signal agent_selection_changed(agents: Array) # Moving towards global selection
+@warning_ignore("unused_signal")
+signal zone_selection_changed(selected_zones: Array)
