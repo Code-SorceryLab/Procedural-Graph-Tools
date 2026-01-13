@@ -1,6 +1,6 @@
 # Godot Procedural Graph Generator
 
-A modular, node-based procedural generation research platform built in Godot 4. This tool utilizes a **Controller-Component Architecture**, the **Strategy Pattern**, and the **Command Pattern** to layer various algorithms (Random Walkers, Cellular Automata, Minimum Spanning Trees) for the generation, filtering, and analysis of graph structures.
+A modular, node-based procedural generation research platform built in Godot 4. This tool utilizes a **Controller-Component Architecture**, the **Strategy Pattern**, and the **Command Pattern** to layer various algorithms (Behavior-Based Walkers, Cellular Automata, Minimum Spanning Trees) for the generation, filtering, and analysis of graph structures.
 
 It is designed for determinism and traceability, allowing developers to inspect the provenance of every node, experiment with layering destructive and non-destructive algorithms, and safely undo/redo complex operations.
 
@@ -20,10 +20,11 @@ This project, including the codebase and this documentation, was developed with 
 * **Atomic Toggle:** Users can switch to "Atomic Mode" in settings to undo actions one-by-one (e.g., undoing a single pixel of a brush stroke) for granular control.
 * **Smart Camera:** The system intelligently decides when to refocus the camera (e.g., after generating a new dungeon) versus when to keep it static (e.g., undoing a minor paint action).
 
-### Persistence
+### Persistence (Serialization v1.2)
 Located in the **File** tab.
-* **JSON Serialization:** Serializes the full graph state to a human-readable `.json` format.
-* **Dynamic Legends:** The save file includes a metadata header defining the specific **Room Types** (IDs, Names, and Colors) used in that specific dungeon. This allows Custom Room Types (e.g., "Magma", "Ice") to persist across sessions without code changes.
+* **Database-Style Saving:** The system serializes the graph as a comprehensive database, preserving **Meta-Data** (Ticket Counters), **Agent History**, and **Semantic Data**.
+* **Smart Edge Saving:** Automatically detects symmetry. Identical `A->B` and `B->A` edges are saved as single "Bi-Directional" connections, while asymmetric weights/data are saved as distinct "Directed" edges.
+* **Dynamic Legends:** The save file includes a metadata header defining the specific **Room Types** (IDs, Names, and Colors) used in that specific dungeon.
 
 ---
 
@@ -33,27 +34,27 @@ Located in the **File** tab.
 The application is composed of distinct, modular controllers. Each subsystem is an independent Node within the scene tree.
 
 * **StrategyController:** Manages the execution of generation algorithms using the **SettingsUIBuilder** to dynamically generate parameter interfaces.
-* **ToolbarController:** Bridges the UI toolbar inputs to the active Editor tool state.
-* **InspectorController:** Handles the real-time observation of node/edge data and synchronizes UI inputs with the Undo history.
+* **AgentController:** Handles the lifecycle, simulation ticks, and visual synchronization of autonomous `AgentWalker` entities.
+* **InspectorController:** Handles the real-time observation of node/edge/agent data, supporting **Multi-Selection** and **Mixed Value** editing.
 * **FileController:** Manages the Gatekeeper logic (unsaved changes protection) and JSON serialization.
 * **GraphEditor:** The central facade that coordinates the visual renderer, data model, and Command history.
 
-### Core Data Model: "Smart Edges"
-The graph utilizes a **Hybrid Storage Model** to support advanced navigation features while maintaining performance.
-* **Adjacency Lists (Arrays):** Used for high-speed traversals (A*, BFS) and connectivity checks.
-* **Edge Data (Nested Dictionary):** Stores rich data for every connection (Weight, Type, Direction). This natively supports **Unidirectional Edges** and asymmetric costs (e.g., moving uphill vs. downhill).
+### Core Data Model: "Semantic Graph"
+The graph utilizes a **Hybrid Storage Model** to support advanced navigation features and arbitrary game logic.
+* **Adjacency Lists:** Used for high-speed traversals (A*, BFS) and connectivity checks.
+* **Semantic Dictionary (Custom Data):** * **Nodes:** Support arbitrary tags (e.g., `is_magma`, `loot_tier`) via a `custom_data` dictionary.
+    * **Edges:** Store rich data dictionaries allowing for Logic Properties (e.g., `lock_level`, `type="Door"`) alongside standard Weights.
 
 ### Command Pattern & Simulation
 To support safe Undo/Redo alongside complex algorithms, the system uses a dual-layer approach:
 * **GraphRecorder:** A wrapper that intercepts algorithm operations. It runs the simulation logic instantly (so Walkers can "see" the grid) but captures the *intent* as `GraphCommand` objects.
-* **CmdBatch:** Groups these commands into transactions.
-* **Execution:** Commands are executed only if the simulation succeeds, preventing "ghost data" in the Undo stack.
+* **Buffered Reality:** Strategies like "Walker Batch" utilize a virtual buffer to pre-calculate IDs, ensuring deterministic generation even when spawning hundreds of agents simultaneously.
 
 ### Namespaced ID System (Traceability)
 Nodes are identified by structured strings indicating their origin, ensuring research-grade determinism.
 
 * **Grid Strategy:** `grid:x:y` (e.g., `grid:5:10`)
-* **Walker Strategy:** `walk:agent_id:step_index` (e.g., `walk:0:42`)
+* **Walker Strategy:** `walk:ticket_id:step_index` (e.g., `walk:5:42`). Uses a persistent "Ticket Counter" to ensure Agent IDs never duplicate or reset, even after reloading from disk.
 * **Manual Placement:** `man:sequence_id` (e.g., `man:5`)
 
 ---
@@ -68,21 +69,23 @@ Nodes are identified by structured strings indicating their origin, ensuring res
 ### Unified Editor Tools
 Tools are selected via the top Toolbar. All tools are integrated with the Undo system.
 
-* **Select Tool:** Click to select, drag to move. Supports **Node and Edge Selection**. Use Shift/Ctrl modifiers for Box Selection or Multi-Select.
+* **Select Tool:** Click to select, drag to move. Supports **Node, Edge, and Agent Selection**. Use Shift/Ctrl modifiers for Box Selection or Multi-Select.
 * **Add Node Tool:** Left Click to place a manual node.
 * **Connect Tool:** Click and drag between two nodes to create an edge.
-* **Delete Tool:** Click a node to remove it.
+* **Delete Tool:** Click a node/agent to remove it.
 * **Paint Tool:** Click and drag to rapidly draw nodes (Snake style). Auto-connects to the previous node in the stroke.
 * **Knife Cut:** Click and drag a line to sever all edges it crosses.
 * **Type Brush:** Paint semantic data (e.g., "Enemy", "Spawn") onto existing nodes. Right-click to cycle through the Legend.
+* **Agent Spawner:** Click to Place down Agents, select them, or delete them. Right-click to cycle through modes.
 
 ### Inspector & Analysis
 The right-hand sidebar features a context-aware Inspector tab generated by the `SettingsUIBuilder`.
 
-* **Node Inspection:** Displays ID, Position, Neighbors, and Type via a dynamic dropdown.
-* **Edge Inspection:** Displays Connection IDs, Weight, and Directionality.
-* **Walker Live-Edit:** Allows real-time modification of persistent Walker agents (Pause, Teleport, Change Mode) without resetting the simulation.
-* **Multi-Selection:** Displays Group Statistics (Center, Bounds, Density) and allows for **Bulk Type Editing**.
+* **Multi-Selection:** Supports selecting 50+ items at once. The Inspector intelligently detects **Mixed Values** (e.g., different weights) and allows for bulk unification.
+* **Semantic Edge Editing:** Modify logical properties like **Edge Type** (Corridor, Door, Secret) and **Lock Level** directly in the UI.
+* **Walker Live-Edit:** * Modify Agent configurations (Goal, Speed, Pathfinding Algo) in real-time.
+    * View Read-Only statistics like **Steps Taken** vs **Step Limit**.
+    * Toggle **Endless Mode** (Step Limit: -1) for continuous simulation.
 
 ---
 
@@ -93,10 +96,11 @@ Strategies are selected via the **Generation** tab.
 ### 1. Grid Layout (Generator)
 Creates a Cartesian grid of nodes. Parameters: Width, Height.
 
-### 2. Random Walker (Agent Simulation)
-Spawns persistent autonomous agents.
-* **Modes:** Supports "Grow" (expanding topology) and "Paint" (changing node types) simultaneously.
-* **Persistence:** Agents retain state (Step Count, Current Position) between ticks.
+### 2. Autonomous Agents (Walker Simulation)
+Spawns persistent agents driven by a **Modular Brain System**.
+* **Behaviors:** Agents use specific logic modules: `BehaviorSeek` (A* pathing), `BehaviorGrow` (Expansion), `BehaviorWander` (Random).
+* **Decorators:** Logic can be wrapped, e.g., `BehaviorDecoratorPaint` allows an agent to change tile types as it walks.
+* **Persistence:** Agents retain full history and state between ticks, allowing for "Pause and Resume" workflows.
 
 ### 3. Diffusion Limited Aggregation (Generator)
 Simulates organic growth by spawning particles that stick to existing clusters. Parameters: Particles, Box Spawning Toggle.
@@ -120,7 +124,7 @@ Performs a Breadth-First Search (BFS) to calculate node depth and topology (Dead
 This project includes a dedicated **Test Runner** (`tests/TestRunner.tscn`) to validate core architectural pillars.
 
 ### Coverage Matrix
-* **Data Integrity:** Verifies ID state reconstruction after loading `.json` files.
+* **Data Integrity:** Verifies ID state reconstruction and "Hybrid ID" persistence after loading `.json` files.
 * **Strategy Logic:** Proves that Generators clear the board while Decorators append correctly.
 * **Algorithm Safety:** Regression tests for edge cases (e.g., MST clearing edges, DLA bounds).
 * **Undo/Redo:** (Implicit) The architecture is verified by the GraphRecorder's ability to accurately reconstruct simulation states.
