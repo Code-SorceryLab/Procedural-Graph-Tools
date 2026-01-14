@@ -7,7 +7,7 @@ const SETTINGS_PATH = "user://settings.cfg"
 # We don't want to save built-in UI actions (ui_up, ui_down) to avoid bloating the file.
 const INPUT_ACTIONS = [
 	"tool_select", "tool_add", "tool_delete", "tool_connect", 
-	"tool_cut", "tool_paint", "tool_type",
+	"tool_cut", "tool_paint", "tool_type", "tool_spawn", "tool_zone_brush",
 	"file_save", "file_undo", "file_redo",
 	"edit_copy", "edit_cut", "edit_paste", "edit_delete"
 ]

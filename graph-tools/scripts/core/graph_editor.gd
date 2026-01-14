@@ -366,21 +366,28 @@ func set_edge_selection(edge_pair: Array) -> void:
 # --- ZONE API ---
 
 func add_zone(zone: GraphZone) -> void:
-	graph.add_zone(zone)
-	mark_modified()
+	# [CHANGE] Wrap in Command
+	var cmd = CmdAddZone.new(graph, zone)
+	_commit_command(cmd)
+	
+	# Note: We don't need manual 'mark_modified' or 'queue_redraw' here 
+	# because _commit_command handles that automatically.
 
 func remove_zone(zone: GraphZone) -> void:
-	if graph.zones.has(zone):
-		graph.zones.erase(zone)
-		
-		# Deselect if currently selected
-		if selected_zones.has(zone):
-			selected_zones.erase(zone)
-			# Recursive call to update selection state safely
-			set_zone_selection(selected_zones)
-			
-		mark_modified()
-		renderer.queue_redraw()
+	if not graph.zones.has(zone): return
+	
+	# [CHANGE] Wrap in Command
+	var cmd = CmdRemoveZone.new(graph, zone)
+	_commit_command(cmd)
+	
+	# Handle Side Effects (Deselection)
+	# We do this outside the command because Selection is an Editor-level concept, 
+	# not a Graph-Data-level concept.
+	if selected_zones.has(zone):
+		selected_zones.erase(zone)
+		# Update UI
+		set_zone_selection(selected_zones)
+
 
 func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 	if clear_others:
@@ -470,6 +477,73 @@ func _update_zone_membership(node_id: String, world_pos: Vector2) -> void:
 			if zone.registered_nodes.has(node_id):
 				zone.unregister_node(node_id)
 				# Optional: print("Node %s left %s" % [node_id, zone.zone_name])
+
+# Modify Zone Geometry (Paint/Erase)
+# Called by ToolZoneBrush to apply a batch of cell changes transactionally.
+func modify_zone_cells(zone: GraphZone, cells_to_add: Array[Vector2i], cells_to_remove: Array[Vector2i]) -> void:
+	if not graph.zones.has(zone): return
+	
+	# --- VALIDATION: Calculate True Delta ---
+	# We must ensure we don't 'undo' a cell that was already there, 
+	# or 're-add' a cell that wasn't there.
+	
+	var valid_adds: Array[Vector2i] = []
+	var valid_removes: Array[Vector2i] = []
+	
+	# 1. Filter Adds: Only add if NOT currently in zone
+	if not cells_to_add.is_empty():
+		for cell in cells_to_add:
+			if not zone.has_cell(cell):
+				valid_adds.append(cell)
+				
+	# 2. Filter Removes: Only remove if CURRENTLY in zone
+	if not cells_to_remove.is_empty():
+		for cell in cells_to_remove:
+			if zone.has_cell(cell):
+				valid_removes.append(cell)
+	
+	# If nothing actually changes, abort (don't pollute Undo stack)
+	if valid_adds.is_empty() and valid_removes.is_empty():
+		return
+	
+	# --- COMMIT ---
+	# Use the filtered lists for the command
+	var cmd = CmdZoneEdit.new(graph, zone, valid_adds, valid_removes)
+	_commit_command(cmd)
+	
+	# Post-Process (Update node rosters)
+	_refresh_nodes_in_modified_zone_area(zone, valid_adds + valid_removes)
+
+# Helper to keep the "Live Roster" consistent after painting
+func _refresh_nodes_in_modified_zone_area(zone: GraphZone, changed_cells: Array[Vector2i]) -> void:
+	# Only Geographical zones auto-capture nodes based on position
+	if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: return
+	if changed_cells.is_empty(): return
+
+	var spacing = GraphSettings.GRID_SPACING
+	
+	# Create a quick lookup set for the changed cells
+	var changed_lookup = {}
+	for cell in changed_cells:
+		changed_lookup[cell] = true
+		
+	# Check every node in the graph
+	# (Optimization: In a huge graph, a spatial hash would be better, but O(N) is fine for mouse release)
+	for id in graph.nodes:
+		var pos = graph.nodes[id].position
+		var grid_pos = Vector2i(round(pos.x / spacing.x), round(pos.y / spacing.y))
+		
+		# Did we just touch the cell this node is sitting on?
+		if changed_lookup.has(grid_pos):
+			# Force a re-evaluation of membership
+			if zone.has_cell(grid_pos):
+				# It is now inside -> Register
+				if not zone.registered_nodes.has(id):
+					zone.register_node(id)
+			else:
+				# It is now outside -> Unregister
+				if zone.registered_nodes.has(id):
+					zone.unregister_node(id)
 
 func commit_move_batch(move_data: Dictionary) -> void:
 	if move_data.is_empty(): return

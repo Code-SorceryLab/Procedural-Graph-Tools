@@ -1,20 +1,20 @@
 class_name GraphZone
 extends Resource
 
-# [NEW] Zone Types
+# Zone Types
 enum ZoneType {
-	GEOGRAPHICAL, # Nodes register when they step inside
-	LOGICAL,      # Nodes must be explicitly added via Inspector
-	RIGID_GROUP   # Nodes move together (Future Feature)
+	GEOGRAPHICAL, # Defined by fixed grid cells. Nodes enter/leave.
+	LOGICAL       # Defined by the roster of nodes. Zone shape follows them.
 }
 
 # --- IDENTITY ---
 var zone_name: String = "Zone"
 var zone_color: Color = Color(0.2, 0.2, 0.2, 0.3) 
 
-# [NEW] Configuration
+# Configuration
 var zone_type: ZoneType = ZoneType.GEOGRAPHICAL
-
+# Interaction Rule
+@export var is_grouped: bool = false # If true, selecting one selects all.
 
 # --- SHAPE DEFINITION ---
 # Dual Storage: Array for fast rendering, Dict for fast lookup

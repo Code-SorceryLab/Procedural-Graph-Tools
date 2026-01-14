@@ -57,6 +57,13 @@ var hovered_id: String = ""
 var snap_preview_pos: Vector2 = Vector2.INF
 var selection_rect: Rect2 = Rect2()
 
+var brush_preview_cells: Array[Vector2i] = []
+var brush_preview_color: Color = Color.WHITE
+# [NEW] Stroke Visualization
+var pending_stroke_cells: Array[Vector2i] = [] # The trail being painted
+var pending_stroke_color: Color = Color.WHITE
+var pending_stroke_is_erase: bool = false
+
 # ==============================================================================
 # 4. DRAWING LOOP
 # ==============================================================================
@@ -77,22 +84,26 @@ func _draw() -> void:
 	# Layer 2: A* Path
 	_draw_current_path()
 	
-	# Layer 3: Nodes
+	# Layer 3: Brush
+	_draw_pending_stroke()
+	_draw_brush_preview()
+	
+	# Layer 4: Nodes
 	_draw_nodes()
 	
-	# [NEW] Layer 3.25: Agent Tokens (The Physical Bodies)
+	# Layer 5: Agent Tokens (The Physical Bodies)
 	_draw_agent_tokens()
 	
-	# Layer 3.5: Custom Labels
+	# Layer 6: Custom Labels
 	_draw_custom_labels()
 	
-	# Layer 4: Interactive Elements
+	# Layer 7: Interactive Elements
 	_draw_interaction_overlays()
 
-	# Layer 5: Selection Box
+	# Layer 8: Selection Box
 	_draw_selection_box()
 	
-	# Layer 6: Dynamic Depth Overlay
+	# Layer 9: Dynamic Depth Overlay
 	if debug_show_depth:
 		_draw_depth_numbers()
 
@@ -209,6 +220,48 @@ func _draw_current_path() -> void:
 		for id in current_path_ref:
 			points.append(graph_ref.get_node_pos(id))
 		draw_polyline(points, path_color, edge_width + 2.0)
+
+# [NEW] Render the trail
+func _draw_pending_stroke() -> void:
+	if pending_stroke_cells.is_empty(): return
+	
+	var spacing = GraphSettings.GRID_SPACING
+	var half_size = spacing / 2.0
+	
+	# Visual Style
+	var draw_color = pending_stroke_color
+	
+	if pending_stroke_is_erase:
+		# Erase Look: Red "Warning" overlay
+		draw_color = Color(1.0, 0.0, 0.0, 0.4) 
+	else:
+		# Paint Look: Matching the zone color but slightly transparent
+		draw_color.a = 0.6 
+	
+	for cell in pending_stroke_cells:
+		var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
+		var rect = Rect2(world_pos - half_size, spacing)
+		
+		draw_rect(rect, draw_color, true)
+		
+		# Optional: Add an "X" for erase
+		if pending_stroke_is_erase:
+			draw_line(rect.position, rect.end, Color.RED, 2.0)
+			draw_line(Vector2(rect.end.x, rect.position.y), Vector2(rect.position.x, rect.end.y), Color.RED, 2.0)
+
+func _draw_brush_preview() -> void:
+	if brush_preview_cells.is_empty(): return
+	
+	var spacing = GraphSettings.GRID_SPACING
+	var half_size = spacing / 2.0
+	
+	for cell in brush_preview_cells:
+		var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
+		var rect = Rect2(world_pos - half_size, spacing)
+		
+		# Draw a semi-transparent square indicating the brush action
+		draw_rect(rect, brush_preview_color, true)
+		draw_rect(rect, Color.WHITE, false, 2.0) # Border
 
 # --- HELPER: NODES ---
 func _draw_nodes() -> void:

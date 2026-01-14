@@ -129,7 +129,7 @@ static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 # 6. TOOL DEFINITIONS
 # ==============================================================================
 # Reordered to match Input Map Keys (1 through 7)
-enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN }
+enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN, ZONE_BRUSH }
 
 const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
@@ -142,7 +142,8 @@ static var TOOLBAR_LAYOUT: Array[Tool] = [
 	Tool.CUT,
 	Tool.PAINT,
 	Tool.TYPE_PAINT,
-	Tool.SPAWN
+	Tool.SPAWN,
+	Tool.ZONE_BRUSH
 ]
 
 # 2. DEFINITIONS (Now includes the explicit 'action' again)
@@ -154,7 +155,8 @@ static var TOOL_DATA: Dictionary = {
 	Tool.CUT:        { "name": "Knife Cut",  "action": "tool_cut",     "icon_path": "res://assets/icons/tool_cut.png" },
 	Tool.PAINT:      { "name": "Paint",      "action": "tool_paint",   "icon_path": "res://assets/icons/tool_paint.png" },
 	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" },
-	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""}
+	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""},
+	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": ""}
 }
 
 # ==============================================================================
