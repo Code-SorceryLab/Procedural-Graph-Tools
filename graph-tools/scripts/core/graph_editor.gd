@@ -434,85 +434,75 @@ func disconnect_nodes(id_a: String, id_b: String) -> void:
 
 # --- Modification Operations ---
 
-func set_node_position(id: String, new_pos: Vector2) -> void:
+
+# [CHANGED] Added 'is_preview' flag to suppress heavy updates during dragging
+func set_node_position(id: String, new_pos: Vector2, is_preview: bool = false) -> void:
 	graph.set_node_position(id, new_pos)
 	
-	# Update Geographical Zone Registration
+	# Update Geographical Zone Registration (Data is live)
 	_update_zone_membership(id, new_pos)
 	
-	mark_modified()
-	renderer.queue_redraw()
+	if is_preview:
+		# Just update the visual position, don't rebuild UI/Undo stack
+		renderer.queue_redraw()
+	else:
+		# Full commit (Normal behavior)
+		mark_modified()
+		renderer.queue_redraw()
 	
-# The Membership Logic
+# The Membership Logic (Data Only)
 func _update_zone_membership(node_id: String, world_pos: Vector2) -> void:
-	# 1. Pre-calculate grid pos (Optimization: Do this once)
+	# 1. Pre-calculate grid pos
 	var spacing = GraphSettings.GRID_SPACING
 	var grid_pos = Vector2i(round(world_pos.x / spacing.x), round(world_pos.y / spacing.y))
 	
 	for zone in graph.zones:
-		if not zone.is_active: continue # Skip inactive zones
+		# A. Skip inactive/irrelevant zones
+		if not zone.is_active: continue 
 		if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: continue
 		
-		# [OPTIMIZATION 1] Broad Phase AABB Check
-		# If we are nowhere near the zone, skip the expensive dictionary lookup.
-		# We assume 'zone.bounds' is a Rect2 updated whenever cells are added.
+		# B. Broad Phase Optimization (AABB)
 		if not zone.bounds.has_point(world_pos):
 			# If we were in it, we definitely aren't now
 			if zone.registered_nodes.has(node_id):
 				zone.unregister_node(node_id)
 			continue
 
-		# [OPTIMIZATION 2] Detailed Check (unchanged)
-
+		# C. Detailed Check
 		if zone.has_cell(grid_pos):
-			# "Welcome to the zone."
+			# ENTERING ZONE
 			if not zone.registered_nodes.has(node_id):
 				zone.register_node(node_id)
-				# Optional: 
-				#print("Node %s entered %s" % [node_id, zone.zone_name])
-		
-		# B. Is it outside?
+				# (Data is updated, but we stay silent)
 		else:
-			# "You have left the zone."
+			# LEAVING ZONE
 			if zone.registered_nodes.has(node_id):
 				zone.unregister_node(node_id)
-				# Optional: print("Node %s left %s" % [node_id, zone.zone_name])
 
 # Modify Zone Geometry (Paint/Erase)
 # Called by ToolZoneBrush to apply a batch of cell changes transactionally.
 func modify_zone_cells(zone: GraphZone, cells_to_add: Array[Vector2i], cells_to_remove: Array[Vector2i]) -> void:
 	if not graph.zones.has(zone): return
 	
-	# --- VALIDATION: Calculate True Delta ---
-	# We must ensure we don't 'undo' a cell that was already there, 
-	# or 're-add' a cell that wasn't there.
-	
+	# --- VALIDATION (Keep existing filtering logic) ---
 	var valid_adds: Array[Vector2i] = []
 	var valid_removes: Array[Vector2i] = []
 	
-	# 1. Filter Adds: Only add if NOT currently in zone
 	if not cells_to_add.is_empty():
 		for cell in cells_to_add:
-			if not zone.has_cell(cell):
-				valid_adds.append(cell)
+			if not zone.has_cell(cell): valid_adds.append(cell)
 				
-	# 2. Filter Removes: Only remove if CURRENTLY in zone
 	if not cells_to_remove.is_empty():
 		for cell in cells_to_remove:
-			if zone.has_cell(cell):
-				valid_removes.append(cell)
+			if zone.has_cell(cell): valid_removes.append(cell)
 	
-	# If nothing actually changes, abort (don't pollute Undo stack)
-	if valid_adds.is_empty() and valid_removes.is_empty():
-		return
+	if valid_adds.is_empty() and valid_removes.is_empty(): return
 	
 	# --- COMMIT ---
-	# Use the filtered lists for the command
+	# The Command now handles both Cells AND Roster updates atomically.
 	var cmd = CmdZoneEdit.new(graph, zone, valid_adds, valid_removes)
 	_commit_command(cmd)
 	
-	# Post-Process (Update node rosters)
-	_refresh_nodes_in_modified_zone_area(zone, valid_adds + valid_removes)
 
 # Helper to keep the "Live Roster" consistent after painting
 func _refresh_nodes_in_modified_zone_area(zone: GraphZone, changed_cells: Array[Vector2i]) -> void:

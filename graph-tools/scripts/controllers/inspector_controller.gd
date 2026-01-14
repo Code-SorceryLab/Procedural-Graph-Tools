@@ -61,20 +61,21 @@ func _ready() -> void:
 	# Listen for Zone Selection
 	if SignalManager.has_signal("zone_selection_changed"):
 		SignalManager.zone_selection_changed.connect(_on_zone_selection_changed)
+		
+	# [NEW] Listen for data changes (Brush strokes, Undo/Redo)
+	# This catches the signal emitted by CmdZoneEdit, CmdMoveNode, etc.
+	if graph_editor:
+		graph_editor.graph_modified.connect(_on_graph_modified)
 	
 	# Inspector View Requests
 	if graph_editor.has_signal("request_inspector_view"):
 		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
 
-	# Refresh Options on Load (still useful for Schema enums)
+	# Refresh Options on Load
 	graph_editor.graph_loaded.connect(func(_g): _refresh_all_views())
 
 	set_process(false)
 	
-	# 2. Configure Controls
-	# [REMOVED] All spin_pos_x / option_type connections
-	
-	# We still need this for the Walker Dropdown (which we kept)
 	opt_walker_select.item_selected.connect(_on_walker_dropdown_selected)
 	
 	# 3. Initialize Wizard
@@ -82,12 +83,29 @@ func _ready() -> void:
 		_wizard_instance = property_wizard_scene.instantiate()
 		add_child(_wizard_instance)
 		_wizard_instance.property_defined.connect(func(_n): _rebuild_ui_after_schema_change())
-		
-		# [NEW] Connect Purge Signal
 		_wizard_instance.purge_requested.connect(_on_purge_requested)
 		
-		
 	_clear_inspector()
+	
+
+# Universal Data Refresh Handler
+# Called whenever the graph structure or data changes (Undo, Brush, Move)
+func _on_graph_modified() -> void:
+	# 1. Refresh Zones (updates Cell Counts, Rosters after painting)
+	if not _tracked_zones.is_empty():
+		_on_zone_selection_changed(_tracked_zones)
+		
+	# 2. Refresh Nodes (if neighbors/connections changed)
+	if not _tracked_nodes.is_empty():
+		_on_selection_changed(_tracked_nodes)
+
+	# 3. Refresh Edges (if weights/properties changed)
+	if not _tracked_edges.is_empty():
+		_on_edge_selection_changed(_tracked_edges)
+
+	# 4. Refresh Agents (if properties changed)
+	if not _tracked_agents.is_empty():
+		_on_agent_selection_changed(_tracked_agents)
 
 # --- UTILITY ---
 func _on_inspector_view_requested() -> void:
@@ -125,6 +143,7 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 func _on_zone_selection_changed(zones: Array) -> void:
 	_tracked_zones = zones
 	_check_selection_state()
+
 
 # Central State Checker
 func _check_selection_state() -> void:

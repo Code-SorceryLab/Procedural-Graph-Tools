@@ -11,10 +11,9 @@ enum ZoneType {
 var zone_name: String = "Zone"
 var zone_color: Color = Color(0.2, 0.2, 0.2, 0.3) 
 
-# Configuration
-var zone_type: ZoneType = ZoneType.GEOGRAPHICAL
-# Interaction Rule
-@export var is_grouped: bool = false # If true, selecting one selects all.
+# [NEW] The properties for the new system
+@export var zone_type: ZoneType = ZoneType.GEOGRAPHICAL
+@export var is_grouped: bool = false # "Lock" behavior
 
 # --- SHAPE DEFINITION ---
 # Dual Storage: Array for fast rendering, Dict for fast lookup
@@ -50,6 +49,34 @@ func _init(p_name: String = "Zone", p_color: Color = Color(0.5, 0.5, 0.5, 0.3)) 
 	zone_name = p_name
 	zone_color = p_color
 
+# Defines editable properties for the Inspector
+func get_inspector_schema() -> Array[Dictionary]:
+	var settings: Array[Dictionary] = [
+		{
+			"name": "zone_name",
+			"label": "Name",
+			"type": TYPE_STRING
+		},
+		{
+			"name": "zone_color",
+			"label": "Color",
+			"type": TYPE_COLOR
+		},
+		{
+			"name": "zone_type",
+			"label": "Type",
+			"type": TYPE_INT,
+			"hint": "enum",
+			"hint_string": "Geographical,Logical"
+		},
+		{
+			"name": "is_grouped",
+			"label": "Locked Group",
+			"type": TYPE_BOOL
+		}
+	]
+	return settings
+
 # --- SHAPE API ---
 
 func add_cell(grid_pos: Vector2i, spacing: Vector2) -> void:
@@ -82,6 +109,10 @@ func remove_cell(grid_pos: Vector2i) -> void:
 
 func has_cell(grid_pos: Vector2i) -> bool:
 	return _lookup.has(grid_pos)
+
+# Helper to check containment regardless of type
+func contains_node(node_id: String) -> bool:
+	return _roster_lookup.has(node_id)
 
 func clear() -> void:
 	cells.clear()

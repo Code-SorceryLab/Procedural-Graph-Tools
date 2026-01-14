@@ -117,7 +117,6 @@ func _create_zone_row(zone: GraphZone) -> void:
 	icon.custom_minimum_size = Vector2(16, 16)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.color = zone.zone_color
-	# Make it visible even if the alpha is low
 	icon.color.a = 1.0 
 	row.add_child(icon)
 	
@@ -128,22 +127,60 @@ func _create_zone_row(zone: GraphZone) -> void:
 	lbl.clip_text = true
 	row.add_child(lbl)
 	
-	# C. Cell Count
+	# C. Cell Count / Type Indicator
+	# (Modified to show "Logic" count if logical, or cell count if geo)
 	var lbl_count = Label.new()
-	lbl_count.text = "[%d]" % zone.cells.size()
+	if zone.zone_type == GraphZone.ZoneType.LOGICAL:
+		lbl_count.text = "(%d Nodes)" % zone.registered_nodes.size()
+	else:
+		lbl_count.text = "[%d Cells]" % zone.cells.size()
 	lbl_count.modulate = Color(1, 1, 1, 0.5)
+	# Reduce font size slightly to fit more controls
+	lbl_count.add_theme_font_size_override("font_size", 10)
 	row.add_child(lbl_count)
 	
-	# D. Select Button (Invisible Overlay)
-	# This allows clicking anywhere on the row to select
+	# [NEW] F. Zone Type Dropdown (Geo / Logic)
+	var btn_type = OptionButton.new()
+	btn_type.add_item("Geo", GraphZone.ZoneType.GEOGRAPHICAL)
+	btn_type.add_item("Logic", GraphZone.ZoneType.LOGICAL)
+	btn_type.selected = zone.zone_type
+	btn_type.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	btn_type.tooltip_text = "Switch between Tile-based (Geo) and Bubble-based (Logic)"
+	
+	# Signal: Update data and redraw immediately
+	btn_type.item_selected.connect(func(index):
+		zone.zone_type = index
+		# Force stats refresh so label updates from [Cells] to (Nodes)
+		_full_zone_rebuild() 
+		graph_editor.renderer.queue_redraw()
+	)
+	row.add_child(btn_type)
+	
+	# G. Group/Lock Toggle (CheckBox)
+	var chk_lock = CheckBox.new()
+	chk_lock.text = "Lock"
+	chk_lock.button_pressed = zone.is_grouped
+	chk_lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chk_lock.tooltip_text = "If checked, selecting one node selects the whole group."
+	
+	chk_lock.toggled.connect(func(toggled):
+		zone.is_grouped = toggled
+		
+		# Responsiveness: Auto-select nodes when locking
+		if toggled and not zone.registered_nodes.is_empty():
+			# We use 'false' for clear_existing to be additive (safe)
+			# This adds all members of the zone to your current selection immediately.
+			graph_editor.set_selection_batch(zone.registered_nodes, [], false)
+			
+			# Also ensure the zone itself is selected in the list
+			graph_editor.set_zone_selection([zone], false)
+	)
+	row.add_child(chk_lock)
+	
+	# D. Select Button
 	var btn_select = Button.new()
+	btn_select.text = "Sel" # Shortened to save space
 	btn_select.flat = true
-	btn_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn_select.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# Anchor it to cover the HBox? HBox layout prevents simple overlay.
-	# Simpler approach: Just add a discrete "Select" button or use the row as a button parent.
-	# For now, explicit "Select" button:
-	btn_select.text = "Select"
 	btn_select.pressed.connect(func(): _select_zone(zone))
 	row.add_child(btn_select)
 	

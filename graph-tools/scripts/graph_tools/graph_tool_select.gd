@@ -20,13 +20,12 @@ func handle_input(event: InputEvent) -> void:
 			if event.pressed:
 				# --- CLICK DOWN ---
 				
-				# [NEW] 1. Check for Agent (Highest Priority)
+				# 1. Check for Agent (Highest Priority)
 				var local_pos = _editor.renderer.to_local(mouse_pos)
 				var hit_agent = _editor.renderer.get_agent_at_position(local_pos)
 				
 				if hit_agent:
 					_handle_agent_click(hit_agent)
-					# Return early to prevent dragging the node underneath immediately
 					return 
 				
 				# 2. Check for Node
@@ -64,8 +63,9 @@ func handle_input(event: InputEvent) -> void:
 			if Input.is_key_pressed(KEY_SHIFT):
 				anchor_pos = anchor_pos.snapped(GraphSettings.GRID_SPACING)
 			
-			# 2. Move the Anchor
-			_editor.set_node_position(_drag_node_id, anchor_pos)
+			# 2. Move the Anchor (PREVIEW MODE = TRUE)
+			# This updates data and renderer, but skips the heavy UI rebuild signal.
+			_editor.set_node_position(_drag_node_id, anchor_pos, true)
 			
 			# 3. Move the Group (Relative to Anchor)
 			for id in _group_offsets:
@@ -74,7 +74,8 @@ func handle_input(event: InputEvent) -> void:
 				var offset = _group_offsets[id]
 				var new_group_pos = anchor_pos + offset
 				
-				_editor.set_node_position(id, new_group_pos)
+				# Move Group Member (PREVIEW MODE = TRUE)
+				_editor.set_node_position(id, new_group_pos, true)
 			
 		# Update Box State
 		elif _box_start_pos != Vector2.INF:
@@ -84,7 +85,7 @@ func handle_input(event: InputEvent) -> void:
 			_renderer.pre_selection_ref = potential_nodes
 			_renderer.queue_redraw()
 		
-		# [NOTE] Ensure _update_hover logic (if it exists in parent) runs
+		# Update Hover
 		if has_method("_update_hover"):
 			call("_update_hover", mouse_pos)
 
@@ -147,22 +148,73 @@ func _start_moving_node(id: String) -> void:
 	_drag_node_id = id
 	_renderer.drag_start_id = id
 	
-	# --- SELECTION LOGIC ---
-	# Case 1: Modifiers held (Shift/Ctrl) -> We are editing selection, not moving group yet
-	if Input.is_key_pressed(KEY_SHIFT):
-		_editor.add_to_selection(id)
-	elif Input.is_key_pressed(KEY_CTRL):
-		_editor.toggle_selection(id)
-	else:
-		# Case 2: No Modifiers
-		# If we clicked a node NOT in the selection, it becomes the new single selection.
-		if not _editor.selected_nodes.has(id):
-			_editor.clear_selection()
-			_editor.add_to_selection(id)
-		# If we clicked a node INSIDE the selection, we keep the group!
+	var nodes_to_action: Array[String] = [id]
+	var is_group_action: bool = false
+	var active_group_zone: GraphZone = null 
 	
-	# --- GROUP OFFSET & HISTORY CAPTURE ---
-	# We only prepare for movement if the clicked node ended up selected
+	# 1. IDENTIFY TARGETS (Group Logic)
+	if _graph.zones:
+		for zone in _graph.zones:
+			if zone.is_grouped and zone.contains_node(id):
+				is_group_action = true
+				active_group_zone = zone 
+				
+				for peer_id in zone.registered_nodes:
+					if not nodes_to_action.has(peer_id):
+						nodes_to_action.append(peer_id)
+
+	# --- 2. SELECTION MODIFICATION (BATCHED) ---
+	# We perform all calculations locally, then emit ONE signal at the end.
+	
+	# Case A: Shift Held (ADD)
+	if Input.is_key_pressed(KEY_SHIFT):
+		var nodes_to_add: Array[String] = []
+		for target in nodes_to_action:
+			if not _editor.selected_nodes.has(target):
+				nodes_to_add.append(target)
+		
+		# Only fire if we actually have something new to add
+		if not nodes_to_add.is_empty():
+			# Pass 'false' to KEEP existing selection (Union)
+			_editor.set_selection_batch(nodes_to_add, [], false)
+			
+	# Case B: Ctrl Held (TOGGLE)
+	elif Input.is_key_pressed(KEY_CTRL):
+		var new_selection = _editor.selected_nodes.duplicate()
+		var selection_changed = false
+		
+		for target in nodes_to_action:
+			if new_selection.has(target):
+				new_selection.erase(target)
+				selection_changed = true
+			else:
+				new_selection.append(target)
+				selection_changed = true
+				
+		if selection_changed:
+			# Pass 'true' to REPLACE with our calculated state
+			# We preserve existing edge selection by passing it back in
+			_editor.set_selection_batch(new_selection, _editor.selected_edges, true)
+			
+	# Case C: No Modifiers (STANDARD)
+	else:
+		if is_group_action:
+			# If the specific node we clicked was NOT selected, we grab the whole group.
+			if not _editor.selected_nodes.has(id):
+				# REPLACE selection with this group (clears edges automatically)
+				_editor.set_selection_batch(nodes_to_action, [], true)
+			# If it WAS selected, we do nothing (preserve the user's current multi-selection)
+			
+		else:
+			# Single Node Logic
+			if not _editor.selected_nodes.has(id):
+				_editor.set_selection_batch([id], [], true)
+
+	# --- SYNC ZONE SELECTION ---
+	if is_group_action and active_group_zone:
+		_editor.set_zone_selection([active_group_zone], false)
+	
+	# --- 3. PREPARE MOVEMENT ---
 	if _editor.selected_nodes.has(id):
 		_group_offsets.clear()
 		_drag_start_positions.clear() 
@@ -170,17 +222,17 @@ func _start_moving_node(id: String) -> void:
 		var anchor_pos = _graph.nodes[id].position
 		
 		for selected_id in _editor.selected_nodes:
-			# 1. Capture Visual Offset
+			# A. Visual Offset
 			if selected_id != id:
 				var diff = _graph.nodes[selected_id].position - anchor_pos
 				_group_offsets[selected_id] = diff
 			
-			# 2. Capture History Start Position
+			# B. History Snapshot
 			if _graph.nodes.has(selected_id):
 				_drag_start_positions[selected_id] = _graph.nodes[selected_id].position
 				
 	else:
-		# FIX: If we deselected the node (Ctrl click), cancel BOTH logic and visuals
+		# Deselection Fallback
 		_drag_node_id = ""
 		_renderer.drag_start_id = "" 
 		_renderer.queue_redraw()

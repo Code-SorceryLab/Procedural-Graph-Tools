@@ -116,39 +116,83 @@ func _draw_zones() -> void:
 	var spacing = GraphSettings.GRID_SPACING
 	var half_size = spacing / 2.0
 	
-	# Check if we are in "Focus Mode" (Is anything selected?)
+	# Check "Focus Mode"
 	var has_selection = not selected_zones_ref.is_empty()
 	
 	for zone in graph_ref.zones:
 		var is_selected = selected_zones_ref.has(zone)
 		
-		# --- COLOR LOGIC ---
+		# --- 1. SHARED COLOR LOGIC ---
 		var draw_color = zone.zone_color
 		var border_color = zone.zone_color.lightened(0.2)
 		var border_width = 1.0
 		
 		if has_selection:
 			if is_selected:
-				# CASE A: Selected (Focus)
+				# Focus: Bright, Thick Border
 				border_width = 3.0
 				border_color = Color.WHITE
-				# Keep original opacity (or maybe slight boost)
 			else:
-				# CASE B: Unselected (Dim/Ghost)
-				# Multiply alpha to make it very faint
+				# Ghost: Dim, Transparent
 				draw_color.a *= 0.15 
 				border_color.a *= 0.15
 		
-		# --- DRAW LOOP ---
-		for cell in zone.cells:
-			var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
-			var rect = Rect2(world_pos - half_size, spacing)
+		# --- 2. DRAWING BRANCH ---
+		
+		# TYPE A: GEOGRAPHICAL (Tiles)
+		if zone.zone_type == GraphZone.ZoneType.GEOGRAPHICAL:
+			for cell in zone.cells:
+				var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
+				var rect = Rect2(world_pos - half_size, spacing)
+				
+				draw_rect(rect, draw_color, true) # Filled
+				
+				# Optimization: Hide borders on ghosted zones
+				if not has_selection or is_selected:
+					draw_rect(rect, border_color, false, border_width)
+
+		# TYPE B: LOGICAL (Bounding Box)
+		elif zone.zone_type == GraphZone.ZoneType.LOGICAL:
+			_draw_logical_zone_bounds(zone, draw_color, border_color, border_width, is_selected)
+
+# Helper for Logical Zones
+func _draw_logical_zone_bounds(zone: GraphZone, color: Color, border_color: Color, width: float, is_focused: bool) -> void:
+	if zone.registered_nodes.is_empty(): return
+	
+	# 1. Calculate AABB (Axis Aligned Bounding Box)
+	var min_pos = Vector2(INF, INF)
+	var max_pos = Vector2(-INF, -INF)
+	var has_valid_node = false
+	
+	for id in zone.registered_nodes:
+		if graph_ref.nodes.has(id):
+			var pos = graph_ref.nodes[id].position
+			min_pos.x = min(min_pos.x, pos.x)
+			min_pos.y = min(min_pos.y, pos.y)
+			max_pos.x = max(max_pos.x, pos.x)
+			max_pos.y = max(max_pos.y, pos.y)
+			has_valid_node = true
 			
-			draw_rect(rect, draw_color, true) # Filled
-			
-			# Optimization: Don't draw borders for ghosted zones to reduce visual noise
-			if not has_selection or is_selected:
-				draw_rect(rect, border_color, false, border_width)
+	if not has_valid_node: return
+	
+	# 2. Add Padding
+	var padding = GraphSettings.GRID_SPACING * 0.8 # Slightly larger than a tile
+	var rect = Rect2(min_pos - padding, (max_pos - min_pos) + (padding * 2))
+	
+	# 3. Draw
+	# Background (Lighter alpha for logical zones so they feel "airier")
+	var bg_color = color
+	bg_color.a *= 0.5 
+	draw_rect(rect, bg_color, true)
+	
+	# Border (Dashed effect simulation or just simple rect)
+	draw_rect(rect, border_color, false, width)
+	
+	# Optional: Draw "Locked" indicator if it's a group
+	if zone.is_grouped and is_focused:
+		var center = rect.get_center()
+		# Draw a small padlock icon or symbol (simplified as a circle here)
+		draw_circle(center, 4.0, Color.WHITE)
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:
