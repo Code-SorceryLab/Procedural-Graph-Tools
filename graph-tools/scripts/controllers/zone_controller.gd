@@ -26,7 +26,11 @@ func _ready() -> void:
 	# 3. Setup UI Inputs
 	if btn_add_zone:
 		btn_add_zone.pressed.connect(_on_add_zone_pressed)
-		
+	
+	# Handle clicking empty space in the list
+	if zone_list:
+		zone_list.empty_clicked.connect(_on_zone_list_empty_clicked)
+	
 	# Initial Build
 	_full_zone_rebuild()
 
@@ -162,6 +166,11 @@ func _delete_zone(zone: GraphZone) -> void:
 # ==============================================================================
 # 2. FEEDBACK & EVENTS
 # ==============================================================================
+
+# [NEW] Signal Handler
+func _on_zone_list_empty_clicked(_pos: Vector2, _mouse_btn_index: int) -> void:
+	# Clear the selection in the Editor (which will callback to update this UI)
+	graph_editor.set_zone_selection([])
 
 func _on_zone_selection_changed(selected_zones: Array) -> void:
 	# 1. Reset all highlights

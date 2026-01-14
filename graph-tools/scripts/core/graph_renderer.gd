@@ -105,27 +105,39 @@ func _draw_zones() -> void:
 	var spacing = GraphSettings.GRID_SPACING
 	var half_size = spacing / 2.0
 	
+	# Check if we are in "Focus Mode" (Is anything selected?)
+	var has_selection = not selected_zones_ref.is_empty()
+	
 	for zone in graph_ref.zones:
-		# Check Selection Status
 		var is_selected = selected_zones_ref.has(zone)
 		
-		# Determine Border Style
-		var border_width = 1.0
+		# --- COLOR LOGIC ---
+		var draw_color = zone.zone_color
 		var border_color = zone.zone_color.lightened(0.2)
+		var border_width = 1.0
 		
-		if is_selected:
-			border_width = 3.0 # Thicker
-			border_color = Color.WHITE # Brighter / High Contrast
-			# OR use a specific selection color: GraphSettings.COLOR_SELECTED
+		if has_selection:
+			if is_selected:
+				# CASE A: Selected (Focus)
+				border_width = 3.0
+				border_color = Color.WHITE
+				# Keep original opacity (or maybe slight boost)
+			else:
+				# CASE B: Unselected (Dim/Ghost)
+				# Multiply alpha to make it very faint
+				draw_color.a *= 0.15 
+				border_color.a *= 0.15
 		
+		# --- DRAW LOOP ---
 		for cell in zone.cells:
 			var world_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
 			var rect = Rect2(world_pos - half_size, spacing)
 			
-			draw_rect(rect, zone.zone_color, true) # Filled
+			draw_rect(rect, draw_color, true) # Filled
 			
-			# Draw Border
-			draw_rect(rect, border_color, false, border_width)
+			# Optimization: Don't draw borders for ghosted zones to reduce visual noise
+			if not has_selection or is_selected:
+				draw_rect(rect, border_color, false, border_width)
 
 # --- HELPER: EDGES ---
 func _draw_edges() -> void:

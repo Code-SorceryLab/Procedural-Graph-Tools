@@ -216,6 +216,7 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 	if drag_dist < DRAG_THRESHOLD:
 		if not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_CTRL):
 			_editor.clear_selection()
+			_editor.set_zone_selection([])
 		_box_start_pos = Vector2.INF
 		_renderer.selection_rect = Rect2()
 		_renderer.pre_selection_ref = []
