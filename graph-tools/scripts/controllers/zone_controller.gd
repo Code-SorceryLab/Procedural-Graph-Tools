@@ -29,7 +29,8 @@ func _ready() -> void:
 	
 	# Handle clicking empty space in the list
 	if zone_list:
-		zone_list.empty_clicked.connect(_on_zone_list_empty_clicked)
+		#zone_list.empty_clicked.connect(_on_zone_list_empty_clicked)
+		pass
 	
 	# Initial Build
 	_full_zone_rebuild()
