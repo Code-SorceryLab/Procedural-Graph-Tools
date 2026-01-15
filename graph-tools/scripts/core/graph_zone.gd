@@ -178,7 +178,8 @@ func serialize() -> Dictionary:
 	return {
 		"name": zone_name,
 		"color": zone_color.to_html(),
-		"type": zone_type, # [NEW] Save Type
+		"type": zone_type,
+		"is_grouped": is_grouped, # [NEW] Save the Lock Status
 		"cells": safe_cells,
 		"bounds": [bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y],
 		"allow_new_nodes": allow_new_nodes,
@@ -186,10 +187,6 @@ func serialize() -> Dictionary:
 		"damage_per_tick": damage_per_tick,
 		"ports": ports,
 		"custom_data": custom_data,
-		# Note: We do NOT save registered_nodes for Geographical zones, 
-		# as they should be recalculated on load based on position.
-		# For Logical/Group zones, we MIGHT save them.
-		# For now, let's treat it as transient.
 		"registered_nodes": registered_nodes if zone_type != ZoneType.GEOGRAPHICAL else []
 	}
 
@@ -199,6 +196,9 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	
 	var zone = GraphZone.new(name, color)
 	zone.zone_type = int(data.get("type", ZoneType.GEOGRAPHICAL))
+	
+	# [NEW] Restore Lock Status
+	zone.is_grouped = data.get("is_grouped", false)
 	
 	# Restore Logic
 	zone.allow_new_nodes = data.get("allow_new_nodes", false)
@@ -216,11 +216,11 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	var raw_cells = data.get("cells", [])
 	for item in raw_cells:
 		if item is Array and item.size() >= 2:
-			# We skip bounds recalc here for speed, assuming bounds were loaded above
 			var vec = Vector2i(item[0], item[1])
 			zone.cells.append(vec)
 			zone._lookup[vec] = true
-	# Restore Roster (Only for non-geo zones)
+			
+	# Restore Roster
 	var saved_roster = data.get("registered_nodes", [])
 	for id in saved_roster:
 		zone.registered_nodes.append(id)

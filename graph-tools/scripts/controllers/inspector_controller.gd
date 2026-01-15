@@ -776,17 +776,31 @@ func _get_agent_value(agent, key: String):
 
 func _update_group_inspector(nodes: Array[String]) -> void:
 	var graph = graph_editor.graph
-	var count = nodes.size()
 	
-	# 1. CALCULATE STATS & MIXED STATE
+	# [FIX] 1. VALIDATE SELECTION
+	# Filter out any nodes that were just deleted but are still in the selection list.
+	var valid_nodes: Array[String] = []
+	for id in nodes:
+		if graph.nodes.has(id):
+			valid_nodes.append(id)
+			
+	# If everyone died, abort (and maybe clear selection to be clean)
+	if valid_nodes.is_empty():
+		_clear_inspector()
+		return
+		
+	var count = valid_nodes.size()
+	
+	# 2. CALCULATE STATS & MIXED STATE
 	var center_sum = Vector2.ZERO
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
 	
-	var first_type = graph.nodes[nodes[0]].type
+	# Use valid_nodes[0] instead of nodes[0]
+	var first_type = graph.nodes[valid_nodes[0]].type
 	var is_mixed_type = false
 	
-	for id in nodes:
+	for id in valid_nodes:
 		var n = graph.nodes[id]
 		center_sum += n.position
 		min_pos.x = min(min_pos.x, n.position.x)

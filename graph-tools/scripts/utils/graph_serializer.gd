@@ -113,6 +113,10 @@ static func deserialize(json_string: String) -> Graph:
 		for n in data["nodes"]:
 			var id = n.get("id", "")
 			var pos = Vector2(n.get("x", 0), n.get("y", 0))
+			
+			# Note: We use add_node here, which triggers the sync logic.
+			# BUT, since zones aren't loaded yet, the sync does nothing here.
+			# This is why we need post_load_fixup() at the end.
 			new_graph.add_node(id, pos)
 			
 			var type = n.get("type", 0)
@@ -138,7 +142,7 @@ static func deserialize(json_string: String) -> Graph:
 			
 			new_graph.add_edge(u, v, weight, not is_bidir, edge_data)
 
-	# 5. Restore Zones [NEW]
+	# 5. Restore Zones
 	if data.has("zones"):
 		for z_data in data["zones"]:
 			var zone = GraphZone.deserialize(z_data)
@@ -150,6 +154,12 @@ static func deserialize(json_string: String) -> Graph:
 			var agent = AgentWalker.deserialize(a_data)
 			if agent:
 				new_graph.add_agent(agent)
+				
+	# [NEW] 7. POST-LOAD REPAIR
+	# Now that Nodes AND Zones exist, we force a sync so the rosters populate.
+	# This also rebuilds the spatial grid for selection.
+	if new_graph.has_method("post_load_fixup"):
+		new_graph.post_load_fixup()
 				
 	return new_graph
 

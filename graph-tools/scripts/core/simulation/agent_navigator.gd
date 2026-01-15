@@ -120,3 +120,19 @@ static func _reconstruct_full_path(parent_map: Dictionary, end: String) -> Array
 	
 	path.reverse() # Flip to be Start -> End
 	return path
+
+
+# --- SAFETY & PHYSICS ---
+
+# Centralized check for Zone restrictions (Terrain, Walls, etc.)
+static func is_move_safe(graph: Graph, target_id: String) -> bool:
+	if not graph.zones: return true
+	
+	for zone in graph.zones:
+		# We only collide with GEOGRAPHICAL zones (Terrain/Walls)
+		if zone.zone_type == GraphZone.ZoneType.GEOGRAPHICAL:
+			# If the target node is inside this zone, it's blocked.
+			if zone.contains_node(target_id):
+				return false
+	
+	return true

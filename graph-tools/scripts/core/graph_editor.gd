@@ -439,8 +439,6 @@ func disconnect_nodes(id_a: String, id_b: String) -> void:
 func set_node_position(id: String, new_pos: Vector2, is_preview: bool = false) -> void:
 	graph.set_node_position(id, new_pos)
 	
-	# Update Geographical Zone Registration (Data is live)
-	_update_zone_membership(id, new_pos)
 	
 	if is_preview:
 		# Just update the visual position, don't rebuild UI/Undo stack
@@ -450,34 +448,7 @@ func set_node_position(id: String, new_pos: Vector2, is_preview: bool = false) -
 		mark_modified()
 		renderer.queue_redraw()
 	
-# The Membership Logic (Data Only)
-func _update_zone_membership(node_id: String, world_pos: Vector2) -> void:
-	# 1. Pre-calculate grid pos
-	var spacing = GraphSettings.GRID_SPACING
-	var grid_pos = Vector2i(round(world_pos.x / spacing.x), round(world_pos.y / spacing.y))
-	
-	for zone in graph.zones:
-		# A. Skip inactive/irrelevant zones
-		if not zone.is_active: continue 
-		if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: continue
-		
-		# B. Broad Phase Optimization (AABB)
-		if not zone.bounds.has_point(world_pos):
-			# If we were in it, we definitely aren't now
-			if zone.registered_nodes.has(node_id):
-				zone.unregister_node(node_id)
-			continue
 
-		# C. Detailed Check
-		if zone.has_cell(grid_pos):
-			# ENTERING ZONE
-			if not zone.registered_nodes.has(node_id):
-				zone.register_node(node_id)
-				# (Data is updated, but we stay silent)
-		else:
-			# LEAVING ZONE
-			if zone.registered_nodes.has(node_id):
-				zone.unregister_node(node_id)
 
 # Modify Zone Geometry (Paint/Erase)
 # Called by ToolZoneBrush to apply a batch of cell changes transactionally.
@@ -693,6 +664,15 @@ func load_new_graph(new_graph: Graph) -> void:
 	
 	_reset_local_state()
 	_reconstruct_state_from_ids()
+	
+	# [THE FIX] Re-Announce Zones
+	# These zones were added while the graph was disconnected (during loading).
+	# We must manually emit the signal so the Selection Tool notices them
+	# and respects their 'is_grouped' status.
+	if not graph.zones.is_empty():
+		for zone in graph.zones:
+			zone_added.emit(zone)
+
 	graph_loaded.emit(graph)
 	
 	renderer.graph_ref = graph

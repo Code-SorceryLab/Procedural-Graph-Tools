@@ -14,7 +14,6 @@ var uuid: String           # Unique String (Data Integrity / Merging)
 var display_id: int        # Simple Integer (UI Readability: "Agent #5")
 
 # [COMPATIBILITY]
-# Maps existing 'agent.id' calls to the display_id (Ticket Number).
 var id: int:
 	get: return display_id
 	set(value): display_id = value
@@ -28,11 +27,14 @@ var step_count: int = 0    # [READ-ONLY STAT]
 var history: Array[Dictionary] = []
 
 # SEMANTIC DATA
-# Stores arbitrary game data (e.g., {"health": 100, "team": "red"})
 var custom_data: Dictionary = {}
 
 # [MENTAL STATE]
 var brain: AgentBehavior
+
+# [NEW] CONSTRAINT SATISFACTION STATE
+var last_bump_pos: Vector2 = Vector2.INF # Visual feedback for failed moves
+var use_forward_checking: bool = false   # Logic toggle: Filter invalid moves before picking
 
 # ==============================================================================
 # 2. CONFIGURATION & SETTINGS
@@ -45,8 +47,8 @@ var target_node_id: String = ""
 
 # [PARAMETERS]
 var my_paint_type: int = 2 
-var active: bool = true          
-var is_finished: bool = false    
+var active: bool = true           
+var is_finished: bool = false     
 var snap_to_grid: bool = false
 var steps: int = 15
 var branch_randomly: bool = false
@@ -54,14 +56,15 @@ var branch_randomly: bool = false
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
-	"steps": 15, "paint_type": 2, "snap_to_grid": false, "branch_randomly": false
+	"steps": 15, "paint_type": 2, "snap_to_grid": false, "branch_randomly": false,
+	"use_forward_checking": false # [NEW]
 }
 
 static func update_template(key: String, value: Variant) -> void:
 	if spawn_template.has(key): spawn_template[key] = value
 
 # ==============================================================================
-# 3. LIFECYCLE
+# 3. LIFECYCLE (Init & Reset)
 # ==============================================================================
 
 func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: int, p_steps: int) -> void:
@@ -69,7 +72,7 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	display_id = p_display_id
 	
 	pos = start_pos
-	_initial_pos = start_pos # Store for reset
+	_initial_pos = start_pos
 	current_node_id = start_node
 	start_node_id = start_node
 	my_paint_type = p_type
@@ -85,6 +88,7 @@ func reset_state() -> void:
 	current_node_id = start_node_id 
 	pos = _initial_pos              
 	history.clear()
+	last_bump_pos = Vector2.INF # [NEW] Clear visual artifacts on reset
 	
 	if start_node_id != "":
 		history.append({ "node": start_node_id, "step": 0 })
@@ -93,26 +97,20 @@ func reset_state() -> void:
 	if brain: brain.enter(self, null)
 
 # ==============================================================================
-# 4. SERIALIZATION (Saving/Loading)
+# 4. SERIALIZATION
 # ==============================================================================
 
-# Packs the agent into a JSON-friendly Dictionary
 func serialize() -> Dictionary:
 	return {
-		# Identity
 		"uuid": uuid,
 		"display_id": display_id,
-		
-		# State
 		"pos_x": pos.x,
 		"pos_y": pos.y,
 		"current_node": current_node_id,
 		"start_node": start_node_id,
 		"step_count": step_count,
-		"history": history, # Array of Dictionaries is JSON safe
+		"history": history,
 		"custom_data": custom_data,
-		
-		# Configuration
 		"behavior_mode": behavior_mode,
 		"movement_algo": movement_algo,
 		"target_node": target_node_id,
@@ -121,12 +119,11 @@ func serialize() -> Dictionary:
 		"is_finished": is_finished,
 		"steps": steps,
 		"snap_to_grid": snap_to_grid,
-		"branch_randomly": branch_randomly
+		"branch_randomly": branch_randomly,
+		"use_forward_checking": use_forward_checking # [NEW]
 	}
 
-# Factory Method: Reconstructs an Agent from a Dictionary
 static func deserialize(data: Dictionary) -> AgentWalker:
-	# 1. Extract Core Constructor Args
 	var d_uuid = data.get("uuid", "")
 	var d_id = int(data.get("display_id", 1))
 	var d_pos = Vector2(data.get("pos_x", 0), data.get("pos_y", 0))
@@ -136,20 +133,15 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	
 	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_paint, d_steps)
 	
-	# 2. Restore State & History (The Fix)
 	agent.current_node_id = data.get("current_node", "")
 	agent.step_count = int(data.get("step_count", 0))
 	
 	var raw_history = data.get("history", [])
 	if raw_history is Array:
-		# Clear the history created by the constructor (start node)
 		agent.history.clear() 
-		# Safely import the saved history
 		agent.history.assign(raw_history)
 	
 	agent.custom_data = data.get("custom_data", {})
-	
-	# 3. Restore Config
 	
 	agent.behavior_mode = int(data.get("behavior_mode", 0))
 	agent.movement_algo = int(data.get("movement_algo", 0))
@@ -158,27 +150,26 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	agent.is_finished = data.get("is_finished", false)
 	agent.snap_to_grid = data.get("snap_to_grid", false)
 	agent.branch_randomly = data.get("branch_randomly", false)
+	agent.use_forward_checking = data.get("use_forward_checking", false)
 	
-	# 4. Re-ignite the Brain
 	agent._refresh_brain()
-	
 	return agent
 
 # ==============================================================================
-# 5. BEHAVIOR LOGIC
+# 5. BEHAVIOR LOGIC (Unchanged)
 # ==============================================================================
 
-# Update the Step Logic
 func step(graph: Graph, _context: Dictionary = {}) -> void:
 	if not active: return
-	
-	# [FIX] Check for Limit (If -1, we skip the limit check)
 	if steps != -1 and step_count >= steps:
 		is_finished = true
 		return
 
-	# Lazy Initialization safety check
 	if not brain: _refresh_brain()
+	
+	# [NEW] Clear bump visualization at start of every step
+	# This ensures the red line only lasts for one "tick"
+	last_bump_pos = Vector2.INF
 	
 	brain.step(self, graph)
 
@@ -198,12 +189,11 @@ func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
 	if brain: brain.enter(self, graph)
 
 # ==============================================================================
-# 6. ACTIONS API (Used by Brains)
+# 6. ACTIONS API (Unchanged)
 # ==============================================================================
-
+# ... (move_to_node, paint_current_node, etc remain exactly as you sent them) ...
 func move_to_node(node_id: String, graph: Graph) -> void:
 	if not graph.nodes.has(node_id): return
-	
 	var new_pos = graph.get_node_pos(node_id)
 	pos = new_pos
 	current_node_id = node_id
@@ -221,9 +211,7 @@ func warp(new_pos: Vector2, new_node_id: String = "") -> void:
 
 func generate_unique_id(graph) -> String:
 	var temp_count = step_count + 1 
-	# Uses display_id (Ticket) for readable node names: "walk:5:1"
 	var new_id = "walk:%d:%d" % [display_id, temp_count]
-	
 	while graph.nodes.has(new_id):
 		temp_count += 1
 		new_id = "walk:%d:%d" % [display_id, temp_count]
@@ -235,25 +223,24 @@ func generate_unique_id(graph) -> String:
 
 # Returns the definition list for the SettingsUIBuilder
 static func get_template_settings() -> Array[Dictionary]:
+	# ... (Existing template logic) ...
 	var ids = GraphSettings.current_names.keys()
 	ids.sort()
 	var names: PackedStringArray = []
 	var default_idx = 0
-	
 	for i in range(ids.size()):
 		var type_id = ids[i]
 		names.append(GraphSettings.get_type_name(type_id))
 		if type_id == 2: default_idx = i 
-			
 	var options_string = ",".join(names)
 	
 	return [
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
+		{ "name": "use_forward_checking", "label": "Forward Checking", "type": TYPE_BOOL, "default": false, "hint": "Filter blocked paths vs Fail blindly" }, # [NEW]
 		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
 		{ "name": "active", "type": TYPE_BOOL, "default": true },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string },
-		# [UPDATED] Clearer Label
 		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, "hint": "Set to -1 for Endless Mode" },
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false },
 		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false }
@@ -271,18 +258,19 @@ func get_agent_settings() -> Array[Dictionary]:
 		elif s.name == "global_behavior": s.default = behavior_mode
 		elif s.name == "movement_algo": s.default = movement_algo
 		elif s.name == "target_node": s.default = target_node_id
+		elif s.name == "use_forward_checking": s.default = use_forward_checking # [NEW]
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			var idx = ids.find(my_paint_type)
 			if idx != -1: s.default = idx
 			
-	# [NEW] Insert Read-Only Statistics
+	# Insert Read-Only Statistics
 	settings.append({ 
 		"name": "stat_steps", 
 		"label": "Steps Taken", 
 		"type": TYPE_STRING, 
-		"default": "%d / %d" % [step_count, steps], # Shows "0 / 15"
+		"default": "%d / %d" % [step_count, steps],
 		"hint": "read_only"
 	})
 
@@ -308,6 +296,7 @@ func apply_setting(key: String, value: Variant) -> void:
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
 		"branch_randomly": branch_randomly = value
+		"use_forward_checking": use_forward_checking = value # [NEW]
 		"paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
@@ -315,10 +304,8 @@ func apply_setting(key: String, value: Variant) -> void:
 				my_paint_type = ids[value]
 		"pos": warp(value)
 		
-		# [FIX] Catch-all for Dynamic Properties
+		# Catch-all
 		_:
-			# If the key isn't one of the hardcoded settings above,
-			# assume it's a Custom Property and save it to the dictionary.
 			custom_data[key] = value
 	
 	if brain_dirty:
@@ -333,4 +320,5 @@ func apply_template_defaults() -> void:
 	my_paint_type = t.get("paint_type", 2)
 	snap_to_grid = t.get("snap_to_grid", false)
 	branch_randomly = t.get("branch_randomly", false)
+	use_forward_checking = t.get("use_forward_checking", false) # [NEW]
 	_refresh_brain()

@@ -1,0 +1,265 @@
+{
+	"agents": [],
+	"edges": [],
+	"legend": {
+		"0": {
+			"color": "ccccccff",
+			"name": "Empty"
+		},
+		"1": {
+			"color": "33cc33ff",
+			"name": "Spawn"
+		},
+		"2": {
+			"color": "cc4d4dff",
+			"name": "Enemy"
+		},
+		"3": {
+			"color": "ffcc33ff",
+			"name": "Treasure"
+		},
+		"4": {
+			"color": "990000ff",
+			"name": "Boss"
+		},
+		"5": {
+			"color": "663399ff",
+			"name": "Shop"
+		}
+	},
+	"meta": {
+		"next_ticket": 1,
+		"timestamp": "2026-01-14T20:15:49",
+		"version": "1.4"
+	},
+	"nodes": [
+		{
+			"custom_data": {
+
+			},
+			"id": "man:1",
+			"type": 0,
+			"x": -300.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:2",
+			"type": 0,
+			"x": -240.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:3",
+			"type": 0,
+			"x": -180.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:4",
+			"type": 0,
+			"x": -120.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:5",
+			"type": 0,
+			"x": -120.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:6",
+			"type": 0,
+			"x": -120.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:7",
+			"type": 0,
+			"x": -180.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:8",
+			"type": 0,
+			"x": -180.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:9",
+			"type": 0,
+			"x": -240.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:10",
+			"type": 0,
+			"x": -240.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:11",
+			"type": 0,
+			"x": -300.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:12",
+			"type": 0,
+			"x": -300.0,
+			"y": 120.0
+		}
+	],
+	"schema": {
+
+	},
+	"zones": [
+		{
+			"allow_new_nodes": false,
+			"bounds": [
+				-270.0,
+				-90.0,
+				300.0,
+				240.0
+			],
+			"cells": [
+				[
+					-4,
+					-1
+				],
+				[
+					-3,
+					-1
+				],
+				[
+					-4,
+					0
+				],
+				[
+					-3,
+					0
+				],
+				[
+					-4,
+					1
+				],
+				[
+					-3,
+					1
+				],
+				[
+					-4,
+					2
+				],
+				[
+					-3,
+					2
+				],
+				[
+					-2,
+					-1
+				],
+				[
+					-2,
+					0
+				],
+				[
+					-2,
+					1
+				],
+				[
+					-2,
+					2
+				],
+				[
+					-1,
+					-1
+				],
+				[
+					-1,
+					0
+				],
+				[
+					-1,
+					1
+				],
+				[
+					-1,
+					2
+				],
+				[
+					0,
+					-1
+				],
+				[
+					0,
+					0
+				],
+				[
+					0,
+					1
+				],
+				[
+					0,
+					2
+				]
+			],
+			"color": "ccb3524d",
+			"custom_data": {
+
+			},
+			"damage_per_tick": 0.0,
+			"is_grouped": true,
+			"name": "New Zone",
+			"ports": [],
+			"registered_nodes": [
+				"man:1",
+				"man:12",
+				"man:11",
+				"man:2",
+				"man:9",
+				"man:10",
+				"man:3",
+				"man:8",
+				"man:7",
+				"man:4",
+				"man:5",
+				"man:6"
+			],
+			"traversal_cost": 1.0,
+			"type": 1
+		}
+	]
+}

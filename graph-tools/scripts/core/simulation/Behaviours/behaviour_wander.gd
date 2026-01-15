@@ -10,13 +10,49 @@ func enter(agent: AgentWalker, _graph: Graph) -> void:
 		_session_path.append(agent.current_node_id)
 
 func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
-	# 1. Logic: Pick next node
-	var next_id = _pick_next_node(agent, graph)
+	var current_id = agent.current_node_id
+	var neighbors = graph.get_neighbors(current_id)
 	
-	# 2. Action: Move
-	if next_id != "":
-		agent.move_to_node(next_id, graph)
-		_session_path.append(next_id)
+	if neighbors.is_empty(): 
+		return
+
+	# --- 1. SMART MODE: FORWARD CHECKING ---
+	# If the toggle is ON, we filter the list BEFORE picking.
+	if agent.use_forward_checking:
+		var safe_neighbors: Array[String] = []
+		for n_id in neighbors:
+			if AgentNavigator.is_move_safe(graph, n_id):
+				safe_neighbors.append(n_id)
+		
+		# Replace the full list with the filtered list
+		neighbors = safe_neighbors
+		
+		# If the list is empty now, we are trapped. 
+		# We simply return (wait), effectively "stalling" without a bump visual.
+		if neighbors.is_empty():
+			return 
+
+	# --- 2. PICK A TARGET ---
+	# Pick a random option from whatever is left in our list
+	# (If Smart Mode was off, this is still the full list of neighbors)
+	if neighbors.is_empty(): return
+	var target_id = neighbors.pick_random()
+	
+	# --- 3. EXECUTE MOVE (With Bump Detection) ---
+	if AgentNavigator.is_move_safe(graph, target_id):
+		# Success! The move is valid.
+		agent.move_to_node(target_id, graph)
+	else:
+		# Failure! We tried to enter a forbidden zone.
+		# This only happens if 'use_forward_checking' is FALSE.
+		
+		# 1. Calculate where we hit the wall
+		var target_pos = graph.get_node_pos(target_id)
+		
+		# 2. Record the bump (This triggers the Red Line in GraphRenderer)
+		agent.last_bump_pos = target_pos
+		# [DEBUG PRINT]
+		print("BUMP! Agent %s hit wall at %s" % [agent.display_id, target_pos])
 
 # --- Internal Logic (Preserved from old BehaviorPaint) ---
 func _pick_next_node(agent: AgentWalker, graph: Graph) -> String:
@@ -43,3 +79,4 @@ func _pick_next_node(agent: AgentWalker, graph: Graph) -> String:
 		return all_nodes.pick_random()
 		
 	return ""
+	

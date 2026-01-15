@@ -59,7 +59,11 @@ func get_settings() -> Array[Dictionary]:
 			})
 			item["advanced"] = true
 			item["label"] = "Target Node ID"
-
+		# Mark our new toggle as advanced
+		elif item.name == "use_forward_checking":
+			item["advanced"] = true
+			item["label"] = "Forward Checking (Smart)"
+			 
 		elif item.name in ["movement_algo", "active", "snap_to_grid"]:
 			item["advanced"] = true
 			

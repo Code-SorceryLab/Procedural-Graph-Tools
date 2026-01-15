@@ -36,21 +36,46 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 		# Update spatial grid
 		_ensure_spatial_grid()
 		_spatial_grid.add_node(id, pos, _node_radius)
+		
+		# [NEW] IMMEDIATE ZONE SYNC
+		# Fundamental Fix: Any node born on a tile automatically joins that zone.
+		_sync_node_zone_membership(id, pos)
+		
 
 func remove_node(id: String) -> void:
-	if not nodes.has(id):
-		return
+	if not nodes.has(id): return
 	
-	# Remove from spatial grid first
+	# 1. Spatial Grid
 	if _spatial_grid != null:
 		_spatial_grid.remove_node(id)
 	
-	# Remove connections pointing TO this node
+	# 2. Clean Edges
 	for other_id: String in nodes:
 		var other_node: NodeData = nodes[other_id]
 		if other_node.connections.has(id):
 			other_node.connections.erase(id)
+			
+	# 3. Clean Zones
+	for zone in zones:
+		if zone.contains_node(id):
+			zone.unregister_node(id)
 
+	# 4. Clean Agents (The Ghost Fix)
+	# If we don't do this, agents float in the void at the deleted position.
+	# We iterate backwards to safely remove while looping.
+	for i in range(agents.size() - 1, -1, -1):
+		var agent = agents[i]
+		if agent.current_node_id == id:
+			# Option A: Kill them
+			agents.remove_at(i)
+			
+			# Option B: Warp them to start (Safer)
+			# agent.reset_state()
+			
+			# Option C: Just clear their node ref (Floating)
+			# agent.current_node_id = "" 
+	
+	# 5. Delete Node
 	nodes.erase(id)
 
 # Add a method to update node position (for dragging)
@@ -62,6 +87,8 @@ func set_node_position(id: String, new_pos: Vector2) -> void:
 		# Update spatial grid
 		_ensure_spatial_grid()
 		_spatial_grid.update_node(id, new_pos, _node_radius)
+		
+		_sync_node_zone_membership(id, new_pos)
 
 # --- Agent Management ---
 
@@ -353,6 +380,49 @@ func get_zone_at(grid_pos: Vector2i) -> GraphZone:
 		if z.has_cell(grid_pos):
 			return z
 	return null
+
+# 2. The Robust Sync Helper (Moved from Editor -> Graph)
+func _sync_node_zone_membership(node_id: String, world_pos: Vector2) -> void:
+	if zones.is_empty(): return
+	
+	var spacing = GraphSettings.GRID_SPACING
+	var grid_pos = Vector2i(round(world_pos.x / spacing.x), round(world_pos.y / spacing.y))
+	
+	for zone in zones:
+		# We only care about Geographical (Tile) zones for auto-updates
+		if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: continue
+		
+		# [OPTIMIZATION] If you track 'is_active', check it here. 
+		# If 'is_active' is UI-only, remove this line.
+		if "is_active" in zone and not zone.is_active: continue
+
+		# Logic: Check if we are on a valid tile
+		if zone.has_cell(grid_pos):
+			# ENTERING / STAYING
+			if not zone.registered_nodes.has(node_id):
+				zone.register_node(node_id)
+		else:
+			# LEAVING
+			if zone.registered_nodes.has(node_id):
+				zone.unregister_node(node_id)
+
+# --- POST-LOAD REPAIR ---
+
+# Call this immediately after loading a graph from JSON
+func post_load_fixup() -> void:
+	# 1. Rebuild Spatial Grid (Crucial for clicking/selecting)
+	_rebuild_spatial_grid()
+	
+	# 2. Re-sync Geographical Zones
+	# Since serializers often bypass 'add_node', we must manually 
+	# introduce every node to the zones again.
+	if not zones.is_empty():
+		for id in nodes:
+			var pos = nodes[id].position
+			_sync_node_zone_membership(id, pos)
+			
+	# 3. Optional: Verify Integrity
+	# (e.g. ensure all edges point to valid nodes)
 
 # Find node at exact position (for mouse picking)
 func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:

@@ -1,64 +1,98 @@
 class_name BehaviorGrow
 extends AgentBehavior
 
-# Note: We don't need 'context' anymore for grid spacing!
 func step(agent: AgentWalker, graph: Graph, context: Dictionary = {}) -> void:
-	# 1. Get Global Settings directly
+	# 1. Setup
 	var grid_spacing = GraphSettings.GRID_SPACING
-	
-	# We still accept overrides from context if provided (optional flexibility)
-	# but default to the global static value.
 	var merge_overlaps = context.get("merge_overlaps", true)
 	
-	# 2. Determine Start Position
+	# Snap logic
 	if agent.current_node_id == "":
-		var under_feet = graph.get_node_at_position(agent.pos, -1.0)
-		if not under_feet.is_empty(): 
-			agent.current_node_id = under_feet
+		var under = graph.get_node_at_position(agent.pos, -1.0)
+		if not under.is_empty(): agent.current_node_id = under
 
 	var start_point = agent.pos
 	if agent.snap_to_grid: 
 		start_point = agent.pos.snapped(grid_spacing)
 
-	# 3. Calculate Target Position (Random Cardinal Direction)
-	var target_pos = start_point + _get_random_cardinal_vector(grid_spacing)
-	
-	# Check Zone Permissions
-	var gx = round(target_pos.x / grid_spacing.x)
-	var gy = round(target_pos.y / grid_spacing.y)
-	if graph.has_method("get_zone_at"):
-		var zone = graph.get_zone_at(Vector2i(gx, gy))
-		if zone and not zone.allow_new_nodes: 
-			return # Blocked by zone
+	# 2. DEFINE CANDIDATES (The 4 Cardinals)
+	# We store them as Vectors so we can calculate positions easily
+	var potential_moves = [
+		Vector2(grid_spacing.x, 0), 
+		Vector2(-grid_spacing.x, 0),
+		Vector2(0, grid_spacing.y), 
+		Vector2(0, -grid_spacing.y)
+	]
 
-	# 4. Create or Merge Node
-	var new_id = ""
-	var existing_id = graph.get_node_at_position(target_pos, -1.0)
+	# 3. FORWARD CHECKING (Smart Mode)
+	# If enabled, filter out directions that would hit a "Closed Zone"
+	if agent.use_forward_checking:
+		var safe_moves = []
+		for move in potential_moves:
+			var test_pos = start_point + move
+			if _is_position_growable(graph, test_pos, grid_spacing):
+				safe_moves.append(move)
+		
+		# Update list
+		potential_moves = safe_moves
+		
+		# If trapped, stall silently (Smart Agents don't bump)
+		if potential_moves.is_empty(): 
+			return
+
+	# 4. PICK TARGET
+	if potential_moves.is_empty(): return # Safety
 	
-	if merge_overlaps and not existing_id.is_empty():
-		new_id = existing_id
-		target_pos = graph.get_node_pos(new_id)
-	else:
-		new_id = agent.generate_unique_id(graph)
-		graph.add_node(new_id, target_pos)
+	var chosen_move = potential_moves.pick_random()
+	var target_pos = start_point + chosen_move
 	
-	# 5. Link Backwards
-	if not agent.current_node_id.is_empty() and graph.nodes.has(agent.current_node_id):
-		if agent.current_node_id != new_id:
-			var prev_pos = graph.get_node_pos(agent.current_node_id)
-			var dist = prev_pos.distance_to(target_pos)
-			if dist < grid_spacing.length() * 1.5:
+	# 5. EXECUTE (Spawn or Bump)
+	if _is_position_growable(graph, target_pos, grid_spacing):
+		# --- SUCCESS: Create Node ---
+		
+		var new_id = ""
+		var existing_id = graph.get_node_at_position(target_pos, -1.0)
+		
+		if merge_overlaps and not existing_id.is_empty():
+			new_id = existing_id
+			# Snap to existing node center
+			target_pos = graph.get_node_pos(new_id) 
+		else:
+			new_id = agent.generate_unique_id(graph)
+			# Graph.add_node now handles Zone Registration automatically!
+			graph.add_node(new_id, target_pos) 
+		
+		# Link Backwards
+		if not agent.current_node_id.is_empty() and graph.nodes.has(agent.current_node_id):
+			if agent.current_node_id != new_id:
 				graph.add_edge(agent.current_node_id, new_id)
-	
-	# 6. Action: Move
-	agent.move_to_node(new_id, graph)
+		
+		# Move
+		agent.move_to_node(new_id, graph)
+		
+	else:
+		# --- FAILURE: Bump Logic ---
+		# We tried to grow into a forbidden zone. Visualize it!
+		agent.last_bump_pos = target_pos
+		
+		# Optional Debug
+		# print("Grow Bump! Agent %s blocked at %s" % [agent.display_id, target_pos])
 
-# --- Helper ---
-func _get_random_cardinal_vector(scale: Vector2) -> Vector2:
-	var dir_idx = randi() % 4
-	match dir_idx:
-		0: return Vector2(scale.x, 0) 
-		1: return Vector2(-scale.x, 0)
-		2: return Vector2(0, scale.y) 
-		3: return Vector2(0, -scale.y)
-	return Vector2.ZERO
+# --- HELPER ---
+# Checks if a specific coordinate is allowed to have a node
+func _is_position_growable(graph: Graph, pos: Vector2, spacing: Vector2) -> bool:
+	if not graph.has_method("get_zone_at"): return true
+	
+	var gx = round(pos.x / spacing.x)
+	var gy = round(pos.y / spacing.y)
+	
+	var zone = graph.get_zone_at(Vector2i(gx, gy))
+	if zone:
+		# Check the specific setting "Allow New Nodes"
+		if not zone.allow_new_nodes:
+			return false
+			
+		# Also respect Geographical collisions if desired?
+		# (Usually "Allow New Nodes" covers this intent for Grow mode)
+			
+	return true

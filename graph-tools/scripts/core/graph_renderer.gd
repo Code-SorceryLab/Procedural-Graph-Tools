@@ -75,35 +75,38 @@ func _draw() -> void:
 	if not graph_ref:
 		return
 	
-	# 0. Draw Zones
+	# Layer 1. Draw Zones
 	_draw_zones()
 	
-	# Layer 1: Connections
+	# Layer 2: Connections
 	_draw_edges()
 	
-	# Layer 2: A* Path
+	# Layer 3: A* Path
 	_draw_current_path()
 	
-	# Layer 3: Brush
+	# Layer 4: Brush
 	_draw_pending_stroke()
 	_draw_brush_preview()
 	
-	# Layer 4: Nodes
+	# Layer 5: Nodes
 	_draw_nodes()
 	
-	# Layer 5: Agent Tokens (The Physical Bodies)
+	# Layer 6: Agent Tokens (The Physical Bodies)
 	_draw_agent_tokens()
 	
-	# Layer 6: Custom Labels
+	# Layer 7: Simulation Layer
+	_draw_simulation_feedback()
+	
+	# Layer 8: Custom Labels
 	_draw_custom_labels()
 	
-	# Layer 7: Interactive Elements
+	# Layer 9: Interactive Elements
 	_draw_interaction_overlays()
 
-	# Layer 8: Selection Box
+	# Layer 10: Selection Box
 	_draw_selection_box()
 	
-	# Layer 9: Dynamic Depth Overlay
+	# Layer 11: Dynamic Depth Overlay
 	if debug_show_depth:
 		_draw_depth_numbers()
 
@@ -405,10 +408,10 @@ func _draw_agent_tokens() -> void:
 		return
 	
 	var agents_by_node = {}
-	for w in graph_ref.agents: 
-		var node_id = w.current_node_id
+	for agent in graph_ref.agents: 
+		var node_id = agent.current_node_id
 		if not agents_by_node.has(node_id): agents_by_node[node_id] = []
-		agents_by_node[node_id].append(w)
+		agents_by_node[node_id].append(agent)
 		
 	for node_id in agents_by_node:
 		if not graph_ref.nodes.has(node_id): continue
@@ -421,7 +424,7 @@ func _draw_agent_tokens() -> void:
 			_draw_agent_stack_icon(node_pos, count)
 		else:
 			for agent in node_agents:
-				# [FIX] Use shared visual logic
+				# Use shared visual logic
 				var draw_pos = get_agent_visual_position(agent, node_agents)
 				
 				var is_selected = selected_agent_ids_ref.has(agent)
@@ -557,6 +560,32 @@ func _draw_agent_brain(agent) -> void:
 			draw_circle(target_pos, 4.0, Color(1, 0, 0, 0.5))
 			draw_arc(target_pos, 8.0, 0, TAU, 16, Color(1, 0, 0, 0.5), 1.0)
 
+func _draw_agent_bump(agent: AgentWalker) -> void:
+	# [CHANGE] Calculate the visual start point (accounts for stacks/orbits)
+	var start = Vector2(agent.pos)
+	
+	# Look up neighbors to resolve stack offset
+	if graph_ref:
+		var neighbors = graph_ref.get_agents_at_node(agent.current_node_id)
+		start = get_agent_visual_position(agent, neighbors)
+
+	var end = agent.last_bump_pos
+
+	
+	# Visual Polish: Don't draw the full line, it looks like a valid edge.
+	# Draw a "stub" to indicate an attempt.
+	var direction = (end - start).normalized()
+	var distance = start.distance_to(end)
+	var stub_length = min(distance * 0.4, 30.0) # 40% of the way or 30px max
+	var stub_end = start + (direction * stub_length)
+	
+	# Draw the Red Line
+	draw_line(start, stub_end, Color(1.0, 0.2, 0.2, 0.8), 3.0)
+	
+	# Optional: Draw a small "X" or perpendicular line at the end
+	var perp = Vector2(-direction.y, direction.x) * 5.0
+	draw_line(stub_end - perp, stub_end + perp, Color(1.0, 0.2, 0.2, 0.8), 3.0)
+
 # Helper for drawing small visual arrows
 func _draw_arrow_head_visual(from: Vector2, to: Vector2, color: Color) -> void:
 	draw_line(from, to, color, 2.0)
@@ -567,7 +596,17 @@ func _draw_arrow_head_visual(from: Vector2, to: Vector2, color: Color) -> void:
 	draw_line(tip, tip - dir.rotated(angle) * size, color, 2.0)
 	draw_line(tip, tip - dir.rotated(-angle) * size, color, 2.0)
 
-# --- 3.5 HELPER: CUSTOM LABELS ---
+# --- 6 HELPER: SIMULATION LAYER ---
+
+func _draw_simulation_feedback() -> void:
+	if not graph_ref: return
+	
+	for agent in graph_ref.agents:
+		# Check if the agent has a recorded bump
+		if agent.last_bump_pos != Vector2.INF:
+			_draw_agent_bump(agent)
+
+# --- 7 HELPER: CUSTOM LABELS ---
 func _draw_custom_labels() -> void:
 	if node_labels_ref.is_empty():
 		return

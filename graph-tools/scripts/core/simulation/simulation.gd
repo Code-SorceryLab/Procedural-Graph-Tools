@@ -29,25 +29,29 @@ func step() -> GraphCommand:
 	
 	# 3. Execution Loop
 	for agent in graph.agents:
-		# [FIX] Logic Check: Is it enabled AND not done?
+		# Check: Active AND Not Finished
 		if agent.active and not agent.is_finished:
 			
-			# Check limits
-			if agent.steps > 0 and agent.step_count >= agent.steps:
-				agent.is_finished = true # [FIX] Mark as done, do not touch 'active'
+			# Check limits (if -1, infinite)
+			if agent.steps != -1 and agent.step_count >= agent.steps:
+				agent.is_finished = true 
 				continue
 			
+			# If we get here, the simulation is NOT over yet
 			any_active = true
 			
 			# Step the agent (Delegates to Brain)
+			# If blocked, this might not produce any recorder commands,
+			# BUT it updates agent.last_bump_pos internal state.
 			agent.step(recorder)
 			
+	# [CRITICAL CHECK] 
+	# If no agents are active, we are truly done. Return null to stop Controller.
 	if not any_active:
 		return null
 		
 	tick_count += 1
 	
-	# [CHANGE] Emit to Global Bus instead of local signal
 	SignalManager.simulation_stepped.emit(tick_count)
 	
 	# 4. Compile Batch for Undo
@@ -62,16 +66,17 @@ func step() -> GraphCommand:
 		if pre_sim_states.has(agent.id):
 			var start = pre_sim_states[agent.id]
 			var end = _snapshot_agent(agent)
-			# Only create command if physical state changed
+			
+			# Only create command if state changed (Position OR Bump Visuals)
 			if start.hash() != end.hash():
 				var move_cmd = CmdUpdateAgent.new(graph, agent, start, end)
 				batch.add_command(move_cmd)
 				
-	# Return batch if valid
-	if batch.get_command_count() > 0:
-		return batch
-		
-	return null
+	# [THE FIX]
+	# If 'any_active' is true, we MUST return a batch to keep the controller running,
+	# even if the batch is empty (meaning everyone stalled this turn).
+	# This prevents the "Pause on Bump" bug.
+	return batch
 
 # Helper to capture agent state for Diffing
 func _snapshot_agent(agent) -> Dictionary:
@@ -81,7 +86,10 @@ func _snapshot_agent(agent) -> Dictionary:
 		"step_count": agent.step_count,
 		"history": agent.history.duplicate(),
 		"active": agent.active,
-		"is_finished": agent.is_finished # [CRITICAL] Must track this for Undo/Redo to work!
+		"is_finished": agent.is_finished,
+		# Track visuals so Undo clears the red lines, 
+		# and so "Bumping" counts as a state change!
+		"last_bump_pos": agent.last_bump_pos 
 	}
 
 # Resets the state (Rewind Logic)
@@ -101,10 +109,8 @@ func reset_state() -> GraphCommand:
 		var start_state = pre_reset_states[agent.id]
 		
 		# --- APPLY RESET LOGIC ---
-		# Calls agent.reset_state(), which sets is_finished = false
 		agent.reset_state() 
 		
-		# Logic to find start position
 		var target_pos = agent.pos 
 		var target_node = ""
 		
@@ -112,10 +118,8 @@ func reset_state() -> GraphCommand:
 			target_node = agent.start_node_id
 			target_pos = graph.get_node_pos(target_node)
 			
-		# Move Agent
 		agent.warp(target_pos, target_node)
 		
-		# Re-add initial history entry
 		if target_node != "":
 			agent.history.append({ "node": target_node, "step": 0 })
 			
@@ -128,7 +132,6 @@ func reset_state() -> GraphCommand:
 			var cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
 			batch.add_command(cmd)
 	
-	# [CHANGE] Notify Global Bus
 	SignalManager.simulation_reset.emit()
 			
 	if batch.get_command_count() > 0:
