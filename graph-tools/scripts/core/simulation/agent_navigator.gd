@@ -14,39 +14,47 @@ enum Algo {
 
 # 1. Used by the Agent to Move (Returns Node ID)
 static func get_next_step(current_id: String, target_id: String, algo_id: int, graph: Graph) -> String:
-	# 1. Random is special (not a full path)
-	if algo_id == Algo.RANDOM:
-		var neighbors = graph.get_neighbors(current_id)
-		if neighbors.is_empty(): return ""
-		return neighbors.pick_random()
-
-	# 2. Strategy Pattern
+	# 1. Get Strategy
 	var strategy = _get_strategy(algo_id)
 	if not strategy: return ""
 	
+	# 2. Execute
+	# (For Random, this generates a full winding path instantly)
 	var path = strategy.find_path(graph, current_id, target_id)
 	
-	if path.size() > 1: return path[1] # Return next step
+	# 3. Return next step
+	if path.size() > 1: 
+		return path[1]
+	
 	return ""
 
 # 2. Used by the Editor to Draw Lines (Returns Array of IDs)
-static func get_projected_path(current_id: String, target_id: String, algo_id: int, graph: Graph) -> Array[String]:
-	if algo_id == Algo.RANDOM: return []
-	
+static func get_projected_path(current_id: String, target_id: String, algo_id: int, graph: Graph, options: Dictionary = {}) -> Array[String]:
 	var strategy = _get_strategy(algo_id)
 	if not strategy: return []
 	
+	# Inject options if the strategy supports it
+	if strategy.has_method("set_options"):
+		strategy.set_options(options)
+		
 	return strategy.find_path(graph, current_id, target_id)
 
 # --- FACTORY ---
 
 static func _get_strategy(algo_id: int) -> PathfindingStrategy:
 	match algo_id:
-		Algo.BFS: return PathfinderBFS.new()
-		Algo.DFS: return PathfinderDFS.new()
-		Algo.ASTAR: return PathfinderAStar.new(1.0) # Standard (Scaled by 1.0)
-		Algo.DIJKSTRA: return PathfinderDijkstra.new() # Zero Heuristic
-		_: return null
+		Algo.RANDOM:
+			return PathfinderRandom.new() # [NEW]
+		Algo.BFS: 
+			return PathfinderBFS.new()
+		Algo.DFS: 
+			return PathfinderDFS.new()
+		Algo.ASTAR: 
+			return PathfinderAStar.new(1.0) 
+		Algo.DIJKSTRA: 
+			return PathfinderDijkstra.new() 
+		_: 
+			return null
 
 # --- SAFETY CHECKS ---
 # (Keep 'is_move_safe' exactly as we fixed it previously - checking 'is_traversable')

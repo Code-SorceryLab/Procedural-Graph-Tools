@@ -12,6 +12,8 @@ class_name InspectorController
 @export var property_wizard_scene: PackedScene
 var _wizard_instance: PropertyWizard
 
+var _algo_settings_popup: AlgorithmSettingsPopup
+
 # 1. VIEW CONTAINERS
 @export var lbl_no_selection: Label      
 @export var single_container: Control     
@@ -62,7 +64,7 @@ func _ready() -> void:
 	if SignalManager.has_signal("zone_selection_changed"):
 		SignalManager.zone_selection_changed.connect(_on_zone_selection_changed)
 		
-	# [NEW] Listen for data changes (Brush strokes, Undo/Redo)
+	# Listen for data changes (Brush strokes, Undo/Redo)
 	# This catches the signal emitted by CmdZoneEdit, CmdMoveNode, etc.
 	if graph_editor:
 		graph_editor.graph_modified.connect(_on_graph_modified)
@@ -84,7 +86,11 @@ func _ready() -> void:
 		add_child(_wizard_instance)
 		_wizard_instance.property_defined.connect(func(_n): _rebuild_ui_after_schema_change())
 		_wizard_instance.purge_requested.connect(_on_purge_requested)
-		
+	
+	_algo_settings_popup = AlgorithmSettingsPopup.new()
+	add_child(_algo_settings_popup)
+	_algo_settings_popup.settings_confirmed.connect(_on_algo_settings_confirmed)
+	
 	_clear_inspector()
 	
 
@@ -626,23 +632,24 @@ func _rebuild_walker_ui() -> void:
 					break
 
 	# --- 4. BUILD SETTINGS LIST ---
-	var delete_action_item = null # Store this to append at the very end
+	var delete_action_item = null 
 	
 	for item in raw_settings:
 		var key = item.name
 		
-		# [CHANGED] Capture Delete button to move it to the bottom
+		# 1. Capture Delete button
 		if key == "action_delete":
 			delete_action_item = item.duplicate()
 			continue
 			
+		# 2. Duplicate & Prepare Item
 		var new_item = item.duplicate()
 		
-		# Apply Mixed Flag
+		# 3. Apply Mixed Flag
 		if mixed_keys.has(key):
 			new_item["mixed"] = true
 		
-		# Inject Picker Button (Target Node)
+		# 4. Inject Picker Button (Target Node)
 		if key == "target_node":
 			final_settings.append({
 				"name": "action_pick_target",
@@ -651,7 +658,28 @@ func _rebuild_walker_ui() -> void:
 				"hint": "action",
 				"mixed": mixed_keys.get("target_node", false)
 			})
+		
+		# [NEW] 5. INTERCEPT MOVEMENT ALGO (The Logic we are adding)
+		if key == "movement_algo":
+			final_settings.append(new_item) # Add the dropdown (using new_item with mixed flags)
 			
+			# Check for settings button
+			if tracked_count == 1:
+				var algo_id = ref_agent.movement_algo
+				var strategy = AgentNavigator._get_strategy(algo_id)
+				
+				if strategy and strategy.has_method("get_settings"):
+					var schema = strategy.get_settings()
+					if not schema.is_empty():
+						final_settings.append({
+							"name": "action_configure_algo",
+							"label": "Configure Algorithm...",
+							"type": TYPE_NIL,
+							"hint": "button"
+						})
+			continue # Done with this key
+			
+		# 6. Default Append
 		final_settings.append(new_item)
 	
 	# --- 5. INJECT DYNAMIC PROPERTIES (From Registry) ---
@@ -708,7 +736,7 @@ func _rebuild_ui_after_schema_change() -> void:
 	# so the new field appears immediately.
 	_refresh_all_views()
 
-# [NEW] THE HEAVY CLEANUP LOGIC
+# THE HEAVY CLEANUP LOGIC
 func _on_purge_requested(key: String, target: String) -> void:
 	var graph = graph_editor.graph
 	var clean_count = 0
@@ -761,6 +789,25 @@ func _on_purge_requested(key: String, target: String) -> void:
 	
 	# Force UI Refresh in case we are looking at a purged item
 	_refresh_all_views()
+
+func _on_algo_settings_confirmed(new_settings: Dictionary) -> void:
+	if _tracked_agents.is_empty(): return
+	
+	# Apply to ALL selected agents (if multiple selected, though config button is usually single)
+	# But since we restricted the button to Single Selection above, this loop runs once.
+	for agent in _tracked_agents:
+		# Merge new settings
+		for k in new_settings:
+			agent.apply_setting(k, new_settings[k])
+			
+		# Force Recalculation
+		# We need to manually trigger this because 'apply_setting' only clears cache if 
+		# we logic'd it that way. Let's be safe.
+		if agent.has_method("_recalculate_path") and graph_editor.graph:
+			agent._recalculate_path(graph_editor.graph)
+			
+	# Refresh UI to reflect changes (if any settings affect visible inspector props)
+	_rebuild_walker_ui()
 
 # Helper to safely get value (Dictionary vs Object)
 func _get_agent_value(agent, key: String):
@@ -1023,6 +1070,23 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 		_clear_inspector()
 		graph_editor.clear_selection()
 		return 
+	
+	# ALGORITHM CONFIGURATION ACTION
+	if key == "action_configure_algo":
+		var agent = _tracked_agents[0]
+		var algo_id = agent.movement_algo
+		var strategy = AgentNavigator._get_strategy(algo_id)
+		
+		if strategy:
+			var schema = strategy.get_settings()
+			var algo_name = GraphSettings.get_type_name(algo_id) # Or get label from dropdown
+			
+			_algo_settings_popup.open_settings(
+				"%s Settings" % "Algorithm", # Can replace with algo_name if you have lookup
+				schema,
+				agent.algo_settings # Pass the bag
+			)
+		return
 	
 	if key == "action_add_property":
 		if _wizard_instance: 

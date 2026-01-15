@@ -6,6 +6,22 @@ var heuristic_scale: float = 1.0
 func _init(scale: float = 1.0) -> void:
 	heuristic_scale = scale
 
+func get_settings() -> Array[Dictionary]:
+	return [
+		{ 
+			"name": "heuristic_scale", 
+			"label": "Heuristic Weight", 
+			"type": TYPE_FLOAT, 
+			"default": 1.0, 
+			"min": 0.0, "max": 10.0, "step": 0.1,
+			"hint": "1.0 = Accurate. >1.0 = Greedy/Fast. 0.0 = Dijkstra."
+		}
+	]
+
+func apply_settings(settings: Dictionary) -> void:
+	if settings.has("heuristic_scale"): 
+		heuristic_scale = settings.heuristic_scale
+
 func find_path(graph: Graph, start_id: String, target_id: String) -> Array[String]:
 	# 1. Reuse existing Graph A* logic, but adapted to be standalone
 	# (Copying the logic from Graph.gd here keeps Graph.gd clean)

@@ -212,12 +212,11 @@ theme_override_constants/margin_bottom = 15
 [node name="TabContainer" type="TabContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin"]
 layout_mode = 2
 tab_alignment = 1
-current_tab = 3
+current_tab = 0
 drag_to_rearrange_enabled = true
 use_hidden_tabs_for_min_size = true
 
 [node name="Generation" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
-visible = false
 layout_mode = 2
 metadata/_tab_index = 0
 
@@ -357,6 +356,7 @@ size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Zone" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
 layout_mode = 2
 metadata/_tab_index = 3
 

@@ -32,6 +32,9 @@ var custom_data: Dictionary = {}
 # [MENTAL STATE]
 var brain: AgentBehavior
 
+# The Generic Backpack
+var algo_settings: Dictionary = {}
+
 # [NEW] CONSTRAINT SATISFACTION STATE
 var last_bump_pos: Vector2 = Vector2.INF # Visual feedback for failed moves
 var use_forward_checking: bool = false   # Logic toggle: Filter invalid moves before picking
@@ -43,6 +46,8 @@ var use_forward_checking: bool = false   # Logic toggle: Filter invalid moves be
 # [BEHAVIOR]
 var behavior_mode: int = 0  # 0=Hold, 1=Paint, 2=Grow, 3=Seek
 var movement_algo: int = 0  # 0=Random, 1=BFS, 2=DFS, 3=A*
+var _current_path_cache: Array[String] = []
+var _path_target_id: String = ""
 var target_node_id: String = ""
 
 # [PARAMETERS]
@@ -57,7 +62,7 @@ var branch_randomly: bool = false
 static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
 	"steps": 15, "paint_type": 2, "snap_to_grid": false, "branch_randomly": false,
-	"use_forward_checking": false # [NEW]
+	"use_forward_checking": false
 }
 
 static func update_template(key: String, value: Variant) -> void:
@@ -113,6 +118,8 @@ func serialize() -> Dictionary:
 		"custom_data": custom_data,
 		"behavior_mode": behavior_mode,
 		"movement_algo": movement_algo,
+		"algo_settings": algo_settings,
+		"path_cache": _current_path_cache,
 		"target_node": target_node_id,
 		"paint_type": my_paint_type,
 		"active": active,
@@ -120,8 +127,9 @@ func serialize() -> Dictionary:
 		"steps": steps,
 		"snap_to_grid": snap_to_grid,
 		"branch_randomly": branch_randomly,
-		"use_forward_checking": use_forward_checking # [NEW]
+		"use_forward_checking": use_forward_checking,
 	}
+
 
 static func deserialize(data: Dictionary) -> AgentWalker:
 	var d_uuid = data.get("uuid", "")
@@ -145,6 +153,8 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	
 	agent.behavior_mode = int(data.get("behavior_mode", 0))
 	agent.movement_algo = int(data.get("movement_algo", 0))
+	agent.algo_settings = data.get("algo_settings", {})
+	agent._current_path_cache.assign(data.get("path_cache", []))
 	agent.target_node_id = data.get("target_node", "")
 	agent.active = data.get("active", true)
 	agent.is_finished = data.get("is_finished", false)
@@ -191,7 +201,7 @@ func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
 # ==============================================================================
 # 6. ACTIONS API (Unchanged)
 # ==============================================================================
-# ... (move_to_node, paint_current_node, etc remain exactly as you sent them) ...
+
 func move_to_node(node_id: String, graph: Graph) -> void:
 	if not graph.nodes.has(node_id): return
 	var new_pos = graph.get_node_pos(node_id)
@@ -217,13 +227,82 @@ func generate_unique_id(graph) -> String:
 		new_id = "walk:%d:%d" % [display_id, temp_count]
 	return new_id
 
+# This replaces raw calls to AgentNavigator.get_next_step
+func get_next_move_step(graph: Graph) -> String:
+	
+	# 1. Invalid Cache Check
+	# If the target changed, cache is empty, or we finished the previous path...
+	var needs_recalc = false
+	
+	# A. Target Changed?
+	if target_node_id != _path_target_id: 
+		needs_recalc = true
+	# B. Cache Empty?
+	elif _current_path_cache.is_empty(): 
+		needs_recalc = true
+	
+	# C. Lost/Desync Check? 
+	# If cache says "Go B", but we are currently at "D", we are lost.
+	# We allow being at index 0 (current) or index 1 (next, if we just moved).
+	if not _current_path_cache.is_empty():
+		# Logic: The first item in cache should normally be where we are standing NOW.
+		if _current_path_cache[0] != current_node_id:
+			# Special Case: Did we already step forward and forget to commit?
+			if _current_path_cache.size() > 1 and _current_path_cache[1] == current_node_id:
+				# We are actually at the 'next' node. Fix the cache.
+				_current_path_cache.pop_front()
+			else:
+				# We are truly lost. Recalculate.
+				needs_recalc = true
+
+	if needs_recalc:
+		_recalculate_path(graph)
+		
+	# 2. Retrieve Next Step from Memory
+	if _current_path_cache.is_empty(): return ""
+	
+	# The path array is [Current, Next, Next+1, ... End]
+	# We want index 1.
+	if _current_path_cache.size() > 1:
+		return _current_path_cache[1]
+	
+	return ""
+
+# Call this AFTER a successful move to update the memory
+func commit_move(node_id: String) -> void:
+	# If we moved to the node we expected, remove the old 'current' from the list
+	if not _current_path_cache.is_empty() and _current_path_cache.size() > 1:
+		if _current_path_cache[1] == node_id:
+			_current_path_cache.pop_front() # Remove old 'Current'
+			# Now the node we just entered is index 0
+
+func _recalculate_path(graph: Graph) -> void:
+	_path_target_id = target_node_id
+	_current_path_cache.clear()
+	
+	if current_node_id == "" or target_node_id == "": return
+	
+	# Pack options for the strategy
+	var options = algo_settings.duplicate()
+	options["max_steps"] = steps
+	
+	# [FIX] Pass options as the 5th argument
+	var full_path = AgentNavigator.get_projected_path(
+		current_node_id, 
+		target_node_id, 
+		movement_algo, 
+		graph,
+		options
+	)
+	
+	_current_path_cache = full_path
+
 # ==============================================================================
 # 7. UI / INSPECTOR SUPPORT
 # ==============================================================================
 
 # Returns the definition list for the SettingsUIBuilder
 static func get_template_settings() -> Array[Dictionary]:
-	# ... (Existing template logic) ...
 	var ids = GraphSettings.current_names.keys()
 	ids.sort()
 	var names: PackedStringArray = []
@@ -237,7 +316,7 @@ static func get_template_settings() -> Array[Dictionary]:
 	return [
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
-		{ "name": "use_forward_checking", "label": "Forward Checking", "type": TYPE_BOOL, "default": false, "hint": "Filter blocked paths vs Fail blindly" }, # [NEW]
+		{ "name": "use_forward_checking", "label": "Forward Checking", "type": TYPE_BOOL, "default": false, "hint": "Filter blocked paths vs Fail blindly" },
 		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
 		{ "name": "active", "type": TYPE_BOOL, "default": true },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string },
@@ -258,7 +337,7 @@ func get_agent_settings() -> Array[Dictionary]:
 		elif s.name == "global_behavior": s.default = behavior_mode
 		elif s.name == "movement_algo": s.default = movement_algo
 		elif s.name == "target_node": s.default = target_node_id
-		elif s.name == "use_forward_checking": s.default = use_forward_checking # [NEW]
+		elif s.name == "use_forward_checking": s.default = use_forward_checking
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
@@ -291,12 +370,21 @@ func apply_setting(key: String, value: Variant) -> void:
 		"movement_algo": 
 			movement_algo = value
 			brain_dirty = true
+		
+		# [NEW] Intercept Algorithm Settings
+		# Since we don't have variables for them anymore, we check if they are
+		# part of our known algorithm keys (or just dump them in).
+		"rw_vibrate", "rw_backtrack", "heuristic_scale":
+			algo_settings[key] = value
+			# We don't necessarily need to restart the brain, 
+			# but we might need to clear the path cache if params changed?
+			_current_path_cache.clear()
 		"target_node": target_node_id = value
 		"active": active = value
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
 		"branch_randomly": branch_randomly = value
-		"use_forward_checking": use_forward_checking = value # [NEW]
+		"use_forward_checking": use_forward_checking = value
 		"paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
