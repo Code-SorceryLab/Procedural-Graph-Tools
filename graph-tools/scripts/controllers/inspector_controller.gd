@@ -226,6 +226,7 @@ func _build_zone_inspector() -> void:
 		{ "name": "sep_rules", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "allow_new_nodes", "label": "Allow New Nodes", "type": TYPE_BOOL, "default": zone.allow_new_nodes },
+		{ "name": "is_traversable", "label": "Agent Traversable", "type": TYPE_BOOL, "default": zone.is_traversable },
 		{ "name": "traversal_cost", "label": "Traversal Cost", "type": TYPE_FLOAT, "default": zone.traversal_cost, "step": 0.1, "min": 0.1 },
 		{ "name": "damage_per_tick", "label": "Damage / Tick", "type": TYPE_FLOAT, "default": zone.damage_per_tick, "step": 1.0 }
 	]
@@ -297,7 +298,7 @@ func _on_zone_setting_changed(key: String, value: Variant) -> void:
 		return
 
 	# 2. CORE PROPERTIES
-	if key in ["zone_name", "zone_color", "allow_new_nodes", "traversal_cost", "damage_per_tick"]:
+	if key in ["zone_name", "zone_color", "allow_new_nodes", "is_traversable", "traversal_cost", "damage_per_tick"]:
 		zone.set(key, value)
 		
 		if key == "zone_color":

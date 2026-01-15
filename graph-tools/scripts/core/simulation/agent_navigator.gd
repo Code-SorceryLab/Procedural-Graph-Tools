@@ -6,48 +6,51 @@ enum Algo {
 	RANDOM = 0,
 	BFS = 1,
 	DFS = 2,
-	ASTAR = 3
+	ASTAR = 3,
+	DIJKSTRA = 4
 }
 
 # --- PUBLIC API ---
 
 # 1. Used by the Agent to Move (Returns Node ID)
-static func get_next_step(current_id: String, target_id: String, algo: int, graph: Graph) -> String:
-	if current_id == target_id or not graph.nodes.has(current_id):
-		return ""
+static func get_next_step(current_id: String, target_id: String, algo_id: int, graph: Graph) -> String:
+	# 1. Random is special (not a full path)
+	if algo_id == Algo.RANDOM:
+		var neighbors = graph.get_neighbors(current_id)
+		if neighbors.is_empty(): return ""
+		return neighbors.pick_random()
 
-	match algo:
-		Algo.RANDOM:
-			return _solve_random(current_id, graph)
-		Algo.BFS:
-			var path = _solve_bfs_full(current_id, target_id, graph)
-			if path.size() > 1: return path[1] # [0] is current, [1] is next
-		Algo.DFS:
-			var path = _solve_dfs_full(current_id, target_id, graph)
-			if path.size() > 1: return path[1]
-		Algo.ASTAR:
-			# Use the optimized graph function for A*
-			var path = graph.get_astar_path(current_id, target_id)
-			if path.size() > 1: return path[1]
-			
+	# 2. Strategy Pattern
+	var strategy = _get_strategy(algo_id)
+	if not strategy: return ""
+	
+	var path = strategy.find_path(graph, current_id, target_id)
+	
+	if path.size() > 1: return path[1] # Return next step
 	return ""
 
 # 2. Used by the Editor to Draw Lines (Returns Array of IDs)
-static func get_projected_path(current_id: String, target_id: String, algo: int, graph: Graph) -> Array[String]:
-	if current_id == target_id or target_id == "" or not graph.nodes.has(current_id):
-		return []
+static func get_projected_path(current_id: String, target_id: String, algo_id: int, graph: Graph) -> Array[String]:
+	if algo_id == Algo.RANDOM: return []
+	
+	var strategy = _get_strategy(algo_id)
+	if not strategy: return []
+	
+	return strategy.find_path(graph, current_id, target_id)
 
-	match algo:
-		Algo.RANDOM:
-			return [] # Random has no projected path (we draw yellow arrows instead)
-		Algo.BFS:
-			return _solve_bfs_full(current_id, target_id, graph)
-		Algo.DFS:
-			return _solve_dfs_full(current_id, target_id, graph)
-		Algo.ASTAR:
-			return graph.get_astar_path(current_id, target_id)
-			
-	return []
+# --- FACTORY ---
+
+static func _get_strategy(algo_id: int) -> PathfindingStrategy:
+	match algo_id:
+		Algo.BFS: return PathfinderBFS.new()
+		Algo.DFS: return PathfinderDFS.new()
+		Algo.ASTAR: return PathfinderAStar.new(1.0) # Standard (Scaled by 1.0)
+		Algo.DIJKSTRA: return PathfinderDijkstra.new() # Zero Heuristic
+		_: return null
+
+# --- SAFETY CHECKS ---
+# (Keep 'is_move_safe' exactly as we fixed it previously - checking 'is_traversable')
+
 
 # --- ALGORITHMS ---
 
@@ -56,55 +59,7 @@ static func _solve_random(current_id: String, graph: Graph) -> String:
 	if neighbors.is_empty(): return ""
 	return neighbors.pick_random()
 
-# --- FULL PATH SOLVERS ---
 
-# Breadth-First Search (Shortest path in unweighted graph)
-static func _solve_bfs_full(start_id: String, target_id: String, graph: Graph) -> Array[String]:
-	if start_id == target_id: return []
-	
-	var queue = [start_id]
-	var visited = { start_id: true }
-	var parent = {} # To reconstruct path
-	
-	while not queue.is_empty():
-		var current = queue.pop_front()
-		
-		# Found Target! Reconstruct and return the full chain.
-		if current == target_id:
-			return _reconstruct_full_path(parent, target_id)
-		
-		for next in graph.get_neighbors(current):
-			if not visited.has(next):
-				visited[next] = true
-				parent[next] = current
-				queue.append(next)
-				
-	return [] # No path found
-
-# Depth-First Search (Wanders deep)
-static func _solve_dfs_full(start_id: String, target_id: String, graph: Graph) -> Array[String]:
-	var stack = [start_id]
-	var visited = { start_id: true }
-	var parent = {}
-	
-	while not stack.is_empty():
-		var current = stack.pop_back()
-		
-		if current == target_id:
-			return _reconstruct_full_path(parent, target_id)
-		
-		var neighbors = graph.get_neighbors(current)
-		
-		# NOTE: We keep standard order here to match the visualization.
-		# If you shuffle neighbors here, the "Ghost Line" will flicker 
-		# every frame because DFS is sensitive to order.
-		for next in neighbors:
-			if not visited.has(next):
-				visited[next] = true
-				parent[next] = current
-				stack.append(next)
-				
-	return []
 
 # --- HELPERS ---
 
@@ -131,8 +86,16 @@ static func is_move_safe(graph: Graph, target_id: String) -> bool:
 	for zone in graph.zones:
 		# We only collide with GEOGRAPHICAL zones (Terrain/Walls)
 		if zone.zone_type == GraphZone.ZoneType.GEOGRAPHICAL:
-			# If the target node is inside this zone, it's blocked.
+			
+			# Check if we are inside the zone
 			if zone.contains_node(target_id):
-				return false
-	
+				
+				# [THE FIX] Check Permissions!
+				# Only return false if the zone is explicitly marked as "Not Traversable".
+				if not zone.is_traversable:
+					return false
+					
+				# If is_traversable is TRUE, we do nothing. 
+				# We just keep checking other zones (in case there's an overlapping wall).
+
 	return true

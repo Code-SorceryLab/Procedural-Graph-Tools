@@ -88,11 +88,12 @@ func _is_position_growable(graph: Graph, pos: Vector2, spacing: Vector2) -> bool
 	
 	var zone = graph.get_zone_at(Vector2i(gx, gy))
 	if zone:
-		# Check the specific setting "Allow New Nodes"
+		# Grow MUST respect the "Building Permit"
 		if not zone.allow_new_nodes:
 			return false
 			
-		# Also respect Geographical collisions if desired?
-		# (Usually "Allow New Nodes" covers this intent for Grow mode)
+		# It implies we probably shouldn't grow into walls either
+		if not zone.is_traversable:
+			return false
 			
 	return true

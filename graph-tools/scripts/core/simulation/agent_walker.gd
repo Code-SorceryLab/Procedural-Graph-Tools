@@ -3,7 +3,7 @@ extends RefCounted
 
 # --- CONSTANTS ---
 const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target"
-const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star"
+const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
 # 1. IDENTITY & STATE

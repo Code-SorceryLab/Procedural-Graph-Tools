@@ -27,6 +27,7 @@ var bounds: Rect2 = Rect2()
 # Core rules used by the simulation
 var is_active: bool = true
 var allow_new_nodes: bool = false
+var is_traversable: bool = true
 var traversal_cost: float = 1.0 
 var damage_per_tick: float = 0.0
 
@@ -73,7 +74,13 @@ func get_inspector_schema() -> Array[Dictionary]:
 			"name": "is_grouped",
 			"label": "Locked Group",
 			"type": TYPE_BOOL
-		}
+		},
+		{
+			"name": "is_traversable",
+			"label": "Agent Traversable",
+			"type": TYPE_BOOL
+		},
+		
 	]
 	return settings
 
@@ -181,7 +188,8 @@ func serialize() -> Dictionary:
 		"name": zone_name,
 		"color": zone_color.to_html(),
 		"type": zone_type,
-		"is_grouped": is_grouped, # [NEW] Save the Lock Status
+		"is_grouped": is_grouped, # Save the Lock Status
+		"is_traversable": is_traversable,
 		"cells": safe_cells,
 		"bounds": [bounds.position.x, bounds.position.y, bounds.size.x, bounds.size.y],
 		"allow_new_nodes": allow_new_nodes,
@@ -204,6 +212,7 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	
 	# Restore Logic
 	zone.allow_new_nodes = data.get("allow_new_nodes", false)
+	zone.is_traversable = data.get("is_traversable", true)
 	zone.traversal_cost = float(data.get("traversal_cost", 1.0))
 	zone.damage_per_tick = float(data.get("damage_per_tick", 0.0))
 	zone.ports.assign(data.get("ports", []))

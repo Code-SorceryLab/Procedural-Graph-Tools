@@ -164,7 +164,7 @@ static func build_ui(settings_list: Array, container: Control, _tooltip_map: Dic
 						hbox.add_child(spin_y)
 						control = hbox
 						
-					# [NEW] TYPE_COLOR Support
+					# TYPE_COLOR Support
 					TYPE_COLOR:
 						var picker = ColorPickerButton.new()
 						picker.custom_minimum_size.x = 40

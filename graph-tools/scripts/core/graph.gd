@@ -9,6 +9,7 @@ const SPATIAL_GRID = preload("res://scripts/utils/spatial_grid.gd")
 
 # Stores rich data for edges [FromID][ToID] = { data }
 @export var edge_data: Dictionary = {}
+const MIN_TRAVERSAL_COST: float = 0.1
 
 # --- ZONES LAYER ---
 @export var zones: Array[GraphZone] = []
@@ -203,6 +204,30 @@ func get_edge_data(a: String, b: String) -> Dictionary:
 	if edge_data.has(a) and edge_data[a].has(b):
 		return edge_data[a][b]
 	return {}
+
+# Unified Cost Function
+# Used by A*, Dijkstra, and Decision Making behaviors.
+func get_travel_cost(from_id: String, to_id: String) -> float:
+	var base_dist = get_edge_weight(from_id, to_id)
+	if base_dist == INF: return INF
+		
+	var multiplier = 1.0
+	
+	# Resolve Zone
+	var to_pos = nodes[to_id].position
+	var grid_spacing = GraphSettings.GRID_SPACING
+	var grid_pos = Vector2i(round(to_pos.x / grid_spacing.x), round(to_pos.y / grid_spacing.y))
+	
+	var zone = get_zone_at(grid_pos)
+	if zone:
+		# [THE FIX] Check 'is_traversable' instead of 'allow_new_nodes'
+		if not zone.is_traversable:
+			return INF # Absolute Wall
+			
+		# [FEATURE] Apply the cost multiplier (Mud vs Road)
+		multiplier = zone.traversal_cost
+
+	return base_dist * multiplier
 
 func get_node_pos(id: String) -> Vector2:
 	if nodes.has(id):
@@ -539,22 +564,26 @@ func get_astar_path(start_id: String, end_id: String) -> Array[String]:
 		
 		# Explore neighbors
 		for neighbor: String in current_node.connections:
-			# Calculate tentative g-score
-			var tentative_g = current_g + current_node.connections[neighbor]
 			
+			# Ask the graph for the context-aware cost (Distance * Zone Multiplier)
+			var move_cost = get_travel_cost(current, neighbor)
+			
+			# If the zone forbids movement (e.g. wall), skip entirely
+			if move_cost == INF: continue 
+			
+			var tentative_g = current_g + move_cost
+			# --------------------
+
 			# If we found a better path to this neighbor
 			if tentative_g < g_score.get(neighbor, INF):
-				# Update path
 				came_from[neighbor] = current
 				g_score[neighbor] = tentative_g
 				f_score[neighbor] = tentative_g + _heuristic(neighbor, end_id)
 				
-				# Add to open set if not already there
 				if not in_open_set.has(neighbor):
 					open_set.push(neighbor, f_score[neighbor])
 					in_open_set[neighbor] = true
 				else:
-					# Update priority if already in open set
 					open_set.update_priority(neighbor, f_score[neighbor])
 	
 	return []
@@ -566,9 +595,11 @@ func _heuristic_squared(a: String, b: String) -> float:
 	var pos_b = nodes[b].position
 	return pos_a.distance_squared_to(pos_b)
 
-# Keep the original heuristic for compatibility
+
+# Only necessary if you have costs < 1.0
 func _heuristic(a: String, b: String) -> float:
-	return nodes[a].position.distance_to(nodes[b].position)
+	var dist = nodes[a].position.distance_to(nodes[b].position)
+	return dist * MIN_TRAVERSAL_COST # Scale by lowest possible zone cost
 
 func _reconstruct_path(came_from: Dictionary, current: String) -> Array[String]:
 	var path: Array[String] = [current]
