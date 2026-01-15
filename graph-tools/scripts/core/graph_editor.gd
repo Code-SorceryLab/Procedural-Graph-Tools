@@ -665,13 +665,6 @@ func load_new_graph(new_graph: Graph) -> void:
 	_reset_local_state()
 	_reconstruct_state_from_ids()
 	
-	# [THE FIX] Re-Announce Zones
-	# These zones were added while the graph was disconnected (during loading).
-	# We must manually emit the signal so the Selection Tool notices them
-	# and respects their 'is_grouped' status.
-	if not graph.zones.is_empty():
-		for zone in graph.zones:
-			zone_added.emit(zone)
 
 	graph_loaded.emit(graph)
 	

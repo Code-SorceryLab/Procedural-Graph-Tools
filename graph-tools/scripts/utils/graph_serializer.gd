@@ -69,7 +69,7 @@ static func serialize(graph: Graph) -> String:
 		if agent.has_method("serialize"):
 			data["agents"].append(agent.serialize())
 
-	# 4. SERIALIZE ZONES [NEW]
+	# 4. SERIALIZE ZONES
 	if "zones" in graph:
 		for zone in graph.zones:
 			if zone.has_method("serialize"):

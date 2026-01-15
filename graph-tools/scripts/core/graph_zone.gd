@@ -30,7 +30,7 @@ var allow_new_nodes: bool = false
 var traversal_cost: float = 1.0 
 var damage_per_tick: float = 0.0
 
-# [NEW] Dynamic Data (for the Inspector Wizard)
+# Dynamic Data (for the Inspector Wizard)
 var custom_data: Dictionary = {}
 
 # --- METADATA ---
@@ -112,7 +112,9 @@ func has_cell(grid_pos: Vector2i) -> bool:
 
 # Helper to check containment regardless of type
 func contains_node(node_id: String) -> bool:
-	return _roster_lookup.has(node_id)
+	var result = registered_nodes.has(node_id)
+	#print("Zone '%s' contains '%s'? %s (Roster size: %d)" % [zone_name, node_id, result, registered_nodes.size()])
+	return result
 
 func clear() -> void:
 	cells.clear()
@@ -225,4 +227,14 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	for id in saved_roster:
 		zone.registered_nodes.append(id)
 		
+	# [THE FIX] Immediately sync the lookup!
+	zone.rebuild_lookup()
+		
 	return zone
+
+
+# [NEW] Rebuilds the optimization dictionary from the list
+func rebuild_lookup() -> void:
+	_roster_lookup.clear()
+	for id in registered_nodes:
+		_roster_lookup[id] = true

@@ -1,0 +1,161 @@
+{
+	"agents": [],
+	"edges": [],
+	"legend": {
+		"0": {
+			"color": "ccccccff",
+			"name": "Empty"
+		},
+		"1": {
+			"color": "33cc33ff",
+			"name": "Spawn"
+		},
+		"2": {
+			"color": "cc4d4dff",
+			"name": "Enemy"
+		},
+		"3": {
+			"color": "ffcc33ff",
+			"name": "Treasure"
+		},
+		"4": {
+			"color": "990000ff",
+			"name": "Boss"
+		},
+		"5": {
+			"color": "663399ff",
+			"name": "Shop"
+		}
+	},
+	"meta": {
+		"next_ticket": 1,
+		"timestamp": "2026-01-14T21:00:19",
+		"version": "1.4"
+	},
+	"nodes": [
+		{
+			"custom_data": {
+
+			},
+			"id": "man:5",
+			"type": 0,
+			"x": -180.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:6",
+			"type": 0,
+			"x": -120.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:7",
+			"type": 0,
+			"x": -60.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:8",
+			"type": 0,
+			"x": -60.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:9",
+			"type": 0,
+			"x": -120.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:10",
+			"type": 0,
+			"x": -180.0,
+			"y": -60.0
+		}
+	],
+	"schema": {
+
+	},
+	"zones": [
+		{
+			"allow_new_nodes": false,
+			"bounds": [
+				-210.0,
+				-210.0,
+				180.0,
+				180.0
+			],
+			"cells": [
+				[
+					-3,
+					-3
+				],
+				[
+					-3,
+					-2
+				],
+				[
+					-3,
+					-1
+				],
+				[
+					-2,
+					-3
+				],
+				[
+					-2,
+					-2
+				],
+				[
+					-2,
+					-1
+				],
+				[
+					-1,
+					-3
+				],
+				[
+					-1,
+					-2
+				],
+				[
+					-1,
+					-1
+				]
+			],
+			"color": "52cc744d",
+			"custom_data": {
+
+			},
+			"damage_per_tick": 0.0,
+			"is_grouped": true,
+			"name": "New Zone",
+			"ports": [],
+			"registered_nodes": [
+				"man:5",
+				"man:6",
+				"man:7",
+				"man:8",
+				"man:9",
+				"man:10"
+			],
+			"traversal_cost": 1.0,
+			"type": 1
+		}
+	]
+}

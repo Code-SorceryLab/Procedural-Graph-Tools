@@ -152,10 +152,21 @@ func _start_moving_node(id: String) -> void:
 	var is_group_action: bool = false
 	var active_group_zone: GraphZone = null 
 	
+	# [DEBUG START]
+	print("\n--- SELECT TOOL DEBUG: Clicked node '%s' ---" % id)
+	print("Graph has %d zones." % _graph.zones.size())
+	# [DEBUG END]
 	# 1. IDENTIFY TARGETS (Group Logic)
 	if _graph.zones:
 		for zone in _graph.zones:
+			
+			# [DEBUG START]
+			var contains = zone.contains_node(id)
+			print("Checking Zone '%s': is_grouped=%s, contains_node=%s" % [zone.zone_name, zone.is_grouped, contains])
+			# [DEBUG END]
+			
 			if zone.is_grouped and zone.contains_node(id):
+				print(">>> GROUP HIT! Zone '%s' is locking selection." % zone.zone_name)
 				is_group_action = true
 				active_group_zone = zone 
 				
