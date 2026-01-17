@@ -14,7 +14,7 @@ const MIN_TRAVERSAL_COST: float = 0.1
 # --- ZONES LAYER ---
 @export var zones: Array[GraphZone] = []
 
-# [NEW] The Ticket Counter
+# The Ticket Counter
 # We export it so it saves/loads with the resource!
 @export var agents: Array = [] # Stores AgentWalker objects
 
@@ -291,82 +291,45 @@ func get_nodes_in_rect(rect: Rect2) -> Array[String]:
 			
 	return result
 
-# Returns an array of edge pairs [[a,b], [c,d]] that touch the rectangle
-# OPTIMIZED: Uses Spatial Grid to only check edges connected to relevant nodes
 func get_edges_in_rect(rect: Rect2) -> Array:
 	var result = []
 	var checked = {}
 	
-	# Pre-calculate geometry for strict intersection tests
+	# Geometry setup...
 	var rect_tl = rect.position
 	var rect_tr = Vector2(rect.end.x, rect.position.y)
 	var rect_br = rect.end
 	var rect_bl = Vector2(rect.position.x, rect.end.y)
 	
-	# 1. BROAD PHASE: Get Candidate Nodes
-	# We query the grid for nodes inside the rect.
-	# We treat the edge check as "Edges connected to nodes in this region".
-	var candidates: Array[String] = []
-	if _spatial_grid:
-		candidates = _spatial_grid.query_rect(rect)
-	else:
-		# Fallback if grid isn't ready (shouldn't happen often)
-		candidates = nodes.keys()
-
-	# 2. NARROW PHASE: Check connections of candidates only
-	for a in candidates:
-		# Safety check
-		if not nodes.has(a) or not edge_data.has(a):
-			continue
-			
+	# [THE FIX] Iterate ALL edges. 
+	# Do NOT use _spatial_grid here, or you can't select the middle of a wire.
+	for a in edge_data:
+		if not nodes.has(a): continue
 		var pos_a = nodes[a].position
 		
-		# Check all outgoing edges from this candidate
 		for b in edge_data[a]:
 			if not nodes.has(b): continue
 			
-			# Create Canonical Pair (Sorted)
 			var pair = [a, b]
-			pair.sort()
+			pair.sort() # Sort internally for deduplication
 			
-			# Deduplication: Avoid processing A-B and B-A twice
 			if checked.has(pair): continue
 			checked[pair] = true
 			
 			var pos_b = nodes[b].position
 			
-			# --- GEOMETRY CHECK ---
-			
-			# A. Trivial Acceptance: Both points inside?
-			# Since 'a' is a candidate, we know it's likely inside, but 'b' might be outside.
-			# We perform the strict check on points to be sure.
+			# 1. Box Check (Points inside)
 			if rect.has_point(pos_a) and rect.has_point(pos_b):
-				result.append(pair)
-				continue
-				
-			# B. AABB Rejection: Does the "Box" of the line even touch the selection box?
-			var line_min_x = min(pos_a.x, pos_b.x)
-			var line_max_x = max(pos_a.x, pos_b.x)
-			var line_min_y = min(pos_a.y, pos_b.y)
-			var line_max_y = max(pos_a.y, pos_b.y)
+				result.append(pair); continue
 			
-			if line_max_x < rect.position.x or line_min_x > rect.end.x or \
-			   line_max_y < rect.position.y or line_min_y > rect.end.y:
-				continue # Miss
-			
-			# C. Strict Border Intersection
-			# We check if the line segment crosses any of the 4 sides of the Rect.
-			
-			# Top
+			# 2. Segment Intersection Check (The "Crossing" Logic)
+			# This detects wires that cross the box even if endpoints are outside.
 			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tl, rect_tr) != null:
 				result.append(pair); continue
-			# Right
 			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tr, rect_br) != null:
 				result.append(pair); continue
-			# Bottom
 			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_br, rect_bl) != null:
 				result.append(pair); continue
-			# Left
 			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_bl, rect_tl) != null:
 				result.append(pair); continue
 				

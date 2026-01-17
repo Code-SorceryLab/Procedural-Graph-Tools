@@ -57,7 +57,7 @@ zone_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zon
 btn_add_zone = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/BtnAddZone")
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/LblStats")
 
-[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "zone_container", "walker_container", "opt_walker_select", "edge_container")]
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "zone_container", "walker_container", "edge_container")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
 strategy_controller = NodePath("../StrategyController")
@@ -68,7 +68,6 @@ single_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContai
 group_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer")
 zone_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/ZoneContainer")
 walker_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer")
-opt_walker_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/OptWalkerSelect")
 edge_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer")
 
 [node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]

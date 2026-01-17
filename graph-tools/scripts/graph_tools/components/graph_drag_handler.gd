@@ -60,7 +60,11 @@ func _update_visual(current_pos: Vector2) -> void:
 	drag_updated.emit(rect)
 
 func _finish_drag() -> void:
-	var final_rect = _editor.tool_overlay_rect
+	# [FIX] Recalculate explicitly instead of relying on the UI state
+	# This prevents race conditions if the overlay was cleared or modified elsewhere.
+	var current_pos = _editor.get_global_mouse_position()
+	var final_rect = Rect2(_drag_start_pos, current_pos - _drag_start_pos).abs()
+	
 	# Clear Visuals
 	_editor.tool_overlay_rect = Rect2()
 	_editor.queue_redraw()

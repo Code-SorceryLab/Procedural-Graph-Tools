@@ -250,6 +250,8 @@ func remove_agent(agent) -> void:
 # --- Selection Operations ---
 
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
+	print("GraphEditor DEBUG: Input -> %d nodes, %d edges. Clear? %s" % [nodes.size(), edges.size(), clear_existing])
+	
 	if clear_existing:
 		selected_nodes.clear()
 		selected_edges.clear()
@@ -257,17 +259,30 @@ func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: boo
 		# Selecting nodes implies clearing Agent selection
 		selected_agent_ids.clear()
 		renderer.selected_agent_ids_ref = selected_agent_ids
-		# [CHANGE] Emit Global Signal
 		SignalManager.agent_selection_changed.emit([])
 		
 	selected_nodes.append_array(nodes)
-	selected_edges.append_array(edges)
+	
+	# Defensive sorting logic
+	var count_before = selected_edges.size()
+	for pair in edges:
+		pair.sort()
+		selected_edges.append(pair)
+	
+	print("GraphEditor DEBUG: Edges Appended -> %d. Total Edges: %d" % [selected_edges.size() - count_before, selected_edges.size()])
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.selected_edges_ref = selected_edges
 	
-	selection_changed.emit(selected_nodes)
+	# [CHANGE] Emit Edges FIRST
+	print("GraphEditor DEBUG: Emitting edge_selection_changed with %d items" % selected_edges.size())
 	edge_selection_changed.emit(selected_edges)
+	
+	# [CHANGE] Emit Nodes SECOND (This triggers the mystery clear)
+	selection_changed.emit(selected_nodes)
+	
+	# [DEBUG] Check if we survived
+	print("GraphEditor DEBUG: Post-Emission Check -> %d edges remaining." % selected_edges.size())
 	
 	renderer.queue_redraw()
 
@@ -314,7 +329,7 @@ func is_edge_selected(pair: Array) -> bool:
 	pair.sort() 
 	return selected_edges.has(pair)
 
-# [NEW] AGENT SELECTION API
+# AGENT SELECTION API
 func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	if clear_nodes:
 		selected_nodes.clear()
@@ -334,6 +349,9 @@ func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	renderer.queue_redraw()
 
 func clear_selection() -> void:
+	print("GraphEditor TRAP: clear_selection() called! Stack Trace:")
+	print_stack() # Uncomment if you want to see exactly who called it
+	
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
@@ -359,9 +377,15 @@ func toggle_edge_selection(edge_pair: Array) -> void:
 
 func set_edge_selection(edge_pair: Array) -> void:
 	edge_pair.sort()
-	selected_edges = [edge_pair]
-	renderer.selected_edges_ref = selected_edges
+	
+	# [FIX] Do NOT re-assign the variable. Clear and Append to maintain reference.
+	selected_edges.clear()
+	selected_edges.append(edge_pair)
+	
+	# (Optional) Re-bind just to be safe, but now it's the same object ID
+	renderer.selected_edges_ref = selected_edges 
 	edge_selection_changed.emit(selected_edges)
+	renderer.queue_redraw()
 
 # --- ZONE API ---
 
@@ -391,7 +415,9 @@ func remove_zone(zone: GraphZone) -> void:
 
 func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 	if clear_others:
-		# Clear Nodes/Edges
+		print("GraphEditor TRAP: set_zone_selection() causing CLEAR! Stack Trace:")
+		print_stack() 
+		
 		selected_nodes.clear()
 		selected_edges.clear()
 		renderer.selected_nodes_ref = []
