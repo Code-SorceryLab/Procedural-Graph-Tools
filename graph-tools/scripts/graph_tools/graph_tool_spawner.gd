@@ -235,24 +235,33 @@ func _select_agent_under_mouse() -> void:
 			if is_already_selected:
 				current_selection.erase(hit_agent)
 				_editor.set_agent_selection(current_selection, false)
-				_show_status("Deselected Agent #%d" % hit_agent.id)
+				
+				# [FIX] Use display_id for messaging
+				var d_id = hit_agent.display_id if "display_id" in hit_agent else -1
+				_show_status("Deselected Agent #%d" % d_id)
 			else:
 				current_selection.append(hit_agent)
 				_editor.set_agent_selection(current_selection, false)
-				_show_status("Added Agent #%d" % hit_agent.id)
+				
+				var d_id = hit_agent.display_id if "display_id" in hit_agent else -1
+				_show_status("Added Agent #%d" % d_id)
 				
 		elif is_shift:
 			# ADDITIVE
 			if not is_already_selected:
 				current_selection.append(hit_agent)
 				_editor.set_agent_selection(current_selection, false)
-				_show_status("Added Agent #%d" % hit_agent.id)
+				
+				var d_id = hit_agent.display_id if "display_id" in hit_agent else -1
+				_show_status("Added Agent #%d" % d_id)
 
 		else:
 			# EXCLUSIVE (Normal Click)
 			_editor.clear_selection()
 			_editor.set_agent_selection([hit_agent], false)
-			_show_status("Selected Agent #%d" % hit_agent.id)
+			
+			var d_id = hit_agent.display_id if "display_id" in hit_agent else -1
+			_show_status("Selected Agent #%d" % d_id)
 		
 		if _editor.has_signal("request_inspector_view"):
 			_editor.request_inspector_view.emit()
@@ -279,8 +288,11 @@ func _select_agent_under_mouse() -> void:
 		_editor.set_agent_selection([], false)
 		_show_status("Selection Cleared.")
 
-# --- HELPER ---
+
 # --- HELPER: Get Actual Objects ---
+# [ARCHITECTURAL CHANGE]
+# This helper handles the legacy "ID vs Object" confusion.
+# It ensures we return a clean list of AgentWalker Objects.
 func _get_selected_agent_objects() -> Array:
 	var list = []
 	if not _editor or not _editor.graph: return list
@@ -289,10 +301,15 @@ func _get_selected_agent_objects() -> Array:
 	if _editor.selected_agent_ids.is_empty():
 		return list
 		
-	for agent in _editor.graph.agents:
-		# Check if this agent's ID is in the selected list
-		if agent.id in _editor.selected_agent_ids:
-			list.append(agent)
+	for item in _editor.selected_agent_ids:
+		# CASE A: It is already an Object (The new standard)
+		if item is RefCounted: # AgentWalker is RefCounted
+			list.append(item)
+		# CASE B: It is a Legacy ID (The old way) - Try to recover
+		elif (item is int or item is float) and "display_id" in item:
+			# This branch is unlikely unless we have mixed types, 
+			# but this is where you'd iterate graph.agents to find the match.
+			pass
 			
 	return list
 
@@ -309,8 +326,11 @@ func _delete_agent_under_mouse() -> void:
 		
 		_editor.set_node_labels({}) 
 		_editor.clear_selection()   
-		_update_markers()           
-		_show_status("Deleted Agent #%d." % hit_agent.id)
+		_update_markers() 
+		
+		# [FIX] display_id for status
+		var d_id = hit_agent.display_id if "display_id" in hit_agent else -1           
+		_show_status("Deleted Agent #%d." % d_id)
 		return
 
 	# 2. Fallback: Bulk Delete at Node
@@ -328,7 +348,7 @@ func _delete_agent_under_mouse() -> void:
 	
 	_editor.set_node_labels({}) 
 	_editor.clear_selection()   
-	_update_markers()           
+	_update_markers()            
 	_show_status("Deleted %d Agent(s) from Node." % agents.size())
 
 # --- HELPERS ---

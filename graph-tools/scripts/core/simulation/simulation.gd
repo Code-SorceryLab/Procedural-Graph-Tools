@@ -25,7 +25,8 @@ func step() -> GraphCommand:
 	var pre_sim_states = {}
 	for agent in graph.agents:
 		if agent.active:
-			pre_sim_states[agent.id] = _snapshot_agent(agent)
+			# [FIX] Use display_id instead of id
+			pre_sim_states[agent.display_id] = _snapshot_agent(agent)
 	
 	# 3. Execution Loop
 	for agent in graph.agents:
@@ -41,12 +42,9 @@ func step() -> GraphCommand:
 			any_active = true
 			
 			# Step the agent (Delegates to Brain)
-			# If blocked, this might not produce any recorder commands,
-			# BUT it updates agent.last_bump_pos internal state.
 			agent.step(recorder)
 			
 	# [CRITICAL CHECK] 
-	# If no agents are active, we are truly done. Return null to stop Controller.
 	if not any_active:
 		return null
 		
@@ -63,8 +61,9 @@ func step() -> GraphCommand:
 		
 	# B. Movement Updates (Position/State changes)
 	for agent in graph.agents:
-		if pre_sim_states.has(agent.id):
-			var start = pre_sim_states[agent.id]
+		# [FIX] Use display_id check
+		if pre_sim_states.has(agent.display_id):
+			var start = pre_sim_states[agent.display_id]
 			var end = _snapshot_agent(agent)
 			
 			# Only create command if state changed (Position OR Bump Visuals)
@@ -72,10 +71,6 @@ func step() -> GraphCommand:
 				var move_cmd = CmdUpdateAgent.new(graph, agent, start, end)
 				batch.add_command(move_cmd)
 				
-	# [THE FIX]
-	# If 'any_active' is true, we MUST return a batch to keep the controller running,
-	# even if the batch is empty (meaning everyone stalled this turn).
-	# This prevents the "Pause on Bump" bug.
 	return batch
 
 # Helper to capture agent state for Diffing
@@ -87,8 +82,6 @@ func _snapshot_agent(agent) -> Dictionary:
 		"history": agent.history.duplicate(),
 		"active": agent.active,
 		"is_finished": agent.is_finished,
-		# Track visuals so Undo clears the red lines, 
-		# and so "Bumping" counts as a state change!
 		"last_bump_pos": agent.last_bump_pos 
 	}
 
@@ -99,14 +92,17 @@ func reset_state() -> GraphCommand:
 	# 1. Snapshot Current State
 	var pre_reset_states = {}
 	for agent in graph.agents:
-		pre_reset_states[agent.id] = _snapshot_agent(agent)
+		# [FIX] Use display_id
+		pre_reset_states[agent.display_id] = _snapshot_agent(agent)
 
 	# 2. Reset Internal Sim State
 	tick_count = 0
 	
 	# 3. Apply Reset & Record Differences
 	for agent in graph.agents:
-		var start_state = pre_reset_states[agent.id]
+		# [FIX] Use display_id
+		if not pre_reset_states.has(agent.display_id): continue
+		var start_state = pre_reset_states[agent.display_id]
 		
 		# --- APPLY RESET LOGIC ---
 		agent.reset_state() 

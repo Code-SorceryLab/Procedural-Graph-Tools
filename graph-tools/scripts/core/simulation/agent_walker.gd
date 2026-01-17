@@ -2,67 +2,57 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target,Generate Maze"
+const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target,Maze Generator" # Added Maze Gen
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
 # 1. IDENTITY & STATE
 # ==============================================================================
-
-# [IDENTITY]
-var uuid: String           # Unique String (Data Integrity / Merging)
-var display_id: int        # Simple Integer (UI Readability: "Agent #5")
-
-# [COMPATIBILITY]
-var id: int:
-	get: return display_id
-	set(value): display_id = value
-
-# [PHYSICAL STATE]
+var uuid: String           
+var display_id: int        
 var pos: Vector2
-var _initial_pos: Vector2  # For resetting correctly
+var _initial_pos: Vector2  
 var current_node_id: String
-var start_node_id: String 
-var step_count: int = 0    # [READ-ONLY STAT]
+var start_node_id: String  
+var step_count: int = 0    
 var history: Array[Dictionary] = []
-
-# SEMANTIC DATA
 var custom_data: Dictionary = {}
-
-# [MENTAL STATE]
 var brain: AgentBehavior
 
-# The Generic Backpack
+# The Generic Backpack (Algorithm Specifics)
 var algo_settings: Dictionary = {}
 
-# [NEW] CONSTRAINT SATISFACTION STATE
-var last_bump_pos: Vector2 = Vector2.INF # Visual feedback for failed moves
-var use_forward_checking: bool = false   # Logic toggle: Filter invalid moves before picking
+# CONSTRAINT & GENERATION STATE
+# We removed the generic 'use_forward_checking' in favor of specific flags
+var use_geometric_fc: bool = false   # Expensive: Don't strangle neighbors
+var use_zone_constraints: bool = false # Cheap: Match Zone Type
+var branching_probability: float = 0.0 # 0.0 = Snake (DFS), 1.0 = Explosion (Prim's)
+var destructive_backtrack: bool = true # True = Undo/Delete, False = Leave Dead Ends
+
+var last_bump_pos: Vector2 = Vector2.INF 
 
 # ==============================================================================
 # 2. CONFIGURATION & SETTINGS
 # ==============================================================================
-
-# [BEHAVIOR]
-var behavior_mode: int = 0  # 0=Hold, 1=Paint, 2=Grow, 3=Seek
-var movement_algo: int = 0  # 0=Random, 1=BFS, 2=DFS, 3=A*
+var behavior_mode: int = 0  
+var movement_algo: int = 0  
 var _current_path_cache: Array[String] = []
 var _path_target_id: String = ""
 var target_node_id: String = ""
 
-# [PARAMETERS]
 var my_paint_type: int = 2 
-var active: bool = true           
-var is_finished: bool = false     
+var active: bool = true            
+var is_finished: bool = false      
 var snap_to_grid: bool = false
 var steps: int = 15
-var branch_randomly: bool = false
+# var branch_randomly: bool = false # REPLACED by branching_probability
 
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
-	"steps": 15, "paint_type": 2, "snap_to_grid": false, "branch_randomly": false,
-	"use_forward_checking": false
+	"steps": 15, "paint_type": 2, "snap_to_grid": false, 
+	"use_geometric_fc": false, "use_zone_constraints": false,
+	"branching_prob": 0.0, "destructive_backtrack": true
 }
 
 static func update_template(key: String, value: Variant) -> void:
@@ -75,7 +65,6 @@ static func update_template(key: String, value: Variant) -> void:
 func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: int, p_steps: int) -> void:
 	uuid = p_uuid
 	display_id = p_display_id
-	
 	pos = start_pos
 	_initial_pos = start_pos
 	current_node_id = start_node
@@ -93,13 +82,13 @@ func reset_state() -> void:
 	current_node_id = start_node_id 
 	pos = _initial_pos              
 	history.clear()
-	last_bump_pos = Vector2.INF # [NEW] Clear visual artifacts on reset
+	last_bump_pos = Vector2.INF 
 	
 	if start_node_id != "":
 		history.append({ "node": start_node_id, "step": 0 })
 		
 	is_finished = false
-	if brain: brain.enter(self, null)
+	if brain: brain.enter(self, null) # Pass null safely, will lazy init
 
 # ==============================================================================
 # 4. SERIALIZATION
@@ -118,7 +107,6 @@ func serialize() -> Dictionary:
 		"custom_data": custom_data,
 		"behavior_mode": behavior_mode,
 		"movement_algo": movement_algo,
-		"algo_settings": algo_settings,
 		"path_cache": _current_path_cache,
 		"target_node": target_node_id,
 		"paint_type": my_paint_type,
@@ -126,10 +114,14 @@ func serialize() -> Dictionary:
 		"is_finished": is_finished,
 		"steps": steps,
 		"snap_to_grid": snap_to_grid,
-		"branch_randomly": branch_randomly,
-		"use_forward_checking": use_forward_checking,
+		"algo_settings": algo_settings, # The generic bag
+		
+		# Specific Generation Flags
+		"use_geometric_fc": use_geometric_fc,
+		"use_zone_constraints": use_zone_constraints,
+		"branching_prob": branching_probability,
+		"destructive_backtrack": destructive_backtrack
 	}
-
 
 static func deserialize(data: Dictionary) -> AgentWalker:
 	var d_uuid = data.get("uuid", "")
@@ -150,23 +142,30 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 		agent.history.assign(raw_history)
 	
 	agent.custom_data = data.get("custom_data", {})
-	
 	agent.behavior_mode = int(data.get("behavior_mode", 0))
 	agent.movement_algo = int(data.get("movement_algo", 0))
-	agent.algo_settings = data.get("algo_settings", {})
 	agent._current_path_cache.assign(data.get("path_cache", []))
 	agent.target_node_id = data.get("target_node", "")
 	agent.active = data.get("active", true)
 	agent.is_finished = data.get("is_finished", false)
 	agent.snap_to_grid = data.get("snap_to_grid", false)
-	agent.branch_randomly = data.get("branch_randomly", false)
-	agent.use_forward_checking = data.get("use_forward_checking", false)
+	agent.algo_settings = data.get("algo_settings", {})
 	
+	# [NEW] Load Flags
+	agent.use_geometric_fc = data.get("use_geometric_fc", false)
+	agent.use_zone_constraints = data.get("use_zone_constraints", false)
+	agent.branching_probability = float(data.get("branching_prob", 0.0))
+	agent.destructive_backtrack = data.get("destructive_backtrack", true)
+	
+	# Handle legacy conversion (if 'use_forward_checking' existed)
+	if data.has("use_forward_checking") and data.use_forward_checking:
+		agent.use_geometric_fc = true
+
 	agent._refresh_brain()
 	return agent
 
 # ==============================================================================
-# 5. BEHAVIOR LOGIC (Unchanged)
+# 5. BEHAVIOR LOGIC
 # ==============================================================================
 
 func step(graph: Graph, _context: Dictionary = {}) -> void:
@@ -177,10 +176,7 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 
 	if not brain: _refresh_brain()
 	
-	# [NEW] Clear bump visualization at start of every step
-	# This ensures the red line only lasts for one "tick"
 	last_bump_pos = Vector2.INF
-	
 	brain.step(self, graph)
 
 func _refresh_brain() -> void:
@@ -191,7 +187,7 @@ func _refresh_brain() -> void:
 			set_behavior(BehaviorDecoratorPaint.new(wander))
 		2: set_behavior(BehaviorGrow.new()) 
 		3: set_behavior(BehaviorSeek.new(movement_algo))
-		4: set_behavior(BehaviorMazeGen.new())
+		4: set_behavior(BehaviorMazeGen.new()) # Maze Gen Behavior
 		_: set_behavior(BehaviorHold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
@@ -302,7 +298,6 @@ func _recalculate_path(graph: Graph) -> void:
 # 7. UI / INSPECTOR SUPPORT
 # ==============================================================================
 
-# Returns the definition list for the SettingsUIBuilder
 static func get_template_settings() -> Array[Dictionary]:
 	var ids = GraphSettings.current_names.keys()
 	ids.sort()
@@ -317,35 +312,48 @@ static func get_template_settings() -> Array[Dictionary]:
 	return [
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
-		{ "name": "use_forward_checking", "label": "Forward Checking", "type": TYPE_BOOL, "default": false, "hint": "Filter blocked paths vs Fail blindly" },
+		
+		# [NEW] Generation Settings
+		{ "name": "use_geometric_fc", "label": "Geometric Check", "type": TYPE_BOOL, "default": false, "hint": "Expensive: Prevent strangling neighbors" },
+		{ "name": "use_zone_constraints", "label": "Zone Check", "type": TYPE_BOOL, "default": false, "hint": "Respect Zone Traversability" },
+		
+		{ "name": "branching_prob", "label": "Branching", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.1, "hint": "0=Snake, 1=Random Growth" },
+		{ "name": "destructive_backtrack", "label": "Destructive Undo", "type": TYPE_BOOL, "default": true, "hint": "Delete nodes on retreat?" },
+		
+		{ "name": "sep_core", "type": TYPE_NIL, "hint": "separator" },
+		
 		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
 		{ "name": "active", "type": TYPE_BOOL, "default": true },
 		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string },
-		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, "hint": "Set to -1 for Endless Mode" },
-		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false },
-		{ "name": "branch_randomly", "type": TYPE_BOOL, "default": false }
+		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, "hint": "-1 = Endless" },
+		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false }
 	]
 
-# Returns instance-specific settings (with current values)
 func get_agent_settings() -> Array[Dictionary]:
 	var settings = AgentWalker.get_template_settings()
 	
+	# Fill defaults with instance values
 	for s in settings:
 		if s.name == "active": s.default = active
 		elif s.name == "steps": s.default = steps
 		elif s.name == "snap_to_grid": s.default = snap_to_grid
-		elif s.name == "branch_randomly": s.default = branch_randomly
 		elif s.name == "global_behavior": s.default = behavior_mode
 		elif s.name == "movement_algo": s.default = movement_algo
 		elif s.name == "target_node": s.default = target_node_id
-		elif s.name == "use_forward_checking": s.default = use_forward_checking
+		
+		# [NEW]
+		elif s.name == "use_geometric_fc": s.default = use_geometric_fc
+		elif s.name == "use_zone_constraints": s.default = use_zone_constraints
+		elif s.name == "branching_prob": s.default = branching_probability
+		elif s.name == "destructive_backtrack": s.default = destructive_backtrack
+		
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			var idx = ids.find(my_paint_type)
 			if idx != -1: s.default = idx
 			
-	# Insert Read-Only Statistics
+	# Stats
 	settings.append({ 
 		"name": "stat_steps", 
 		"label": "Steps Taken", 
@@ -361,7 +369,6 @@ func get_agent_settings() -> Array[Dictionary]:
 	])
 	return settings
 
-# Applies settings from a dictionary (e.g. Inspector change)
 func apply_setting(key: String, value: Variant) -> void:
 	var brain_dirty = false
 	match key:
@@ -371,29 +378,23 @@ func apply_setting(key: String, value: Variant) -> void:
 		"movement_algo": 
 			movement_algo = value
 			brain_dirty = true
-		
-		# [NEW] Intercept Algorithm Settings
-		# Since we don't have variables for them anymore, we check if they are
-		# part of our known algorithm keys (or just dump them in).
-		"rw_vibrate", "rw_backtrack", "heuristic_scale":
-			algo_settings[key] = value
-			# We don't necessarily need to restart the brain, 
-			# but we might need to clear the path cache if params changed?
-			_current_path_cache.clear()
 		"target_node": target_node_id = value
 		"active": active = value
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
-		"branch_randomly": branch_randomly = value
-		"use_forward_checking": use_forward_checking = value
+		
+		# [NEW]
+		"use_geometric_fc": use_geometric_fc = value
+		"use_zone_constraints": use_zone_constraints = value
+		"branching_prob": branching_probability = value
+		"destructive_backtrack": destructive_backtrack = value
+		
 		"paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			if value >= 0 and value < ids.size():
 				my_paint_type = ids[value]
 		"pos": warp(value)
-		
-		# Catch-all
 		_:
 			custom_data[key] = value
 	
@@ -408,6 +409,11 @@ func apply_template_defaults() -> void:
 	steps = t.get("steps", 15)
 	my_paint_type = t.get("paint_type", 2)
 	snap_to_grid = t.get("snap_to_grid", false)
-	branch_randomly = t.get("branch_randomly", false)
-	use_forward_checking = t.get("use_forward_checking", false) # [NEW]
+	
+	# [NEW]
+	use_geometric_fc = t.get("use_geometric_fc", false)
+	use_zone_constraints = t.get("use_zone_constraints", false)
+	branching_probability = t.get("branching_prob", 0.0)
+	destructive_backtrack = t.get("destructive_backtrack", true)
+	
 	_refresh_brain()

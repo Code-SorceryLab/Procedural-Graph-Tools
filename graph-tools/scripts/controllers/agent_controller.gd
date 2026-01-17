@@ -13,11 +13,10 @@ class_name AgentController
 
 # --- STATE ---
 # Key: AgentWalker Object | Value: Control (The Row)
-# Using the Object as the key prevents ID collisions from breaking the UI.
 var _roster_map: Dictionary = {}  
 var _active_inputs: Dictionary = {} 
 
-# Simulation Parameters
+# Simulation Parameters (Optional usage)
 var sim_params: Dictionary = {
 	"merge_overlaps": true,
 	"grid_spacing": GraphSettings.GRID_SPACING
@@ -47,7 +46,7 @@ func _on_simulation_stepped(_tick: int) -> void:
 	_refresh_roster_status()
 	
 	if not graph_editor.selected_agent_ids.is_empty():
-		# Note: selected_agent_ids now holds Objects, so this is safe
+		# Note: selected_agent_ids now holds Objects
 		var agent = graph_editor.selected_agent_ids[0]
 		_sync_inputs_to_agent(agent)
 		_update_visualization(agent)
@@ -61,7 +60,7 @@ func _on_simulation_reset() -> void:
 		_update_visualization(agent)
 
 # ==============================================================================
-# 2. ROSTER LOGIC (The Fix)
+# 2. ROSTER LOGIC
 # ==============================================================================
 
 func _full_roster_rebuild() -> void:
@@ -80,21 +79,22 @@ func _full_roster_rebuild() -> void:
 
 func _create_agent_row(agent) -> void:
 	var row = HBoxContainer.new()
-	# Use UUID or Memory Address for unique Node Name to avoid Godot renaming spam
-	row.name = "Row_%s" % [agent.uuid if "uuid" in agent else agent.get_instance_id()]
+	# Use UUID for Node Name (Safe & Unique)
+	var u_id = agent.uuid if "uuid" in agent else str(agent.get_instance_id())
+	row.name = "Row_%s" % u_id
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	# A. Status Icon
 	var icon = ColorRect.new()
 	icon.custom_minimum_size = Vector2(12, 12)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_update_icon_color(icon, agent) # Extracted helper
+	_update_icon_color(icon, agent)
 	row.add_child(icon)
 	
 	# B. Name
 	var lbl = Label.new()
-	# Use display_id if available, fallback to id
-	var d_id = agent.display_id if "display_id" in agent else agent.id
+	# [FIX] Use display_id, fallback to -1 if missing (prevents crash on old .id access)
+	var d_id = agent.display_id if "display_id" in agent else -1
 	lbl.text = "Agent #%d" % d_id
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
@@ -127,10 +127,11 @@ func _create_agent_row(agent) -> void:
 	
 	roster_list.add_child(row)
 	
-	# [FIX] Map Key is the OBJECT, not the ID
+	# Map Key is the OBJECT reference
 	_roster_map[agent] = row
 
 func _select_agent_from_roster(agent) -> void:
+	# Select node and agent
 	graph_editor.set_selection_batch([agent.current_node_id], [], true)
 	graph_editor.set_agent_selection([agent], false)
 
@@ -153,14 +154,14 @@ func _on_agent_selection_changed(selected_agents: Array) -> void:
 	# CASE B: Selection -> Edit Specific Agent
 	var primary_agent = selected_agents[0]
 	
-	# Direct Object Lookup (Fast & Safe)
+	# Direct Object Lookup
 	if _roster_map.has(primary_agent):
 		_roster_map[primary_agent].modulate = Color(1, 0.8, 0.2)
 		
 	_sync_inputs_to_agent(primary_agent)
 	
 	if lbl_edit_mode:
-		var d_id = primary_agent.display_id if "display_id" in primary_agent else primary_agent.id
+		var d_id = primary_agent.display_id if "display_id" in primary_agent else -1
 		lbl_edit_mode.text = "EDITING: Agent #%d" % d_id
 		lbl_edit_mode.modulate = Color(1, 0.8, 0.2)
 
@@ -173,6 +174,7 @@ func _update_visualization(agent) -> void:
 	if agent and agent.active:
 		graph_editor.set_path_starts([agent.current_node_id])
 		
+		# Check if seeking (Behavior Mode 3)
 		if agent.behavior_mode == 3 and agent.target_node_id != "":
 			graph_editor.set_path_ends([agent.target_node_id])
 			
@@ -181,14 +183,16 @@ func _update_visualization(agent) -> void:
 		else:
 			graph_editor.set_path_ends([])
 			graph_editor.current_path.clear()
-			graph_editor.renderer.current_path_ref = []
-			graph_editor.renderer.queue_redraw()
+			if graph_editor.renderer:
+				graph_editor.renderer.current_path_ref = []
+				graph_editor.renderer.queue_redraw()
 	else:
 		graph_editor.set_path_starts([])
 		graph_editor.set_path_ends([])
 		graph_editor.current_path.clear()
-		graph_editor.renderer.current_path_ref = []
-		graph_editor.renderer.queue_redraw()
+		if graph_editor.renderer:
+			graph_editor.renderer.current_path_ref = []
+			graph_editor.renderer.queue_redraw()
 
 func _sync_inputs_to_agent(agent: AgentWalker) -> void:
 	if _active_inputs.has("global_behavior"):
@@ -230,11 +234,9 @@ func _on_graph_modified() -> void:
 		_update_visualization(graph_editor.selected_agent_ids[0])
 
 func _refresh_roster_status() -> void:
-	# Iterate KEYS (Agents) directly
 	for agent in _roster_map:
 		_update_row_visuals(agent)
 
-# [FIXED] Takes Agent Object, not ID
 func _update_row_visuals(agent) -> void:
 	if not _roster_map.has(agent): return
 	
@@ -242,7 +244,6 @@ func _update_row_visuals(agent) -> void:
 	var icon = row.get_child(0) as ColorRect
 	var lbl_loc = row.get_child(2) as Label
 	
-	# No loop needed! We have the direct object reference.
 	lbl_loc.text = "@ %s" % agent.current_node_id
 	_update_icon_color(icon, agent)
 
@@ -268,7 +269,8 @@ func _build_behavior_ui() -> void:
 			"type": TYPE_INT, 
 			"default": 0, 
 			"hint": "enum", 
-			"hint_string": "Hold Position,Paint (Random),Grow (Expansion),Seek Target" 
+			# [FIX] Use Dynamic Constants from AgentWalker
+			"hint_string": AgentWalker.OPTIONS_BEHAVIOR 
 		},
 		{
 			"name": "movement_algo",
@@ -276,7 +278,8 @@ func _build_behavior_ui() -> void:
 			"type": TYPE_INT, 
 			"default": 0, 
 			"hint": "enum", 
-			"hint_string": "Random Walk,Breadth-First,Depth-First,A-Star"
+			# [FIX] Use Dynamic Constants from AgentWalker
+			"hint_string": AgentWalker.OPTIONS_ALGO
 		},
 		{
 			"name": "action_pick_target",

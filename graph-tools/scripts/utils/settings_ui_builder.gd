@@ -233,3 +233,27 @@ static func sync_picker_button(active_inputs: Dictionary, btn_key: String, label
 			else:
 				btn.text = "%s: %s" % [label_prefix, value]
 				btn.modulate = Color(0.7, 1.0, 0.7)
+
+
+
+# Renders a schema into a specific container, handling the "Safe Cleanup" logic
+static func render_dynamic_section(container: Control, schema: Array, callback: Callable) -> Dictionary:
+	var content_box = container.get_node_or_null("ContentBox")
+	
+	# 1. Safe Cleanup Check
+	# If the node exists but is queued for deletion, we must ignore it and create fresh.
+	if content_box and content_box.is_queued_for_deletion():
+		content_box.name = "ContentBox_Trash" 
+		content_box = null
+	
+	if not content_box:
+		content_box = VBoxContainer.new()
+		content_box.name = "ContentBox"
+		content_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		container.add_child(content_box)
+	
+	# 2. Build & Connect
+	var inputs = build_ui(schema, content_box)
+	connect_live_updates(inputs, callback)
+	return inputs

@@ -585,7 +585,7 @@ func _rebuild_walker_ui() -> void:
 	# --- 1. THE HEADER ---
 	var header_text = ""
 	if tracked_count == 1:
-		var d_id = ref_agent.display_id if "display_id" in ref_agent else ref_agent.id
+		var d_id = ref_agent.display_id if "display_id" in ref_agent else ref_agent.display_id
 		var uid = ref_agent.uuid.left(6) if "uuid" in ref_agent else "???"
 		header_text = "Agent #%d [%s]" % [d_id, uid]
 	else:
@@ -790,23 +790,23 @@ func _on_purge_requested(key: String, target: String) -> void:
 	# Force UI Refresh in case we are looking at a purged item
 	_refresh_all_views()
 
-func _on_algo_settings_confirmed(new_settings: Dictionary) -> void:
+# Added 'algo_key' parameter (comes from the .bind() above)
+func _on_algo_settings_confirmed(new_settings: Dictionary, algo_key: String = "") -> void:
 	if _tracked_agents.is_empty(): return
 	
-	# Apply to ALL selected agents (if multiple selected, though config button is usually single)
-	# But since we restricted the button to Single Selection above, this loop runs once.
 	for agent in _tracked_agents:
-		# Merge new settings
-		for k in new_settings:
-			agent.apply_setting(k, new_settings[k])
+		# Save directly to the specific algorithm's storage bucket
+		if not agent.algo_settings.has(algo_key):
+			agent.algo_settings[algo_key] = {}
+			
+		# Merge ensures we don't lose other keys if the popup only returns partial data
+		agent.algo_settings[algo_key].merge(new_settings, true)
 			
 		# Force Recalculation
-		# We need to manually trigger this because 'apply_setting' only clears cache if 
-		# we logic'd it that way. Let's be safe.
 		if agent.has_method("_recalculate_path") and graph_editor.graph:
 			agent._recalculate_path(graph_editor.graph)
 			
-	# Refresh UI to reflect changes (if any settings affect visible inspector props)
+	# Refresh UI
 	_rebuild_walker_ui()
 
 # Helper to safely get value (Dictionary vs Object)
@@ -1014,11 +1014,25 @@ func _populate_walker_dropdown(node_id: String, target_selection = null) -> void
 
 func _populate_dropdown_ui(select_index: int) -> void:
 	opt_walker_select.clear()
+	
 	for i in range(_current_walker_list.size()):
 		var w = _current_walker_list[i]
-		var status = "" if w.get("active") else " (Paused)"
-		opt_walker_select.add_item("Agent #%d%s" % [w.id, status], i)
+		
+		# [FIX] Safe Property Access
+		# AgentWalker uses 'display_id', not 'id'. 
+		# We check 'in w' to be safe against older objects or slight inconsistencies.
+		var d_id = w.display_id if "display_id" in w else 0
+		
+		# Direct access is safer than .get() for RefCounted scripts in some Godot versions
+		var is_active = w.active if "active" in w else true
+		var status = "" if is_active else " (Paused)"
+		
+		opt_walker_select.add_item("Agent #%d%s" % [d_id, status], i)
 	
+	# Ensure selection index is within bounds (Safety check)
+	if select_index >= opt_walker_select.item_count:
+		select_index = 0
+		
 	opt_walker_select.selected = select_index
 	opt_walker_select.visible = (_current_walker_list.size() > 1)
 
@@ -1075,16 +1089,34 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 	if key == "action_configure_algo":
 		var agent = _tracked_agents[0]
 		var algo_id = agent.movement_algo
+		
+		# Convert to string key for dictionary lookup
+		var algo_key = str(algo_id) 
+		
 		var strategy = AgentNavigator._get_strategy(algo_id)
 		
 		if strategy:
 			var schema = strategy.get_settings()
-			var algo_name = GraphSettings.get_type_name(algo_id) # Or get label from dropdown
+			var algo_name = GraphSettings.get_type_name(algo_id)
 			
+			# 1. Extract ONLY the settings for this specific algorithm
+			# If we pass the whole 'agent.algo_settings' bag, the popup gets confused
+			var current_values = {}
+			if agent.algo_settings.has(algo_key):
+				current_values = agent.algo_settings[algo_key]
+
+			# 2. Bind the 'algo_key' to the signal
+			# This ensures _on_algo_settings_confirmed knows WHICH algo we just edited.
+			if _algo_settings_popup.settings_confirmed.is_connected(_on_algo_settings_confirmed):
+				_algo_settings_popup.settings_confirmed.disconnect(_on_algo_settings_confirmed)
+			
+			_algo_settings_popup.settings_confirmed.connect(_on_algo_settings_confirmed.bind(algo_key))
+			
+			# 3. Pass the hydrated values
 			_algo_settings_popup.open_settings(
-				"%s Settings" % "Algorithm", # Can replace with algo_name if you have lookup
+				"%s Settings" % "Algorithm", 
 				schema,
-				agent.algo_settings # Pass the bag
+				current_values 
 			)
 		return
 	
@@ -1099,7 +1131,7 @@ func _on_walker_setting_changed(key: String, value: Variant) -> void:
 		if agent.has_method("apply_setting"):
 			agent.apply_setting(key, value)
 			
-	# 3. SYNC VISUALS (If needed)
+	# 3. SYNC VISUALS (Preserved)
 	if key == "target_node":
 		SettingsUIBuilder.sync_picker_button(_walker_inputs, "action_pick_target", "Target Node", value)
 
