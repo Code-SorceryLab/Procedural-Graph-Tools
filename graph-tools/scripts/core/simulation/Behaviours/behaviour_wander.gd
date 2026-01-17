@@ -21,7 +21,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	if agent.use_forward_checking:
 		var safe_neighbors: Array[String] = []
 		for n_id in neighbors:
-			if AgentNavigator.is_move_safe(graph, n_id):
+			if AgentNavigator.can_enter_node(graph, n_id):
 				safe_neighbors.append(n_id)
 		
 		# Replace the full list with the filtered list
@@ -39,7 +39,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	var target_id = neighbors.pick_random()
 	
 	# --- 3. EXECUTE MOVE (With Bump Detection) ---
-	if AgentNavigator.is_move_safe(graph, target_id):
+	if AgentNavigator.can_enter_node(graph, target_id):
 		# Success! The move is valid.
 		agent.move_to_node(target_id, graph)
 	else:

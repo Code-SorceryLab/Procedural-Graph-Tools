@@ -124,9 +124,13 @@ func _rebuild_agent_ui() -> void:
 			delete_action_item["label"] = "Delete %d Agents" % tracked_count
 		final_settings.append(delete_action_item)
 	
-	# F. Render
+	# F. Render into Collapsible Section
+	# [CHANGE] Create section box first
+	var section_box = _create_section("Agent Properties")
+	
+	# [CHANGE] Render into the section box
 	_agent_inputs = SettingsUIBuilder.render_dynamic_section(
-		container, 
+		section_box, 
 		final_settings, 
 		_on_setting_changed
 	)

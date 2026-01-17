@@ -24,7 +24,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		return # No path found
 
 	# 3. SAFETY CHECK (Constraint Logic)
-	if AgentNavigator.is_move_safe(graph, next_node):
+	if AgentNavigator.can_enter_node(graph, next_node):
 		# A. SUCCESS
 		agent.move_to_node(next_node, graph)
 		agent.commit_move(next_node) # CRITICAL: Tells memory "We made it, forget this node."

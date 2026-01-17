@@ -1,9 +1,13 @@
 class_name InspectorZone
 extends InspectorStrategy
 
-# State
+# --- STATE ---
 var _tracked_zones: Array = []
 var _zone_inputs: Dictionary = {}
+
+# ==============================================================================
+# 1. LIFECYCLE
+# ==============================================================================
 
 func can_handle(_nodes, _edges, _agents, zones: Array) -> bool:
 	return not zones.is_empty()
@@ -11,37 +15,31 @@ func can_handle(_nodes, _edges, _agents, zones: Array) -> bool:
 func enter(_nodes, _edges, _agents, zones: Array) -> void:
 	super.enter(_nodes, _edges, _agents, zones)
 	_tracked_zones = zones
-	_build_ui()
+	_rebuild_zone_ui()
 
 func update(_nodes, _edges, _agents, zones: Array) -> void:
 	_tracked_zones = zones
-	_build_ui()
+	_rebuild_zone_ui()
 
 func exit() -> void:
 	super.exit()
 	_tracked_zones.clear()
+	_zone_inputs.clear()
 
-# --- VIEW LOGIC ---
+# ==============================================================================
+# 2. UI CONSTRUCTION
+# ==============================================================================
 
-func _build_ui() -> void:
+func _rebuild_zone_ui() -> void:
 	if _tracked_zones.is_empty(): return
 	var zone = _tracked_zones[0] as GraphZone
 	
-	# 1. PREPARE ROSTER DATA
-	var roster_count = zone.registered_nodes.size()
-	var roster_text = "(Empty)"
-	if roster_count > 0:
-		var sorted_nodes = zone.registered_nodes.duplicate()
-		sorted_nodes.sort()
-		roster_text = "\n".join(sorted_nodes)
-
-	# 2. DEFINE SCHEMA
+	# --- SECTION 1: PROPERTIES ---
 	var schema = [
-		{ "name": "head", "label": "Zone Inspector", "type": TYPE_STRING, "default": "Properties", "hint": "read_only" },
 		{ "name": "zone_name", "label": "Name", "type": TYPE_STRING, "default": zone.zone_name },
 		{ "name": "zone_type", "label": "Type", "type": TYPE_INT, "default": zone.zone_type, "hint": "enum", "hint_string": "Geographical,Logical,RigidGroup" },
 		{ "name": "zone_color", "label": "Color", "type": TYPE_COLOR, "default": zone.zone_color },
-		{ "name": "stat_count", "label": "Node Count", "type": TYPE_STRING, "default": str(roster_count), "hint": "read_only" },
+		
 		{ "name": "sep_rules", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "allow_new_nodes", "label": "Allow New Nodes", "type": TYPE_BOOL, "default": zone.allow_new_nodes },
 		{ "name": "is_traversable", "label": "Agent Traversable", "type": TYPE_BOOL, "default": zone.is_traversable },
@@ -49,7 +47,7 @@ func _build_ui() -> void:
 		{ "name": "damage_per_tick", "label": "Damage / Tick", "type": TYPE_FLOAT, "default": zone.damage_per_tick, "step": 1.0 }
 	]
 	
-	# 3. DYNAMIC PROPERTIES
+	# Dynamic Properties
 	var registered_props = GraphSettings.get_properties_for_target("ZONE")
 	if not registered_props.is_empty():
 		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
@@ -62,39 +60,29 @@ func _build_ui() -> void:
 
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
 	
-	# 4. RENDER MAIN SECTION
-	# Note: InspectorZone needs manual appending, so we render to the container but allow appending
-	SettingsUIBuilder.clear_ui(container) 
-	_zone_inputs = SettingsUIBuilder.render_dynamic_section(container, schema, _on_input)
+	# Render Main Section
+	var prop_section = _create_section("Zone Properties")
+	_zone_inputs = SettingsUIBuilder.render_dynamic_section(prop_section, schema, _on_input)
 	
-	# 5. APPEND MANUAL ROSTER TOGGLE
-	_add_roster_ui(container, roster_count, roster_text)
+	# --- SECTION 2: ROSTER ---
+	var roster_count = zone.registered_nodes.size()
+	if roster_count > 0:
+		var roster_section = SettingsUIBuilder.create_collapsible_section(container, "Node Roster (%d)" % roster_count, false)
+		
+		var content = TextEdit.new()
+		var sorted_nodes = zone.registered_nodes.duplicate()
+		sorted_nodes.sort()
+		content.text = "\n".join(sorted_nodes)
+		content.editable = false
+		content.custom_minimum_size.y = 120
+		content.add_theme_color_override("font_readonly_color", Color(0.8, 0.8, 0.8))
+		
+		# Add directly to the roster section container
+		roster_section.add_child(content)
 
-func _add_roster_ui(parent: Control, count: int, text_content: String) -> void:
-	if count == 0: return
-
-	parent.add_child(HSeparator.new())
-
-	var btn = Button.new()
-	btn.text = "Show Roster (%d Nodes)" % count
-	btn.toggle_mode = true
-	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	parent.add_child(btn)
-	
-	var content = TextEdit.new()
-	content.text = text_content
-	content.editable = false
-	content.custom_minimum_size.y = 120
-	content.visible = false
-	content.add_theme_color_override("font_readonly_color", Color(0.8, 0.8, 0.8))
-	parent.add_child(content)
-	
-	btn.toggled.connect(func(is_pressed):
-		content.visible = is_pressed
-		btn.text = ("Hide Roster" if is_pressed else "Show Roster (%d Nodes)" % count)
-	)
-
-# --- INPUT HANDLER ---
+# ==============================================================================
+# 3. INPUT HANDLER
+# ==============================================================================
 
 func _on_input(key: String, value: Variant) -> void:
 	if _tracked_zones.is_empty(): return

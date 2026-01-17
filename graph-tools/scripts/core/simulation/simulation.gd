@@ -85,6 +85,21 @@ func _snapshot_agent(agent) -> Dictionary:
 		"last_bump_pos": agent.last_bump_pos 
 	}
 
+# [NEW] Called whenever Undo/Redo occurs
+func validate_all_agents() -> void:
+	# If we are paused or running, we must ensure our state is valid relative to the NEW graph
+	if not graph: return
+	
+	# Iterate all active agents (assuming you have a list or get them from graph)
+	# If your Simulation holds agents in a list:
+	for agent in graph.agents:
+		agent.validate_state(graph)
+		
+	# If your Simulation reads directly from Graph data:
+	for agent in graph.agents:
+		if agent.has_method("validate_state"):
+			agent.validate_state(graph)
+
 # Resets the state (Rewind Logic)
 func reset_state() -> GraphCommand:
 	var batch = CmdBatch.new(graph, "Reset Simulation")

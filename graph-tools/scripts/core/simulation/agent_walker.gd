@@ -2,14 +2,14 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target,Maze Generator" # Added Maze Gen
+const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target,Maze Generator" 
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
 # 1. IDENTITY & STATE
 # ==============================================================================
-var uuid: String           
-var display_id: int        
+var uuid: String            
+var display_id: int         
 var pos: Vector2
 var _initial_pos: Vector2  
 var current_node_id: String
@@ -23,7 +23,6 @@ var brain: AgentBehavior
 var algo_settings: Dictionary = {}
 
 # CONSTRAINT & GENERATION STATE
-# We removed the generic 'use_forward_checking' in favor of specific flags
 var use_geometric_fc: bool = false   # Expensive: Don't strangle neighbors
 var use_zone_constraints: bool = false # Cheap: Match Zone Type
 var branching_probability: float = 0.0 # 0.0 = Snake (DFS), 1.0 = Explosion (Prim's)
@@ -41,11 +40,10 @@ var _path_target_id: String = ""
 var target_node_id: String = ""
 
 var my_paint_type: int = 2 
-var active: bool = true            
-var is_finished: bool = false      
+var active: bool = true             
+var is_finished: bool = false       
 var snap_to_grid: bool = false
 var steps: int = 15
-# var branch_randomly: bool = false # REPLACED by branching_probability
 
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
@@ -89,6 +87,44 @@ func reset_state() -> void:
 		
 	is_finished = false
 	if brain: brain.enter(self, null) # Pass null safely, will lazy init
+
+# [FIXED] STATE VALIDATION (The Undo Crash Fix)
+func validate_state(graph: Graph) -> void:
+	# 1. AM I EXIST? (Check current position)
+	if current_node_id != "" and not graph.nodes.has(current_node_id):
+		print("Agent Warning: Standing on deleted node '%s'. Resetting to Start." % current_node_id)
+		
+		# Try to recover to start node if it exists
+		if graph.nodes.has(start_node_id):
+			current_node_id = start_node_id
+			pos = graph.get_node_pos(start_node_id)
+		else:
+			# Complete reset if start is gone too
+			current_node_id = ""
+			# Don't change 'pos' so the visual stays put (ghost)
+			
+		# [FIX] Use the correct variable name
+		_current_path_cache.clear() 
+		target_node_id = "" # Clear target as path is invalid
+		return
+
+	# 2. IS MY TARGET REAL?
+	if target_node_id != "" and not graph.nodes.has(target_node_id):
+		print("Agent Warning: Target '%s' disappeared. Clearing target." % target_node_id)
+		target_node_id = ""
+		_current_path_cache.clear()
+		
+	# 3. IS MY HISTORY REAL? (Backtracking Stack)
+	if not history.is_empty():
+		var valid_history: Array[Dictionary] = []
+		for entry in history:
+			var id = entry.get("node", "")
+			if graph.nodes.has(id):
+				valid_history.append(entry)
+		
+		if valid_history.size() != history.size():
+			print("Agent: Scrubbed %d ghost nodes from history." % (history.size() - valid_history.size()))
+			history = valid_history
 
 # ==============================================================================
 # 4. SERIALIZATION
@@ -176,7 +212,7 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 
 	if not brain: _refresh_brain()
 	
-	last_bump_pos = Vector2.INF
+	last_bump_pos = Vector2.INF 
 	brain.step(self, graph)
 
 func _refresh_brain() -> void:

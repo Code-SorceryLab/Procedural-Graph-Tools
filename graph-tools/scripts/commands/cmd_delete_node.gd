@@ -7,21 +7,30 @@ var _pos: Vector2
 var _type: int
 
 # Edges State
-# Schema: Array of Dictionaries { "neighbor": String, "weight": float }
 var _edges: Array[Dictionary] = []
+
+# [FIX] Safety flag to prevent crashes if logic gets out of sync
+var _is_valid: bool = false
 
 func _init(graph: Graph, id: String) -> void:
 	super(graph)
 	_id = id
 	
-	# 1. CAPTURE DATA (Before destruction)
-	# We must read this NOW, because execute() will wipe it out.
+	# [FIX] Check existence immediately
+	if not _graph.nodes.has(id):
+		# This usually happens if Simulation Logic tries to delete a node
+		# that was already removed via Undo. We abort gracefully.
+		_is_valid = false
+		return
+
+	_is_valid = true
+	
+	# 1. CAPTURE DATA (Safe now)
 	var node_data = _graph.nodes[id]
 	_pos = node_data.position
 	_type = node_data.type
 	
 	# 2. CAPTURE EDGES
-	# We iterate neighbors to save exactly who we were connected to.
 	var neighbors = _graph.get_neighbors(id)
 	for n_id in neighbors:
 		var w = _graph.get_edge_weight(id, n_id)
@@ -31,12 +40,17 @@ func _init(graph: Graph, id: String) -> void:
 		})
 
 func execute() -> void:
-	# The Graph's remove_node handles cleaning up the other side of the connections
+	# [FIX] Guard check
+	if not _is_valid: return
+	if not _graph.nodes.has(_id): return 
+	
 	_graph.remove_node(_id)
 
 func undo() -> void:
+	# [FIX] Guard check
+	if not _is_valid: return
+		
 	# 1. Restore the Body (Node)
-	# Note: add_node() might reset the type to default, so we fix that next.
 	_graph.add_node(_id, _pos)
 	
 	if _graph.nodes.has(_id):
@@ -47,8 +61,7 @@ func undo() -> void:
 		var neighbor = edge["neighbor"]
 		var weight = edge["weight"]
 		
-		# Safety: The neighbor might have been deleted too if this is part of a complex redo.
-		# But in a standard Undo stack, the neighbor must exist.
+		# Safety check: Neighbor must exist to reconnect
 		if _graph.nodes.has(neighbor):
 			_graph.add_edge(_id, neighbor, weight)
 

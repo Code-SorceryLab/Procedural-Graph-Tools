@@ -1,13 +1,16 @@
 class_name GraphHistory
 extends RefCounted
 
+# --- SIGNALS ---
+# [NEW] Notifies observers (like Simulation) that the world state has changed via Undo/Redo
+signal history_changed 
+
 # --- DATA ---
 var _undo_stack: Array[GraphCommand] = []
 var _redo_stack: Array[GraphCommand] = []
 var _active_transaction: CmdBatch = null
 
 # --- REFERENCES ---
-# We need the graph to create new Batches
 var _graph: Graph 
 
 func _init(graph: Graph) -> void:
@@ -80,6 +83,10 @@ func undo() -> GraphCommand:
 	var cmd = _undo_stack.pop_back()
 	cmd.undo()
 	_redo_stack.append(cmd)
+	
+	# [NEW] Notify listeners (Simulation) that state has rolled back
+	history_changed.emit()
+	
 	return cmd
 
 # Returns the command that was just redone
@@ -90,6 +97,10 @@ func redo() -> GraphCommand:
 	var cmd = _redo_stack.pop_back()
 	cmd.execute()
 	_undo_stack.append(cmd)
+	
+	# [NEW] Notify listeners (Simulation) that state has rolled forward
+	history_changed.emit()
+	
 	return cmd
 
 # ==============================================================================

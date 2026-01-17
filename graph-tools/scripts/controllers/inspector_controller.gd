@@ -15,8 +15,7 @@ var _algo_settings_popup: AlgorithmSettingsPopup
 
 # 1. VIEW CONTAINERS
 @export var lbl_no_selection: Label      
-@export var single_container: Control       
-@export var group_container: Control        
+@export var node_container: Control              
 @export var zone_container: Control
 @export var agent_container: VBoxContainer 
 @export var edge_container: Control
@@ -45,7 +44,7 @@ func _ready() -> void:
 	# Note: The order here determines the visual order in the stack (Top to Bottom)
 	_strategies.append(InspectorAgent.new(graph_editor, agent_container, _algo_settings_popup))
 	_strategies.append(InspectorZone.new(graph_editor, zone_container))
-	_strategies.append(InspectorNode.new(graph_editor, single_container, group_container))
+	_strategies.append(InspectorNode.new(graph_editor, node_container))
 	_strategies.append(InspectorEdge.new(graph_editor, edge_container))
 	
 	# 3. Connect Strategy Signals
