@@ -1,15 +1,14 @@
 extends Node2D
 class_name GraphEditor
 
-# --- SIGNALS (Structural / Local) ---
-# These remain local because they relate to THIS editor instance specifically.
+# --- SIGNALS ---
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
 signal edge_selection_changed(selected_edges: Array)
 signal request_save_graph(graph: Graph)
 signal graph_modified
 
-# UI Focus Requests (Can remain local or move to bus later)
+# UI Focus Requests
 signal request_inspector_view
 signal request_agent_tab_view(filter_node_id: String)
 
@@ -33,7 +32,7 @@ var _pick_callback: Callable
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
 var selected_agent_ids: Array = []
-var selected_zones: Array = [] # Stores Objects (GraphZone), not IDs
+var selected_zones: Array = [] # Stores Objects
 
 # Tool Visualization Proxy
 var tool_overlay_rect: Rect2 = Rect2():
@@ -112,19 +111,18 @@ func _ready() -> void:
 # ==============================================================================
 # 2. TOOL MANAGEMENT
 # ==============================================================================
+
 func set_active_tool(tool_id: int) -> void:
 	tool_manager.set_active_tool(tool_id)
-	
-	# [CHANGE] Emit to Global Bus
 	SignalManager.active_tool_changed.emit(tool_id)
 
 func send_status_message(message: String) -> void:
-	# [CHANGE] Emit to Global Bus
 	SignalManager.status_message_changed.emit(message)
 	
 # ==============================================================================
 # 3. INPUT ROUTING
 # ==============================================================================
+
 func _unhandled_input(event: InputEvent) -> void:
 	# 1. Global Shortcuts (Undo/Redo)
 	input_handler.handle_input(event)
@@ -144,7 +142,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 			else:
-				# Clicked empty space? Cancel picking
 				is_picking_mode = false
 				send_status_message("Picking cancelled.")
 				get_viewport().set_input_as_handled()
@@ -182,10 +179,10 @@ func _refresh_path(algo_index: int = 3) -> void:
 		renderer.current_path_ref = current_path
 		
 # --- Node Operations ---
+
 func create_node(pos: Vector2) -> String:
 	_manual_counter += 1
 	var new_id = "man:%d" % _manual_counter
-	
 	while graph.nodes.has(new_id):
 		_manual_counter += 1
 		new_id = "man:%d" % _manual_counter
@@ -197,8 +194,7 @@ func create_node(pos: Vector2) -> String:
 
 func delete_node(id: String) -> void:
 	# 1. Validation
-	if not graph.nodes.has(id):
-		return
+	if not graph.nodes.has(id): return
 	
 	# 2. Cleanup Editor State
 	if selected_nodes.has(id):
@@ -250,8 +246,6 @@ func remove_agent(agent) -> void:
 # --- Selection Operations ---
 
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
-	print("GraphEditor DEBUG: Input -> %d nodes, %d edges. Clear? %s" % [nodes.size(), edges.size(), clear_existing])
-	
 	if clear_existing:
 		selected_nodes.clear()
 		selected_edges.clear()
@@ -263,26 +257,17 @@ func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: boo
 		
 	selected_nodes.append_array(nodes)
 	
-	# Defensive sorting logic
-	var count_before = selected_edges.size()
+	# Defensive sorting logic: Ensure keys match Graph format [A, B]
 	for pair in edges:
 		pair.sort()
 		selected_edges.append(pair)
 	
-	print("GraphEditor DEBUG: Edges Appended -> %d. Total Edges: %d" % [selected_edges.size() - count_before, selected_edges.size()])
-	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.selected_edges_ref = selected_edges
 	
-	# [CHANGE] Emit Edges FIRST
-	print("GraphEditor DEBUG: Emitting edge_selection_changed with %d items" % selected_edges.size())
+	# [CRITICAL ORDER] Emit Edges FIRST to prevent Inspector race conditions
 	edge_selection_changed.emit(selected_edges)
-	
-	# [CHANGE] Emit Nodes SECOND (This triggers the mystery clear)
 	selection_changed.emit(selected_nodes)
-	
-	# [DEBUG] Check if we survived
-	print("GraphEditor DEBUG: Post-Emission Check -> %d edges remaining." % selected_edges.size())
 	
 	renderer.queue_redraw()
 
@@ -330,6 +315,7 @@ func is_edge_selected(pair: Array) -> bool:
 	return selected_edges.has(pair)
 
 # AGENT SELECTION API
+
 func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	if clear_nodes:
 		selected_nodes.clear()
@@ -344,14 +330,10 @@ func set_agent_selection(agents: Array, clear_nodes: bool = true) -> void:
 	selected_agent_ids = agents
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	
-	# [CHANGE] Emit Global Signal
 	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 	renderer.queue_redraw()
 
 func clear_selection() -> void:
-	print("GraphEditor TRAP: clear_selection() called! Stack Trace:")
-	print_stack() # Uncomment if you want to see exactly who called it
-	
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
@@ -365,6 +347,7 @@ func clear_selection() -> void:
 	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 
 # Edge Selection API
+
 func toggle_edge_selection(edge_pair: Array) -> void:
 	edge_pair.sort()
 	if selected_edges.has(edge_pair):
@@ -378,11 +361,10 @@ func toggle_edge_selection(edge_pair: Array) -> void:
 func set_edge_selection(edge_pair: Array) -> void:
 	edge_pair.sort()
 	
-	# [FIX] Do NOT re-assign the variable. Clear and Append to maintain reference.
+	# Do NOT re-assign the variable. Clear and Append to maintain reference.
 	selected_edges.clear()
 	selected_edges.append(edge_pair)
 	
-	# (Optional) Re-bind just to be safe, but now it's the same object ID
 	renderer.selected_edges_ref = selected_edges 
 	edge_selection_changed.emit(selected_edges)
 	renderer.queue_redraw()
@@ -390,34 +372,22 @@ func set_edge_selection(edge_pair: Array) -> void:
 # --- ZONE API ---
 
 func add_zone(zone: GraphZone) -> void:
-	# [CHANGE] Wrap in Command
 	var cmd = CmdAddZone.new(graph, zone)
 	_commit_command(cmd)
-	
-	# Note: We don't need manual 'mark_modified' or 'queue_redraw' here 
-	# because _commit_command handles that automatically.
 
 func remove_zone(zone: GraphZone) -> void:
 	if not graph.zones.has(zone): return
 	
-	# [CHANGE] Wrap in Command
 	var cmd = CmdRemoveZone.new(graph, zone)
 	_commit_command(cmd)
 	
 	# Handle Side Effects (Deselection)
-	# We do this outside the command because Selection is an Editor-level concept, 
-	# not a Graph-Data-level concept.
 	if selected_zones.has(zone):
 		selected_zones.erase(zone)
-		# Update UI
 		set_zone_selection(selected_zones)
-
 
 func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 	if clear_others:
-		print("GraphEditor TRAP: set_zone_selection() causing CLEAR! Stack Trace:")
-		print_stack() 
-		
 		selected_nodes.clear()
 		selected_edges.clear()
 		renderer.selected_nodes_ref = []
@@ -425,24 +395,18 @@ func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 		
 		var empty_nodes: Array[String] = []
 		selection_changed.emit(empty_nodes)
-
 		edge_selection_changed.emit([])
 		
-		# Clear Agents
 		selected_agent_ids.clear()
 		renderer.selected_agent_ids_ref = []
 		SignalManager.agent_selection_changed.emit([])
 		
 	selected_zones = zones
 	
-	# Update Renderer Reference
 	if renderer:
 		renderer.selected_zones_ref = selected_zones
 	
-	# Broadcast to Global Bus
 	SignalManager.zone_selection_changed.emit(selected_zones)
-	
-	# Trigger redraw
 	renderer.queue_redraw()
 
 # --- Connection Operations ---
@@ -460,28 +424,18 @@ func disconnect_nodes(id_a: String, id_b: String) -> void:
 
 # --- Modification Operations ---
 
-
-# [CHANGED] Added 'is_preview' flag to suppress heavy updates during dragging
 func set_node_position(id: String, new_pos: Vector2, is_preview: bool = false) -> void:
 	graph.set_node_position(id, new_pos)
 	
-	
 	if is_preview:
-		# Just update the visual position, don't rebuild UI/Undo stack
 		renderer.queue_redraw()
 	else:
-		# Full commit (Normal behavior)
 		mark_modified()
 		renderer.queue_redraw()
-	
 
-
-# Modify Zone Geometry (Paint/Erase)
-# Called by ToolZoneBrush to apply a batch of cell changes transactionally.
 func modify_zone_cells(zone: GraphZone, cells_to_add: Array[Vector2i], cells_to_remove: Array[Vector2i]) -> void:
 	if not graph.zones.has(zone): return
 	
-	# --- VALIDATION (Keep existing filtering logic) ---
 	var valid_adds: Array[Vector2i] = []
 	var valid_removes: Array[Vector2i] = []
 	
@@ -495,40 +449,27 @@ func modify_zone_cells(zone: GraphZone, cells_to_add: Array[Vector2i], cells_to_
 	
 	if valid_adds.is_empty() and valid_removes.is_empty(): return
 	
-	# --- COMMIT ---
-	# The Command now handles both Cells AND Roster updates atomically.
 	var cmd = CmdZoneEdit.new(graph, zone, valid_adds, valid_removes)
 	_commit_command(cmd)
-	
 
-# Helper to keep the "Live Roster" consistent after painting
 func _refresh_nodes_in_modified_zone_area(zone: GraphZone, changed_cells: Array[Vector2i]) -> void:
-	# Only Geographical zones auto-capture nodes based on position
 	if zone.zone_type != GraphZone.ZoneType.GEOGRAPHICAL: return
 	if changed_cells.is_empty(): return
 
 	var spacing = GraphSettings.GRID_SPACING
-	
-	# Create a quick lookup set for the changed cells
 	var changed_lookup = {}
 	for cell in changed_cells:
 		changed_lookup[cell] = true
 		
-	# Check every node in the graph
-	# (Optimization: In a huge graph, a spatial hash would be better, but O(N) is fine for mouse release)
 	for id in graph.nodes:
 		var pos = graph.nodes[id].position
 		var grid_pos = Vector2i(round(pos.x / spacing.x), round(pos.y / spacing.y))
 		
-		# Did we just touch the cell this node is sitting on?
 		if changed_lookup.has(grid_pos):
-			# Force a re-evaluation of membership
 			if zone.has_cell(grid_pos):
-				# It is now inside -> Register
 				if not zone.registered_nodes.has(id):
 					zone.register_node(id)
 			else:
-				# It is now outside -> Unregister
 				if zone.registered_nodes.has(id):
 					zone.unregister_node(id)
 
@@ -598,28 +539,22 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
-# [NEW] Generic Edge Property Setter
 func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
 	if not graph.has_edge(id_a, id_b): return
 	
-	# 1. Capture Old State for Undo
 	var current_data = graph.get_edge_data(id_a, id_b)
 	var old_value = current_data.get(key)
 	
-	# 2. Optimization: Don't spam commands if nothing changed
 	if str(value) == str(old_value): return
 	
-	# 3. Create & Commit
 	var cmd = CmdSetEdgeProperty.new(graph, id_a, id_b, key, value, old_value)
 	_commit_command(cmd)
 
-# Helper to get edge property regardless of direction
 func get_edge_property(id_a: String, id_b: String, key: String, default: Variant = null) -> Variant:
 	if graph.has_edge(id_a, id_b):
 		var d = graph.get_edge_data(id_a, id_b)
 		return d.get(key, default)
 	elif graph.has_edge(id_b, id_a):
-		# Fallback to reverse if bi-directional (symmetric data)
 		var d = graph.get_edge_data(id_b, id_a)
 		return d.get(key, default)
 	return default
@@ -691,7 +626,6 @@ func load_new_graph(new_graph: Graph) -> void:
 	_reset_local_state()
 	_reconstruct_state_from_ids()
 	
-
 	graph_loaded.emit(graph)
 	
 	renderer.graph_ref = graph
@@ -700,7 +634,6 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.new_nodes_ref = new_nodes
 	
 	if tool_manager:
-		# Restart active tool to pick up new graph reference
 		tool_manager.set_active_tool(tool_manager.active_tool_id)
 		
 	_center_camera_on_graph()
@@ -767,8 +700,11 @@ func _reset_local_state() -> void:
 	path_start_ids.clear()
 	path_end_ids.clear()
 	selected_agent_ids.clear()
+	selected_edges.clear() # Correctly clear edges too
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
+	renderer.selected_edges_ref = selected_edges # Sync this!
+	renderer.selected_agent_ids_ref = selected_agent_ids
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []

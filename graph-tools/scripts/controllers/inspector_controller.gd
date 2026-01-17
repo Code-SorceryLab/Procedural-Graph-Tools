@@ -15,15 +15,14 @@ var _algo_settings_popup: AlgorithmSettingsPopup
 
 # 1. VIEW CONTAINERS
 @export var lbl_no_selection: Label      
-@export var single_container: Control     
-@export var group_container: Control      
+@export var single_container: Control       
+@export var group_container: Control        
 @export var zone_container: Control
-@export var walker_container: VBoxContainer 
+@export var agent_container: VBoxContainer 
 @export var edge_container: Control
 
 # --- STATE ---
 var _strategies: Array[InspectorStrategy] = []
-var _active_strategy: InspectorStrategy
 
 # Raw Selection State (Cached for context)
 var _sel_nodes: Array[String] = []
@@ -43,9 +42,8 @@ func _ready() -> void:
 	add_child(_algo_settings_popup)
 
 	# 2. Initialize Strategies
-	# Order matters: First one to return true in can_handle() wins.
-	# Usually: Agents > Zones > Nodes > Edges
-	_strategies.append(InspectorAgent.new(graph_editor, walker_container, _algo_settings_popup))
+	# Note: The order here determines the visual order in the stack (Top to Bottom)
+	_strategies.append(InspectorAgent.new(graph_editor, agent_container, _algo_settings_popup))
 	_strategies.append(InspectorZone.new(graph_editor, zone_container))
 	_strategies.append(InspectorNode.new(graph_editor, single_container, group_container))
 	_strategies.append(InspectorEdge.new(graph_editor, edge_container))
@@ -56,9 +54,16 @@ func _ready() -> void:
 		strat.request_refresh_ui.connect(_refresh_all_views)
 
 	# 4. Connect Core Signals
-	graph_editor.selection_changed.connect(_on_nodes_selected)
-	if graph_editor.has_signal("edge_selection_changed"):
-		graph_editor.edge_selection_changed.connect(_on_edges_selected)
+	if graph_editor:
+		graph_editor.selection_changed.connect(_on_nodes_selected)
+		graph_editor.graph_modified.connect(_on_graph_modified)
+		graph_editor.graph_loaded.connect(func(_g): _clear_selection())
+		
+		if graph_editor.has_signal("edge_selection_changed"):
+			graph_editor.edge_selection_changed.connect(_on_edges_selected)
+			
+		if graph_editor.has_signal("request_inspector_view"):
+			graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
 
 	if SignalManager.has_signal("agent_selection_changed"):
 		SignalManager.agent_selection_changed.connect(_on_agents_selected)
@@ -66,14 +71,6 @@ func _ready() -> void:
 	if SignalManager.has_signal("zone_selection_changed"):
 		SignalManager.zone_selection_changed.connect(_on_zones_selected)
 		
-	if graph_editor:
-		graph_editor.graph_modified.connect(_on_graph_modified)
-	
-	if graph_editor.has_signal("request_inspector_view"):
-		graph_editor.request_inspector_view.connect(_on_inspector_view_requested)
-
-	graph_editor.graph_loaded.connect(func(_g): _refresh_all_views())
-	
 	_clear_selection()
 
 # --- SELECTION HANDLERS ---
@@ -83,7 +80,6 @@ func _on_nodes_selected(nodes: Array[String]) -> void:
 	_refresh_all_views()
 
 func _on_edges_selected(edges: Array) -> void:
-	print("InspectorController: Received signal with %d edges" % edges.size()) # <--- DEBUG 1
 	_sel_edges = edges
 	_refresh_all_views()
 
@@ -96,22 +92,21 @@ func _on_zones_selected(zones: Array) -> void:
 	_refresh_all_views()
 
 func _on_graph_modified() -> void:
-	# Trigger update on active strategy without changing selection
-	if _active_strategy:
-		_active_strategy.update(_sel_nodes, _sel_edges, _sel_agents, _sel_zones)
+	# [FIX] Update ALL active strategies, not just one.
+	# This ensures that if you are looking at a Node AND an Agent, both update.
+	for strat in _strategies:
+		if strat.can_handle(_sel_nodes, _sel_edges, _sel_agents, _sel_zones):
+			strat.update(_sel_nodes, _sel_edges, _sel_agents, _sel_zones)
 
 # --- ROUTER LOGIC ---
 
 func _refresh_all_views() -> void:
 	var something_visible = false
 	
-	# Iterate ALL strategies logic
+	# [FIX] Iterate ALL strategies and allow multiple to activate.
+	# This creates a "Stack" of inspectors instead of an exclusive switch.
 	for strat in _strategies:
 		if strat.can_handle(_sel_nodes, _sel_edges, _sel_agents, _sel_zones):
-			print("InspectorController: Activating Strategy '%s'" % strat) # <--- DEBUG 2
-			# If it wasn't active, Enter. If it was, Update.
-			# (We can simplify by assuming enter/update handles idempotency, 
-			# or check visibility if you didn't add an is_active flag)
 			strat.enter(_sel_nodes, _sel_edges, _sel_agents, _sel_zones)
 			something_visible = true
 		else:
@@ -142,18 +137,24 @@ func _on_wizard_requested(target_type: String) -> void:
 	_wizard_instance.popup_wizard()
 
 func _on_purge_requested(key: String, target: String) -> void:
-	# (Keep your existing purge logic here, or move it to a helper)
-	# Since this logic touches the Graph Data directly, it is fine to stay here 
-	# or be moved to a GraphDataUtils static class.
-	# For now, keeping it here preserves functionality with minimal movement.
 	var graph = graph_editor.graph
-	var clean_count = 0
+	if not graph: return
 	
-	# ... (Paste your existing purge logic body here) ...
-	# Or, if you want to be cleaner:
-	# GraphDataUtils.purge_property(graph, key, target)
+	match target:
+		"NODE":
+			for id in graph.nodes:
+				var node = graph.nodes[id]
+				if node.data.has(key): node.data.erase(key)
+		"EDGE":
+			for a in graph.edge_data:
+				for b in graph.edge_data[a]:
+					var d = graph.edge_data[a][b]
+					if d.has(key): d.erase(key)
+		"AGENT":
+			for agent in graph.agents:
+				if key in agent: agent.set(key, null) 
 	
-	print("Purge Complete: %s" % key)
+	print("InspectorController: Purged property '%s' from target '%s'" % [key, target])
 	_refresh_all_views()
 
 # --- UTILITY ---
