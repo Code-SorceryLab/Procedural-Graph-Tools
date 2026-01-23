@@ -26,7 +26,7 @@ func step(agent: AgentWalker, graph: Graph, context: Dictionary = {}) -> void:
 
 	# 3. FORWARD CHECKING (Smart Mode)
 	# If enabled, filter out directions that would hit a "Closed Zone"
-	if agent.use_forward_checking:
+	if agent.use_geometric_fc:
 		var safe_moves = []
 		for move in potential_moves:
 			var test_pos = start_point + move

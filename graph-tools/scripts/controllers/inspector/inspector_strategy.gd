@@ -20,7 +20,7 @@ func _init(p_editor: GraphEditor, p_container: Control) -> void:
 # --- VIRTUAL METHODS (Override these) ---
 
 # Does this strategy handle the current selection?
-func can_handle(nodes: Array, edges: Array, agents: Array, zones: Array) -> bool:
+func can_handle(_nodes: Array, _edges: Array, _agents: Array, _zones: Array) -> bool:
 	return false
 
 # Called when this strategy becomes active

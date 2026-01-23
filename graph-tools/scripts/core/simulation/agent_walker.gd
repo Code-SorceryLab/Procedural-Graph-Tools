@@ -6,7 +6,17 @@ const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Tar
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
-# 1. IDENTITY & STATE
+# 1. NEW ARCHITECTURE: CAPABILITIES
+# ==============================================================================
+
+# Registry: "What can I do?"
+var capabilities: Dictionary = {} # Key: String, Value: AgentCapability
+
+# Brain: "What do I want to do?"
+var brain: AgentBehavior
+
+# ==============================================================================
+# 2. IDENTITY & STATE
 # ==============================================================================
 var uuid: String            
 var display_id: int         
@@ -17,21 +27,19 @@ var start_node_id: String
 var step_count: int = 0    
 var history: Array[Dictionary] = []
 var custom_data: Dictionary = {}
-var brain: AgentBehavior
 
 # The Generic Backpack (Algorithm Specifics)
 var algo_settings: Dictionary = {}
 
 # CONSTRAINT & GENERATION STATE
-var use_geometric_fc: bool = false   # Expensive: Don't strangle neighbors
-var use_zone_constraints: bool = false # Cheap: Match Zone Type
-var branching_probability: float = 0.0 # 0.0 = Snake (DFS), 1.0 = Explosion (Prim's)
-var destructive_backtrack: bool = true # True = Undo/Delete, False = Leave Dead Ends
-
-var last_bump_pos: Vector2 = Vector2.INF 
+var use_geometric_fc: bool = false
+var use_zone_constraints: bool = false
+var branching_probability: float = 0.0
+var destructive_backtrack: bool = true
+var last_bump_pos: Vector2 = Vector2.INF
 
 # ==============================================================================
-# 2. CONFIGURATION & SETTINGS
+# 3. CONFIGURATION
 # ==============================================================================
 var behavior_mode: int = 0  
 var movement_algo: int = 0  
@@ -57,7 +65,20 @@ static func update_template(key: String, value: Variant) -> void:
 	if spawn_template.has(key): spawn_template[key] = value
 
 # ==============================================================================
-# 3. LIFECYCLE (Init & Reset)
+# 4. CAPABILITY API
+# ==============================================================================
+
+func add_capability(name: String, cap: AgentCapability) -> void:
+	capabilities[name] = cap
+
+func get_capability(name: String) -> AgentCapability:
+	return capabilities.get(name, null)
+
+func has_capability(name: String) -> bool:
+	return capabilities.has(name)
+
+# ==============================================================================
+# 5. LIFECYCLE
 # ==============================================================================
 
 func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: int, p_steps: int) -> void:
@@ -73,6 +94,10 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	if start_node != "":
 		history.append({ "node": start_node, "step": 0 })
 		
+	# [NEW] Install Default Capabilities
+	# Every agent gets a Motor by default (for now)
+	add_capability("Motor", CapMotor.new(self))
+	
 	_refresh_brain()
 
 func reset_state() -> void:
@@ -86,35 +111,32 @@ func reset_state() -> void:
 		history.append({ "node": start_node_id, "step": 0 })
 		
 	is_finished = false
-	if brain: brain.enter(self, null) # Pass null safely, will lazy init
+	
+	# Reset Brain
+	if brain: brain.enter(self, null)
 
-# [FIXED] STATE VALIDATION (The Undo Crash Fix)
+	# [NEW] Reset Capabilities (if they have state)
+	for cap in capabilities.values():
+		cap.setup(null) 
+
+# Undo Crash Fix
 func validate_state(graph: Graph) -> void:
-	# 1. AM I EXIST? (Check current position)
 	if current_node_id != "" and not graph.nodes.has(current_node_id):
 		print("Agent Warning: Standing on deleted node '%s'. Resetting to Start." % current_node_id)
-		
-		# Try to recover to start node if it exists
 		if graph.nodes.has(start_node_id):
 			current_node_id = start_node_id
 			pos = graph.get_node_pos(start_node_id)
 		else:
-			# Complete reset if start is gone too
 			current_node_id = ""
-			# Don't change 'pos' so the visual stays put (ghost)
-			
-		# [FIX] Use the correct variable name
+		
 		_current_path_cache.clear() 
-		target_node_id = "" # Clear target as path is invalid
+		target_node_id = "" 
 		return
 
-	# 2. IS MY TARGET REAL?
 	if target_node_id != "" and not graph.nodes.has(target_node_id):
-		print("Agent Warning: Target '%s' disappeared. Clearing target." % target_node_id)
 		target_node_id = ""
 		_current_path_cache.clear()
 		
-	# 3. IS MY HISTORY REAL? (Backtracking Stack)
 	if not history.is_empty():
 		var valid_history: Array[Dictionary] = []
 		for entry in history:
@@ -123,7 +145,6 @@ func validate_state(graph: Graph) -> void:
 				valid_history.append(entry)
 		
 		if valid_history.size() != history.size():
-			print("Agent: Scrubbed %d ghost nodes from history." % (history.size() - valid_history.size()))
 			history = valid_history
 
 # ==============================================================================
@@ -201,7 +222,7 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	return agent
 
 # ==============================================================================
-# 5. BEHAVIOR LOGIC
+# 6. BEHAVIOR LOOP
 # ==============================================================================
 
 func step(graph: Graph, _context: Dictionary = {}) -> void:
@@ -210,12 +231,17 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 		is_finished = true
 		return
 
+	# [NEW] Tick Capabilities (Passive Updates)
+	for cap in capabilities.values():
+		cap.tick(1.0)
+
 	if not brain: _refresh_brain()
 	
 	last_bump_pos = Vector2.INF 
 	brain.step(self, graph)
 
 func _refresh_brain() -> void:
+	# Note: We will refactor 'StandardBehaviors' next, but this still works for now
 	match behavior_mode:
 		0: set_behavior(BehaviorHold.new())
 		1: 
@@ -223,7 +249,7 @@ func _refresh_brain() -> void:
 			set_behavior(BehaviorDecoratorPaint.new(wander))
 		2: set_behavior(BehaviorGrow.new()) 
 		3: set_behavior(BehaviorSeek.new(movement_algo))
-		4: set_behavior(BehaviorMazeGen.new()) # Maze Gen Behavior
+		4: set_behavior(BehaviorMazeGen.new()) 
 		_: set_behavior(BehaviorHold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
@@ -232,25 +258,36 @@ func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
 	if brain: brain.enter(self, graph)
 
 # ==============================================================================
-# 6. ACTIONS API (Unchanged)
+# 7. ACTIONS API (Wrappers)
 # ==============================================================================
 
 func move_to_node(node_id: String, graph: Graph) -> void:
-	if not graph.nodes.has(node_id): return
-	var new_pos = graph.get_node_pos(node_id)
-	pos = new_pos
-	current_node_id = node_id
-	step_count += 1
-	history.append({ "node": node_id, "step": step_count })
+	# [NEW] Delegate to Motor Capability
+	var motor = get_capability("Motor") as CapMotor
+	if motor:
+		motor.move_to_node(node_id, graph)
+	else:
+		# Fallback (Should not happen if initialized correctly)
+		if not graph.nodes.has(node_id): return
+		pos = graph.get_node_pos(node_id)
+		current_node_id = node_id
+		step_count += 1
+		history.append({ "node": node_id, "step": step_count })
 
 func paint_current_node(graph: Graph, type_idx: int = -1) -> void:
+	# [TODO] Delegate to CapPainter in next step
 	if current_node_id == "": return
 	var t = type_idx if type_idx != -1 else my_paint_type
 	graph.set_node_type(current_node_id, t)
 
 func warp(new_pos: Vector2, new_node_id: String = "") -> void:
-	pos = new_pos
-	current_node_id = new_node_id
+	# [NEW] Delegate to Motor
+	var motor = get_capability("Motor") as CapMotor
+	if motor:
+		motor.warp(new_pos, new_node_id)
+	else:
+		pos = new_pos
+		current_node_id = new_node_id
 
 func generate_unique_id(graph) -> String:
 	var temp_count = step_count + 1 

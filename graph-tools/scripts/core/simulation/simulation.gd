@@ -85,7 +85,7 @@ func _snapshot_agent(agent) -> Dictionary:
 		"last_bump_pos": agent.last_bump_pos 
 	}
 
-# [NEW] Called whenever Undo/Redo occurs
+# Called whenever Undo/Redo occurs
 func validate_all_agents() -> void:
 	# If we are paused or running, we must ensure our state is valid relative to the NEW graph
 	if not graph: return

@@ -1,0 +1,421 @@
+[gd_scene load_steps=14 format=3 uid="uid://b4kjmis7vpbxa"]
+
+[ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
+[ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
+[ext_resource type="PackedScene" uid="uid://1extklmbdep0" path="res://scenes/graph_editor.tscn" id="2_it57u"]
+[ext_resource type="PackedScene" uid="uid://0615dqn17fo0" path="res://scenes/toolbar.tscn" id="3_it57u"]
+[ext_resource type="Script" uid="uid://cyla4eosgc0x4" path="res://scripts/controllers/file_controller.gd" id="3_u2lal"]
+[ext_resource type="Script" uid="uid://beavfks7exib5" path="res://scripts/controllers/agent_controller.gd" id="4_5u163"]
+[ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
+[ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
+[ext_resource type="Script" uid="uid://c2ghhkic1gnd6" path="res://scripts/controllers/zone_controller.gd" id="5_xsqam"]
+[ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/property_wizard.tscn" id="6_gea6l"]
+[ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
+[ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_v0keg"]
+bg_color = Color(0.1764706, 0.1764706, 0.1764706, 1)
+
+[node name="GamePlayer" type="Node"]
+script = ExtResource("1_wv330")
+
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn", "spawn_btn", "clear_agents_btn")]
+script = ExtResource("2_hgyw2")
+graph_editor = NodePath("../GraphEditor")
+algo_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
+settings_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/InputContainer")
+debug_depth_chk = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/DebugDepthChk")
+grow_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GrowBtn")
+generate_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
+clear_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ClearBtn")
+spawn_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/SpawnBtn")
+clear_agents_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/ClearAgentsBtn")
+
+[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog", "settings_btn", "confirm_discard", "settings_window")]
+script = ExtResource("3_u2lal")
+graph_editor = NodePath("../GraphEditor")
+save_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/SaveBtn")
+load_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/LoadBtn")
+file_status = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/FileStatus")
+file_dialog = NodePath("../UI/FileDialog")
+settings_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/SettingsBtn")
+confirm_discard = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/ConfirmDiscard")
+settings_window = NodePath("../UI/SettingsWindow")
+
+[node name="AgentController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "roster_list", "behavior_settings_box", "lbl_stats", "lbl_edit_mode")]
+script = ExtResource("4_5u163")
+graph_editor = NodePath("../GraphEditor")
+roster_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/RosterPanel/RosterList")
+behavior_settings_box = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/BehaviourSettingsBox")
+lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/LblStats")
+lbl_edit_mode = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel/LblEditMode")
+
+[node name="ZoneController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "zone_list", "btn_add_zone", "lbl_stats")]
+script = ExtResource("5_xsqam")
+graph_editor = NodePath("../GraphEditor")
+zone_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer/ZoneList")
+btn_add_zone = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/BtnAddZone")
+lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/LblStats")
+
+[node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "single_container", "group_container", "zone_container", "walker_container", "opt_walker_select", "edge_container")]
+script = ExtResource("5_5u163")
+graph_editor = NodePath("../GraphEditor")
+strategy_controller = NodePath("../StrategyController")
+inspector_vbox = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector")
+property_wizard_scene = ExtResource("6_gea6l")
+lbl_no_selection = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/LblNoSelection")
+single_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/SingleNodeContainer")
+group_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/GroupContainer")
+zone_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/ZoneContainer")
+walker_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer")
+opt_walker_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer/OptWalkerSelect")
+edge_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/EdgeContainer")
+
+[node name="ToolbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "toolbar")]
+script = ExtResource("5_u2lal")
+graph_editor = NodePath("../GraphEditor")
+toolbar = NodePath("../UI/MainLayout/Workspace/Toolbar")
+
+[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "btn_step", "btn_play", "btn_reset", "sb_speed")]
+script = ExtResource("7_el7nm")
+graph_editor = NodePath("../GraphEditor")
+status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/StatusLabel")
+tool_options_container = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/ToolOptionsContainer")
+btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnStep")
+btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
+btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
+sb_speed = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/SbSpeed")
+
+[node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="FileDialog" type="FileDialog" parent="UI"]
+oversampling_override = 1.0
+initial_position = 2
+size = Vector2i(600, 400)
+access = 2
+filters = PackedStringArray("*.tres,Graph Resources")
+
+[node name="SettingsWindow" parent="UI" instance=ExtResource("10_v0keg")]
+visible = false
+
+[node name="MainLayout" type="VBoxContainer" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="UI/MainLayout"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_v0keg")
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/MainLayout/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ContentRow" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer"]
+layout_mode = 2
+
+[node name="ToolOptionsContainer" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Spacer1" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+
+[node name="SimulationPanel" type="PanelContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+
+[node name="SimHBox" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="BtnStep" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Step"
+
+[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+
+[node name="BtnPlay" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Play"
+
+[node name="VSeparator2" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+
+[node name="BtnReset" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Reset"
+
+[node name="VSeparator3" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+
+[node name="SbSpeed" type="SpinBox" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Simulation Speed (Ticks Per Second)"
+max_value = 60.0
+value = 10.0
+suffix = "tps"
+
+[node name="VSeparator4" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+layout_mode = 2
+
+[node name="Spacer2" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StatusLabel" type="Label" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+layout_mode = 2
+text = "Ready"
+vertical_alignment = 1
+
+[node name="Workspace" type="HBoxContainer" parent="UI/MainLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Toolbar" parent="UI/MainLayout/Workspace" instance=ExtResource("3_it57u")]
+layout_mode = 2
+
+[node name="GraphViewportSpacer" type="Control" parent="UI/MainLayout/Workspace"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Sidebar" type="PanelContainer" parent="UI/MainLayout/Workspace"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="UI/MainLayout/Workspace/Sidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="TabContainer" type="TabContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin"]
+layout_mode = 2
+tab_alignment = 1
+current_tab = 0
+drag_to_rearrange_enabled = true
+use_hidden_tabs_for_min_size = true
+
+[node name="Generation" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+layout_mode = 2
+metadata/_tab_index = 0
+
+[node name="Title" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generator"
+
+[node name="HSeparator" type="HSeparator" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="AlgoLabel" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Algorithms"
+
+[node name="AlgoSelect" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="GrowBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Grow (+)"
+
+[node name="GenerateBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Generate"
+
+[node name="ClearBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+text = "Clear Graph"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+
+[node name="SpawnBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer"]
+layout_mode = 2
+text = "Spawn Agents"
+
+[node name="ClearAgentsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer"]
+modulate = Color(0.83, 0.18260002, 0.18260002, 1)
+layout_mode = 2
+text = "Clear Agents"
+
+[node name="ScrollGen" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation"]
+layout_mode = 2
+size_flags_vertical = 3
+follow_focus = true
+
+[node name="ScrollBody" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="InputContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
+layout_mode = 2
+
+[node name="DebugDepthChk" type="CheckBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
+layout_mode = 2
+text = "Show Depth Numbers"
+
+[node name="MergeChk" type="CheckBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
+layout_mode = 2
+tooltip_text = "If checked, algorithms will connect to existing nodes found at the target location. If unchecked, they will create overlapping geometry."
+button_pressed = true
+text = "Merge Overlaps"
+
+[node name="File" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 1
+
+[node name="SaveBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Save Graph"
+
+[node name="LoadBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Load Graph"
+
+[node name="FileStatus" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Ready"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+
+[node name="SettingsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Settings"
+
+[node name="ConfirmDiscard" type="ConfirmationDialog" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+title = "Unsaved Changes"
+ok_button_text = "Discard"
+dialog_text = "You have unsaved changes. Discard them?"
+
+[node name="Agent" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 2
+
+[node name="AgentPadding" type="MarginContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="MainVBox" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="RosterPanel" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="RosterList" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/RosterPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 5
+
+[node name="LblStats" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
+layout_mode = 2
+text = "Total Agents: 0 (0 Active)"
+horizontal_alignment = 1
+
+[node name="BehaviourPanel" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox"]
+layout_mode = 2
+
+[node name="LblEditMode" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]
+layout_mode = 2
+
+[node name="BehaviourSettingsBox" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Agent/AgentPadding/MainVBox/BehaviourPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Zone" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 3
+
+[node name="BtnAddZone" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+layout_mode = 2
+text = "Add Zone"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ZoneList" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer"]
+layout_mode = 2
+
+[node name="LblStats" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Stats: "
+
+[node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 4
+
+[node name="LblNoSelection" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector"]
+modulate = Color(1, 1, 1, 0.5)
+layout_mode = 2
+text = "Select a node to view details."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ScrollInsp" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InspBody" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SingleNodeContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
+layout_mode = 2
+
+[node name="GroupContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
+visible = false
+layout_mode = 2
+
+[node name="EdgeContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
+layout_mode = 2
+
+[node name="WalkerContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
+layout_mode = 2
+
+[node name="OptWalkerSelect" type="OptionButton" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody/WalkerContainer"]
+layout_mode = 2
+
+[node name="ZoneContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody"]
+layout_mode = 2
+
+[node name="PropertyWizard" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector/ScrollInsp/InspBody" instance=ExtResource("6_gea6l")]
