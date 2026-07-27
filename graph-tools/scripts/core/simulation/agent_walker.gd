@@ -401,27 +401,40 @@ static func get_template_settings() -> Array[Dictionary]:
 	var options_string = ",".join(names)
 	
 	return [
-		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
-		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
+		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR, 
+		  "hint_text": "Determines the agent's primary brain logic and how it interacts with the world.\n- Hold Position: Remains stationary\n- Wander: Randomly traverses edges\n- Grow (Expansion): Builds new nodes into empty space\n- Seek Target: Navigates toward a specific node\n- Maze Generator: Uses DFS to carve structured paths" },
+		  
+		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO, 
+		  "hint_text": "The mathematical algorithm used to navigate existing nodes (primarily used by Seek Target).\n- Random Walk: Pure chance\n- BFS: Shortest path by steps\n- DFS: Explores deeply before backtracking\n- A-Star: Fast, directional optimal pathfinding\n- Dijkstra: Safely evaluates edge weights" },
 		
-		# [NEW] Action Settings
+		# Action Settings
 		{ "name": "sep_actions", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": false, "hint": "Paint nodes while moving?" },
-		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_INT, "default": default_idx, "options": options_string },
+		{ "name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": false, 
+		  "hint_text": "If enabled, the agent will automatically apply the selected Paint Material to the node it currently occupies on every step." },
+		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_INT, "default": default_idx, "options": options_string, 
+		  "hint_text": "The visual style and semantic node type the agent applies to the world when painting or building." },
 
-		# [NEW] Generation Settings
+		# Generation Settings
 		{ "name": "sep_gen", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "use_geometric_fc", "label": "Geometric Check", "type": TYPE_BOOL, "default": false },
-		{ "name": "use_zone_constraints", "label": "Zone Check", "type": TYPE_BOOL, "default": false },
-		{ "name": "branching_prob", "label": "Branching", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.1 },
-		{ "name": "destructive_backtrack", "label": "Destructive Undo", "type": TYPE_BOOL, "default": true },
+		{ "name": "use_geometric_fc", "label": "Geometric Check", "type": TYPE_BOOL, "default": false, 
+		  "hint_text": "A smart constraint that prevents the agent from stepping or building into a space that would instantly 'strangle' or wall off its neighboring open spaces." },
+		{ "name": "use_zone_constraints", "label": "Zone Check", "type": TYPE_BOOL, "default": false, 
+		  "hint_text": "Forces the agent to strictly obey the traversal and building permissions defined by underlying Graph Zones." },
+		{ "name": "branching_prob", "label": "Branching", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.1, 
+		  "hint_text": "Controls how often a generating agent abandons its current path head to branch off a previous node. 0.0 yields snake-like tunnels; 1.0 yields highly fractured clusters." },
+		{ "name": "destructive_backtrack", "label": "Destructive Undo", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "When the agent retreats from a dead end, it will delete the nodes it just created, cleaning up failed branches visually and logically." },
 		
+		# Target & Core
 		{ "name": "sep_core", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
-		{ "name": "active", "type": TYPE_BOOL, "default": true },
-		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1 },
-		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false }
+		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "", 
+		  "hint_text": "The exact unique identifier of the node the agent is trying to reach." },
+		{ "name": "active", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "Toggles whether the agent processes its step logic during the simulation. Uncheck to pause this specific agent." },
+		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, 
+		  "hint_text": "The maximum number of moves the agent is allowed to make before dying. Set to -1 for an infinite lifespan." },
+		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false, 
+		  "hint_text": "Forces the agent to lock onto strict grid coordinates." }
 	]
 
 func get_agent_settings() -> Array[Dictionary]:
@@ -436,13 +449,13 @@ func get_agent_settings() -> Array[Dictionary]:
 		elif s.name == "movement_algo": s.default = movement_algo
 		elif s.name == "target_node": s.default = target_node_id
 		
-
 		elif s.name == "auto_paint": s.default = auto_paint
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			var idx = ids.find(my_paint_type)
-			if idx != -1: s.default = idx
+			if idx != -1: 
+				s.default = idx
 			 
 		elif s.name == "use_geometric_fc": s.default = use_geometric_fc
 		elif s.name == "use_zone_constraints": s.default = use_zone_constraints
@@ -452,7 +465,7 @@ func get_agent_settings() -> Array[Dictionary]:
 	# Stats & Actions
 	settings.append({ "name": "stat_steps", "label": "Steps Taken", "type": TYPE_STRING, "default": "%d / %d" % [step_count, steps], "hint": "read_only" })
 	settings.append_array([
-		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos },
+		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "hint_text": "The absolute spatial (X, Y) coordinates of the agent in the world, operating independently of the graph's logical topology." },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }
 	])
 	return settings
@@ -471,7 +484,6 @@ func apply_setting(key: String, value: Variant) -> void:
 		"snap_to_grid": snap_to_grid = value
 		"steps": steps = value
 		
-		# [NEW]
 		"auto_paint": auto_paint = value
 		"paint_type":
 			var ids = GraphSettings.current_names.keys()
@@ -499,7 +511,6 @@ func apply_template_defaults() -> void:
 	my_paint_type = t.get("paint_type", 2)
 	snap_to_grid = t.get("snap_to_grid", false)
 	
-	# [NEW]
 	auto_paint = t.get("auto_paint", false)
 	
 	use_geometric_fc = t.get("use_geometric_fc", false)
