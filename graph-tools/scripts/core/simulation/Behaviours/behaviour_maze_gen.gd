@@ -21,6 +21,12 @@ func enter(agent: AgentWalker, graph: Graph) -> void:
 
 func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	if agent.is_finished: return
+	
+	# 0. Grab Capabilities
+	var motor = agent.get_capability("Motor") as CapMotor
+	var builder = agent.get_capability("Builder") as CapBuilder
+	var painter = agent.get_capability("Painter") as CapPainter
+	if not motor or not builder: return
 
 	# Lazy Init
 	if _stack.is_empty():
@@ -29,9 +35,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 			agent.is_finished = true
 			return
 
-	# [NEW] BRANCHING LOGIC
-	# We decide WHERE to grow from based on probability.
-	# 0.0 = Always Head (Snake), 1.0 = Always Random (Prim's)
+	# 1. BRANCHING LOGIC
 	var expansion_source_id = ""
 	var is_branching_randomly = false
 	
@@ -45,47 +49,45 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 
 	# Move agent visually to the source (instant warp if branching)
 	if agent.current_node_id != expansion_source_id:
-		agent.move_to_node(expansion_source_id, graph)
+		motor.move_to_node(expansion_source_id, graph)
 
 	# 2. SCAN FOR EXPANSION
-	# Note: We pass the specific source ID so we blacklist correctly
-	var candidates: Array[Vector2] = _get_expansion_candidates(agent, graph, expansion_source_id)
+	var candidates: Array[Vector2] = _get_expansion_candidates(agent, graph, builder, expansion_source_id)
 	
 	if not candidates.is_empty():
 		# --- CASE A: ADVANCE ---
 		_backtracking = false
 		var target_pos = candidates.pick_random()
 		
-		var new_id = agent.generate_unique_id(graph)
-		graph.add_node(new_id, target_pos)
-		if graph.nodes.has(new_id): graph.nodes[new_id].type = agent.my_paint_type
-		
-		graph.add_edge(expansion_source_id, new_id)
+		# [NEW] Delegate building to the Builder Capability
+		# Note: false = don't merge overlaps (Maze gen usually shouldn't merge randomly)
+		var new_id = builder.build_and_link(graph, target_pos, false)
 		_my_creations[new_id] = true
 		
-		agent.move_to_node(new_id, graph)
+		# [NEW] Delegate painting
+		if painter:
+			painter.set_paint_type(agent.my_paint_type)
+			painter.paint(graph, new_id)
+		
+		# [NEW] Delegate movement
+		motor.move_to_node(new_id, graph)
 		_stack.append(new_id)
 		
 	else:
 		# --- CASE B: RETREAT / FAILURE ---
 		_backtracking = true
 		
-		# [NEW] BRANCHING FAILURE HANDLING
-		# If we tried to branch randomly and failed, we don't need to "Undo" anything.
-		# We just wasted a turn. We stay in the stack and try again next tick.
+		# BRANCHING FAILURE HANDLING
 		if is_branching_randomly:
-			# Optional: Remove this node from stack if it's truly fully blocked?
-			# For Prim's, usually you remove fully-blocked nodes from the set.
-			# _stack.erase(expansion_source_id) 
 			return
 
-		# --- STANDARD BACKTRACKING (Snake) ---
+		# STANDARD BACKTRACKING (Snake)
 		if _stack.size() <= 1:
 			agent.is_finished = true 
 			return
 			
 		var dead_end_node = _stack.pop_back()
-		var retreat_target = _stack.back() # Retreat to previous
+		var retreat_target = _stack.back() 
 		
 		# Memory Logic (Blacklist)
 		var failed_pos = graph.get_node_pos(dead_end_node)
@@ -97,9 +99,9 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 			_attempted_moves.erase(dead_end_node)
 		
 		# Move Agent
-		agent.move_to_node(retreat_target, graph)
+		motor.move_to_node(retreat_target, graph)
 		
-		# [NEW] DESTRUCTIVE VS PERSISTENT TOGGLE
+		# DESTRUCTIVE VS PERSISTENT TOGGLE
 		if agent.destructive_backtrack:
 			# SNAKE MODE: Delete the dead end (Visual Undo)
 			if _my_creations.has(dead_end_node):
@@ -120,23 +122,30 @@ func _ensure_anchored(agent: AgentWalker, graph: Graph) -> void:
 		agent.current_node_id = found_id
 		_stack.append(found_id)
 	else:
-		var seed_id = agent.generate_unique_id(graph)
-		graph.add_node(seed_id, agent.pos)
-		if graph.nodes.has(seed_id): graph.nodes[seed_id].type = agent.my_paint_type
-		agent.current_node_id = seed_id
-		_stack.append(seed_id)
+		# [NEW] Use Builder for the initial seed
+		var builder = agent.get_capability("Builder") as CapBuilder
+		var painter = agent.get_capability("Painter") as CapPainter
+		
+		if builder:
+			# Empty current_node_id ensures it doesn't try to link to nowhere
+			var seed_id = builder.build_and_link(graph, agent.pos, false)
+			if painter:
+				painter.set_paint_type(agent.my_paint_type)
+				painter.paint(graph, seed_id)
+				
+			agent.current_node_id = seed_id
+			_stack.append(seed_id)
 
-# Updated Candidate Search with Rectangular Support & FC Toggle
-func _get_expansion_candidates(agent: AgentWalker, graph: Graph, source_id: String) -> Array[Vector2]:
+# Updated Candidate Search (Now accepts builder)
+func _get_expansion_candidates(agent: AgentWalker, graph: Graph, builder: CapBuilder, source_id: String) -> Array[Vector2]:
 	var results: Array[Vector2] = []
 	
-	# [FIX] Support Rectangular Grids
 	var step_vec = Vector2(DISTANCE_CHECK, DISTANCE_CHECK)
 	if agent.snap_to_grid and GraphSettings.GRID_SPACING.length_squared() > 0:
 		step_vec = GraphSettings.GRID_SPACING
 		
 	var check_radius = min(step_vec.x, step_vec.y) * 0.4
-	var current_pos = graph.get_node_pos(source_id) # Use source_id, not agent.pos
+	var current_pos = graph.get_node_pos(source_id) 
 	
 	var dirs = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
 	
@@ -160,46 +169,35 @@ func _get_expansion_candidates(agent: AgentWalker, graph: Graph, source_id: Stri
 		# 2. Occupancy Check
 		if not _is_space_occupied(check_pos, graph, check_radius, source_id):
 			
-			# [NEW] 3. Geometric Forward Checking Toggle
+			# 3. Geometric Forward Checking Toggle
 			if agent.use_geometric_fc:
 				if _will_move_strand_neighbors(check_pos, agent, graph, step_vec, check_radius):
 					continue
 			
-			# [NEW] 4. Zone Constraint Toggle
-			if agent.use_zone_constraints:
-				# Assuming you have a helper for this, e.g.
-				# if not _is_zone_allowed(check_pos, graph): continue
-				pass
+			# [NEW] 4. Zone Constraint Toggle using CapBuilder!
+			if agent.use_zone_constraints and builder:
+				if not builder.can_build_at(graph, check_pos, step_vec):
+					continue
 
 			results.append(check_pos)
 			
 	return results
 
-# Inside _is_space_occupied
+# --- INTERNAL GEOMETRIC MATH (UNCHANGED) ---
+
 func _is_space_occupied(pos: Vector2, graph: Graph, radius: float, ignore_id: String = "") -> bool:
-	# 1. Spatial Grid Check
 	if graph.has_method("get_nodes_near_position"):
 		var nearby = graph.get_nodes_near_position(pos, radius)
-		
 		if not nearby.is_empty():
-			# [FIX] STRICT DISTANCE CHECK
-			# Spatial Grid often returns "Broad Phase" candidates (Buckets).
-			# We must verify they are actually colliding.
 			var r2 = radius * radius
-			
 			for id in nearby:
 				if id == ignore_id: continue
-				
-				# Double check the math
 				var npos = graph.get_node_pos(id)
 				if pos.distance_squared_to(npos) < r2:
-					return true # Real Collision
-					
-			return false # Candidates found, but none were close enough
-			
+					return true 
+			return false 
 		return false
 		
-	# 2. Brute Force Fallback
 	var r2 = radius * radius
 	for nid in graph.nodes:
 		if nid == ignore_id: continue 
@@ -209,30 +207,23 @@ func _is_space_occupied(pos: Vector2, graph: Graph, radius: float, ignore_id: St
 			
 	return false
 
-# 2. Update Forward Checking to use Vector Step
 func _will_move_strand_neighbors(target_pos: Vector2, agent: AgentWalker, graph: Graph, step_vec: Vector2, radius: float) -> bool:
 	var dirs = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
-	
 	for d in dirs:
 		var offset = d * step_vec
 		var neighbor_pos = target_pos + offset
 		
-		# Check neighbor with safe radius
 		if not _is_space_occupied(neighbor_pos, graph, radius):
 			var exits = _count_free_exits(neighbor_pos, graph, step_vec, radius)
 			if exits <= 1:
 				return true 
-				
 	return false
 
-# 3. Update Exit Counting to use Vector Step
 func _count_free_exits(pos: Vector2, graph: Graph, step_vec: Vector2, radius: float) -> int:
 	var count = 0
 	var dirs = [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]
-	
 	for d in dirs:
 		var check = pos + (d * step_vec)
 		if not _is_space_occupied(check, graph, radius):
 			count += 1
-			
 	return count

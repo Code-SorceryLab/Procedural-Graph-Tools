@@ -97,9 +97,10 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 		history.append({ "node": start_node, "step": 0 })
 		
 	# Install Default Capabilities
-	# Every agent gets movement and painting logic
+	# Every agent gets movement, data painting, and node building logic
 	add_capability("Motor", CapMotor.new(self))
 	add_capability("Painter", CapPainter.new(self))
+	add_capability("Builder", CapBuilder.new(self))
 	
 	_refresh_brain()
 
@@ -249,14 +250,13 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 		paint_current_node(graph)
 
 func _refresh_brain() -> void:
-	# Note: We will refactor 'StandardBehaviors' next, but this still works for now
 	match behavior_mode:
-		0: set_behavior(BehaviorHold.new())
-		1: set_behavior(BehaviorWander.new())
-		2: set_behavior(BehaviorGrow.new()) 
-		3: set_behavior(BehaviorSeek.new(movement_algo))
+		0: set_behavior(BehaviorsStandard.Hold.new())
+		1: set_behavior(BehaviorsStandard.Wander.new()) 
+		2: set_behavior(BehaviorGrow.new()) # We will refactor this one later
+		3: set_behavior(BehaviorsStandard.Seek.new(movement_algo))
 		4: set_behavior(BehaviorMazeGen.new()) 
-		_: set_behavior(BehaviorHold.new())
+		_: set_behavior(BehaviorsStandard.Hold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
 	if brain: brain.exit(self, graph)
