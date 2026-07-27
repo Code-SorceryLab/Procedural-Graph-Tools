@@ -35,7 +35,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		# This forces a full repath next frame.
 		agent._current_path_cache.clear()
 		
-		if agent.use_forward_checking:
+		if agent.use_geometric_fc:
 			# SMART MODE: "I see a wall. I wait."
 			pass 
 		else:

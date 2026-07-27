@@ -18,7 +18,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 
 	# --- 1. SMART MODE: FORWARD CHECKING ---
 	# If the toggle is ON, we filter the list BEFORE picking.
-	if agent.use_forward_checking:
+	if agent.use_geometric_fc:
 		var safe_neighbors: Array[String] = []
 		for n_id in neighbors:
 			if AgentNavigator.can_enter_node(graph, n_id):
@@ -40,10 +40,10 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	
 	# --- 3. EXECUTE MOVE (With Bump Detection) ---
 	if AgentNavigator.can_enter_node(graph, target_id):
-		# Success! The move is valid.
+		# Valid Move
 		agent.move_to_node(target_id, graph)
 	else:
-		# Failure! We tried to enter a forbidden zone.
+		# Invalid Move. Tried to enter a forbidden zone.
 		# This only happens if 'use_forward_checking' is FALSE.
 		
 		# 1. Calculate where we hit the wall
@@ -54,7 +54,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		# [DEBUG PRINT]
 		print("BUMP! Agent %s hit wall at %s" % [agent.display_id, target_pos])
 
-# --- Internal Logic (Preserved from old BehaviorPaint) ---
+# --- Internal Logic ---
 func _pick_next_node(agent: AgentWalker, graph: Graph) -> String:
 	
 	# A. Try to branch backwards (Teleport to previous spot)

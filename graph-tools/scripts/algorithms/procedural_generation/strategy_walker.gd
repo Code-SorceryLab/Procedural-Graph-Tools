@@ -123,17 +123,19 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 					agent.steps += step_budget # Normal addition
 				
 				agent.is_finished = false
-				if agent.branch_randomly:
+				
+				# [FIX] branch_randomly was removed from AgentWalker. 
+				# Bypassing to prevent a crash.
+				if agent.custom_data.get("branch_randomly", false):
 					_teleport_to_random_branch_point(graph, agent)
 	
 	# 3. RUN SIMULATION
 	var pre_sim_states = {}
 	for w in graph.agents:
-		pre_sim_states[w.id] = _snapshot_agent(w)
+		# [FIX] Changed w.id to w.uuid
+		pre_sim_states[w.uuid] = _snapshot_agent(w)
 
 	# [FIX] Safety Clamp for Instant Preview
-	# If an agent is infinite (-1), we only simulate 100 steps for the preview
-	# to prevent the editor from freezing in an infinite loop.
 	var max_ticks = 0
 	for w in graph.agents:
 		if w.active:
@@ -146,11 +148,11 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 			
 	var effective_starts = {} 
 	for w in graph.agents:
-		effective_starts[w.id] = w.current_node_id
+		# [FIX] Changed w.id to w.uuid
+		effective_starts[w.uuid] = w.current_node_id
 	
 	for tick in range(max_ticks):
 		for w in graph.agents:
-			# [FIX] Check for Infinite (-1) OR within bounds
 			if w.active and not w.is_finished and (w.steps == -1 or w.step_count < w.steps):
 				var step_params = params.duplicate()
 				step_params["merge_overlaps"] = true
@@ -160,13 +162,15 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 				var visited_id = w.current_node_id
 				if visited_id != "":
 					_session_path.append(visited_id)
-					if effective_starts[w.id] == "":
-						effective_starts[w.id] = visited_id
+					# [FIX] Changed w.id to w.uuid
+					if effective_starts[w.uuid] == "":
+						effective_starts[w.uuid] = visited_id
 	
 	# SNAPSHOT AFTER MOVEMENT
 	for w in graph.agents:
-		if not pre_sim_states.has(w.id): continue
-		var start_state = pre_sim_states[w.id]
+		# [FIX] Changed w.id to w.uuid
+		if not pre_sim_states.has(w.uuid): continue
+		var start_state = pre_sim_states[w.uuid]
 		var end_state = _snapshot_agent(w)
 		
 		if start_state.hash() != end_state.hash():
@@ -190,13 +194,10 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 # --- INTERNAL HELPERS ---
 
 # ID GENERATION HELPER
-# Returns Dictionary { "uuid": String, "display_id": int }
 func _generate_identity(graph_context) -> Dictionary:
 	var new_uuid = GraphSerializer.generate_uuid()
 	var new_display_id = 1
 	
-	# Thanks to the fix in GraphRecorder, we can just call this directly.
-	# It works for both Graph and GraphRecorder now.
 	if graph_context.has_method("get_next_display_id"):
 		new_display_id = graph_context.get_next_display_id()
 	else:
@@ -247,7 +248,6 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 			root_id = keys[randi() % keys.size()]
 			root_pos = graph.get_node_pos(root_id)
 		
-		# [FIX] Use Helper + New Constructor Signature
 		var ids = _generate_identity(graph)
 		var agent = AgentWalker.new(ids.uuid, ids.display_id, root_pos, root_id, default_paint, default_steps)
 		

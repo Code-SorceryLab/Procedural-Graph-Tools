@@ -2,7 +2,7 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Paint (Random),Grow (Expansion),Seek Target,Maze Generator" 
+const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator"
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
@@ -47,7 +47,8 @@ var _current_path_cache: Array[String] = []
 var _path_target_id: String = ""
 var target_node_id: String = ""
 
-var my_paint_type: int = 2 
+var auto_paint: bool = false 
+var my_paint_type: int = 2
 var active: bool = true             
 var is_finished: bool = false       
 var snap_to_grid: bool = false
@@ -58,7 +59,8 @@ static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
 	"steps": 15, "paint_type": 2, "snap_to_grid": false, 
 	"use_geometric_fc": false, "use_zone_constraints": false,
-	"branching_prob": 0.0, "destructive_backtrack": true
+	"branching_prob": 0.0, "destructive_backtrack": true,
+	"auto_paint": false
 }
 
 static func update_template(key: String, value: Variant) -> void:
@@ -94,9 +96,10 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	if start_node != "":
 		history.append({ "node": start_node, "step": 0 })
 		
-	# [NEW] Install Default Capabilities
-	# Every agent gets a Motor by default (for now)
+	# Install Default Capabilities
+	# Every agent gets movement and painting logic
 	add_capability("Motor", CapMotor.new(self))
+	add_capability("Painter", CapPainter.new(self))
 	
 	_refresh_brain()
 
@@ -115,11 +118,10 @@ func reset_state() -> void:
 	# Reset Brain
 	if brain: brain.enter(self, null)
 
-	# [NEW] Reset Capabilities (if they have state)
+	# Reset Capabilities (if they have state)
 	for cap in capabilities.values():
 		cap.setup(null) 
 
-# Undo Crash Fix
 func validate_state(graph: Graph) -> void:
 	if current_node_id != "" and not graph.nodes.has(current_node_id):
 		print("Agent Warning: Standing on deleted node '%s'. Resetting to Start." % current_node_id)
@@ -171,8 +173,8 @@ func serialize() -> Dictionary:
 		"is_finished": is_finished,
 		"steps": steps,
 		"snap_to_grid": snap_to_grid,
-		"algo_settings": algo_settings, # The generic bag
-		
+		"algo_settings": algo_settings,
+		"auto_paint": auto_paint,
 		# Specific Generation Flags
 		"use_geometric_fc": use_geometric_fc,
 		"use_zone_constraints": use_zone_constraints,
@@ -208,11 +210,13 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	agent.snap_to_grid = data.get("snap_to_grid", false)
 	agent.algo_settings = data.get("algo_settings", {})
 	
-	# [NEW] Load Flags
+	# Load Flags
 	agent.use_geometric_fc = data.get("use_geometric_fc", false)
 	agent.use_zone_constraints = data.get("use_zone_constraints", false)
 	agent.branching_probability = float(data.get("branching_prob", 0.0))
 	agent.destructive_backtrack = data.get("destructive_backtrack", true)
+	
+	agent.auto_paint = data.get("auto_paint", false)
 	
 	# Handle legacy conversion (if 'use_forward_checking' existed)
 	if data.has("use_forward_checking") and data.use_forward_checking:
@@ -231,22 +235,24 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 		is_finished = true
 		return
 
-	# [NEW] Tick Capabilities (Passive Updates)
+	# 1. Tick Capabilities
 	for cap in capabilities.values():
 		cap.tick(1.0)
 
+	# 2. Run Brain
 	if not brain: _refresh_brain()
-	
-	last_bump_pos = Vector2.INF 
 	brain.step(self, graph)
+	
+	# 3. Auto-Paint Logic (Replaces Decorator)
+	# If the user enabled painting, we paint the current node every step.
+	if auto_paint and current_node_id != "":
+		paint_current_node(graph)
 
 func _refresh_brain() -> void:
 	# Note: We will refactor 'StandardBehaviors' next, but this still works for now
 	match behavior_mode:
 		0: set_behavior(BehaviorHold.new())
-		1: 
-			var wander = BehaviorWander.new()
-			set_behavior(BehaviorDecoratorPaint.new(wander))
+		1: set_behavior(BehaviorWander.new())
 		2: set_behavior(BehaviorGrow.new()) 
 		3: set_behavior(BehaviorSeek.new(movement_algo))
 		4: set_behavior(BehaviorMazeGen.new()) 
@@ -262,7 +268,7 @@ func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
 # ==============================================================================
 
 func move_to_node(node_id: String, graph: Graph) -> void:
-	# [NEW] Delegate to Motor Capability
+	# Delegate to Motor Capability
 	var motor = get_capability("Motor") as CapMotor
 	if motor:
 		motor.move_to_node(node_id, graph)
@@ -275,13 +281,25 @@ func move_to_node(node_id: String, graph: Graph) -> void:
 		history.append({ "node": node_id, "step": step_count })
 
 func paint_current_node(graph: Graph, type_idx: int = -1) -> void:
-	# [TODO] Delegate to CapPainter in next step
-	if current_node_id == "": return
-	var t = type_idx if type_idx != -1 else my_paint_type
-	graph.set_node_type(current_node_id, t)
+	# Delegate to Painter Capability
+	var painter = get_capability("Painter") as CapPainter
+	if painter:
+		# If type_idx is -1 (default), use the agent's configured paint type
+		var t = type_idx if type_idx != -1 else my_paint_type
+		
+		# We set the painter's brush, then paint.
+		# In a cleaner future, the Painter would hold this state itself,
+		# but for now we sync the Agent's setting to the Capability.
+		painter.set_paint_type(t)
+		painter.paint(graph, current_node_id)
+	else:
+		# Fallback
+		if current_node_id == "": return
+		var t = type_idx if type_idx != -1 else my_paint_type
+		graph.set_node_type(current_node_id, t)
 
 func warp(new_pos: Vector2, new_node_id: String = "") -> void:
-	# [NEW] Delegate to Motor
+	# Delegate to Motor
 	var motor = get_capability("Motor") as CapMotor
 	if motor:
 		motor.warp(new_pos, new_node_id)
@@ -368,7 +386,7 @@ func _recalculate_path(graph: Graph) -> void:
 	_current_path_cache = full_path
 
 # ==============================================================================
-# 7. UI / INSPECTOR SUPPORT
+# 8. UI / INSPECTOR SUPPORT
 # ==============================================================================
 
 static func get_template_settings() -> Array[Dictionary]:
@@ -386,26 +404,30 @@ static func get_template_settings() -> Array[Dictionary]:
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR },
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO },
 		
+		# [NEW] Action Settings
+		{ "name": "sep_actions", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": false, "hint": "Paint nodes while moving?" },
+		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_INT, "default": default_idx, "options": options_string },
+
 		# [NEW] Generation Settings
-		{ "name": "use_geometric_fc", "label": "Geometric Check", "type": TYPE_BOOL, "default": false, "hint": "Expensive: Prevent strangling neighbors" },
-		{ "name": "use_zone_constraints", "label": "Zone Check", "type": TYPE_BOOL, "default": false, "hint": "Respect Zone Traversability" },
-		
-		{ "name": "branching_prob", "label": "Branching", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.1, "hint": "0=Snake, 1=Random Growth" },
-		{ "name": "destructive_backtrack", "label": "Destructive Undo", "type": TYPE_BOOL, "default": true, "hint": "Delete nodes on retreat?" },
+		{ "name": "sep_gen", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "use_geometric_fc", "label": "Geometric Check", "type": TYPE_BOOL, "default": false },
+		{ "name": "use_zone_constraints", "label": "Zone Check", "type": TYPE_BOOL, "default": false },
+		{ "name": "branching_prob", "label": "Branching", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.1 },
+		{ "name": "destructive_backtrack", "label": "Destructive Undo", "type": TYPE_BOOL, "default": true },
 		
 		{ "name": "sep_core", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "target_node", "label": "Target ID", "type": TYPE_STRING, "default": "" },
 		{ "name": "active", "type": TYPE_BOOL, "default": true },
-		{ "name": "paint_type", "type": TYPE_INT, "default": default_idx, "options": options_string },
-		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1, "hint": "-1 = Endless" },
+		{ "name": "steps", "label": "Step Limit", "type": TYPE_INT, "default": 15, "min": -1 },
 		{ "name": "snap_to_grid", "type": TYPE_BOOL, "default": false }
 	]
 
 func get_agent_settings() -> Array[Dictionary]:
 	var settings = AgentWalker.get_template_settings()
 	
-	# Fill defaults with instance values
+	# Fill defaults
 	for s in settings:
 		if s.name == "active": s.default = active
 		elif s.name == "steps": s.default = steps
@@ -414,28 +436,21 @@ func get_agent_settings() -> Array[Dictionary]:
 		elif s.name == "movement_algo": s.default = movement_algo
 		elif s.name == "target_node": s.default = target_node_id
 		
-		# [NEW]
-		elif s.name == "use_geometric_fc": s.default = use_geometric_fc
-		elif s.name == "use_zone_constraints": s.default = use_zone_constraints
-		elif s.name == "branching_prob": s.default = branching_probability
-		elif s.name == "destructive_backtrack": s.default = destructive_backtrack
-		
+
+		elif s.name == "auto_paint": s.default = auto_paint
 		elif s.name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			var idx = ids.find(my_paint_type)
 			if idx != -1: s.default = idx
+			 
+		elif s.name == "use_geometric_fc": s.default = use_geometric_fc
+		elif s.name == "use_zone_constraints": s.default = use_zone_constraints
+		elif s.name == "branching_prob": s.default = branching_probability
+		elif s.name == "destructive_backtrack": s.default = destructive_backtrack
 			
-	# Stats
-	settings.append({ 
-		"name": "stat_steps", 
-		"label": "Steps Taken", 
-		"type": TYPE_STRING, 
-		"default": "%d / %d" % [step_count, steps],
-		"hint": "read_only"
-	})
-
-	# Actions
+	# Stats & Actions
+	settings.append({ "name": "stat_steps", "label": "Steps Taken", "type": TYPE_STRING, "default": "%d / %d" % [step_count, steps], "hint": "read_only" })
 	settings.append_array([
 		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }
@@ -457,16 +472,17 @@ func apply_setting(key: String, value: Variant) -> void:
 		"steps": steps = value
 		
 		# [NEW]
-		"use_geometric_fc": use_geometric_fc = value
-		"use_zone_constraints": use_zone_constraints = value
-		"branching_prob": branching_probability = value
-		"destructive_backtrack": destructive_backtrack = value
-		
+		"auto_paint": auto_paint = value
 		"paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			if value >= 0 and value < ids.size():
 				my_paint_type = ids[value]
+				
+		"use_geometric_fc": use_geometric_fc = value
+		"use_zone_constraints": use_zone_constraints = value
+		"branching_prob": branching_probability = value
+		"destructive_backtrack": destructive_backtrack = value
 		"pos": warp(value)
 		_:
 			custom_data[key] = value
@@ -484,6 +500,8 @@ func apply_template_defaults() -> void:
 	snap_to_grid = t.get("snap_to_grid", false)
 	
 	# [NEW]
+	auto_paint = t.get("auto_paint", false)
+	
 	use_geometric_fc = t.get("use_geometric_fc", false)
 	use_zone_constraints = t.get("use_zone_constraints", false)
 	branching_probability = t.get("branching_prob", 0.0)
