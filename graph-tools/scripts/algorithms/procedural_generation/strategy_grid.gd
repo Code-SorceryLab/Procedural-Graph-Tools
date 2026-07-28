@@ -12,25 +12,24 @@ func _init() -> void:
 	strategy_name = "Grid Layout"
 	reset_on_generate = true
 	supports_grow = false
-	supports_zones = true # [NEW] Enable the zone architecture
+	supports_zones = true # Enable the zone architecture
 
 func get_settings() -> Array[Dictionary]:
-	# Initialize defaults from global if cache is untouched
 	if _cache_spacing_x == 0: _cache_spacing_x = int(GraphSettings.GRID_SPACING.x)
 	if _cache_spacing_y == 0: _cache_spacing_y = int(GraphSettings.GRID_SPACING.y)
 	
-	var settings: Array[Dictionary] = [
+	# Pull the seed box from GraphStrategy first!
+	var settings: Array[Dictionary] = super.get_settings()
+	
+	# Append the rest of the grid settings
+	settings.append_array([
 		{ "name": "width", "type": TYPE_INT, "default": _cache_width, "min": 1, "max": 50, "hint": GraphSettings.PARAM_TOOLTIPS.common.width },
 		{ "name": "height", "type": TYPE_INT, "default": _cache_height, "min": 1, "max": 50, "hint": GraphSettings.PARAM_TOOLTIPS.common.height },
-		
-		# Spacing Controls
 		{ "name": "spacing_x", "type": TYPE_INT, "default": _cache_spacing_x, "min": 10, "max": 500, "step": 10, "hint": "Horizontal distance between nodes." },
 		{ "name": "spacing_y", "type": TYPE_INT, "default": _cache_spacing_y, "min": 10, "max": 500, "step": 10, "hint": "Vertical distance between nodes." },
-		
 		{ "name": "sync_global", "type": TYPE_BOOL, "default": _cache_sync, "hint": "Update editor grid to match." }
-	]
+	])
 	
-	# [NEW] Add the standardized Zone Toggle (if supported)
 	if supports_zones:
 		settings.append(_get_zone_setting_def())
 

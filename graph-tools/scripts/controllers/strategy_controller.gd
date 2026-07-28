@@ -230,11 +230,21 @@ func _on_advanced_toggled(toggled: bool) -> void:
 func _refresh_visibility() -> void:
 	if not _advanced_toggle_btn: return
 	for setting in _current_schema:
-		var key = setting.name
+		var key = setting.get("name", "")
+		if key == "": continue
+		
 		var is_advanced = setting.get("advanced", false)
 		if _active_inputs.has(key):
-			var row = _active_inputs[key].get_parent()
-			if row: row.visible = not is_advanced or _show_advanced
+			var control = _active_inputs[key]
+			var row = control.get_parent()
+			
+			# [CRITICAL FIX] Action buttons don't have row wrappers, 
+			# so their parent is the main settings_container. 
+			# We must NOT hide the main container!
+			if row == settings_container or row == null:
+				control.visible = not is_advanced or _show_advanced
+			else:
+				row.visible = not is_advanced or _show_advanced
 
 func _on_debug_depth_toggled(toggled: bool) -> void:
 	graph_editor.renderer.debug_show_depth = toggled

@@ -5,15 +5,20 @@ func _init() -> void:
 	strategy_name = "Polar Wedges"
 	reset_on_generate = true
 	supports_grow = false
-	supports_zones = true # [NEW] Enable standardized zone support
+	supports_zones = true # Enable standardized zone support
+	# [SEED FIX] Initialize the local RNG
+	rng = RandomNumberGenerator.new()
 
 func get_settings() -> Array[Dictionary]:
-	var settings: Array[Dictionary] = [
+	# [SEED FIX] Inherit the base settings (the Seed Box)
+	var settings: Array[Dictionary] = super.get_settings()
+	
+	settings.append_array([
 		{ "name": "wedges", "type": TYPE_INT, "default": 6, "min": 3, "max": 32, "hint": GraphSettings.PARAM_TOOLTIPS.polar.wedges },
 		{ "name": "radius", "type": TYPE_INT, "default": 8, "min": 2, "max": 50, "hint": GraphSettings.PARAM_TOOLTIPS.polar.radius },
 		{ "name": "use_jitter", "type": TYPE_BOOL, "default": false, "hint": GraphSettings.PARAM_TOOLTIPS.polar.jitter },
 		{ "name": "jitter_amount", "type": TYPE_FLOAT, "default": 10.0, "min": 0.0, "max": 50.0, "hint": GraphSettings.PARAM_TOOLTIPS.polar.amount }
-	]
+	])
 	
 	# Use Standardized Helper
 	if supports_zones:
@@ -24,6 +29,15 @@ func get_settings() -> Array[Dictionary]:
 	return settings
 
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
+	# [SEED FIX] Setup Deterministic State for this run
+	var raw_seed = params.get("strategy_seed", "")
+	if raw_seed != "":
+		my_seed = SeedUtils.hash_seed(raw_seed)
+		rng.seed = my_seed
+	else:
+		rng.randomize() 
+		my_seed = rng.seed
+
 	var wedge_count = int(params.get("wedges", 6))
 	var max_radius_steps = int(params.get("radius", 8))
 	var use_jitter = params.get("use_jitter", false)
@@ -56,7 +70,10 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 				var final_pos = Vector2(local_unit_pos.x * spacing.x, local_unit_pos.y * spacing.y)
 				
 				if jitter_amount > 0:
-					final_pos += Vector2(randf_range(-jitter_amount, jitter_amount), randf_range(-jitter_amount, jitter_amount))
+					# [SEED FIX] Use the deterministic RNG state instead of global randf_range
+					var j_x = rng.randf_range(-jitter_amount, jitter_amount)
+					var j_y = rng.randf_range(-jitter_amount, jitter_amount)
+					final_pos += Vector2(j_x, j_y)
 				
 				var id = "polar:%d:%d:%d" % [w, r, s]
 				

@@ -7,10 +7,15 @@ extends GraphStrategy
 func _init() -> void:
 	strategy_name = "Cellular Automata (Cave)"
 	reset_on_generate = true
-	supports_zones = true # [NEW] Enable zone support
+	supports_zones = true # Enable zone support
+	# [SEED FIX] Initialize the local RNG
+	rng = RandomNumberGenerator.new()
 
 func get_settings() -> Array[Dictionary]:
-	var settings: Array[Dictionary] = [
+	# [SEED FIX] Inherit the base settings (the Seed Box)
+	var settings: Array[Dictionary] = super.get_settings()
+	
+	settings.append_array([
 		{ 
 			"name": "width", 
 			"type": TYPE_INT, 
@@ -39,9 +44,9 @@ func get_settings() -> Array[Dictionary]:
 			"min": 0, "max": 10, 
 			"hint": GraphSettings.PARAM_TOOLTIPS.ca.iter 
 		}
-	]
+	])
 	
-	# [NEW] Add Zone Toggle (Defaulting to TRUE as requested)
+	# Add Zone Toggle (Defaulting to TRUE as requested)
 	if supports_zones:
 		var zone_def = _get_zone_setting_def()
 		zone_def["default"] = true 
@@ -53,14 +58,24 @@ func get_settings() -> Array[Dictionary]:
 # EXECUTION LOGIC
 # ==============================================================================
 func execute(recorder: GraphRecorder, params: Dictionary) -> void:
+	# [SEED FIX] Setup Deterministic State for this run
+	var raw_seed = params.get("strategy_seed", "")
+	if raw_seed != "":
+		my_seed = SeedUtils.hash_seed(raw_seed)
+		rng.seed = my_seed
+	else:
+		rng.randomize() 
+		my_seed = rng.seed
+
 	var w = int(params.get("width", 20))
 	var h = int(params.get("height", 15))
 	var fill = int(params.get("fill_percent", 45)) / 100.0
 	var steps = int(params.get("iterations", 4))
-	var use_zones = bool(params.get("use_zones", true)) # [NEW]
+	var use_zones = bool(params.get("use_zones", true)) 
 	
 	# 1. Initialize Random Grid
-	var grid = _initialize_grid(w, h, fill)
+	# [SEED FIX] Pass the local RNG to the grid initializer
+	var grid = _initialize_grid(w, h, fill, rng)
 	
 	# 2. Simulation Loop
 	for i in steps:
@@ -70,7 +85,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	var final_nodes = []
 	var spacing = GraphSettings.GRID_SPACING
 	
-	# [NEW] Start Zone Context
+	# Start Zone Context
 	if use_zones:
 		recorder.start_zone("Cave System", Color(0.6, 0.4, 0.2, 0.3)) # Brownish tint
 	
@@ -80,7 +95,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 				var id = "ca:%d:%d" % [x, y]
 				var pos = Vector2(x * spacing.x, y * spacing.y)
 				
-				# Add Node (Recorder automatically handles zone registration + 3x3 patch)
+				# Add Node
 				recorder.add_node(id, pos)
 				final_nodes.append(id)
 				
@@ -90,7 +105,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 				if y > 0 and grid[x][y-1]:
 					recorder.add_edge(id, "ca:%d:%d" % [x, y-1])
 
-	# [NEW] End Zone Context
+	# End Zone Context
 	if use_zones:
 		recorder.end_zone()
 
@@ -100,14 +115,15 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 # ==============================================================================
 # INTERNAL SIMULATION HELPERS
 # ==============================================================================
-# (Helpers remain strictly logical, no zone logic needed here)
 
-func _initialize_grid(w: int, h: int, fill_prob: float) -> Array:
+# [SEED FIX] Accept the RNG object to avoid global randomness
+func _initialize_grid(w: int, h: int, fill_prob: float, generator: RandomNumberGenerator) -> Array:
 	var grid = []
 	for x in range(w):
 		var col = []
 		for y in range(h):
-			col.append(randf() < fill_prob)
+			# [SEED FIX] Use local RNG
+			col.append(generator.randf() < fill_prob)
 		grid.append(col)
 	return grid
 

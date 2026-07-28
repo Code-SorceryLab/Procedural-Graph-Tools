@@ -24,17 +24,19 @@ func _init() -> void:
 	strategy_name = "Minimum Spanning Tree"
 	reset_on_generate = false
 	supports_grow = false
+	# [SEED FIX] Initialize base RNG (inherited from GraphStrategy)
+	rng = RandomNumberGenerator.new()
 
 func get_settings() -> Array[Dictionary]:
-	return [
+	# [SEED FIX] Pull the seed box from GraphStrategy first!
+	var settings: Array[Dictionary] = super.get_settings()
+	
+	settings.append_array([
 		{
 			"name": "algorithm",
-			"type": TYPE_BOOL, # Boolean toggle for simplicity
+			"type": TYPE_BOOL, 
 			"default": true,
 			"hint": GraphSettings.PARAM_TOOLTIPS.mst.algo,
-			# We can use a custom hint string to make the checkbox text clearer if using Inspector,
-			# but for your UI builder, a Bool is simplest. 
-			# True = Kruskal, False = Prim
 		},
 		{
 			"name": "search_range",
@@ -50,9 +52,20 @@ func get_settings() -> Array[Dictionary]:
 			"min": 0, "max": 50,
 			"hint": GraphSettings.PARAM_TOOLTIPS.mst.braid
 		}
-	]
+	])
+	
+	return settings
 
 func execute(graph: GraphRecorder, params: Dictionary) -> void:
+	# [SEED FIX] Setup Deterministic State for this run
+	var raw_seed = params.get("strategy_seed", "")
+	if raw_seed != "":
+		my_seed = SeedUtils.hash_seed(raw_seed)
+		rng.seed = my_seed
+	else:
+		rng.randomize() 
+		my_seed = rng.seed
+		
 	var nodes_list = graph.nodes.keys()
 	if nodes_list.is_empty():
 		return 
@@ -61,15 +74,13 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var range_mult = float(params.get("search_range", 2.5))
 	var braid_chance = int(params.get("braid_chance", 0)) / 100.0
 	
-	# [REFACTOR] Calculate Elliptical Radii
-	# We use the separate X and Y spacing to define the ellipse.
+	# Calculate Elliptical Radii
 	var spacing = GraphSettings.GRID_SPACING
 	var radius_vec = spacing * range_mult
 	
 	# ==========================================================================
-	# 1. UNDO-SAFE EDGE CLEARING (Unchanged)
+	# 1. UNDO-SAFE EDGE CLEARING
 	# ==========================================================================
-	# ... (Keep existing Edge Clearing logic) ...
 	var edges_to_remove: Array = []
 	var processed_pairs: Dictionary = {}
 	for u_id in graph.nodes:
@@ -88,16 +99,18 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	# ==========================================================================
 	# 2. ALGORITHM SELECTION
 	# ==========================================================================
-	
 	if use_kruskal:
 		_execute_kruskal(graph, nodes_list, radius_vec, braid_chance, rejected_edges)
 	else:
 		_execute_prim(graph, nodes_list, radius_vec, braid_chance, rejected_edges)
+		
 	# ==========================================================================
 	# 3. BRAIDING (Restore Loops)
 	# ==========================================================================
 	if braid_chance > 0.0 and not rejected_edges.is_empty():
-		rejected_edges.shuffle()
+		# [SEED FIX] Use deterministic shuffle!
+		SeedUtils.shuffle(rejected_edges, rng)
+		
 		var count_to_add = int(rejected_edges.size() * braid_chance)
 		
 		for i in range(count_to_add):
@@ -105,18 +118,13 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 			if not graph.has_edge(edge.u, edge.v):
 				graph.add_edge(edge.u, edge.v)
 
-
 # --- ALGORITHM A: KRUSKAL (Fast, Global) ---
 func _execute_kruskal(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, braid_chance: float, rejected_out: Array) -> void:
-	# A. Collect Edges
 	var potential_edges = []
-	
-	# Optimization: Use the largest dimension for the broad-phase spatial check
 	var max_radius = max(rad_vec.x, rad_vec.y)
 	
 	for u_id in nodes_list:
 		var u_pos = graph.get_node_pos(u_id)
-		# Broad phase: Circle
 		var nearby = graph.get_nodes_near_position(u_pos, max_radius)
 		
 		for v_id in nearby:
@@ -127,20 +135,15 @@ func _execute_kruskal(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2,
 			var dx = abs(u_pos.x - v_pos.x)
 			var dy = abs(u_pos.y - v_pos.y)
 			
-			# [NEW] Narrow phase: Ellipse Check
-			# Formula: (dx/rx)^2 + (dy/ry)^2 <= 1.0
 			var x_term = pow(dx / rad_vec.x, 2)
 			var y_term = pow(dy / rad_vec.y, 2)
 			
 			if (x_term + y_term) <= 1.0:
-				# It is within the ellipse!
 				var dist_sq = u_pos.distance_squared_to(v_pos)
 				potential_edges.append({ "u": u_id, "v": v_id, "dist": dist_sq })
 	
-	# B. Sort Once
 	potential_edges.sort_custom(func(a, b): return a.dist < b.dist)
 	
-	# C. Union-Find
 	var uf = UnionFind.new(nodes_list)
 	var edges_count = 0
 	var max_edges = nodes_list.size() - 1
@@ -168,10 +171,8 @@ func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, br
 	var edges_candidates = []
 	var max_radius = max(rad_vec.x, rad_vec.y)
 	
-	# Helper to add local candidates
 	var add_candidates = func(u_id):
 		var u_pos = graph.get_node_pos(u_id)
-		# Broad phase
 		var nearby = graph.get_nodes_near_position(u_pos, max_radius)
 		
 		for v_id in nearby:
@@ -182,7 +183,6 @@ func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, br
 			var dx = abs(u_pos.x - v_pos.x)
 			var dy = abs(u_pos.y - v_pos.y)
 			
-			# [NEW] Narrow phase: Ellipse Check
 			var x_term = pow(dx / rad_vec.x, 2)
 			var y_term = pow(dy / rad_vec.y, 2)
 			
@@ -192,7 +192,6 @@ func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, br
 
 	add_candidates.call(start_node)
 	
-	# Safety Break for Prim on huge graphs
 	var max_iterations = nodes_list.size() * 5 
 	var iter = 0
 	
@@ -200,10 +199,7 @@ func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, br
 		iter += 1
 		if iter > max_iterations: break
 		
-		# Sorting every loop is the bottleneck!
-		# Use largest distance at start so we can pop_back (cheapest array op)
 		edges_candidates.sort_custom(func(a, b): return a.dist > b.dist)
-		
 		var edge = edges_candidates.pop_back()
 		
 		if visited.has(edge.v):

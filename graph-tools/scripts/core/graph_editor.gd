@@ -704,11 +704,11 @@ func _reset_local_state() -> void:
 	path_start_ids.clear()
 	path_end_ids.clear()
 	selected_agent_ids.clear()
-	selected_edges.clear() # Correctly clear edges too
+	selected_edges.clear()
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
-	renderer.selected_edges_ref = selected_edges # Sync this!
+	renderer.selected_edges_ref = selected_edges
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []

@@ -5,18 +5,32 @@ func _init() -> void:
 	strategy_name = "Analyze Rooms"
 	# Analyzer: Decorator that runs on existing nodes.
 	reset_on_generate = false 
+	# [SEED FIX] Initialize local RNG
+	rng = RandomNumberGenerator.new()
 
 func get_settings() -> Array[Dictionary]:
-	return [
-		{ 
-			"name": "auto_assign_types", 
-			"type": TYPE_BOOL, 
-			"default": true,
-			"hint": GraphSettings.PARAM_TOOLTIPS.analyze.auto
-		}
-	]
+	# [SEED FIX] Inherit the base settings (the Seed Box)
+	var settings: Array[Dictionary] = super.get_settings()
+	
+	settings.append({ 
+		"name": "auto_assign_types", 
+		"type": TYPE_BOOL, 
+		"default": true,
+		"hint": GraphSettings.PARAM_TOOLTIPS.analyze.auto
+	})
+	
+	return settings
 
 func execute(recorder: GraphRecorder, params: Dictionary) -> void:
+	# [SEED FIX] Setup Deterministic State for this run
+	var raw_seed = params.get("strategy_seed", "")
+	if raw_seed != "":
+		my_seed = SeedUtils.hash_seed(raw_seed)
+		rng.seed = my_seed
+	else:
+		rng.randomize() 
+		my_seed = rng.seed
+
 	# 1. Extract Params
 	var auto_types = params.get("auto_assign_types", true)
 	
@@ -24,7 +38,6 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		return
 
 	# 1. FIND SPAWN (Start Node)
-	# Find node closest to 0,0 to serve as the "Root" of the analysis
 	var start_id = _find_closest_to_center(recorder)
 	
 	# 2. CALCULATE DEPTH (BFS)
@@ -48,7 +61,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		if recorder.nodes[current] is NodeData:
 			recorder.nodes[current].depth = current_depth
 		
-		# Get neighbors (Uses GraphRecorder's inherited logic)
+		# Get neighbors 
 		for neighbor in recorder.get_neighbors(current):
 			if not visited.has(neighbor):
 				visited[neighbor] = true
@@ -63,7 +76,6 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		var neighbor_count = recorder.get_neighbors(id).size()
 		
 		# A. Assign Shape (Simulation Only for now)
-		# If you want this to persist/undo, you need a CmdSetShape command.
 		match neighbor_count:
 			0: node.shape = NodeData.RoomShape.CLOSED
 			1: node.shape = NodeData.RoomShape.DEAD_END
@@ -81,13 +93,12 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 			elif id == max_depth_id:
 				new_type = NodeData.RoomType.BOSS
 			elif neighbor_count == 1 and node.depth > 2:
-				# Dead ends far from spawn might be Treasure or Enemy
-				if randf() < 0.3:
+				# [SEED FIX] Use deterministic RNG for room contents
+				if rng.randf() < 0.3:
 					new_type = NodeData.RoomType.TREASURE
 				else:
 					new_type = NodeData.RoomType.ENEMY
 			
-			# Only record command if type actually changes
 			if node.type != new_type:
 				recorder.set_node_type(id, new_type)
 

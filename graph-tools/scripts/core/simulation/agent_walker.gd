@@ -31,6 +31,10 @@ var custom_data: Dictionary = {}
 # The Generic Backpack (Algorithm Specifics)
 var algo_settings: Dictionary = {}
 
+#Local RNG
+var my_seed: int = 0
+var rng: RandomNumberGenerator
+
 # CONSTRAINT & GENERATION STATE
 var use_geometric_fc: bool = false
 var use_zone_constraints: bool = false
@@ -93,6 +97,10 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	my_paint_type = p_type
 	steps = p_steps
 	
+	# Initialize default isolated RNG
+	rng = RandomNumberGenerator.new()
+	my_seed = rng.seed
+	
 	if start_node != "":
 		history.append({ "node": start_node, "step": 0 })
 		
@@ -111,6 +119,9 @@ func reset_state() -> void:
 	history.clear()
 	last_bump_pos = Vector2.INF 
 	
+	# Reset the RNG to its starting state so replay is identical
+	rng.seed = my_seed
+	
 	if start_node_id != "":
 		history.append({ "node": start_node_id, "step": 0 })
 		
@@ -122,6 +133,11 @@ func reset_state() -> void:
 	# Reset Capabilities (if they have state)
 	for cap in capabilities.values():
 		cap.setup(null) 
+
+# Function to set seed deterministically 
+func set_seed(new_seed: int) -> void:
+	my_seed = new_seed
+	rng.seed = my_seed
 
 func validate_state(graph: Graph) -> void:
 	if current_node_id != "" and not graph.nodes.has(current_node_id):
@@ -176,6 +192,8 @@ func serialize() -> Dictionary:
 		"snap_to_grid": snap_to_grid,
 		"algo_settings": algo_settings,
 		"auto_paint": auto_paint,
+		# Seed state
+		"my_seed": my_seed,
 		# Specific Generation Flags
 		"use_geometric_fc": use_geometric_fc,
 		"use_zone_constraints": use_zone_constraints,
@@ -192,6 +210,10 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	var d_steps = int(data.get("steps", 15))
 	
 	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_paint, d_steps)
+	
+	# Restore the exact deterministic seed state
+	if data.has("my_seed"):
+		agent.set_seed(int(data.get("my_seed")))
 	
 	agent.current_node_id = data.get("current_node", "")
 	agent.step_count = int(data.get("step_count", 0))
@@ -219,7 +241,7 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	
 	agent.auto_paint = data.get("auto_paint", false)
 	
-	# Handle legacy conversion (if 'use_forward_checking' existed)
+	# Handle legacy conversion
 	if data.has("use_forward_checking") and data.use_forward_checking:
 		agent.use_geometric_fc = true
 
@@ -401,6 +423,8 @@ static func get_template_settings() -> Array[Dictionary]:
 	var options_string = ",".join(names)
 	
 	return [
+		{ "name": "agent_seed", "label": "Agent Seed", "type": TYPE_STRING, "default": "", 
+		  "hint_text": "Force a specific seed for this individual agent. Overrides the strategy seed." },
 		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR, 
 		  "hint_text": "Determines the agent's primary brain logic and how it interacts with the world.\n- Hold Position: Remains stationary\n- Wander: Randomly traverses edges\n- Grow (Expansion): Builds new nodes into empty space\n- Seek Target: Navigates toward a specific node\n- Maze Generator: Uses DFS to carve structured paths" },
 		  
@@ -442,25 +466,28 @@ func get_agent_settings() -> Array[Dictionary]:
 	
 	# Fill defaults
 	for s in settings:
-		if s.name == "active": s.default = active
-		elif s.name == "steps": s.default = steps
-		elif s.name == "snap_to_grid": s.default = snap_to_grid
-		elif s.name == "global_behavior": s.default = behavior_mode
-		elif s.name == "movement_algo": s.default = movement_algo
-		elif s.name == "target_node": s.default = target_node_id
+		var s_name = s.get("name", "")
 		
-		elif s.name == "auto_paint": s.default = auto_paint
-		elif s.name == "paint_type":
+		if s_name == "agent_seed": s["default"] = str(my_seed) # Show current seed
+		elif s_name == "active": s["default"] = active
+		elif s_name == "steps": s["default"] = steps
+		elif s_name == "snap_to_grid": s["default"] = snap_to_grid
+		elif s_name == "global_behavior": s["default"] = behavior_mode
+		elif s_name == "movement_algo": s["default"] = movement_algo
+		elif s_name == "target_node": s["default"] = target_node_id
+		
+		elif s_name == "auto_paint": s["default"] = auto_paint
+		elif s_name == "paint_type":
 			var ids = GraphSettings.current_names.keys()
 			ids.sort()
 			var idx = ids.find(my_paint_type)
 			if idx != -1: 
-				s.default = idx
+				s["default"] = idx
 			 
-		elif s.name == "use_geometric_fc": s.default = use_geometric_fc
-		elif s.name == "use_zone_constraints": s.default = use_zone_constraints
-		elif s.name == "branching_prob": s.default = branching_probability
-		elif s.name == "destructive_backtrack": s.default = destructive_backtrack
+		elif s_name == "use_geometric_fc": s["default"] = use_geometric_fc
+		elif s_name == "use_zone_constraints": s["default"] = use_zone_constraints
+		elif s_name == "branching_prob": s["default"] = branching_probability
+		elif s_name == "destructive_backtrack": s["default"] = destructive_backtrack
 			
 	# Stats & Actions
 	settings.append({ "name": "stat_steps", "label": "Steps Taken", "type": TYPE_STRING, "default": "%d / %d" % [step_count, steps], "hint": "read_only" })
@@ -473,6 +500,9 @@ func get_agent_settings() -> Array[Dictionary]:
 func apply_setting(key: String, value: Variant) -> void:
 	var brain_dirty = false
 	match key:
+		"agent_seed":
+			if str(value) != "":
+				set_seed(SeedUtils.hash_seed(str(value)))
 		"global_behavior": 
 			behavior_mode = value
 			brain_dirty = true

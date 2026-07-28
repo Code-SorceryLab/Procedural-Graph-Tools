@@ -42,7 +42,8 @@ class Wander extends AgentBehavior:
 
 		# --- 2. PICK A TARGET ---
 		if neighbors.is_empty(): return
-		var target_id = neighbors.pick_random()
+		# [SEED FIX]
+		var target_id = SeedUtils.pick_random(neighbors, agent.rng)
 		
 		# --- 3. EXECUTE MOVE (With Bump Detection) ---
 		if AgentNavigator.can_enter_node(graph, target_id):
@@ -58,27 +59,25 @@ class Wander extends AgentBehavior:
 			# Invalid Move -> Record Bump
 			var target_pos = graph.get_node_pos(target_id)
 			agent.last_bump_pos = target_pos
-			# print("BUMP! Agent %s hit wall at %s" % [agent.display_id, target_pos])
 
 	# --- Internal Logic ---
 	func _pick_next_node(agent: AgentWalker, graph: Graph) -> String:
-		# Note: 'branch_randomly' was replaced by 'branching_probability' in AgentWalker.
-		# Updating it here so it doesn't crash if you ever call this function.
-		if agent.branching_probability > 0.0 and randf() < agent.branching_probability and not _session_path.is_empty():
-			var candidate = _session_path.pick_random()
+		# [SEED FIX]
+		if agent.branching_probability > 0.0 and agent.rng.randf() < agent.branching_probability and not _session_path.is_empty():
+			var candidate = SeedUtils.pick_random(_session_path, agent.rng)
 			if not graph.get_neighbors(candidate).is_empty():
 				return candidate
 				
 		var neighbors = graph.get_neighbors(agent.current_node_id)
 		if not neighbors.is_empty():
-			return neighbors.pick_random()
+			return SeedUtils.pick_random(neighbors, agent.rng)
 			
 		if not _session_path.is_empty():
-			return _session_path.pick_random()
+			return SeedUtils.pick_random(_session_path, agent.rng)
 			
 		var all_nodes = graph.nodes.keys()
 		if not all_nodes.is_empty():
-			return all_nodes.pick_random()
+			return SeedUtils.pick_random(all_nodes, agent.rng)
 			
 		return ""
 
@@ -92,40 +91,29 @@ class Seek extends AgentBehavior:
 		_algo_override = algo_idx
 		
 	func enter(agent: AgentWalker, _graph: Graph) -> void:
-		# If an override was provided, force it. Otherwise keep agent's setting.
 		if _algo_override != -1:
 			agent.movement_algo = _algo_override
 
 	func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		var target = agent.target_node_id
-		
-		# 1. Check Victory
 		if target == "" or target == agent.current_node_id:
 			agent.is_finished = true
 			return
 
-		# 2. Get Next Step
 		var next_node = agent.get_next_move_step(graph)
-		
 		if next_node == "":
-			return # No path found
+			return 
 
-		# 3. SAFETY CHECK (Constraint Logic)
 		if AgentNavigator.can_enter_node(graph, next_node):
-			# A. SUCCESS -> Use Capability
 			var motor = agent.get_capability("Motor") as CapMotor
 			if motor:
 				motor.move_to_node(next_node, graph)
 			else:
 				agent.move_to_node(next_node, graph)
-				
 			agent.commit_move(next_node)
 		else:
-			# B. FAILURE (Blocked)
 			agent._current_path_cache.clear()
-			
 			if agent.use_geometric_fc:
-				pass # SMART MODE: Wait
+				pass 
 			else:
-				# DUMB MODE: Bump
 				agent.last_bump_pos = graph.get_node_pos(next_node)
