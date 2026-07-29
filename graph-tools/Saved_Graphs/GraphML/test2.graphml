@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<!-- Node Core Properties -->
+	<key id="x" for="node" attr.name="x" attr.type="double"/>
+	<key id="y" for="node" attr.name="y" attr.type="double"/>
+	<key id="type" for="node" attr.name="type" attr.type="int"/>
+	<key id="shape" for="node" attr.name="shape" attr.type="int"/>
+	<!-- Edge Properties -->
+	<key id="weight" for="edge" attr.name="weight" attr.type="double"/>
+
+	<graph id="G" edgedefault="undirected">
+		<node id="man:1">
+			<data key="x">-240.000000</data>
+			<data key="y">-120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:2">
+			<data key="x">-180.000000</data>
+			<data key="y">-120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:3">
+			<data key="x">-120.000000</data>
+			<data key="y">-120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:4">
+			<data key="x">-180.000000</data>
+			<data key="y">-180.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:5">
+			<data key="x">-60.000000</data>
+			<data key="y">-180.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<edge id="e0" source="man:1" target="man:2">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e1" source="man:2" target="man:3">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e2" source="man:2" target="man:4">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e3" source="man:3" target="man:5">
+			<data key="weight">0.000000</data>
+		</edge>
+	</graph>
+</graphml>
