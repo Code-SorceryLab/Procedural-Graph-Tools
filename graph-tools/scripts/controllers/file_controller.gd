@@ -8,6 +8,7 @@ class_name FileController
 @export_group("UI File Tab")
 @export var save_btn: Button
 @export var load_btn: Button
+@export var export_btn: Button # [UPDATED] Unified Export Button
 @export var file_status: Label
 @export var file_dialog: FileDialog
 
@@ -20,7 +21,7 @@ var _is_saving: bool = true
 var _is_dirty: bool = false
 var _pending_action: Callable # Stores the function we paused
 
-# NEW: Track the current file for Quick Save (Ctrl+S)
+# Track the current file for Quick Save (Ctrl+S)
 var _current_path: String = ""
 
 func _ready() -> void:
@@ -28,8 +29,10 @@ func _ready() -> void:
 	load_btn.pressed.connect(_on_load_button_pressed)
 	settings_btn.pressed.connect(_on_settings_button_pressed)
 	
+	if export_btn:
+		export_btn.pressed.connect(_on_export_button_pressed)
+	
 	file_dialog.file_selected.connect(_on_file_selected)
-	file_dialog.filters = ["*.json ; Dungeon Layout"]
 	
 	# Connect the Gatekeeper
 	confirm_discard.confirmed.connect(_on_discard_confirmed)
@@ -37,7 +40,7 @@ func _ready() -> void:
 	# Listen for changes
 	graph_editor.graph_modified.connect(_on_graph_modified)
 	
-	# NEW: Listen for Ctrl+S from Editor
+	# Listen for Ctrl+S from Editor
 	# We discard the graph argument since we have access to it via the export var
 	graph_editor.request_save_graph.connect(func(_g): _on_quick_save_requested())
 	
@@ -87,9 +90,10 @@ func _on_save_button_pressed() -> void:
 	_is_saving = true
 	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	file_dialog.title = "Save Dungeon Layout"
+	file_dialog.filters = ["*.json ; Dungeon Layout"]
 	file_dialog.popup_centered()
 
-# NEW: Quick Save Handler (Ctrl+S)
+# Quick Save Handler (Ctrl+S)
 func _on_quick_save_requested() -> void:
 	if _current_path != "":
 		# We know the file, save directly!
@@ -107,11 +111,41 @@ func _open_load_dialog() -> void:
 	_is_saving = false
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.title = "Load Dungeon Layout"
+	file_dialog.filters = ["*.json ; Dungeon Layout"]
 	file_dialog.popup_centered()
+
+func _on_export_button_pressed() -> void:
+	_is_saving = true
+	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	file_dialog.title = "Export Graph"
+	# [NEW] This creates the dropdown menu automatically in the FileDialog!
+	file_dialog.filters = [
+		"*.json ; JSON Data", 
+		"*.graphml ; GraphML Network", 
+		"*.gexf ; GEXF Network"
+	]
+	file_dialog.popup_centered()
+
+func _on_settings_button_pressed() -> void:
+	settings_window.show_settings()
+
 
 # --- FILE OPERATIONS ---
 
 func _on_file_selected(path: String) -> void:
+	# 1. Handle Unified Export
+	if file_dialog.title == "Export Graph":
+		if path.ends_with(".graphml"):
+			_export_formatted_file(path, GraphSerializer.export_graphml(graph_editor.graph))
+		elif path.ends_with(".gexf"):
+			# [UPDATED] Now calls the GEXF serializer!
+			_export_formatted_file(path, GraphSerializer.export_gexf(graph_editor.graph))
+		return
+
+	# 2. Handle Standard JSON Save/Load (Ignore Analysis Controller)
+	if file_dialog.title != "Save Dungeon Layout" and file_dialog.title != "Load Dungeon Layout":
+		return
+		
 	if _is_saving and not path.ends_with(".json"):
 		path += ".json"
 		
@@ -119,6 +153,18 @@ func _on_file_selected(path: String) -> void:
 		_save_graph(path)
 	else:
 		_load_graph(path)
+
+func _export_formatted_file(path: String, string_data: String) -> void:
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if file:
+		file.store_string(string_data)
+		file.close()
+		
+		file_status.text = "Exported: " + path.get_file()
+		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
+	else:
+		file_status.text = "Error exporting file!"
+		file_status.modulate = GraphSettings.COLOR_UI_ERROR
 
 func _save_graph(path: String) -> void:
 	var json_str = GraphSerializer.serialize(graph_editor.graph)
@@ -158,6 +204,3 @@ func _load_graph(path: String) -> void:
 	else:
 		file_status.text = "Error parsing JSON!"
 		file_status.modulate = GraphSettings.COLOR_UI_ERROR
-
-func _on_settings_button_pressed() -> void:
-	settings_window.show_settings()

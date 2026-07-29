@@ -197,3 +197,162 @@ static func generate_uuid() -> String:
 		else:
 			uuid += chars[randi() % 16]
 	return uuid
+
+
+# --- GRAPHML EXPORT ---
+static func export_graphml(graph: Graph) -> String:
+	var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+	xml += "<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\"\n"
+	xml += "         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+	xml += "         xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns\n"
+	xml += "         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">\n"
+
+	# 1. Define Hardcoded Core Keys
+	xml += "\t<!-- Node Core Properties -->\n"
+	xml += "\t<key id=\"x\" for=\"node\" attr.name=\"x\" attr.type=\"double\"/>\n"
+	xml += "\t<key id=\"y\" for=\"node\" attr.name=\"y\" attr.type=\"double\"/>\n"
+	xml += "\t<key id=\"type\" for=\"node\" attr.name=\"type\" attr.type=\"int\"/>\n"
+	xml += "\t<key id=\"shape\" for=\"node\" attr.name=\"shape\" attr.type=\"int\"/>\n"
+
+	# 2. Dynamically Discover Semantic Keys (Custom Data)
+	var custom_keys = {}
+	for id in graph.nodes:
+		var node = graph.nodes[id] as NodeData
+		for c_key in node.custom_data:
+			var val = node.custom_data[c_key]
+			if not custom_keys.has(c_key):
+				# Map GDScript variants to GraphML accepted types
+				var attr_type = "string"
+				if val is int: attr_type = "int"
+				elif val is float: attr_type = "double"
+				elif val is bool: attr_type = "boolean"
+				
+				custom_keys[c_key] = attr_type
+				xml += "\t<key id=\"%s\" for=\"node\" attr.name=\"%s\" attr.type=\"%s\"/>\n" % [c_key, c_key, attr_type]
+
+	xml += "\t<!-- Edge Properties -->\n"
+	xml += "\t<key id=\"weight\" for=\"edge\" attr.name=\"weight\" attr.type=\"double\"/>\n"
+
+	# 3. Open the Graph definition (Undirected by default)
+	xml += "\n\t<graph id=\"G\" edgedefault=\"undirected\">\n"
+
+	# 4. Write Nodes
+	for id in graph.nodes:
+		var node = graph.nodes[id] as NodeData
+		xml += "\t\t<node id=\"%s\">\n" % id
+		xml += "\t\t\t<data key=\"x\">%f</data>\n" % node.position.x
+		xml += "\t\t\t<data key=\"y\">%f</data>\n" % node.position.y
+		xml += "\t\t\t<data key=\"type\">%d</data>\n" % node.type
+		xml += "\t\t\t<data key=\"shape\">%d</data>\n" % node.shape
+
+		# Append any custom semantic tags (depth, temp, etc.)
+		for c_key in node.custom_data:
+			var val_str = str(node.custom_data[c_key]).xml_escape()
+			xml += "\t\t\t<data key=\"%s\">%s</data>\n" % [c_key, val_str]
+
+		xml += "\t\t</node>\n"
+
+	# 5. Write Edges (Deduplicated)
+	var processed_pairs = {}
+	var edge_id_counter = 0
+
+	for a in graph.edge_data:
+		for b in graph.edge_data[a]:
+			var pair = [a, b]
+			pair.sort()
+			
+			if not processed_pairs.has(pair):
+				processed_pairs[pair] = true
+				var weight = graph.edge_data[a][b]
+				
+				# Safely cast the variant to a float via string conversion
+				var safe_weight = str(weight).to_float()
+				
+				xml += "\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\">\n" % [edge_id_counter, a, b]
+				xml += "\t\t\t<data key=\"weight\">%f</data>\n" % safe_weight
+				xml += "\t\t</edge>\n"
+				
+				edge_id_counter += 1
+
+	xml += "\t</graph>\n"
+	xml += "</graphml>\n"
+
+	return xml
+
+# --- GEXF EXPORT ---
+static func export_gexf(graph: Graph) -> String:
+	var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+	xml += "<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n"
+	xml += "\t<meta>\n\t\t<creator>GraphTools</creator>\n\t\t<description>Procedural Dungeon Graph</description>\n\t</meta>\n"
+	
+	# Open Graph (Undirected)
+	xml += "\t<graph defaultedgetype=\"undirected\">\n"
+
+	# 1. Define Core Attributes
+	xml += "\t\t<attributes class=\"node\">\n"
+	xml += "\t\t\t<attribute id=\"x\" title=\"x\" type=\"float\"/>\n"
+	xml += "\t\t\t<attribute id=\"y\" title=\"y\" type=\"float\"/>\n"
+	xml += "\t\t\t<attribute id=\"type\" title=\"type\" type=\"integer\"/>\n"
+	xml += "\t\t\t<attribute id=\"shape\" title=\"shape\" type=\"integer\"/>\n"
+
+	# 2. Dynamically Discover Semantic Keys (Custom Data)
+	var custom_keys = {}
+	for id in graph.nodes:
+		var node = graph.nodes[id] as NodeData
+		for c_key in node.custom_data:
+			var val = node.custom_data[c_key]
+			if not custom_keys.has(c_key):
+				# Map GDScript variants to GEXF accepted types
+				var attr_type = "string"
+				if val is int: attr_type = "integer"
+				elif val is float: attr_type = "float"
+				elif val is bool: attr_type = "boolean"
+				
+				custom_keys[c_key] = attr_type
+				xml += "\t\t\t<attribute id=\"%s\" title=\"%s\" type=\"%s\"/>\n" % [c_key, c_key, attr_type]
+	xml += "\t\t</attributes>\n"
+
+	# 3. Write Nodes
+	xml += "\t\t<nodes>\n"
+	for id in graph.nodes:
+		var node = graph.nodes[id] as NodeData
+		xml += "\t\t\t<node id=\"%s\" label=\"%s\">\n" % [id, id]
+		xml += "\t\t\t\t<attvalues>\n"
+		
+		# Core Data
+		xml += "\t\t\t\t\t<attvalue for=\"x\" value=\"%f\"/>\n" % node.position.x
+		xml += "\t\t\t\t\t<attvalue for=\"y\" value=\"%f\"/>\n" % node.position.y
+		xml += "\t\t\t\t\t<attvalue for=\"type\" value=\"%d\"/>\n" % node.type
+		xml += "\t\t\t\t\t<attvalue for=\"shape\" value=\"%d\"/>\n" % node.shape
+
+		# Custom Data
+		for c_key in node.custom_data:
+			var val_str = str(node.custom_data[c_key]).xml_escape()
+			xml += "\t\t\t\t\t<attvalue for=\"%s\" value=\"%s\"/>\n" % [c_key, val_str]
+			
+		xml += "\t\t\t\t</attvalues>\n"
+		xml += "\t\t\t</node>\n"
+	xml += "\t\t</nodes>\n"
+
+	# 4. Write Edges
+	xml += "\t\t<edges>\n"
+	var processed_pairs = {}
+	var edge_id_counter = 0
+
+	for a in graph.edge_data:
+		for b in graph.edge_data[a]:
+			var pair = [a, b]
+			pair.sort()
+			
+			if not processed_pairs.has(pair):
+				processed_pairs[pair] = true
+				var weight = str(graph.edge_data[a][b]).to_float()
+				
+				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, a, b, weight]
+				edge_id_counter += 1
+	xml += "\t\t</edges>\n"
+
+	xml += "\t</graph>\n"
+	xml += "</gexf>\n"
+
+	return xml

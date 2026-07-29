@@ -1,0 +1,45 @@
+{
+	"agents": {
+		"average_steps": 45.0,
+		"completion_rate_percent": 0.0,
+		"total_aggregate_steps": 45,
+		"total_completed": 0,
+		"total_spawned": 1
+	},
+	"spatial": {
+		"avg_nodes_per_cell": 1.31,
+		"bounds": {
+			"area": 324000.0,
+			"height": 600.0,
+			"width": 540.0,
+			"x": -300.0,
+			"y": -360.0
+		},
+		"total_cells_used": 45
+	},
+	"timestamp": "2026-07-29T18:46:40",
+	"topological": {
+		"articulation_points": 12,
+		"average_betweenness": 42.83,
+		"bridges": 18,
+		"connected_components": 1,
+		"cyclomatic_complexity": 2,
+		"density": 0.0906,
+		"edge_count": 25,
+		"graph_degeneracy": 2,
+		"hub_node_id": "walk:1:7",
+		"max_betweenness": 154.0,
+		"max_core_size": 6,
+		"node_count": 24,
+		"shapes": {
+			"corridors": 6,
+			"dead_ends": 9,
+			"disconnected": 0,
+			"intersections": 9
+		}
+	},
+	"zones": {
+		"aggregate_area_size": 0,
+		"total_zones": 0
+	}
+}

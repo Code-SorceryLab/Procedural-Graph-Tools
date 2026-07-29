@@ -58,8 +58,9 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 			max_depth_id = current
 		
 		# Write Depth to Simulation Node (safe, but transient)
-		if recorder.nodes[current] is NodeData:
-			recorder.nodes[current].depth = current_depth
+		var current_node = recorder.nodes[current] as NodeData
+		if current_node:
+			current_node.set_data("depth", current_depth)
 		
 		# Get neighbors 
 		for neighbor in recorder.get_neighbors(current):
@@ -92,7 +93,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 				new_type = NodeData.RoomType.SPAWN
 			elif id == max_depth_id:
 				new_type = NodeData.RoomType.BOSS
-			elif neighbor_count == 1 and node.depth > 2:
+			elif neighbor_count == 1 and node.get_data("depth", 0) > 2:
 				# [SEED FIX] Use deterministic RNG for room contents
 				if rng.randf() < 0.3:
 					new_type = NodeData.RoomType.TREASURE

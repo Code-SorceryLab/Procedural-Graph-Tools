@@ -26,6 +26,13 @@ const METRIC_TOOLTIPS: Dictionary = {
 	"dead_ends": "Nodes with exactly 1 connection (Terminal points).",
 	"corridors": "Nodes with exactly 2 connections (Pathways).",
 	"intersections": "Nodes with 3 or more connections (Branching points).",
+	"articulation_points": "Nodes that, if removed, would split the graph into separate disconnected islands (Critical Chokepoints).",
+	"bridges": "Edges that, if removed, would split the graph into separate disconnected islands (Critical Pathways).",
+	"max_betweenness": "The centrality score of the most heavily trafficked node. High scores indicate a central thoroughfare that connects many branches.",
+	"average_betweenness": "The mean centrality across all nodes. Indicates how distributed the routing is across the entire graph.",
+	"hub_node_id": "The exact unique identifier of the node with the highest Betweenness Centrality.",
+	"graph_degeneracy": "The maximum k-core of the graph. A high number indicates the presence of a densely tangled central arena.",
+	"max_core_size": "The number of nodes that belong to the graph's densest tangled region.",
 	
 	# Spatial
 	"total_cells_used": "Number of internal spatial grid cells containing at least one node.",
@@ -57,9 +64,6 @@ func _ready() -> void:
 		btn_copy.disabled = true
 		
 	if file_dialog:
-		var conns = file_dialog.file_selected.get_connections()
-		for c in conns:
-			file_dialog.file_selected.disconnect(c.callable)
 		file_dialog.file_selected.connect(_on_file_selected)
 		
 	if results_label:

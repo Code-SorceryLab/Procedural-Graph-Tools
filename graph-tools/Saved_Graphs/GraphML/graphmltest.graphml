@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+	<!-- Node Core Properties -->
+	<key id="x" for="node" attr.name="x" attr.type="double"/>
+	<key id="y" for="node" attr.name="y" attr.type="double"/>
+	<key id="type" for="node" attr.name="type" attr.type="int"/>
+	<key id="shape" for="node" attr.name="shape" attr.type="int"/>
+	<!-- Edge Properties -->
+	<key id="weight" for="edge" attr.name="weight" attr.type="double"/>
+
+	<graph id="G" edgedefault="undirected">
+		<node id="start_0">
+			<data key="x">0.000000</data>
+			<data key="y">0.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:1">
+			<data key="x">0.000000</data>
+			<data key="y">60.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:2">
+			<data key="x">-60.000000</data>
+			<data key="y">60.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:7">
+			<data key="x">-60.000000</data>
+			<data key="y">120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:8">
+			<data key="x">0.000000</data>
+			<data key="y">120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:11">
+			<data key="x">-60.000000</data>
+			<data key="y">0.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:12">
+			<data key="x">-60.000000</data>
+			<data key="y">-60.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="walk:1:13">
+			<data key="x">0.000000</data>
+			<data key="y">-60.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<edge id="e0" source="start_0" target="walk:1:1">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e1" source="walk:1:1" target="walk:1:2">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e2" source="walk:1:1" target="walk:1:8">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e3" source="walk:1:2" target="walk:1:7">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e4" source="walk:1:2" target="walk:1:11">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e5" source="walk:1:7" target="walk:1:8">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e6" source="walk:1:11" target="walk:1:12">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e7" source="walk:1:12" target="walk:1:13">
+			<data key="weight">0.000000</data>
+		</edge>
+	</graph>
+</graphml>
