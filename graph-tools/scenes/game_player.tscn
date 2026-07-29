@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=15 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://s11r05dgvvj7" path="res://scripts/controllers/inspector_controller.gd" id="5_5u163"]
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 [ext_resource type="Script" uid="uid://c2ghhkic1gnd6" path="res://scripts/controllers/zone_controller.gd" id="5_xsqam"]
+[ext_resource type="Script" uid="uid://bvtixxql5yrki" path="res://scripts/controllers/analysis_controller.gd" id="6_20qpb"]
 [ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/property_wizard.tscn" id="6_gea6l"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
@@ -56,6 +57,15 @@ graph_editor = NodePath("../GraphEditor")
 zone_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/ScrollContainer/ZoneList")
 btn_add_zone = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/BtnAddZone")
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/LblStats")
+
+[node name="AnalysisController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_calculate", "btn_export", "btn_copy", "results_label", "file_dialog")]
+script = ExtResource("6_20qpb")
+graph_editor = NodePath("../GraphEditor")
+btn_calculate = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/CalculateBtn")
+btn_export = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/ExportBtn")
+btn_copy = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/CopyBtn")
+results_label = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/MarginContainer/ResultsRTL")
+file_dialog = NodePath("../UI/FileDialog")
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
 script = ExtResource("5_5u163")
@@ -376,10 +386,40 @@ layout_mode = 2
 size_flags_vertical = 3
 text = "Stats: "
 
-[node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+[node name="Analysis" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 4
+
+[node name="CalculateBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
+layout_mode = 2
+text = "Calculate"
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ResultsRTL" type="RichTextLabel" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+
+[node name="CopyBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
+layout_mode = 2
+text = "Copy to Clipboard"
+
+[node name="ExportBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
+layout_mode = 2
+text = "Export"
+
+[node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 5
 
 [node name="LblNoSelection" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector"]
 modulate = Color(1, 1, 1, 0.5)

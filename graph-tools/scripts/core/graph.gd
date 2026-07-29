@@ -50,11 +50,24 @@ func remove_node(id: String) -> void:
 	if _spatial_grid != null:
 		_spatial_grid.remove_node(id)
 	
-	# 2. Clean Edges
+	# 2. Clean Edges (Legacy Adjacency)
 	for other_id: String in nodes:
 		var other_node: NodeData = nodes[other_id]
 		if other_node.connections.has(id):
 			other_node.connections.erase(id)
+			
+	# Clean Rich Edge Data (Phantom Edge Prevention)
+	# A. Delete all outgoing edges originating from this node
+	if edge_data.has(id):
+		edge_data.erase(id)
+		
+	# B. Delete all incoming edges pointing to this node from other nodes
+	for other_id in edge_data:
+		if edge_data[other_id].has(id):
+			edge_data[other_id].erase(id)
+			# Clean up empty sub-dictionaries to prevent key bloat
+			if edge_data[other_id].is_empty():
+				edge_data.erase(other_id)
 			
 	# 3. Clean Zones
 	for zone in zones:
@@ -62,19 +75,10 @@ func remove_node(id: String) -> void:
 			zone.unregister_node(id)
 
 	# 4. Clean Agents (The Ghost Fix)
-	# If we don't do this, agents float in the void at the deleted position.
-	# We iterate backwards to safely remove while looping.
 	for i in range(agents.size() - 1, -1, -1):
 		var agent = agents[i]
 		if agent.current_node_id == id:
-			# Option A: Kill them
 			agents.remove_at(i)
-			
-			# Option B: Warp them to start (Safer)
-			# agent.reset_state()
-			
-			# Option C: Just clear their node ref (Floating)
-			# agent.current_node_id = "" 
 	
 	# 5. Delete Node
 	nodes.erase(id)
@@ -481,7 +485,7 @@ func clear() -> void:
 	# Clear visual/logical zones
 	zones.clear()
 	
-	# [NEW] Clear Agents
+	# Clear Agents
 	agents.clear()
 	
 	if _spatial_grid != null:

@@ -6,6 +6,7 @@ var _grid: Dictionary = {}  # Dictionary[Vector2i, Array[String]]
 var _cell_size: float
 var _node_to_cells: Dictionary = {}  # node_id -> Array[Vector2i] (cells the node occupies)
 var _bounds: Rect2 = Rect2()
+var _bounds_initialized: bool = false
 
 func _init(cell_size: float) -> void:
 	_cell_size = max(cell_size, 1.0)
@@ -122,9 +123,11 @@ func clear() -> void:
 	_grid.clear()
 	_node_to_cells.clear()
 	_bounds = Rect2()
+	_bounds_initialized = false
 
 func _update_bounds(position: Vector2) -> void:
-	if !_bounds.has_area():
+	if not _bounds_initialized:
 		_bounds = Rect2(position, Vector2.ZERO)
+		_bounds_initialized = true
 	else:
 		_bounds = _bounds.expand(position)
