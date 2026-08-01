@@ -25,7 +25,8 @@ static func serialize(graph: Graph) -> String:
 			"id": id,
 			"x": node_obj.position.x,
 			"y": node_obj.position.y,
-			"type": node_obj.type 
+			"type": node_obj.type,
+			"shape": node_obj.shape
 		}
 		
 		if "custom_data" in node_obj:
@@ -47,7 +48,13 @@ static func serialize(graph: Graph) -> String:
 			
 			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
 				var data_ba = graph.edge_data[id_b][id_a]
-				if data_ab.hash() == data_ba.hash():
+				
+				# [FIX] Check if data is an object/dictionary before calling .hash(), 
+				# otherwise compare values directly if they are primitives (floats/ints/strings)
+				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
+					if data_ab.hash() == data_ba.hash():
+						is_bidir = true
+				elif data_ab == data_ba:
 					is_bidir = true
 			
 			if is_bidir:
@@ -221,7 +228,6 @@ static func export_graphml(graph: Graph) -> String:
 		for c_key in node.custom_data:
 			var val = node.custom_data[c_key]
 			if not custom_keys.has(c_key):
-				# Map GDScript variants to GraphML accepted types
 				var attr_type = "string"
 				if val is int: attr_type = "int"
 				elif val is float: attr_type = "double"
@@ -233,8 +239,8 @@ static func export_graphml(graph: Graph) -> String:
 	xml += "\t<!-- Edge Properties -->\n"
 	xml += "\t<key id=\"weight\" for=\"edge\" attr.name=\"weight\" attr.type=\"double\"/>\n"
 
-	# 3. Open the Graph definition (Undirected by default)
-	xml += "\n\t<graph id=\"G\" edgedefault=\"undirected\">\n"
+	# 3. Open the Graph definition (Now defaults to DIRECTED)
+	xml += "\n\t<graph id=\"G\" edgedefault=\"directed\">\n"
 
 	# 4. Write Nodes
 	for id in graph.nodes:
@@ -245,34 +251,51 @@ static func export_graphml(graph: Graph) -> String:
 		xml += "\t\t\t<data key=\"type\">%d</data>\n" % node.type
 		xml += "\t\t\t<data key=\"shape\">%d</data>\n" % node.shape
 
-		# Append any custom semantic tags (depth, temp, etc.)
 		for c_key in node.custom_data:
 			var val_str = str(node.custom_data[c_key]).xml_escape()
 			xml += "\t\t\t<data key=\"%s\">%s</data>\n" % [c_key, val_str]
 
 		xml += "\t\t</node>\n"
 
-	# 5. Write Edges (Deduplicated)
+	# 5. Write Edges (With Directionality Checking)
 	var processed_pairs = {}
 	var edge_id_counter = 0
 
-	for a in graph.edge_data:
-		for b in graph.edge_data[a]:
-			var pair = [a, b]
-			pair.sort()
+	for id_a in graph.edge_data:
+		for id_b in graph.edge_data[id_a]:
+			var pair_key = [id_a, id_b]
+			pair_key.sort()
 			
-			if not processed_pairs.has(pair):
-				processed_pairs[pair] = true
-				var weight = graph.edge_data[a][b]
+			var data_ab = graph.edge_data[id_a][id_b]
+			var is_bidir = false
+			
+			# Check if the exact same edge exists in reverse
+			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
+				var data_ba = graph.edge_data[id_b][id_a]
+				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
+					if data_ab.hash() == data_ba.hash(): is_bidir = true
+				elif data_ab == data_ba:
+					is_bidir = true
+					
+			if is_bidir:
+				# Skip if we already wrote the undirected version of this pair
+				if processed_pairs.has(pair_key): continue
+				processed_pairs[pair_key] = true
 				
-				# Safely cast the variant to a float via string conversion
-				var safe_weight = str(weight).to_float()
+			var safe_weight = 1.0
+			if typeof(data_ab) == TYPE_DICTIONARY:
+				safe_weight = str(data_ab.get("weight", 1.0)).to_float()
+			else:
+				safe_weight = str(data_ab).to_float()
 				
-				xml += "\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\">\n" % [edge_id_counter, a, b]
-				xml += "\t\t\t<data key=\"weight\">%f</data>\n" % safe_weight
-				xml += "\t\t</edge>\n"
-				
-				edge_id_counter += 1
+			# Map to XML attributes
+			var dir_str = "false" if is_bidir else "true"
+			
+			xml += "\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" directed=\"%s\">\n" % [edge_id_counter, id_a, id_b, dir_str]
+			xml += "\t\t\t<data key=\"weight\">%f</data>\n" % safe_weight
+			xml += "\t\t</edge>\n"
+			
+			edge_id_counter += 1
 
 	xml += "\t</graph>\n"
 	xml += "</graphml>\n"
@@ -285,24 +308,42 @@ static func export_gexf(graph: Graph) -> String:
 	xml += "<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n"
 	xml += "\t<meta>\n\t\t<creator>GraphTools</creator>\n\t\t<description>Procedural Dungeon Graph</description>\n\t</meta>\n"
 	
-	# Open Graph (Undirected)
-	xml += "\t<graph defaultedgetype=\"undirected\">\n"
+	# 1. Pre-scan to determine Global Directionality
+	var has_unidirectional = false
+	for id_a in graph.edge_data:
+		for id_b in graph.edge_data[id_a]:
+			var is_bidir = false
+			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
+				var data_ab = graph.edge_data[id_a][id_b]
+				var data_ba = graph.edge_data[id_b][id_a]
+				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
+					if data_ab.hash() == data_ba.hash(): is_bidir = true
+				elif data_ab == data_ba:
+					is_bidir = true
+					
+			if not is_bidir:
+				has_unidirectional = true
+				break
+		if has_unidirectional: break
 
-	# 1. Define Core Attributes
+	# Open Graph dynamically based on our pre-scan
+	var e_default = "directed" if has_unidirectional else "undirected"
+	xml += "\t<graph defaultedgetype=\"%s\">\n" % e_default
+
+	# 2. Define Core Attributes
 	xml += "\t\t<attributes class=\"node\">\n"
 	xml += "\t\t\t<attribute id=\"x\" title=\"x\" type=\"float\"/>\n"
 	xml += "\t\t\t<attribute id=\"y\" title=\"y\" type=\"float\"/>\n"
 	xml += "\t\t\t<attribute id=\"type\" title=\"type\" type=\"integer\"/>\n"
 	xml += "\t\t\t<attribute id=\"shape\" title=\"shape\" type=\"integer\"/>\n"
 
-	# 2. Dynamically Discover Semantic Keys (Custom Data)
+	# Dynamically Discover Semantic Keys (Custom Data)
 	var custom_keys = {}
 	for id in graph.nodes:
 		var node = graph.nodes[id] as NodeData
 		for c_key in node.custom_data:
 			var val = node.custom_data[c_key]
 			if not custom_keys.has(c_key):
-				# Map GDScript variants to GEXF accepted types
 				var attr_type = "string"
 				if val is int: attr_type = "integer"
 				elif val is float: attr_type = "float"
@@ -339,20 +380,259 @@ static func export_gexf(graph: Graph) -> String:
 	var processed_pairs = {}
 	var edge_id_counter = 0
 
-	for a in graph.edge_data:
-		for b in graph.edge_data[a]:
-			var pair = [a, b]
-			pair.sort()
-			
-			if not processed_pairs.has(pair):
-				processed_pairs[pair] = true
-				var weight = str(graph.edge_data[a][b]).to_float()
-				
-				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, a, b, weight]
-				edge_id_counter += 1
-	xml += "\t\t</edges>\n"
+	for id_a in graph.edge_data:
+		for id_b in graph.edge_data[id_a]:
+			var pair_key = [id_a, id_b]
+			pair_key.sort()
 
+			var data_ab = graph.edge_data[id_a][id_b]
+			var is_bidir = false
+
+			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
+				var data_ba = graph.edge_data[id_b][id_a]
+				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
+					if data_ab.hash() == data_ba.hash(): is_bidir = true
+				elif data_ab == data_ba:
+					is_bidir = true
+
+			# [FIX] Safely unwrap the weight dictionary
+			var safe_weight = 1.0
+			if typeof(data_ab) == TYPE_DICTIONARY:
+				safe_weight = str(data_ab.get("weight", 1.0)).to_float()
+			else:
+				safe_weight = str(data_ab).to_float()
+
+			if not has_unidirectional:
+				# Graph is 100% Undirected: Deduplicate pair
+				if processed_pairs.has(pair_key): continue
+				processed_pairs[pair_key] = true
+				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, id_a, id_b, safe_weight]
+			else:
+				# Graph is Mixed/Directed: Explicit A->B
+				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, id_a, id_b, safe_weight]
+			
+			edge_id_counter += 1
+			
+	xml += "\t\t</edges>\n"
 	xml += "\t</graph>\n"
 	xml += "</gexf>\n"
 
 	return xml
+
+# --- GRAPHML IMPORT ---
+static func import_graphml(xml_string: String) -> Graph:
+	var parser = XMLParser.new()
+	if parser.open_buffer(xml_string.to_utf8_buffer()) != OK:
+		push_error("GraphSerializer: Failed to parse XML string.")
+		return null
+		
+	var graph = Graph.new()
+	var key_map = {} 
+	
+	var default_directed = false
+	var current_node_id = ""
+	var current_edge_source = ""
+	var current_edge_target = ""
+	var current_edge_directed = false
+	var current_data_key = ""
+	
+	while parser.read() == OK:
+		var node_type = parser.get_node_type()
+		
+		# 1. Opening Tag <tag>
+		if node_type == XMLParser.NODE_ELEMENT:
+			var tag_name = parser.get_node_name()
+			
+			if tag_name == "graph":
+				var e_def = _get_attr(parser, "edgedefault")
+				default_directed = (e_def == "directed")
+				
+			elif tag_name == "key":
+				var k_id = _get_attr(parser, "id")
+				key_map[k_id] = {
+					"name": _get_attr(parser, "attr.name"),
+					"type": _get_attr(parser, "attr.type")
+				}
+				
+			elif tag_name == "node":
+				current_node_id = _get_attr(parser, "id")
+				graph.nodes[current_node_id] = NodeData.new()
+				
+			elif tag_name == "edge":
+				current_edge_source = _get_attr(parser, "source")
+				current_edge_target = _get_attr(parser, "target")
+				
+				# Check for local direction override, fallback to graph default
+				var dir_attr = _get_attr(parser, "directed")
+				if dir_attr != "":
+					current_edge_directed = (dir_attr.to_lower() == "true")
+				else:
+					current_edge_directed = default_directed
+				
+				if not graph.edge_data.has(current_edge_source): 
+					graph.edge_data[current_edge_source] = {}
+				graph.edge_data[current_edge_source][current_edge_target] = {"weight": 1.0}
+				
+				# Setup the reverse path only if it's undirected
+				if not current_edge_directed:
+					if not graph.edge_data.has(current_edge_target): 
+						graph.edge_data[current_edge_target] = {}
+					graph.edge_data[current_edge_target][current_edge_source] = {"weight": 1.0}
+				
+			elif tag_name == "data":
+				current_data_key = _get_attr(parser, "key")
+				
+		# 2. Text Inside Tags: <tag>TEXT</tag>
+		elif node_type == XMLParser.NODE_TEXT:
+			var text = parser.get_node_data().strip_edges()
+			if text == "" or current_data_key == "":
+				continue
+				
+			var attr_name = current_data_key
+			var attr_type = "string"
+			
+			if key_map.has(current_data_key):
+				attr_name = key_map[current_data_key]["name"]
+				attr_type = key_map[current_data_key]["type"]
+				
+			var parsed_val = _parse_xml_value(text, attr_type)
+			
+			if current_node_id != "":
+				var n_data = graph.nodes[current_node_id] as NodeData
+				match attr_name:
+					"x": n_data.position.x = parsed_val
+					"y": n_data.position.y = parsed_val
+					"type": n_data.type = parsed_val
+					"shape": n_data.shape = parsed_val
+					_: n_data.set_data(attr_name, parsed_val)
+					
+			elif current_edge_source != "" and current_edge_target != "":
+				if attr_name == "weight":
+					var w = float(parsed_val)
+					graph.edge_data[current_edge_source][current_edge_target]["weight"] = w
+					# Apply reverse weight only if undirected
+					if not current_edge_directed:
+						graph.edge_data[current_edge_target][current_edge_source]["weight"] = w
+					
+		# 3. Closing Tag </tag>
+		elif node_type == XMLParser.NODE_ELEMENT_END:
+			var tag_name = parser.get_node_name()
+			if tag_name == "node":
+				current_node_id = ""
+			elif tag_name == "edge":
+				var src = current_edge_source
+				var tgt = current_edge_target
+				if graph.nodes.has(src) and graph.nodes.has(tgt):
+					var w = graph.edge_data[src][tgt].get("weight", 1.0)
+					graph.nodes[src].connections[tgt] = w
+					# Sync reverse legacy connection only if undirected
+					if not current_edge_directed:
+						graph.nodes[tgt].connections[src] = w
+					
+				current_edge_source = ""
+				current_edge_target = ""
+				current_edge_directed = false
+			elif tag_name == "data":
+				current_data_key = ""
+				
+	return graph
+
+# --- GEXF IMPORT ---
+static func import_gexf(xml_string: String) -> Graph:
+	var parser = XMLParser.new()
+	if parser.open_buffer(xml_string.to_utf8_buffer()) != OK:
+		push_error("GraphSerializer: Failed to parse GEXF string.")
+		return null
+		
+	var graph = Graph.new()
+	var key_map = {} 
+	
+	var default_directed = false
+	var current_node_id = ""
+	
+	while parser.read() == OK:
+		var node_type = parser.get_node_type()
+		
+		# 1. Opening Tags (GEXF stores almost everything as attributes)
+		if node_type == XMLParser.NODE_ELEMENT:
+			var tag_name = parser.get_node_name()
+			
+			if tag_name == "graph":
+				var e_def = _get_attr(parser, "defaultedgetype")
+				default_directed = (e_def == "directed")
+				
+			elif tag_name == "attribute":
+				var k_id = _get_attr(parser, "id")
+				key_map[k_id] = {
+					"name": _get_attr(parser, "title"),
+					"type": _get_attr(parser, "type")
+				}
+				
+			elif tag_name == "node":
+				current_node_id = _get_attr(parser, "id")
+				graph.nodes[current_node_id] = NodeData.new()
+				
+			elif tag_name == "attvalue":
+				var for_id = _get_attr(parser, "for")
+				var val_str = _get_attr(parser, "value")
+				
+				if current_node_id != "":
+					var attr_name = for_id
+					var attr_type = "string"
+					
+					if key_map.has(for_id):
+						attr_name = key_map[for_id]["name"]
+						attr_type = key_map[for_id]["type"]
+						
+					var parsed_val = _parse_xml_value(val_str, attr_type)
+					var n_data = graph.nodes[current_node_id] as NodeData
+					
+					match attr_name:
+						"x": n_data.position.x = parsed_val
+						"y": n_data.position.y = parsed_val
+						"type": n_data.type = parsed_val
+						"shape": n_data.shape = parsed_val
+						_: n_data.set_data(attr_name, parsed_val)
+						
+			elif tag_name == "edge":
+				var src = _get_attr(parser, "source")
+				var tgt = _get_attr(parser, "target")
+				var weight_str = _get_attr(parser, "weight")
+				
+				var w = 1.0
+				if weight_str != "":
+					w = float(weight_str)
+					
+				# Apply forward edge
+				if not graph.edge_data.has(src): 
+					graph.edge_data[src] = {}
+				graph.edge_data[src][tgt] = {"weight": w}
+				graph.nodes[src].connections[tgt] = w
+				
+				# Apply reverse edge if the graph defaults to undirected
+				if not default_directed:
+					if not graph.edge_data.has(tgt): 
+						graph.edge_data[tgt] = {}
+					graph.edge_data[tgt][src] = {"weight": w}
+					graph.nodes[tgt].connections[src] = w
+
+		# 2. Closing Tags
+		elif node_type == XMLParser.NODE_ELEMENT_END:
+			if parser.get_node_name() == "node":
+				current_node_id = ""
+				
+	return graph
+
+# Helper: Safely extract XML attributes
+static func _get_attr(parser: XMLParser, attr_name: String) -> String:
+	if parser.has_attribute(attr_name):
+		return parser.get_named_attribute_value(attr_name)
+	return ""
+
+# Helper: Map GraphML types to Godot variants
+static func _parse_xml_value(text: String, type: String) -> Variant:
+	match type:
+		"int", "integer": return text.to_int()
+		"double", "float": return text.to_float()
+		"boolean": return text.to_lower() == "true"
+		_: return text

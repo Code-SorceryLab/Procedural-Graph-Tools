@@ -96,8 +96,8 @@ func _on_save_button_pressed() -> void:
 # Quick Save Handler (Ctrl+S)
 func _on_quick_save_requested() -> void:
 	if _current_path != "":
-		# We know the file, save directly!
-		_save_graph(_current_path)
+		# We know the file, save directly using the universal router!
+		_execute_save(_current_path)
 	else:
 		# We don't know the file, treat as "Save As..."
 		_on_save_button_pressed()
@@ -106,12 +106,15 @@ func _on_load_button_pressed() -> void:
 	# Loading destroys current data -> Use Gatekeeper
 	_try_action(_open_load_dialog)
 
-# Helper wrapper for the action
 func _open_load_dialog() -> void:
 	_is_saving = false
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.title = "Load Dungeon Layout"
-	file_dialog.filters = ["*.json ; JSON Data"]
+	file_dialog.filters = [
+		"*.json ; JSON Data",
+		"*.graphml ; GraphML Network",
+		"*.gexf ; GEXF Network"
+	]
 	file_dialog.popup_centered()
 
 func _on_settings_button_pressed() -> void:
@@ -121,42 +124,37 @@ func _on_settings_button_pressed() -> void:
 # --- FILE OPERATIONS ---
 
 func _on_file_selected(path: String) -> void:
-	# 1. Handle Unified Save As / Export
+	# 1. Handle Unified Save As
 	if file_dialog.title == "Save As...":
-		if path.ends_with(".graphml"):
-			_export_formatted_file(path, GraphSerializer.export_graphml(graph_editor.graph))
-		elif path.ends_with(".gexf"):
-			_export_formatted_file(path, GraphSerializer.export_gexf(graph_editor.graph))
-		else:
-			# Fallback/Default is standard JSON working file
-			if not path.ends_with(".json"): path += ".json"
-			_save_graph(path) 
+		_execute_save(path)
 		return
 
-	# 2. Handle Standard JSON Load
+	# 2. Handle Load Router
 	if file_dialog.title == "Load Dungeon Layout":
-		if not path.ends_with(".json"): path += ".json"
-		_load_graph(path)
+		if path.ends_with(".graphml"):
+			_load_graphml(path)
+		elif path.ends_with(".gexf"):
+			_load_gexf(path)
+		else:
+			if not path.ends_with(".json"): path += ".json"
+			_load_graph(path)
 
-
-func _export_formatted_file(path: String, string_data: String) -> void:
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	if file:
-		file.store_string(string_data)
-		file.close()
-		
-		file_status.text = "Exported: " + path.get_file()
-		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
-	else:
-		file_status.text = "Error exporting file!"
-		file_status.modulate = GraphSettings.COLOR_UI_ERROR
-
-func _save_graph(path: String) -> void:
-	var json_str = GraphSerializer.serialize(graph_editor.graph)
-	var file = FileAccess.open(path, FileAccess.WRITE)
+# Universal save routing function
+func _execute_save(path: String) -> void:
+	var output_string = ""
 	
+	# Route serialization based on extension
+	if path.ends_with(".graphml"):
+		output_string = GraphSerializer.export_graphml(graph_editor.graph)
+	elif path.ends_with(".gexf"):
+		output_string = GraphSerializer.export_gexf(graph_editor.graph)
+	else:
+		if not path.ends_with(".json"): path += ".json"
+		output_string = GraphSerializer.serialize(graph_editor.graph)
+		
+	var file = FileAccess.open(path, FileAccess.WRITE)
 	if file:
-		file.store_string(json_str)
+		file.store_string(output_string)
 		file.close()
 		
 		file_status.text = "Saved: " + path.get_file()
@@ -164,7 +162,7 @@ func _save_graph(path: String) -> void:
 		
 		# SUCCESS! We are clean now.
 		_current_path = path # Remember this file
-		_update_dirty_state(false) 
+		_update_dirty_state(false)
 	else:
 		file_status.text = "Error writing file!"
 		file_status.modulate = GraphSettings.COLOR_UI_ERROR
@@ -188,4 +186,46 @@ func _load_graph(path: String) -> void:
 		_update_dirty_state(false)
 	else:
 		file_status.text = "Error parsing JSON!"
+		file_status.modulate = GraphSettings.COLOR_UI_ERROR
+
+func _load_graphml(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var xml_str = file.get_as_text()
+	var new_graph = GraphSerializer.import_graphml(xml_str)
+	
+	if new_graph != null:
+		graph_editor.load_new_graph(new_graph)
+		
+		file_status.text = "Loaded: " + path.get_file()
+		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
+		
+		# SUCCESS! We are clean now.
+		_current_path = path # Remember this file
+		_update_dirty_state(false)
+	else:
+		file_status.text = "Error parsing GraphML!"
+		file_status.modulate = GraphSettings.COLOR_UI_ERROR
+
+func _load_gexf(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var xml_str = file.get_as_text()
+	var new_graph = GraphSerializer.import_gexf(xml_str)
+	
+	if new_graph != null:
+		graph_editor.load_new_graph(new_graph)
+		
+		file_status.text = "Loaded: " + path.get_file()
+		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
+		
+		# SUCCESS! We are clean now.
+		_current_path = path 
+		_update_dirty_state(false)
+	else:
+		file_status.text = "Error parsing GEXF!"
 		file_status.modulate = GraphSettings.COLOR_UI_ERROR

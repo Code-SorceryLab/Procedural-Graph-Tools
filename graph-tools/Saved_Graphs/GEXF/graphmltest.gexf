@@ -4,7 +4,7 @@
 		<creator>GraphTools</creator>
 		<description>Procedural Dungeon Graph</description>
 	</meta>
-	<graph defaultedgetype="undirected">
+	<graph defaultedgetype="directed">
 		<attributes class="node">
 			<attribute id="x" title="x" type="float"/>
 			<attribute id="y" title="y" type="float"/>
@@ -88,15 +88,24 @@
 		<edges>
 			<edge id="e0" source="start_0" target="walk:1:1" weight="0.000000"/>
 			<edge id="e1" source="start_0" target="walk:1:3" weight="0.000000"/>
-			<edge id="e2" source="start_0" target="walk:1:13" weight="0.000000"/>
+			<edge id="e2" source="walk:1:1" target="start_0" weight="0.000000"/>
 			<edge id="e3" source="walk:1:1" target="walk:1:4" weight="0.000000"/>
 			<edge id="e4" source="walk:1:1" target="walk:1:6" weight="0.000000"/>
 			<edge id="e5" source="walk:1:1" target="walk:1:14" weight="0.000000"/>
-			<edge id="e6" source="walk:1:3" target="walk:1:4" weight="0.000000"/>
-			<edge id="e7" source="walk:1:4" target="walk:1:9" weight="0.000000"/>
-			<edge id="e8" source="walk:1:6" target="walk:1:9" weight="0.000000"/>
-			<edge id="e9" source="walk:1:7" target="walk:1:6" weight="0.000000"/>
-			<edge id="e10" source="walk:1:13" target="walk:1:14" weight="0.000000"/>
+			<edge id="e6" source="walk:1:13" target="start_0" weight="0.000000"/>
+			<edge id="e7" source="walk:1:13" target="walk:1:14" weight="0.000000"/>
+			<edge id="e8" source="walk:1:3" target="walk:1:4" weight="0.000000"/>
+			<edge id="e9" source="walk:1:4" target="walk:1:1" weight="0.000000"/>
+			<edge id="e10" source="walk:1:4" target="walk:1:3" weight="0.000000"/>
+			<edge id="e11" source="walk:1:4" target="walk:1:9" weight="0.000000"/>
+			<edge id="e12" source="walk:1:6" target="walk:1:1" weight="0.000000"/>
+			<edge id="e13" source="walk:1:6" target="walk:1:9" weight="0.000000"/>
+			<edge id="e14" source="walk:1:6" target="walk:1:7" weight="0.000000"/>
+			<edge id="e15" source="walk:1:14" target="walk:1:1" weight="0.000000"/>
+			<edge id="e16" source="walk:1:14" target="walk:1:13" weight="0.000000"/>
+			<edge id="e17" source="walk:1:9" target="walk:1:4" weight="0.000000"/>
+			<edge id="e18" source="walk:1:9" target="walk:1:6" weight="0.000000"/>
+			<edge id="e19" source="walk:1:7" target="walk:1:6" weight="0.000000"/>
 		</edges>
 	</graph>
 </gexf>

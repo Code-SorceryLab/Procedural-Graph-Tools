@@ -79,17 +79,19 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var radius_vec = spacing * range_mult
 	
 	# ==========================================================================
-	# 1. UNDO-SAFE EDGE CLEARING
+	# 1. UNDO-SAFE EDGE CLEARING & TOPOLOGY PRESERVATION
 	# ==========================================================================
+	var original_edges: Dictionary = {}
 	var edges_to_remove: Array = []
-	var processed_pairs: Dictionary = {}
+	
 	for u_id in graph.nodes:
 		for v_id in graph.get_neighbors(u_id):
 			var pair = [u_id, v_id]
 			pair.sort()
-			if not processed_pairs.has(pair):
-				processed_pairs[pair] = true
+			if not original_edges.has(pair):
+				original_edges[pair] = true
 				edges_to_remove.append(pair)
+				
 	for pair in edges_to_remove:
 		graph.remove_edge(pair[0], pair[1])
 		
@@ -100,49 +102,78 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	# 2. ALGORITHM SELECTION
 	# ==========================================================================
 	if use_kruskal:
-		_execute_kruskal(graph, nodes_list, radius_vec, braid_chance, rejected_edges)
+		_execute_kruskal(graph, nodes_list, radius_vec, braid_chance, original_edges, rejected_edges)
 	else:
-		_execute_prim(graph, nodes_list, radius_vec, braid_chance, rejected_edges)
+		_execute_prim(graph, nodes_list, radius_vec, braid_chance, original_edges, rejected_edges)
 		
 	# ==========================================================================
-	# 3. BRAIDING (Restore Loops)
+	# 3. BRAIDING (Prioritize Original Geometry)
 	# ==========================================================================
 	if braid_chance > 0.0 and not rejected_edges.is_empty():
-		# [SEED FIX] Use deterministic shuffle!
-		SeedUtils.shuffle(rejected_edges, rng)
+		# Partition rejected edges so we can prioritize existing lines over diagonals
+		var original_rejects = []
+		var spatial_rejects = []
 		
-		var count_to_add = int(rejected_edges.size() * braid_chance)
+		for edge in rejected_edges:
+			if edge.existed:
+				original_rejects.append(edge)
+			else:
+				spatial_rejects.append(edge)
+				
+		# Shuffle the pools independently
+		SeedUtils.shuffle(original_rejects, rng)
+		SeedUtils.shuffle(spatial_rejects, rng)
+		
+		# Stitch them together (Original geometry first, then spatial fallbacks)
+		var prioritized_rejects = original_rejects + spatial_rejects
+		var count_to_add = int(prioritized_rejects.size() * braid_chance)
 		
 		for i in range(count_to_add):
-			var edge = rejected_edges[i]
+			var edge = prioritized_rejects[i]
 			if not graph.has_edge(edge.u, edge.v):
 				graph.add_edge(edge.u, edge.v)
 
 # --- ALGORITHM A: KRUSKAL (Fast, Global) ---
-func _execute_kruskal(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, braid_chance: float, rejected_out: Array) -> void:
+func _execute_kruskal(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, braid_chance: float, original_edges: Dictionary, rejected_out: Array) -> void:
 	var potential_edges = []
 	var max_radius = max(rad_vec.x, rad_vec.y)
+	var added_pairs = {}
 	
+	# 1. Guarantee all original edges are considered
+	for pair in original_edges:
+		var u_pos = graph.get_node_pos(pair[0])
+		var v_pos = graph.get_node_pos(pair[1])
+		potential_edges.append({
+			"u": pair[0], "v": pair[1],
+			"dist": u_pos.distance_squared_to(v_pos),
+			"existed": true
+		})
+		added_pairs[pair] = true
+	
+	# 2. Add spatial fallbacks
 	for u_id in nodes_list:
 		var u_pos = graph.get_node_pos(u_id)
 		var nearby = graph.get_nodes_near_position(u_pos, max_radius)
 		
 		for v_id in nearby:
-			if u_id == v_id: continue
-			if u_id > v_id: continue 
+			if u_id >= v_id: continue 
+			
+			var pair = [u_id, v_id]
+			if added_pairs.has(pair): continue
 			
 			var v_pos = graph.get_node_pos(v_id)
 			var dx = abs(u_pos.x - v_pos.x)
 			var dy = abs(u_pos.y - v_pos.y)
 			
-			var x_term = pow(dx / rad_vec.x, 2)
-			var y_term = pow(dy / rad_vec.y, 2)
-			
-			if (x_term + y_term) <= 1.0:
+			if (pow(dx / rad_vec.x, 2) + pow(dy / rad_vec.y, 2)) <= 1.0:
 				var dist_sq = u_pos.distance_squared_to(v_pos)
-				potential_edges.append({ "u": u_id, "v": v_id, "dist": dist_sq })
+				potential_edges.append({ "u": u_id, "v": v_id, "dist": dist_sq, "existed": false })
 	
-	potential_edges.sort_custom(func(a, b): return a.dist < b.dist)
+	# Sort: Original edges first, then by distance
+	potential_edges.sort_custom(func(a, b): 
+		if a.existed != b.existed: return a.existed
+		return a.dist < b.dist
+	)
 	
 	var uf = UnionFind.new(nodes_list)
 	var edges_count = 0
@@ -164,31 +195,50 @@ func _execute_kruskal(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2,
 				rejected_out.append(edge)
 
 # --- ALGORITHM B: PRIM (Slower, Radial) ---
-func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, braid_chance: float, rejected_out: Array) -> void:
+func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, braid_chance: float, original_edges: Dictionary, rejected_out: Array) -> void:
 	var visited = {}
 	var start_node = nodes_list[0]
 	visited[start_node] = true
 	var edges_candidates = []
 	var max_radius = max(rad_vec.x, rad_vec.y)
 	
+	# Fast-lookup adjacency map for original geometry
+	var original_adj = {}
+	for pair in original_edges:
+		if not original_adj.has(pair[0]): original_adj[pair[0]] = []
+		if not original_adj.has(pair[1]): original_adj[pair[1]] = []
+		original_adj[pair[0]].append(pair[1])
+		original_adj[pair[1]].append(pair[0])
+	
 	var add_candidates = func(u_id):
 		var u_pos = graph.get_node_pos(u_id)
-		var nearby = graph.get_nodes_near_position(u_pos, max_radius)
 		
+		# 1. Pull original neighbors
+		if original_adj.has(u_id):
+			for v_id in original_adj[u_id]:
+				if not visited.has(v_id):
+					var v_pos = graph.get_node_pos(v_id)
+					edges_candidates.append({ "u": u_id, "v": v_id, "dist": u_pos.distance_squared_to(v_pos), "existed": true })
+		
+		# 2. Pull spatial neighbors
+		var nearby = graph.get_nodes_near_position(u_pos, max_radius)
 		for v_id in nearby:
 			if u_id == v_id: continue
 			if visited.has(v_id): continue 
+			
+			# Sort the strings via array to create a consistent dictionary key
+			var pair = [u_id, v_id]
+			pair.sort()
+			
+			if original_edges.has(pair): continue # Already handled above
 			
 			var v_pos = graph.get_node_pos(v_id)
 			var dx = abs(u_pos.x - v_pos.x)
 			var dy = abs(u_pos.y - v_pos.y)
 			
-			var x_term = pow(dx / rad_vec.x, 2)
-			var y_term = pow(dy / rad_vec.y, 2)
-			
-			if (x_term + y_term) <= 1.0:
+			if (pow(dx / rad_vec.x, 2) + pow(dy / rad_vec.y, 2)) <= 1.0:
 				var dist_sq = u_pos.distance_squared_to(v_pos)
-				edges_candidates.append({ "u": u_id, "v": v_id, "dist": dist_sq })
+				edges_candidates.append({ "u": u_id, "v": v_id, "dist": dist_sq, "existed": false })
 
 	add_candidates.call(start_node)
 	
@@ -199,7 +249,12 @@ func _execute_prim(graph: GraphRecorder, nodes_list: Array, rad_vec: Vector2, br
 		iter += 1
 		if iter > max_iterations: break
 		
-		edges_candidates.sort_custom(func(a, b): return a.dist > b.dist)
+		# Sort reversed: Smallest distance and existed=true goes to the END for pop_back()
+		edges_candidates.sort_custom(func(a, b): 
+			if a.existed != b.existed: return not a.existed
+			return a.dist > b.dist
+		)
+		
 		var edge = edges_candidates.pop_back()
 		
 		if visited.has(edge.v):

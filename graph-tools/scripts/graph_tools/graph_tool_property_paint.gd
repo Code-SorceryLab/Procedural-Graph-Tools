@@ -27,7 +27,7 @@ func exit() -> void:
 	_last_painted_id = ""
 	_show_status("")
 
-# --- TOOL OPTIONS API (NEW) ---
+# --- TOOL OPTIONS API ---
 
 func get_options_schema() -> Array:
 	# Ensure list is fresh

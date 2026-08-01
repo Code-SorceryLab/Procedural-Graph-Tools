@@ -11,77 +11,83 @@
 	<!-- Edge Properties -->
 	<key id="weight" for="edge" attr.name="weight" attr.type="double"/>
 
-	<graph id="G" edgedefault="undirected">
-		<node id="start_0">
-			<data key="x">0.000000</data>
-			<data key="y">0.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:1">
-			<data key="x">0.000000</data>
-			<data key="y">60.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:2">
-			<data key="x">-60.000000</data>
-			<data key="y">60.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:7">
-			<data key="x">-60.000000</data>
-			<data key="y">120.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:8">
-			<data key="x">0.000000</data>
-			<data key="y">120.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:11">
-			<data key="x">-60.000000</data>
-			<data key="y">0.000000</data>
-			<data key="type">0</data>
-			<data key="shape">0</data>
-		</node>
-		<node id="walk:1:12">
+	<graph id="G" edgedefault="directed">
+		<node id="man:1">
 			<data key="x">-60.000000</data>
 			<data key="y">-60.000000</data>
 			<data key="type">0</data>
 			<data key="shape">0</data>
 		</node>
-		<node id="walk:1:13">
+		<node id="man:2">
 			<data key="x">0.000000</data>
 			<data key="y">-60.000000</data>
 			<data key="type">0</data>
 			<data key="shape">0</data>
 		</node>
-		<edge id="e0" source="start_0" target="walk:1:1">
+		<node id="man:3">
+			<data key="x">0.000000</data>
+			<data key="y">0.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:4">
+			<data key="x">-60.000000</data>
+			<data key="y">0.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:5">
+			<data key="x">-60.000000</data>
+			<data key="y">-120.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:6">
+			<data key="x">-60.000000</data>
+			<data key="y">-180.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<node id="man:7">
+			<data key="x">0.000000</data>
+			<data key="y">-180.000000</data>
+			<data key="type">0</data>
+			<data key="shape">0</data>
+		</node>
+		<edge id="e0" source="man:4" target="man:3">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e1" source="walk:1:1" target="walk:1:2">
+		<edge id="e1" source="man:4" target="man:1">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e2" source="walk:1:1" target="walk:1:8">
+		<edge id="e2" source="man:3" target="man:4">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e3" source="walk:1:2" target="walk:1:7">
+		<edge id="e3" source="man:3" target="man:2">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e4" source="walk:1:2" target="walk:1:11">
+		<edge id="e4" source="man:1" target="man:4">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e5" source="walk:1:7" target="walk:1:8">
+		<edge id="e5" source="man:1" target="man:2">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e6" source="walk:1:11" target="walk:1:12">
+		<edge id="e6" source="man:1" target="man:5">
 			<data key="weight">0.000000</data>
 		</edge>
-		<edge id="e7" source="walk:1:12" target="walk:1:13">
+		<edge id="e7" source="man:2" target="man:3">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e8" source="man:2" target="man:1">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e9" source="man:5" target="man:1">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e10" source="man:6" target="man:5">
+			<data key="weight">0.000000</data>
+		</edge>
+		<edge id="e11" source="man:6" target="man:7">
 			<data key="weight">0.000000</data>
 		</edge>
 	</graph>

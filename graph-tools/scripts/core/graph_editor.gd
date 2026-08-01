@@ -103,7 +103,7 @@ func _ready() -> void:
 	
 	history = GraphHistory.new(graph)
 		
-	# [NEW] Connect the Observer
+	# Connect the Observer
 	# When History changes, tell Simulation to check its sanity
 	history.history_changed.connect(simulation.validate_all_agents)
 	clipboard = GraphClipboard.new(self)

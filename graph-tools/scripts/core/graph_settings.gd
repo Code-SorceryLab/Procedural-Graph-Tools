@@ -50,11 +50,14 @@ const PARAM_TOOLTIPS = {
 	"analyze": {
 		"auto": "If enabled, the algorithm runs a Breadth-First Search (BFS) to identify the network topology.\nIt marks the Start node (0,0), the furthest node (Boss), and dead ends (Treasure/Enemy)."
 	},
-"mst": {
+	"mst": {
 		"range": "Multiplier for the search radius (relative to Cell Size).\n2.0 connects immediate neighbors.\n5.0 jumps gaps to connect distant islands.",
 		"braid": "The percentage (0-100) of 'rejected' connections to restore.\n0% = Perfect Maze (One path).\n20% = Loopy dungeon with multiple routes.",
 		"algo": "Choose the Algorithm:\n\nKRUSKAL (Default): Extremely fast. Connects shortest edges first globally.\n\nPRIM: Slower on large graphs. Grows radially from a single point. Can create more 'river-like' branching.",
 		
+	},
+	"grammar": {
+		"active_rule": "The specific rewrite rule to apply to the graph.\nEach rule looks for a specific pattern of nodes and edges, and transforms them."
 	}
 }
 
@@ -64,7 +67,7 @@ const PARAM_TOOLTIPS = {
 const NODE_RADIUS: float = 12.0
 const EDGE_WIDTH: float = 3.0
 
-# [NEW] AGENT VISUALS
+# AGENT VISUALS
 const AGENT_RADIUS: float = 5.0          # Smaller than nodes (12.0)
 const AGENT_CLICK_RADIUS: float = 7.0    # Slightly larger hit-box for easier clicking
 const AGENT_STACK_THRESHOLD: int = 5     # 6+ agents become a "Stack Icon"
@@ -271,3 +274,41 @@ static func get_custom_method_names(object_instance: Object) -> PackedStringArra
 #Typical Use: GraphSettings.print_custom_method_names(self) in the ready of whatever object you want the functions of.
 static func print_custom_method_names(object_instance: Object) -> void:
 	print(get_custom_method_names(object_instance))
+
+# ==============================================================================
+# 10. GRAPH GRAMMAR PRESETS
+# ==============================================================================
+
+# Centralized dictionary for graph rewriting rules.
+# Can be modified at runtime if a UI rule editor is implemented later.
+static var grammar_rules: Dictionary = {
+	"Edge Splitter": {
+		"description": "Finds ANY connected pair of nodes, severs the connection, and inserts a new Empty node exactly in the middle.",
+		"match_nodes": {
+			"A": {}, # Empty = No constraints. Matches any node type/shape!
+			"B": {}  # Empty = No constraints. Matches any node type/shape!
+		},
+		"remove_edges": [ ["A", "B"] ],
+		"apply_nodes": {
+			"C": { "is_new": true, "type": NodeData.RoomType.EMPTY } 
+		},
+		"apply_edges": [
+			["A", "C"],
+			["C", "B"]
+		]
+	},
+	"Boss Lock": {
+		"description": "Finds a Dead End connected to a Corridor. Upgrades the Dead End to a Boss room, and tags the edge as a locked door.",
+		"match_nodes": {
+			"A": { "shape": NodeData.RoomShape.DEAD_END },
+			"B": { "shape": NodeData.RoomShape.CORRIDOR }
+		},
+		"remove_edges": [ ["A", "B"] ],
+		"apply_nodes": {
+			"A": { "type": NodeData.RoomType.BOSS }
+		},
+		"apply_edges": [
+			["A", "B", {"weight": 1.0, "locked": true}] 
+		]
+	}
+}
