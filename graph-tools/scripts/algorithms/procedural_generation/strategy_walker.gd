@@ -94,7 +94,7 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 	var pos = graph.get_node_pos(node_id)
 	var ids = _generate_identity(graph)
 	
-	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, 2, 50)
+	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, "empty", 50)
 	agent.apply_template_defaults()
 	
 	agent.set_seed(rng.randi()) 
@@ -249,7 +249,7 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 
 	var template = AgentWalker.get_template_settings()
 	var default_steps = int(params.get("steps", 50))
-	var default_paint = 2 
+	var default_paint = "empty"
 	
 	# [NEW] Check for manual agent seed from the UI
 	var manual_agent_seed = params.get("agent_seed", "")

@@ -4,6 +4,7 @@ extends InspectorStrategy
 # --- STATE ---
 var _tracked_edges: Array = []
 var _edge_inputs: Dictionary = {}
+var _type_keys_cache: Array = [] # [NEW] Maps UI integers to Registry String Keys
 
 # ==============================================================================
 # 1. LIFECYCLE
@@ -35,13 +36,22 @@ func _rebuild_edge_ui() -> void:
 	
 	# 1. Gather Data
 	var ref_data = _get_reference_data()
-	if ref_data.is_empty(): return # Should not happen if tracked_edges > 0
+	if ref_data.is_empty(): return 
 	
 	var count = _tracked_edges.size()
 	var mixed = _detect_mixed_state(ref_data)
+	
+	# 2. Prepare Shared Data [UPDATED FOR REGISTRY]
+	var schema_data = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_EDGE)
+	_type_keys_cache = schema_data["keys"]
+	var type_hint = schema_data["hint_string"]
+	
+	var default_type_idx = _type_keys_cache.find(ref_data.type)
+	if default_type_idx == -1: default_type_idx = 0
+	
 	var schema = []
 	
-	# 2. Build Schema
+	# 3. Build Schema
 	var title = "%d Edge(s)" % count if count > 1 else "Edge Selection"
 	schema.append({ "name": "header_basic", "label": "Selection", "type": TYPE_STRING, "default": title, "hint": "read_only" })
 	
@@ -61,18 +71,15 @@ func _rebuild_edge_ui() -> void:
 	schema.append({ "name": "sep_logic", "type": TYPE_NIL, "hint": "separator" })
 	
 	schema.append({ 
-		"name": "type", "label": "Edge Type", "type": TYPE_INT, "default": ref_data.type, 
-		"hint": "enum", "hint_string": "Corridor,Door (Open),Door (Locked),Secret Passage,Climbable", 
+		"name": "type", "label": "Edge Type", "type": TYPE_INT, "default": default_type_idx, 
+		"hint": "enum", "hint_string": type_hint, 
 		"mixed": mixed.type 
 	})
 	
-	schema.append({ 
-		"name": "lock_level", "label": "Lock Level", "type": TYPE_INT, "default": ref_data.lock_level, 
-		"min": 0, "max": 10, "mixed": mixed.lock_level 
-	})
+	# (NOTE: lock_level was removed here because it's now handled by the dynamic loop below!)
 	
-	# Dynamic Properties
-	var registered_props = GraphSettings.get_properties_for_target("EDGE")
+	# Dynamic Properties [UPDATED FOR REGISTRY]
+	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 	if not registered_props.is_empty():
 		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 		
@@ -81,7 +88,7 @@ func _rebuild_edge_ui() -> void:
 		var val = ref_data.custom.get(key, def.default)
 		
 		var item = { 
-			"name": key, "label": key.capitalize(), "type": def.type, "default": val 
+			"name": key, "label": def.get("label", key.capitalize()), "type": def.type, "default": val 
 		}
 		
 		if mixed.custom_keys.has(key):
@@ -92,7 +99,7 @@ func _rebuild_edge_ui() -> void:
 	# Actions
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
 	
-	# 3. Render
+	# 4. Render
 	var section = _create_section("Edge Properties")
 	_edge_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_input)
 
@@ -100,7 +107,6 @@ func _rebuild_edge_ui() -> void:
 # 3. DATA HELPERS
 # ==============================================================================
 
-# Returns a clean dictionary of the first edge's properties to act as the "Truth"
 func _get_reference_data() -> Dictionary:
 	var pair = _tracked_edges[0]
 	var u = pair[0]; var v = pair[1]
@@ -109,8 +115,7 @@ func _get_reference_data() -> Dictionary:
 	var data = {
 		"weight": 1.0,
 		"direction": 0,
-		"type": 0,
-		"lock_level": 0,
+		"type": "corridor", # [UPDATED] Defaults to String
 		"custom": {}
 	}
 	
@@ -128,18 +133,17 @@ func _get_reference_data() -> Dictionary:
 	var raw = graph.get_edge_data(u, v)
 	if raw.is_empty() and has_ba: raw = graph.get_edge_data(v, u)
 	
-	data.type = raw.get("type", 0)
-	data.lock_level = raw.get("lock_level", 0)
-	data.custom = raw # Store ref to the whole dict for custom keys
+	data.type = str(raw.get("type", "corridor"))
+	data.custom = raw 
 	
 	return data
 
 func _detect_mixed_state(ref: Dictionary) -> Dictionary:
-	var mixed = { "weight": false, "direction": false, "type": false, "lock_level": false, "custom_keys": {} }
+	var mixed = { "weight": false, "direction": false, "type": false, "custom_keys": {} }
 	if _tracked_edges.size() <= 1: return mixed
 	
 	var graph = graph_editor.graph
-	var registered_props = GraphSettings.get_properties_for_target("EDGE")
+	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 	
 	for i in range(1, _tracked_edges.size()):
 		var pair = _tracked_edges[i]
@@ -162,8 +166,7 @@ func _detect_mixed_state(ref: Dictionary) -> Dictionary:
 		var raw = graph.get_edge_data(a, b)
 		if raw.is_empty() and ba: raw = graph.get_edge_data(b, a)
 		
-		if int(raw.get("type", 0)) != ref.type: mixed.type = true
-		if int(raw.get("lock_level", 0)) != ref.lock_level: mixed.lock_level = true
+		if str(raw.get("type", "corridor")) != ref.type: mixed.type = true
 		
 		# 4. Check Custom
 		for key in registered_props:
@@ -183,7 +186,7 @@ func _on_input(key: String, value: Variant) -> void:
 	if _tracked_edges.is_empty(): return
 	
 	if key == "action_add_property":
-		request_wizard.emit("EDGE")
+		request_wizard.emit(SemanticRegistry.TARGET_EDGE)
 		return
 	
 	var graph = graph_editor.graph
@@ -197,10 +200,15 @@ func _on_input(key: String, value: Variant) -> void:
 				if graph.has_edge(v, u): graph_editor.set_edge_weight(v, u, value)
 			"direction":
 				graph_editor.set_edge_directionality(u, v, int(value))
+			"type":
+				var ui_idx = int(value)
+				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
+					var string_type = _type_keys_cache[ui_idx]
+					graph_editor.set_edge_property(u, v, "type", string_type)
+					if graph.has_edge(v, u):
+						graph_editor.set_edge_property(v, u, "type", string_type)
 			_:
-				# Catch-all for Type, Lock, and Custom Data
-				# Note: 'type' and 'lock_level' are just keys in the edge dictionary,
-				# so set_edge_property handles them identically to custom data.
+				# Catch-all for Custom Data
 				graph_editor.set_edge_property(u, v, key, value)
 				if graph.has_edge(v, u):
 					graph_editor.set_edge_property(v, u, key, value)

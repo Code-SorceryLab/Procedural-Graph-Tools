@@ -6,12 +6,12 @@ extends RefCounted
 static func serialize(graph: Graph) -> String:
 	var data = {
 		"meta": {
-			"version": "1.4", # Bumped for Zone Support
+			"version": "1.5", # Bumped for Semantic Registry
 			"timestamp": Time.get_datetime_string_from_system(),
 			"next_ticket": graph._next_display_id
 		},
-		"legend": _serialize_legend(),
-		"schema": GraphSettings.property_definitions,
+		"legend": _serialize_categories(),
+		"schema": _serialize_properties(),
 		"nodes": [],
 		"edges": [],
 		"agents": [],
@@ -93,21 +93,9 @@ static func deserialize(json_string: String) -> Graph:
 	
 	var data = json.data
 	
-	# 1. Restore Legend & Schema
-	if data.has("legend"): _deserialize_legend(data["legend"])
-	else: GraphSettings.reset_legend()
-	
-	GraphSettings.clear_schema()
-	if data.has("schema"):
-		var loaded_schema = data["schema"]
-		for key in loaded_schema:
-			var def = loaded_schema[key]
-			var target = def.get("target", "NODE")
-			var type = int(def.get("type", TYPE_STRING))
-			var default = def.get("default", null)
-			
-			if target in ["NODE", "EDGE", "AGENT"]:
-				GraphSettings.register_property(key, target, type, default)
+	# 1. Restore Semantic Registry
+	if data.has("legend"): _deserialize_categories(data["legend"])
+	if data.has("schema"): _deserialize_properties(data["schema"])
 		
 	var new_graph = Graph.new()
 	
@@ -172,23 +160,36 @@ static func deserialize(json_string: String) -> Graph:
 
 # --- PRIVATE HELPERS ---
 
-static func _serialize_legend() -> Dictionary:
+static func _serialize_categories() -> Dictionary:
 	var export_data = {}
-	for type_id in GraphSettings.current_names:
-		export_data[str(type_id)] = {
-			"name": GraphSettings.current_names[type_id],
-			"color": GraphSettings.current_colors[type_id].to_html()
-		}
+	for target in SemanticRegistry.categories:
+		export_data[target] = {}
+		for key in SemanticRegistry.categories[target]:
+			var cat = SemanticRegistry.categories[target][key]
+			export_data[target][key] = {
+				"name": cat["name"],
+				"color": cat["color"].to_html()
+			}
 	return export_data
 
-static func _deserialize_legend(legend_data: Dictionary) -> void:
-	GraphSettings.reset_legend()
-	for type_id_str in legend_data:
-		var id = type_id_str.to_int()
-		var entry = legend_data[type_id_str]
-		var name = entry.get("name", "Unknown")
-		var color_html = entry.get("color", "ff00ff")
-		GraphSettings.register_custom_type(id, name, Color(color_html))
+static func _deserialize_categories(data: Dictionary) -> void:
+	for target in data:
+		if not SemanticRegistry.categories.has(target): continue
+		SemanticRegistry.categories[target].clear()
+		for key in data[target]:
+			var entry = data[target][key]
+			SemanticRegistry.register_category(target, key, entry.get("name", key), Color(entry.get("color", "ff00ff")))
+
+static func _serialize_properties() -> Dictionary:
+	return SemanticRegistry.properties.duplicate(true)
+
+static func _deserialize_properties(data: Dictionary) -> void:
+	for target in data:
+		if not SemanticRegistry.properties.has(target): continue
+		SemanticRegistry.properties[target].clear()
+		for key in data[target]:
+			var def = data[target][key]
+			SemanticRegistry.register_property(target, key, def.get("label", key), int(def.get("type", TYPE_STRING)), def.get("default", null))
 
 static func generate_uuid() -> String:
 	var uuid = ""
@@ -218,7 +219,7 @@ static func export_graphml(graph: Graph) -> String:
 	xml += "\t<!-- Node Core Properties -->\n"
 	xml += "\t<key id=\"x\" for=\"node\" attr.name=\"x\" attr.type=\"double\"/>\n"
 	xml += "\t<key id=\"y\" for=\"node\" attr.name=\"y\" attr.type=\"double\"/>\n"
-	xml += "\t<key id=\"type\" for=\"node\" attr.name=\"type\" attr.type=\"int\"/>\n"
+	xml += "\t<key id=\"type\" for=\"node\" attr.name=\"type\" attr.type=\"string\"/>\n"
 	xml += "\t<key id=\"shape\" for=\"node\" attr.name=\"shape\" attr.type=\"int\"/>\n"
 
 	# 2. Dynamically Discover Semantic Keys (Custom Data)
@@ -248,7 +249,7 @@ static func export_graphml(graph: Graph) -> String:
 		xml += "\t\t<node id=\"%s\">\n" % id
 		xml += "\t\t\t<data key=\"x\">%f</data>\n" % node.position.x
 		xml += "\t\t\t<data key=\"y\">%f</data>\n" % node.position.y
-		xml += "\t\t\t<data key=\"type\">%d</data>\n" % node.type
+		xml += "\t\t\t<data key=\"type\">%s</data>\n" % node.type
 		xml += "\t\t\t<data key=\"shape\">%d</data>\n" % node.shape
 
 		for c_key in node.custom_data:
@@ -334,7 +335,7 @@ static func export_gexf(graph: Graph) -> String:
 	xml += "\t\t<attributes class=\"node\">\n"
 	xml += "\t\t\t<attribute id=\"x\" title=\"x\" type=\"float\"/>\n"
 	xml += "\t\t\t<attribute id=\"y\" title=\"y\" type=\"float\"/>\n"
-	xml += "\t\t\t<attribute id=\"type\" title=\"type\" type=\"integer\"/>\n"
+	xml += "\t\t\t<attribute id=\"type\" title=\"type\" type=\"string\"/>\n"
 	xml += "\t\t\t<attribute id=\"shape\" title=\"shape\" type=\"integer\"/>\n"
 
 	# Dynamically Discover Semantic Keys (Custom Data)
@@ -363,7 +364,7 @@ static func export_gexf(graph: Graph) -> String:
 		# Core Data
 		xml += "\t\t\t\t\t<attvalue for=\"x\" value=\"%f\"/>\n" % node.position.x
 		xml += "\t\t\t\t\t<attvalue for=\"y\" value=\"%f\"/>\n" % node.position.y
-		xml += "\t\t\t\t\t<attvalue for=\"type\" value=\"%d\"/>\n" % node.type
+		xml += "\t\t\t\t\t<attvalue for=\"type\" value=\"%s\"/>\n" % node.type
 		xml += "\t\t\t\t\t<attvalue for=\"shape\" value=\"%d\"/>\n" % node.shape
 
 		# Custom Data

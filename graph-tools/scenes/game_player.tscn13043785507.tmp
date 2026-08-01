@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://ddkavpmi4e2s6" path="res://scripts/controllers/toolbar_controller.gd" id="5_u2lal"]
 [ext_resource type="Script" uid="uid://c2ghhkic1gnd6" path="res://scripts/controllers/zone_controller.gd" id="5_xsqam"]
 [ext_resource type="Script" uid="uid://bvtixxql5yrki" path="res://scripts/controllers/analysis_controller.gd" id="6_20qpb"]
-[ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/semantic_data_editor.tscn" id="6_gea6l"]
+[ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/property_wizard.tscn" id="6_gea6l"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
 

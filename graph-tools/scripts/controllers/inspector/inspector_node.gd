@@ -4,14 +4,13 @@ extends InspectorStrategy
 # --- STATE ---
 var _tracked_nodes: Array[String] = []
 var _node_inputs: Dictionary = {}
+var _type_keys_cache: Array = [] # [NEW] Maps the UI integer index to the Registry String Key
 
 # ==============================================================================
 # 1. LIFECYCLE
 # ==============================================================================
 
 func _init(p_editor: GraphEditor, p_container: Control) -> void:
-	# [CHANGE] We now use the standard container from the base class
-	# Update InspectorController to pass just ONE container (e.g. 'single_container' or a new 'node_container')
 	super._init(p_editor, p_container)
 
 func can_handle(nodes: Array, _edges, _agents, _zones) -> bool:
@@ -49,8 +48,14 @@ func _rebuild_node_ui() -> void:
 	var first_id = valid_nodes[0]
 	var first_node = graph.nodes[first_id]
 	
-	# 2. Prepare Shared Data
-	var type_hint = _get_type_hint_string()
+	# 2. Prepare Shared Data [UPDATED FOR REGISTRY]
+	var schema_data = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)
+	_type_keys_cache = schema_data["keys"]
+	var type_hint = schema_data["hint_string"]
+	
+	var default_type_idx = _type_keys_cache.find(first_node.type)
+	if default_type_idx == -1: default_type_idx = 0
+	
 	var schema = []
 	
 	# 3. Detect Mixed Values (for Batch Selection)
@@ -82,7 +87,7 @@ func _rebuild_node_ui() -> void:
 		"name": "type", 
 		"label": "Room Type", 
 		"type": TYPE_INT, 
-		"default": first_node.type, 
+		"default": default_type_idx, # [UPDATED] Uses the UI Index, not the String Key
 		"hint": "enum", 
 		"hint_string": type_hint,
 		"mixed": mixed_keys.get("type", false)
@@ -94,8 +99,8 @@ func _rebuild_node_ui() -> void:
 		var neighbor_text = "(None)" if neighbors.is_empty() else "\n".join(neighbors)
 		schema.append({ "name": "info_n", "label": "Neighbors", "type": TYPE_STRING, "default": neighbor_text, "hint": "read_only_multiline" })
 
-	# --- DYNAMIC PROPERTIES ---
-	var registered_props = GraphSettings.get_properties_for_target("NODE")
+	# --- DYNAMIC PROPERTIES --- [UPDATED FOR REGISTRY]
+	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 	if not registered_props.is_empty():
 		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 		
@@ -109,7 +114,7 @@ func _rebuild_node_ui() -> void:
 			
 		var item = { 
 			"name": key, 
-			"label": key.capitalize(), 
+			"label": def.get("label", key.capitalize()), # Pull proper label from registry
 			"type": def.type, 
 			"default": val 
 		}
@@ -123,7 +128,6 @@ func _rebuild_node_ui() -> void:
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
 
 	# --- RENDER ---
-	# [CHANGE] Use collapsible section
 	var title = "Node Properties" if count == 1 else "Bulk Node Properties"
 	var section = _create_section(title)
 	
@@ -132,13 +136,6 @@ func _rebuild_node_ui() -> void:
 # ==============================================================================
 # 3. HELPERS
 # ==============================================================================
-
-func _get_type_hint_string() -> String:
-	var ids = GraphSettings.current_names.keys()
-	ids.sort() 
-	var type_names = []
-	for id in ids: type_names.append(GraphSettings.get_type_name(id))
-	return ",".join(type_names)
 
 func _detect_mixed_values(nodes: Array, graph: Graph) -> Dictionary:
 	var mixed = {}
@@ -151,8 +148,8 @@ func _detect_mixed_values(nodes: Array, graph: Graph) -> Dictionary:
 		if ref_node.type != other.type:
 			mixed["type"] = true
 			
-		# Check Custom Data
-		var registered = GraphSettings.get_properties_for_target("NODE")
+		# Check Custom Data [UPDATED FOR REGISTRY]
+		var registered = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 		for key in registered:
 			var val_a = ref_node.custom_data.get(key) if "custom_data" in ref_node else null
 			var val_b = other.custom_data.get(key) if "custom_data" in other else null
@@ -181,10 +178,12 @@ func _on_input(key: String, value: Variant) -> void:
 		match key:
 			"pos_x": graph_editor.set_node_position(id, Vector2(value, current_pos.y))
 			"pos_y": graph_editor.set_node_position(id, Vector2(current_pos.x, value))
-			"type": graph_editor.set_node_type(id, int(value))
+			"type": 
+				var ui_idx = int(value)
+				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
+					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
 			_:
 				# Dynamic Property
-				# Use a specific setter if available, else direct dict access
 				var node_obj = graph.nodes[id]
 				if node_obj.has_method("set_data"): node_obj.set_data(key, value)
 				elif "custom_data" in node_obj: node_obj.custom_data[key] = value
@@ -192,10 +191,11 @@ func _on_input(key: String, value: Variant) -> void:
 	# Batch Mode Updates
 	else:
 		if key == "type":
-			graph_editor.set_node_type_bulk(_tracked_nodes, int(value))
+			var ui_idx = int(value)
+			if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
+				graph_editor.set_node_type_bulk(_tracked_nodes, _type_keys_cache[ui_idx])
 		else:
 			# Handle Batch Custom Properties
-			# Note: Ideally you'd add a 'set_node_property_bulk' to GraphEditor later
 			for id in _tracked_nodes:
 				var node_obj = graph.nodes[id]
 				if node_obj.has_method("set_data"): node_obj.set_data(key, value)

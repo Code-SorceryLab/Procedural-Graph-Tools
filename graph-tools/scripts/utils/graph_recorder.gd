@@ -111,10 +111,10 @@ func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	var cmd = CmdDisconnect.new(_target_graph, a, b, w)
 	recorded_commands.append(cmd)
 
-func set_node_type(id: String, new_type: int) -> void:
+func set_node_type(id: String, new_type: String) -> void: 
 	if nodes.has(id):
 		nodes[id].type = new_type
-	var old_type = 0
+	var old_type = "empty" 
 	if _target_graph.nodes.has(id):
 		old_type = _target_graph.nodes[id].type
 	var cmd = CmdSetType.new(_target_graph, id, old_type, new_type)

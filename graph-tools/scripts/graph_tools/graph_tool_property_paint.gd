@@ -3,18 +3,18 @@ extends GraphTool
 
 # --- STATE ---
 var _is_painting: bool = false
-var _current_type: int = NodeData.RoomType.ENEMY 
+var _current_type: String = "enemy"
 var _last_painted_id: String = ""
 
 # --- CACHE FOR UI ---
-var _available_types: Array = []   # Stores the actual IDs (e.g. [0, 1, 5, 10])
+var _available_types: Array = []   # Stores the actual String keys (e.g. ["empty", "spawn", "enemy"])
 var _available_names: String = ""  # Stores "Empty,Enemy,Boss,Custom"
 
 # --- LIFECYCLE ---
 
 func enter() -> void:
 	# 1. Build the list of types dynamically 
-	# (Catches custom types if GraphSettings updated them)
+	# (Catches custom types from the Semantic Registry)
 	_refresh_type_list()
 	
 	_print_current_type()
@@ -34,8 +34,7 @@ func get_options_schema() -> Array:
 	if _available_types.is_empty():
 		_refresh_type_list()
 		
-	# Find which Index matches our current Type ID
-	# (Because OptionButton works with Indices 0,1,2..., but Types might be 0, 5, 99)
+	# Find which Index matches our current Type Key
 	var current_ui_index = _available_types.find(_current_type)
 	if current_ui_index == -1: 
 		current_ui_index = 0
@@ -47,7 +46,7 @@ func get_options_schema() -> Array:
 			"type": TYPE_INT,
 			"default": current_ui_index, # UI expects the List Index
 			"hint": "enum",
-			"hint_string": _available_names # "Empty,Enemy,Treasure"
+			"hint_string": _available_names
 		}
 	]
 
@@ -55,7 +54,7 @@ func apply_option(param_name: String, value: Variant) -> void:
 	if param_name == "paint_type":
 		var ui_index = int(value)
 		
-		# Map the UI Index back to the Real Type ID
+		# Map the UI Index back to the Real Type Key
 		if ui_index >= 0 and ui_index < _available_types.size():
 			_current_type = _available_types[ui_index]
 			_print_current_type()
@@ -95,16 +94,17 @@ func handle_input(event: InputEvent) -> void:
 # --- LOGIC ---
 
 func _refresh_type_list() -> void:
-	# Get all keys (Type IDs) from settings
-	_available_types = GraphSettings.current_colors.keys()
+	# [UPDATED] Pull keys from SemanticRegistry
+	_available_types = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].keys()
 	
-	# Sort to ensure order is always [0, 1, 2...] and not random
-	_available_types.sort()
+	# Note: In Godot 4, dictionaries preserve insertion order. 
+	# If you want them strictly alphabetical, you can uncomment the line below.
+	# _available_types.sort() 
 	
 	# Build the comma-separated string for the UI Builder
 	var names_arr = []
-	for type_id in _available_types:
-		names_arr.append(_get_type_name(type_id))
+	for type_key in _available_types:
+		names_arr.append(_get_type_name(type_key))
 	
 	_available_names = ",".join(names_arr)
 
@@ -130,8 +130,6 @@ func _pick_type_under_mouse() -> void:
 		_print_current_type()
 
 func _cycle_type() -> void:
-	# Refactored to use the same cached list as the Dropdown
-	# This keeps Right-Click and Dropdown order consistent
 	if _available_types.is_empty():
 		_refresh_type_list()
 		
@@ -140,14 +138,10 @@ func _cycle_type() -> void:
 	
 	_current_type = _available_types[next_idx]
 	_print_current_type()
-	
-	# Note: This updates the internal tool state, but the TopBar Dropdown 
-	# won't visually update until you click it (One-way binding).
-	# This is acceptable for simple tools.
 
 func _print_current_type() -> void:
 	var type_name = _get_type_name(_current_type)
 	_show_status("Type Brush: %s" % type_name)
 
-func _get_type_name(type_int: int) -> String:
-	return GraphSettings.get_type_name(type_int)
+func _get_type_name(type_key: String) -> String: 
+	return SemanticRegistry.get_category_name(SemanticRegistry.TARGET_NODE, type_key)

@@ -492,16 +492,16 @@ func commit_move_batch(move_data: Dictionary) -> void:
 	if not batch._commands.is_empty():
 		_commit_command(batch)
 
-func set_node_type(id: String, type_index: int) -> void:
+func set_node_type(id: String, new_type: String) -> void: 
 	if not graph.nodes.has(id): return
 	var old_type = graph.nodes[id].type
-	if old_type == type_index: return
-	var cmd = CmdSetType.new(graph, id, old_type, type_index)
+	if old_type == new_type: return
+	var cmd = CmdSetType.new(graph, id, old_type, new_type)
 	_commit_command(cmd)
 
-func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
+func set_node_type_bulk(ids: Array[String], new_type: String) -> void: 
 	if GraphSettings.USE_ATOMIC_UNDO:
-		for id in ids: set_node_type(id, type_index) 
+		for id in ids: set_node_type(id, new_type) 
 		return
 
 	var batch = CmdBatch.new(graph, "Bulk Type Change")
@@ -510,8 +510,8 @@ func set_node_type_bulk(ids: Array[String], type_index: int) -> void:
 	for id in ids:
 		if not graph.nodes.has(id): continue
 		var old_type = graph.nodes[id].type
-		if old_type != type_index:
-			var cmd = CmdSetType.new(graph, id, old_type, type_index)
+		if old_type != new_type:
+			var cmd = CmdSetType.new(graph, id, old_type, new_type)
 			batch.add_command(cmd) 
 			change_count += 1
 	

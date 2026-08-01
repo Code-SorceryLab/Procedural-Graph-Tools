@@ -87,18 +87,18 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 
 		# B. Assign Type (Recorded via Command)
 		if auto_types:
-			var new_type = NodeData.RoomType.EMPTY
+			var new_type = "empty" 
 			
 			if id == start_id:
-				new_type = NodeData.RoomType.SPAWN
+				new_type = "spawn" 
 			elif id == max_depth_id:
-				new_type = NodeData.RoomType.BOSS
+				new_type = "boss" 
 			elif neighbor_count == 1 and node.get_data("depth", 0) > 2:
-				# [SEED FIX] Use deterministic RNG for room contents
+				# Use deterministic RNG for room contents
 				if rng.randf() < 0.3:
-					new_type = NodeData.RoomType.TREASURE
+					new_type = "treasure" 
 				else:
-					new_type = NodeData.RoomType.ENEMY
+					new_type = "enemy"
 			
 			if node.type != new_type:
 				recorder.set_node_type(id, new_type)

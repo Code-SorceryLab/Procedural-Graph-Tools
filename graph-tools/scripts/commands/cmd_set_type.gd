@@ -2,10 +2,10 @@ class_name CmdSetType
 extends GraphCommand
 
 var _id: String
-var _old_type: int
-var _new_type: int
+var _old_type: String
+var _new_type: String
 
-func _init(graph: Graph, id: String, old_type: int, new_type: int) -> void:
+func _init(graph: Graph, id: String, old_type: String, new_type: String) -> void:
 	super(graph)
 	_id = id
 	_old_type = old_type

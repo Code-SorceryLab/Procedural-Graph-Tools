@@ -261,7 +261,7 @@ func _draw_layer_nodes() -> void:
 		var pos = node_data.position
 		
 		# Color & Body
-		var col = GraphSettings.get_color(node_data.type)
+		var col = SemanticRegistry.get_category_color(SemanticRegistry.TARGET_NODE, node_data.type)
 		if new_nodes_ref.has(id):
 			col = GraphSettings.COLOR_NEW_GENERATION
 			
@@ -480,15 +480,15 @@ func _recalculate_depth_cache() -> void:
 		
 	var seeds: Array[String] = []
 	
-	# 1. Selected Spawns
+	# 1. Selected Spawns [UPDATED TO STRING]
 	for id in selected_nodes_ref:
 		if graph_ref.nodes.has(id):
-			if graph_ref.nodes[id].type == NodeData.RoomType.SPAWN: seeds.append(id)
+			if graph_ref.nodes[id].type == "spawn": seeds.append(id)
 	
-	# 2. All Spawns
+	# 2. All Spawns [UPDATED TO STRING]
 	if seeds.is_empty():
 		for id in graph_ref.nodes:
-			if graph_ref.nodes[id].type == NodeData.RoomType.SPAWN: seeds.append(id)
+			if graph_ref.nodes[id].type == "spawn": seeds.append(id)
 				
 	# 3. Center Fallback
 	if seeds.is_empty():

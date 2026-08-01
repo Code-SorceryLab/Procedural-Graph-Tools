@@ -52,7 +52,7 @@ var _path_target_id: String = ""
 var target_node_id: String = ""
 
 var auto_paint: bool = false 
-var my_paint_type: int = 2
+var my_paint_type: String = "empty"
 var active: bool = true             
 var is_finished: bool = false       
 var snap_to_grid: bool = false
@@ -61,7 +61,7 @@ var steps: int = 15
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
-	"steps": 15, "paint_type": 2, "snap_to_grid": false, 
+	"steps": 15, "paint_type": "empty", "snap_to_grid": false, 
 	"use_geometric_fc": false, "use_zone_constraints": false,
 	"branching_prob": 0.0, "destructive_backtrack": true,
 	"auto_paint": false
@@ -87,7 +87,7 @@ func has_capability(name: String) -> bool:
 # 5. LIFECYCLE
 # ==============================================================================
 
-func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: int, p_steps: int) -> void:
+func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: String, p_steps: int) -> void:
 	uuid = p_uuid
 	display_id = p_display_id
 	pos = start_pos
@@ -206,7 +206,8 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	var d_id = int(data.get("display_id", 1))
 	var d_pos = Vector2(data.get("pos_x", 0), data.get("pos_y", 0))
 	var d_start = data.get("start_node", "")
-	var d_paint = int(data.get("paint_type", 2))
+	var raw_paint = data.get("paint_type", "empty")
+	var d_paint = raw_paint if typeof(raw_paint) == TYPE_STRING else "empty"
 	var d_steps = int(data.get("steps", 15))
 	
 	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_paint, d_steps)
@@ -412,15 +413,9 @@ func _recalculate_path(graph: Graph) -> void:
 # ==============================================================================
 
 static func get_template_settings() -> Array[Dictionary]:
-	var ids = GraphSettings.current_names.keys()
-	ids.sort()
-	var names: PackedStringArray = []
-	var default_idx = 0
-	for i in range(ids.size()):
-		var type_id = ids[i]
-		names.append(GraphSettings.get_type_name(type_id))
-		if type_id == 2: default_idx = i 
-	var options_string = ",".join(names)
+	# Pull dynamically from Registry
+	var schema = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)
+	var options_string = schema["hint_string"]
 	
 	return [
 		{ "name": "agent_seed", "label": "Agent Seed", "type": TYPE_STRING, "default": "", 
@@ -435,7 +430,7 @@ static func get_template_settings() -> Array[Dictionary]:
 		{ "name": "sep_actions", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": false, 
 		  "hint_text": "If enabled, the agent will automatically apply the selected Paint Material to the node it currently occupies on every step." },
-		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_INT, "default": default_idx, "options": options_string, 
+		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_STRING, "default": "empty", "options": options_string, 
 		  "hint_text": "The visual style and semantic node type the agent applies to the world when painting or building." },
 
 		# Generation Settings
@@ -478,11 +473,10 @@ func get_agent_settings() -> Array[Dictionary]:
 		
 		elif s_name == "auto_paint": s["default"] = auto_paint
 		elif s_name == "paint_type":
-			var ids = GraphSettings.current_names.keys()
-			ids.sort()
-			var idx = ids.find(my_paint_type)
-			if idx != -1: 
-				s["default"] = idx
+			# [RESTORED] Map String back to UI integer index
+			var keys = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)["keys"]
+			var idx = keys.find(my_paint_type)
+			s["default"] = idx if idx != -1 else 0
 			 
 		elif s_name == "use_geometric_fc": s["default"] = use_geometric_fc
 		elif s_name == "use_zone_constraints": s["default"] = use_zone_constraints
@@ -516,10 +510,10 @@ func apply_setting(key: String, value: Variant) -> void:
 		
 		"auto_paint": auto_paint = value
 		"paint_type":
-			var ids = GraphSettings.current_names.keys()
-			ids.sort()
-			if value >= 0 and value < ids.size():
-				my_paint_type = ids[value]
+			# [RESTORED] Map UI integer back to String key
+			var keys = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)["keys"]
+			if value >= 0 and value < keys.size():
+				my_paint_type = keys[value]
 				
 		"use_geometric_fc": use_geometric_fc = value
 		"use_zone_constraints": use_zone_constraints = value
@@ -538,7 +532,7 @@ func apply_template_defaults() -> void:
 	movement_algo = t.get("movement_algo", 0)
 	target_node_id = t.get("target_node_id", "")
 	steps = t.get("steps", 15)
-	my_paint_type = t.get("paint_type", 2)
+	my_paint_type = t.get("paint_type", "empty")
 	snap_to_grid = t.get("snap_to_grid", false)
 	
 	auto_paint = t.get("auto_paint", false)

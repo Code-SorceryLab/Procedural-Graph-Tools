@@ -97,7 +97,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 				
 				var new_id = str(recorder.get_next_display_id())
 				recorder.add_node(new_id, spawn_pos)
-				recorder.set_node_type(new_id, instructions.get("type", NodeData.RoomType.EMPTY))
+				recorder.set_node_type(new_id, instructions.get("type", "empty"))
 				match_dict[node_key] = new_id
 			else:
 				var existing_id = match_dict[node_key]

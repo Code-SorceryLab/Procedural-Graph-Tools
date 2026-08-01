@@ -114,6 +114,23 @@ func _rebuild_agent_ui() -> void:
 					"hint": "button"
 				})
 	
+	# Inject Dynamic Custom Agent Properties
+	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_AGENT)
+	if not registered_props.is_empty():
+		final_settings.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
+		for key in registered_props:
+			var def = registered_props[key]
+			var val = _ref_agent.custom_data.get(key, def.default)
+			
+			var item = {
+				"name": key,
+				"label": def.get("label", key.capitalize()),
+				"type": def.type,
+				"default": val
+			}
+			if mixed_keys.has(key): item["mixed"] = true
+			final_settings.append(item)
+	
 	# E. Final Actions
 	final_settings.append({
 		"name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button"

@@ -1,8 +1,8 @@
 [gd_scene load_steps=2 format=3 uid="uid://c8s5vkkqy6b61"]
 
-[ext_resource type="Script" uid="uid://dturpvg2phmfu" path="res://scripts/ui/property_wizard.gd" id="1_ufafa"]
+[ext_resource type="Script" uid="uid://dturpvg2phmfu" path="res://scripts/ui/semantic_data_editor.gd" id="1_ufafa"]
 
-[node name="PropertyWizard" type="AcceptDialog"]
+[node name="SemanticDataEditor" type="AcceptDialog"]
 oversampling_override = 1.0
 title = "Define Custom Property"
 initial_position = 2

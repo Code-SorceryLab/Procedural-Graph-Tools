@@ -2,13 +2,13 @@ class_name CapPainter
 extends AgentCapability
 
 # --- STATE ---
-var target_type: int = -1       # -1 = Do not change type
+var target_type: String = "empty"       # empty = Do not change type
 var target_data: Dictionary = {} # keys to modify (e.g. {"is_visited": true})
 
 # --- CONFIGURATION ---
 
 # Standard "Paint Brush" (Color/Type)
-func set_paint_type(type_idx: int) -> void:
+func set_paint_type(type_idx: String) -> void:
 	target_type = type_idx
 
 # Advanced "Data Stamp" (Semantic Data)
@@ -26,7 +26,7 @@ func paint(graph: Graph, node_id: String) -> void:
 		return
 		
 	# 1. Apply Visual Type (Color)
-	if target_type != -1:
+	if target_type != "empty":
 		# Only paint if different (optimization)
 		var current = graph.nodes[node_id].type
 		if current != target_type:

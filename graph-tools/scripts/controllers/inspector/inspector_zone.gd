@@ -37,6 +37,7 @@ func _rebuild_zone_ui() -> void:
 	# --- SECTION 1: PROPERTIES ---
 	var schema = [
 		{ "name": "zone_name", "label": "Name", "type": TYPE_STRING, "default": zone.zone_name },
+		# Note: Zone Type is a structural engine requirement, so we leave it as a hardcoded UI enum
 		{ "name": "zone_type", "label": "Type", "type": TYPE_INT, "default": zone.zone_type, "hint": "enum", "hint_string": "Geographical,Logical,RigidGroup" },
 		{ "name": "zone_color", "label": "Color", "type": TYPE_COLOR, "default": zone.zone_color },
 		
@@ -47,8 +48,8 @@ func _rebuild_zone_ui() -> void:
 		{ "name": "damage_per_tick", "label": "Damage / Tick", "type": TYPE_FLOAT, "default": zone.damage_per_tick, "step": 1.0 }
 	]
 	
-	# Dynamic Properties
-	var registered_props = GraphSettings.get_properties_for_target("ZONE")
+	# Dynamic Properties [UPDATED FOR REGISTRY]
+	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_ZONE)
 	if not registered_props.is_empty():
 		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 		
@@ -56,7 +57,12 @@ func _rebuild_zone_ui() -> void:
 		var def = registered_props[key]
 		var val = def.default
 		if "custom_data" in zone: val = zone.custom_data.get(key, def.default)
-		schema.append({ "name": key, "label": key.capitalize(), "type": def.type, "default": val })
+		schema.append({ 
+			"name": key, 
+			"label": def.get("label", key.capitalize()), 
+			"type": def.type, 
+			"default": val 
+		})
 
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
 	
@@ -89,7 +95,7 @@ func _on_input(key: String, value: Variant) -> void:
 	var zone = _tracked_zones[0] as GraphZone
 	
 	if key == "action_add_property":
-		request_wizard.emit("ZONE")
+		request_wizard.emit(SemanticRegistry.TARGET_ZONE) # [UPDATED]
 		return
 
 	# Core Properties

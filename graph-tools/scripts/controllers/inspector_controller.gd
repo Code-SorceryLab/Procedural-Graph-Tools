@@ -10,7 +10,7 @@ extends Node
 @export var inspector_vbox: VBoxContainer    
 
 @export var property_wizard_scene: PackedScene
-var _wizard_instance: PropertyWizard
+var _wizard_instance: SemanticDataEditor
 var _algo_settings_popup: AlgorithmSettingsPopup
 
 # 1. VIEW CONTAINERS

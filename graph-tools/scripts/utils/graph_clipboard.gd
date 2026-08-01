@@ -34,7 +34,8 @@ func copy() -> void:
 			"id": id,
 			"type": node.type,
 			"offset_x": node.position.x - center.x,
-			"offset_y": node.position.y - center.y
+			"offset_y": node.position.y - center.y,
+			"custom_data": node.custom_data.duplicate(true)
 		})
 		
 	# 3. Serialize Internal Edges
@@ -52,12 +53,14 @@ func copy() -> void:
 				
 				var w = graph.get_edge_weight(id_a, id_b)
 				var is_directed = not graph.has_edge(id_b, id_a)
+				var e_data = graph.get_edge_data(id_a, id_b) 
 				
 				clipboard_data["edges"].append({
 					"u": id_a,
 					"v": id_b,
 					"w": w,
-					"dir": is_directed
+					"dir": is_directed,
+					"data": e_data.duplicate(true) 
 				})
 	
 	# 4. Send to OS Clipboard
@@ -121,8 +124,9 @@ func paste() -> void:
 		var cmd_add = CmdAddNode.new(graph, new_id, pos)
 		batch.add_command(cmd_add)
 		
-		if node_data["type"] != 0:
-			var cmd_type = CmdSetType.new(graph, new_id, 0, int(node_data["type"]))
+		var pasted_type = str(node_data.get("type", "empty"))
+		if pasted_type != "empty":
+			var cmd_type = CmdSetType.new(graph, new_id, "empty", pasted_type)
 			batch.add_command(cmd_type)
 			
 	# Reconstruct Edges
@@ -134,8 +138,18 @@ func paste() -> void:
 			var new_u = id_map[old_u]
 			var new_v = id_map[old_v]
 			var w = edge["w"]
+			
 			var cmd_conn = CmdConnect.new(graph, new_u, new_v, w)
 			batch.add_command(cmd_conn)
+			
+			# Restore Edge Custom Data
+			if edge.has("data"):
+				var e_data = edge["data"]
+				for key in e_data:
+					# We ignore weight since CmdConnect handled it
+					if key == "weight": continue 
+					var cmd_prop = CmdSetEdgeProperty.new(graph, new_u, new_v, key, e_data[key], null)
+					batch.add_command(cmd_prop)
 	
 	# Execute
 	if not batch._commands.is_empty():

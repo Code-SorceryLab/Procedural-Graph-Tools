@@ -2,15 +2,6 @@
 extends Resource
 class_name NodeData
 
-# --- ENUMS (The "Standard" Vocabulary) ---
-enum RoomType {
-	EMPTY,      # 0: Standard room
-	SPAWN,      # 1: The starting point
-	ENEMY,      # 2: Contains combat
-	TREASURE,   # 3: Contains loot
-	BOSS,       # 4: The goal
-	SHOP        # 5: Optional utility
-}
 
 enum RoomShape {
 	AUTO,       # Let the generator decide based on connections
@@ -27,7 +18,7 @@ enum RoomShape {
 
 # --- VISUAL / CORE DATA (First-Class Citizens) ---
 # We keep these as strict variables because the Renderer/Generator uses them constantly.
-@export var type: int = RoomType.EMPTY
+var type: String = "empty"
 @export var shape: RoomShape = RoomShape.AUTO
 
 # --- SEMANTIC DATA (The "Database") ---

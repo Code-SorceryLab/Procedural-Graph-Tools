@@ -101,35 +101,10 @@ const COLOR_UI_ERROR: Color = Color(0.8, 0.3, 0.3)
 const COLOR_UI_ACTIVE: Color = Color.WHITE
 const COLOR_UI_DISABLED: Color = Color(1, 1, 1, 0.5)
 
-# ==============================================================================
-# 5. SEMANTIC ROOM COLORS (DYNAMIC LEGEND)
-# ==============================================================================
-# Separate Defaults from the Active State so we can restore later.
 
-const DEFAULT_COLORS: Dictionary = {
-	NodeData.RoomType.EMPTY:    Color(0.8, 0.8, 0.8),
-	NodeData.RoomType.SPAWN:    Color(0.2, 0.8, 0.2),
-	NodeData.RoomType.ENEMY:    Color(0.8, 0.3, 0.3),
-	NodeData.RoomType.TREASURE: Color(1.0, 0.8, 0.2),
-	NodeData.RoomType.BOSS:     Color(0.6, 0.0, 0.0),
-	NodeData.RoomType.SHOP:     Color(0.4, 0.2, 0.6)
-}
-
-const DEFAULT_NAMES: Dictionary = {
-	NodeData.RoomType.EMPTY:    "Empty",
-	NodeData.RoomType.SPAWN:    "Spawn",
-	NodeData.RoomType.ENEMY:    "Enemy",
-	NodeData.RoomType.TREASURE: "Treasure",
-	NodeData.RoomType.BOSS:     "Boss",
-	NodeData.RoomType.SHOP:     "Shop"
-}
-
-# The Mutable Dictionary used by the Runtime
-static var current_colors: Dictionary = DEFAULT_COLORS.duplicate()
-static var current_names: Dictionary = DEFAULT_NAMES.duplicate()
 
 # ==============================================================================
-# 6. TOOL DEFINITIONS
+# 5. TOOL DEFINITIONS
 # ==============================================================================
 # Reordered to match Input Map Keys (1 through 7)
 enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN, ZONE_BRUSH }
@@ -162,49 +137,17 @@ static var TOOL_DATA: Dictionary = {
 	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": ""}
 }
 
-# ==============================================================================
-# 7. DYNAMIC PROPERTY DEFINITIONS
-# ==============================================================================
 
-# --- DYNAMIC PROPERTY SCHEMA ---
-# Stores definitions for custom data fields.
-# Structure: { "property_name": { "target": "NODE", "type": TYPE_FLOAT, "default": 0.0 } }
-static var property_definitions: Dictionary = {}
-
-const TARGET_NODE = "NODE"
-const TARGET_EDGE = "EDGE"
-const TARGET_AGENT = "AGENT"
-
-static func register_property(prop_name: String, target: String, type: int, default_val: Variant) -> void:
-	property_definitions[prop_name] = {
-		"target": target,
-		"type": type,
-		"default": default_val
-	}
-
-static func unregister_property(prop_name: String) -> void:
-	if property_definitions.has(prop_name):
-		property_definitions.erase(prop_name)
-
-static func get_properties_for_target(target: String) -> Dictionary:
-	var result = {}
-	for key in property_definitions:
-		if property_definitions[key]["target"] == target:
-			result[key] = property_definitions[key]
-	return result
-
-static func clear_schema() -> void:
-	property_definitions.clear()
 
 # ==============================================================================
-# 8. COMMAND DEFINITIONS
+# 6. COMMAND DEFINITIONS
 # ==============================================================================
 static var MAX_HISTORY_STEPS: int = 50
 static var USE_ATOMIC_UNDO: bool = false
 static var MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
 
 # ==============================================================================
-# 9. HELPER FUNCTIONS
+# 7. HELPER FUNCTIONS
 # ==============================================================================
 
 static func get_tool_icon(tool_id: int) -> Texture2D:
@@ -243,21 +186,6 @@ static func get_shortcut_keycode(tool_id: int) -> int:
 
 
 
-# --- LEGEND HELPERS ---
-
-static func get_color(type_id: int) -> Color:
-	return current_colors.get(type_id, Color.MAGENTA) # Fallback if missing
-
-static func get_type_name(type_id: int) -> String:
-	return current_names.get(type_id, "Unknown")
-
-static func register_custom_type(id: int, name: String, color: Color) -> void:
-	current_colors[id] = color
-	current_names[id] = name
-
-static func reset_legend() -> void:
-	current_colors = DEFAULT_COLORS.duplicate()
-	current_names = DEFAULT_NAMES.duplicate()
 
 
 	# Helper function to get custom method names
@@ -276,7 +204,7 @@ static func print_custom_method_names(object_instance: Object) -> void:
 	print(get_custom_method_names(object_instance))
 
 # ==============================================================================
-# 10. GRAPH GRAMMAR PRESETS
+# 8. GRAPH GRAMMAR PRESETS
 # ==============================================================================
 
 # Centralized dictionary for graph rewriting rules.
@@ -290,7 +218,7 @@ static var grammar_rules: Dictionary = {
 		},
 		"remove_edges": [ ["A", "B"] ],
 		"apply_nodes": {
-			"C": { "is_new": true, "type": NodeData.RoomType.EMPTY } 
+			"C": { "is_new": true, "type": "empty" } 
 		},
 		"apply_edges": [
 			["A", "C"],
@@ -305,10 +233,10 @@ static var grammar_rules: Dictionary = {
 		},
 		"remove_edges": [ ["A", "B"] ],
 		"apply_nodes": {
-			"A": { "type": NodeData.RoomType.BOSS }
+			"A": { "type": "boss" } 
 		},
 		"apply_edges": [
-			["A", "B", {"weight": 1.0, "locked": true}] 
+			["A", "B", {"weight": 1.0, "type": "door_locked"}] 
 		]
 	}
 }

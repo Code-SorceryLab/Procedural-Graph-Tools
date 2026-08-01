@@ -4,7 +4,7 @@ extends GraphCommand
 # Node State
 var _id: String
 var _pos: Vector2
-var _type: int
+var _type: String
 
 # Edges State
 var _edges: Array[Dictionary] = []
