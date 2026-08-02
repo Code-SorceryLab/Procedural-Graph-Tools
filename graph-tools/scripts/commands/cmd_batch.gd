@@ -3,7 +3,7 @@ extends GraphCommand
 
 var _commands: Array[GraphCommand] = []
 var _name: String
-# NEW: Flag to control camera behavior
+# Flag to control camera behavior
 var center_on_undo: bool = true
 
 # Update init to accept the flag (Default = true)

@@ -58,7 +58,7 @@ func _setup_menus() -> void:
 		menu_file.clear()
 		menu_file.add_item("New Graph", 101)
 		menu_file.add_item("Save", 102)
-		menu_file.add_item("Save As...", 104) # Added Save As
+		menu_file.add_item("Save As...", 104)
 		menu_file.add_item("Load", 103)
 		menu_file.id_pressed.connect(_on_file_menu_pressed)
 		
@@ -71,6 +71,9 @@ func _setup_menus() -> void:
 		menu_edit.add_item("Clear Graph", 203)
 		menu_edit.id_pressed.connect(_on_edit_menu_pressed)
 		
+		# Hook into the popup event to dynamically update labels!
+		menu_edit.about_to_popup.connect(_on_edit_menu_about_to_popup)
+		
 	# Setup Graph Menu
 	if menu_graph:
 		menu_graph.clear()
@@ -78,6 +81,30 @@ func _setup_menus() -> void:
 		menu_graph.add_separator()
 		menu_graph.add_item("Force Directed Layout (1 Step)", 302)
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
+
+# Dynamic Undo/Redo Labels
+func _on_edit_menu_about_to_popup() -> void:
+	if not graph_editor or not graph_editor.history: return
+	
+	var history = graph_editor.history
+	var undo_idx = menu_edit.get_item_index(201)
+	var redo_idx = menu_edit.get_item_index(202)
+	
+	# Update Undo
+	if history.can_undo():
+		menu_edit.set_item_text(undo_idx, "Undo " + history.get_undo_name())
+		menu_edit.set_item_disabled(undo_idx, false)
+	else:
+		menu_edit.set_item_text(undo_idx, "Undo")
+		menu_edit.set_item_disabled(undo_idx, true)
+		
+	# Update Redo
+	if history.can_redo():
+		menu_edit.set_item_text(redo_idx, "Redo " + history.get_redo_name())
+		menu_edit.set_item_disabled(redo_idx, false)
+	else:
+		menu_edit.set_item_text(redo_idx, "Redo")
+		menu_edit.set_item_disabled(redo_idx, true)
 
 func _on_file_menu_pressed(id: int) -> void:
 	if not file_controller: return

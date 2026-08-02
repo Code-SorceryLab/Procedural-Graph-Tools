@@ -98,7 +98,7 @@ func redo() -> GraphCommand:
 	cmd.execute()
 	_undo_stack.append(cmd)
 	
-	# [NEW] Notify listeners (Simulation) that state has rolled forward
+	# Notify listeners (Simulation) that state has rolled forward
 	history_changed.emit()
 	
 	return cmd
@@ -111,3 +111,20 @@ func clear() -> void:
 	_undo_stack.clear()
 	_redo_stack.clear()
 	_active_transaction = null
+
+# UI Query Helpers
+func can_undo() -> bool:
+	return not _undo_stack.is_empty()
+
+func can_redo() -> bool:
+	return not _redo_stack.is_empty()
+
+func get_undo_name() -> String:
+	if can_undo():
+		return _undo_stack.back().get_name()
+	return ""
+
+func get_redo_name() -> String:
+	if can_redo():
+		return _redo_stack.back().get_name()
+	return ""

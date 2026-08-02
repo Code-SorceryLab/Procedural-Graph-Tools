@@ -44,14 +44,14 @@ func _init(graph: Graph, id: String) -> void:
 		})
 
 func execute() -> void:
-	# [FIX] Guard check
+	# Guard check
 	if not _is_valid: return
 	if not _graph.nodes.has(_id): return 
 	
 	_graph.remove_node(_id)
 
 func undo() -> void:
-	# [FIX] Guard check
+	# Guard check
 	if not _is_valid: return
 		
 	# 1. Restore the Body (Node)
@@ -60,7 +60,7 @@ func undo() -> void:
 	if _graph.nodes.has(_id):
 		_graph.nodes[_id].type = _type
 		
-		# [NEW] Restore the custom variables, again as a deep copy
+		# Restore the custom variables, again as a deep copy
 		_graph.nodes[_id].custom_data = _custom_data.duplicate(true)
 	
 	# 2. Restore the Web (Edges)

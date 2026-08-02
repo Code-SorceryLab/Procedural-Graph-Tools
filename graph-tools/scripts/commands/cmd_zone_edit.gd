@@ -69,3 +69,6 @@ func _refresh_roster(affected_cells: Array[Vector2i]) -> void:
 				# It should be OUT
 				if _zone.registered_nodes.has(id):
 					_zone.unregister_node(id)
+
+func get_name() -> String:
+	return "Zone Edit"

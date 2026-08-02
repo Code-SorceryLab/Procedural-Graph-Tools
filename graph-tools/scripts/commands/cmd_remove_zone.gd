@@ -14,3 +14,6 @@ func execute() -> void:
 func undo() -> void:
 	if not _graph.zones.has(_zone):
 		_graph.add_zone(_zone)
+
+func get_name() -> String:
+	return "Remove Zone"
