@@ -42,8 +42,12 @@ var path_start_ids: Array = []
 var path_end_ids: Array = []
 var drag_start_id: String = ""
 var hovered_id: String = ""
+var hovered_edge_ref: Array = []
+var hovered_agent_ref: Object = null
+var hovered_zone_ref: Object = null
 var snap_preview_pos: Vector2 = Vector2.INF
 var selection_rect: Rect2 = Rect2()
+var cut_preview_edges: Array = []
 
 var brush_preview_cells: Array[Vector2i] = []
 var brush_preview_color: Color = Color.WHITE
@@ -109,6 +113,9 @@ func _draw_layer_zones() -> void:
 			else:
 				draw_color.a *= 0.15 
 				border_color.a *= 0.15
+		elif zone == hovered_zone_ref: # Hover Feedback
+			border_width = 2.0
+			border_color = hover_color
 		
 		# Render based on Type
 		if zone.zone_type == GraphZone.ZoneType.GEOGRAPHICAL:
@@ -169,6 +176,10 @@ func _draw_layer_edges() -> void:
 			# Highlight Selection
 			if selected_edges_ref.has(pair):
 				draw_line(start_pos, end_pos, selected_color, edge_width + 4.0)
+			elif hovered_edge_ref == pair: # Hover Feedback
+				draw_line(start_pos, end_pos, hover_color, edge_width + 2.0)
+			elif cut_preview_edges.has(pair): # Red Highlight for Cut Tool
+				draw_line(start_pos, end_pos, Color(1.0, 0.2, 0.2, 0.8), edge_width + 2.0)
 			
 			# Check Bidirectionality
 			var is_bidirectional = graph_ref.has_edge(neighbor, id)
@@ -349,6 +360,9 @@ func _draw_agent_token(center: Vector2, is_selected: bool, agent_ref: Object) ->
 	if is_selected:
 		line_col = selection_gold
 		width = 3.0
+	elif agent_ref == hovered_agent_ref: # Hover Feedback
+		line_col = hover_color
+		width = 2.5
 	elif pre_selected_agents_ref.has(agent_ref):
 		line_col = selection_gold
 		line_col.a = 0.7 

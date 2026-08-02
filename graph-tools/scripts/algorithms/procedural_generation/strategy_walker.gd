@@ -52,7 +52,6 @@ func get_settings() -> Array[Dictionary]:
 	var raw_template = AgentWalker.get_template_settings()
 	
 	for s in raw_template:
-		# [FIX 2] Use .get("name") instead of .name
 		if s.get("name") == "merge_overlaps": continue 
 		
 		var item = s.duplicate(true)
@@ -94,7 +93,8 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 	var pos = graph.get_node_pos(node_id)
 	var ids = _generate_identity(graph)
 	
-	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, "empty", 50)
+	# [FIXED] Removed the hardcoded "empty" parameter
+	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, 50)
 	agent.apply_template_defaults()
 	
 	agent.set_seed(rng.randi()) 
@@ -110,9 +110,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	if raw_seed != "":
 		my_seed = SeedUtils.hash_seed(raw_seed)
 		
-		# [CRITICAL FIX] RNG Salting
-		# If we click "Spawn" multiple times, we must alter the seed slightly based on 
-		# how many agents already exist, otherwise we generate exact clones!
+		# RNG Salting
 		var existing_agents = graph.agents.size() if "agents" in graph else 0
 		if existing_agents > 0:
 			rng.seed = hash(str(my_seed) + "_salt_" + str(existing_agents))
@@ -249,9 +247,7 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 
 	var template = AgentWalker.get_template_settings()
 	var default_steps = int(params.get("steps", 50))
-	var default_paint = "empty"
 	
-	# [NEW] Check for manual agent seed from the UI
 	var manual_agent_seed = params.get("agent_seed", "")
 	
 	for i in range(count):
@@ -261,17 +257,17 @@ func _spawn_initial_population(graph: GraphRecorder, count: int, params: Diction
 			root_pos = graph.get_node_pos(root_id)
 		
 		var ids = _generate_identity(graph)
-		var agent = AgentWalker.new(ids.uuid, ids.display_id, root_pos, root_id, default_paint, default_steps)
+		# [FIXED] Removed the hardcoded default paint string from the constructor
+		var agent = AgentWalker.new(ids.uuid, ids.display_id, root_pos, root_id, default_steps)
 		
-		# [NEW] Seed Assignment Logic
 		if manual_agent_seed != "":
-			# Salt it with the loop index so if you set count=2 with a manual seed, 
-			# they don't clone each other either.
 			var salted = manual_agent_seed + "_" + str(i)
 			agent.set_seed(SeedUtils.hash_seed(salted))
 		else:
 			agent.set_seed(rng.randi())
 		
+		# Because apply_setting was updated to handle paint_target, paint_field, and paint_value,
+		# the agent will safely load its Auto Paint configuration directly from the UI panel!
 		for setting in template:
 			var key = setting.get("name", "")
 			if params.has(key):

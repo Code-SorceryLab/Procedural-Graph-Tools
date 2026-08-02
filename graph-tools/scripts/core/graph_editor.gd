@@ -350,6 +350,37 @@ func clear_selection() -> void:
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	SignalManager.agent_selection_changed.emit(selected_agent_ids)
 
+# --- HOVER STATE API ---
+
+func set_hovered_node(id: String) -> void:
+	if not renderer: return
+	if renderer.hovered_id != id:
+		renderer.hovered_id = id
+		renderer.queue_redraw()
+
+func set_hovered_edge(pair: Array) -> void:
+	if not renderer: return
+	
+	# Edges must be sorted to ensure [A, B] matches [B, A]
+	var sorted_pair = pair.duplicate()
+	sorted_pair.sort()
+	
+	if renderer.hovered_edge_ref != sorted_pair:
+		renderer.hovered_edge_ref = sorted_pair
+		renderer.queue_redraw()
+
+func set_hovered_agent(agent: Object) -> void:
+	if not renderer: return
+	if renderer.hovered_agent_ref != agent:
+		renderer.hovered_agent_ref = agent
+		renderer.queue_redraw()
+
+func set_hovered_zone(zone: Object) -> void:
+	if not renderer: return
+	if renderer.hovered_zone_ref != zone:
+		renderer.hovered_zone_ref = zone
+		renderer.queue_redraw()
+
 # Edge Selection API
 
 func toggle_edge_selection(edge_pair: Array) -> void:
@@ -492,14 +523,15 @@ func commit_move_batch(move_data: Dictionary) -> void:
 	if not batch._commands.is_empty():
 		_commit_command(batch)
 
-func set_node_type(id: String, new_type: String) -> void: 
+func set_node_type(id: String, new_type: String) -> void:
 	if not graph.nodes.has(id): return
 	var old_type = graph.nodes[id].type
 	if old_type == new_type: return
-	var cmd = CmdSetType.new(graph, id, old_type, new_type)
+	
+	var cmd = CmdSetProperty.new(graph, "NODE", id, "type", new_type, old_type)
 	_commit_command(cmd)
 
-func set_node_type_bulk(ids: Array[String], new_type: String) -> void: 
+func set_node_type_bulk(ids: Array[String], new_type: String) -> void:
 	if GraphSettings.USE_ATOMIC_UNDO:
 		for id in ids: set_node_type(id, new_type) 
 		return
@@ -511,7 +543,7 @@ func set_node_type_bulk(ids: Array[String], new_type: String) -> void:
 		if not graph.nodes.has(id): continue
 		var old_type = graph.nodes[id].type
 		if old_type != new_type:
-			var cmd = CmdSetType.new(graph, id, old_type, new_type)
+			var cmd = CmdSetProperty.new(graph, "NODE", id, "type", new_type, old_type)
 			batch.add_command(cmd) 
 			change_count += 1
 	
@@ -543,15 +575,22 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
-func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
-	if not graph.has_edge(id_a, id_b): return
-	
-	var current_data = graph.get_edge_data(id_a, id_b)
-	var old_value = current_data.get(key)
-	
+# Adds undo history support for custom node variables!
+func set_node_property(id: String, key: String, value: Variant) -> void:
+	if not graph.nodes.has(id): return
+	var old_value = graph.nodes[id].custom_data.get(key)
 	if str(value) == str(old_value): return
 	
-	var cmd = CmdSetEdgeProperty.new(graph, id_a, id_b, key, value, old_value)
+	var cmd = CmdSetProperty.new(graph, "NODE", id, key, value, old_value)
+	_commit_command(cmd)
+
+func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
+	if not graph.has_edge(id_a, id_b): return
+	var current_data = graph.get_edge_data(id_a, id_b)
+	var old_value = current_data.get(key)
+	if str(value) == str(old_value): return
+	
+	var cmd = CmdSetProperty.new(graph, "EDGE", [id_a, id_b], key, value, old_value)
 	_commit_command(cmd)
 
 func get_edge_property(id_a: String, id_b: String, key: String, default: Variant = null) -> Variant:

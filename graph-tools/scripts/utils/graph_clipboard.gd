@@ -126,8 +126,15 @@ func paste() -> void:
 		
 		var pasted_type = str(node_data.get("type", "empty"))
 		if pasted_type != "empty":
-			var cmd_type = CmdSetType.new(graph, new_id, "empty", pasted_type)
+			var cmd_type = CmdSetProperty.new(graph, "NODE", new_id, "type", pasted_type, "empty")
 			batch.add_command(cmd_type)
+			
+		# Restore Node Custom Data
+		if node_data.has("custom_data"):
+			var n_data = node_data["custom_data"]
+			for key in n_data:
+				var cmd_prop = CmdSetProperty.new(graph, "NODE", new_id, key, n_data[key], null)
+				batch.add_command(cmd_prop)
 			
 	# Reconstruct Edges
 	for edge in data["edges"]:
@@ -148,7 +155,7 @@ func paste() -> void:
 				for key in e_data:
 					# We ignore weight since CmdConnect handled it
 					if key == "weight": continue 
-					var cmd_prop = CmdSetEdgeProperty.new(graph, new_u, new_v, key, e_data[key], null)
+					var cmd_prop = CmdSetProperty.new(graph, "EDGE", [new_u, new_v], key, e_data[key], null)
 					batch.add_command(cmd_prop)
 	
 	# Execute

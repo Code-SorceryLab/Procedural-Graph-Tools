@@ -6,7 +6,7 @@ extends Node
 @export var status_label: Label
 @export var tool_options_container: HBoxContainer 
 
-# [NEW] Simulation Controls
+# Simulation Controls
 @export_group("Simulation Controls")
 @export var btn_step: Button
 @export var btn_play: Button
@@ -16,7 +16,7 @@ extends Node
 # --- STATE ---
 var _active_tool_inputs: Dictionary = {}
 
-# [NEW] Playback State
+# Playback State
 var is_playing: bool = false
 var play_timer: float = 0.0
 var play_speed: float = 0.1 # Seconds per tick

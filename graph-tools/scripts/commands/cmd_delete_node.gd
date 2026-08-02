@@ -5,6 +5,7 @@ extends GraphCommand
 var _id: String
 var _pos: Vector2
 var _type: String
+var _custom_data: Dictionary # [NEW] Snapshot of Semantic Variables
 
 # Edges State
 var _edges: Array[Dictionary] = []
@@ -29,6 +30,9 @@ func _init(graph: Graph, id: String) -> void:
 	var node_data = _graph.nodes[id]
 	_pos = node_data.position
 	_type = node_data.type
+	
+	# [NEW] Deep copy the custom data so history cannot be mutated by reference
+	_custom_data = node_data.custom_data.duplicate(true) 
 	
 	# 2. CAPTURE EDGES
 	var neighbors = _graph.get_neighbors(id)
@@ -55,6 +59,9 @@ func undo() -> void:
 	
 	if _graph.nodes.has(_id):
 		_graph.nodes[_id].type = _type
+		
+		# [NEW] Restore the custom variables, again as a deep copy
+		_graph.nodes[_id].custom_data = _custom_data.duplicate(true)
 	
 	# 2. Restore the Web (Edges)
 	for edge in _edges:

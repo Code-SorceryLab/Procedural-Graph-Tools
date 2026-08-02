@@ -52,7 +52,9 @@ var _path_target_id: String = ""
 var target_node_id: String = ""
 
 var auto_paint: bool = false 
-var my_paint_type: String = "empty"
+var paint_target: String = "NODE"
+var paint_field: String = "type"
+var paint_value: Variant = "empty"
 var active: bool = true             
 var is_finished: bool = false       
 var snap_to_grid: bool = false
@@ -61,10 +63,10 @@ var steps: int = 15
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
 	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
-	"steps": 15, "paint_type": "empty", "snap_to_grid": false, 
+	"steps": 15, "snap_to_grid": false, 
 	"use_geometric_fc": false, "use_zone_constraints": false,
 	"branching_prob": 0.0, "destructive_backtrack": true,
-	"auto_paint": false
+	"auto_paint": false, "paint_target": "NODE", "paint_field": "type", "paint_value": "empty"
 }
 
 static func update_template(key: String, value: Variant) -> void:
@@ -87,14 +89,13 @@ func has_capability(name: String) -> bool:
 # 5. LIFECYCLE
 # ==============================================================================
 
-func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_type: String, p_steps: int) -> void:
+func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: String, p_steps: int) -> void:
 	uuid = p_uuid
 	display_id = p_display_id
 	pos = start_pos
 	_initial_pos = start_pos
 	current_node_id = start_node
 	start_node_id = start_node
-	my_paint_type = p_type
 	steps = p_steps
 	
 	# Initialize default isolated RNG
@@ -185,7 +186,9 @@ func serialize() -> Dictionary:
 		"movement_algo": movement_algo,
 		"path_cache": _current_path_cache,
 		"target_node": target_node_id,
-		"paint_type": my_paint_type,
+		"paint_target": paint_target,
+		"paint_field": paint_field,
+		"paint_value": paint_value,
 		"active": active,
 		"is_finished": is_finished,
 		"steps": steps,
@@ -207,10 +210,14 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 	var d_pos = Vector2(data.get("pos_x", 0), data.get("pos_y", 0))
 	var d_start = data.get("start_node", "")
 	var raw_paint = data.get("paint_type", "empty")
-	var d_paint = raw_paint if typeof(raw_paint) == TYPE_STRING else "empty"
 	var d_steps = int(data.get("steps", 15))
+	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_steps)
 	
-	var agent = AgentWalker.new(d_uuid, d_id, d_pos, d_start, d_paint, d_steps)
+	agent.paint_target = data.get("paint_target", "NODE")
+	agent.paint_field = data.get("paint_field", "type")
+	agent.paint_value = data.get("paint_value", "empty")
+	
+
 	
 	# Restore the exact deterministic seed state
 	if data.has("my_seed"):
@@ -267,10 +274,9 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 	if not brain: _refresh_brain()
 	brain.step(self, graph)
 	
-	# 3. Auto-Paint Logic (Replaces Decorator)
-	# If the user enabled painting, we paint the current node every step.
+	# 3. Auto-Paint Logic
 	if auto_paint and current_node_id != "":
-		paint_current_node(graph)
+		perform_paint(graph)
 
 func _refresh_brain() -> void:
 	match behavior_mode:
@@ -303,23 +309,17 @@ func move_to_node(node_id: String, graph: Graph) -> void:
 		step_count += 1
 		history.append({ "node": node_id, "step": step_count })
 
-func paint_current_node(graph: Graph, type_idx: int = -1) -> void:
-	# Delegate to Painter Capability
+func perform_paint(graph: Graph) -> void:
 	var painter = get_capability("Painter") as CapPainter
 	if painter:
-		# If type_idx is -1 (default), use the agent's configured paint type
-		var t = type_idx if type_idx != -1 else my_paint_type
+		painter.configure(paint_target, paint_field, paint_value)
 		
-		# We set the painter's brush, then paint.
-		# In a cleaner future, the Painter would hold this state itself,
-		# but for now we sync the Agent's setting to the Capability.
-		painter.set_paint_type(t)
-		painter.paint(graph, current_node_id)
-	else:
-		# Fallback
-		if current_node_id == "": return
-		var t = type_idx if type_idx != -1 else my_paint_type
-		graph.set_node_type(current_node_id, t)
+		# Retrieve the node we were just standing on to paint the traversed edge
+		var prev_node = ""
+		if history.size() >= 2:
+			prev_node = history[history.size() - 2].get("node", "")
+			
+		painter.paint(graph, current_node_id, prev_node)
 
 func warp(new_pos: Vector2, new_node_id: String = "") -> void:
 	# Delegate to Motor
@@ -426,12 +426,6 @@ static func get_template_settings() -> Array[Dictionary]:
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO, 
 		  "hint_text": "The mathematical algorithm used to navigate existing nodes (primarily used by Seek Target).\n- Random Walk: Pure chance\n- BFS: Shortest path by steps\n- DFS: Explores deeply before backtracking\n- A-Star: Fast, directional optimal pathfinding\n- Dijkstra: Safely evaluates edge weights" },
 		
-		# Action Settings
-		{ "name": "sep_actions", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": false, 
-		  "hint_text": "If enabled, the agent will automatically apply the selected Paint Material to the node it currently occupies on every step." },
-		{ "name": "paint_type", "label": "Paint Material", "type": TYPE_STRING, "default": "empty", "options": options_string, 
-		  "hint_text": "The visual style and semantic node type the agent applies to the world when painting or building." },
 
 		# Generation Settings
 		{ "name": "sep_gen", "type": TYPE_NIL, "hint": "separator" },
@@ -459,34 +453,80 @@ static func get_template_settings() -> Array[Dictionary]:
 func get_agent_settings() -> Array[Dictionary]:
 	var settings = AgentWalker.get_template_settings()
 	
-	# Fill defaults
+	# Fill defaults for standard static settings
 	for s in settings:
 		var s_name = s.get("name", "")
-		
-		if s_name == "agent_seed": s["default"] = str(my_seed) # Show current seed
+		if s_name == "agent_seed": s["default"] = str(my_seed) 
 		elif s_name == "active": s["default"] = active
 		elif s_name == "steps": s["default"] = steps
 		elif s_name == "snap_to_grid": s["default"] = snap_to_grid
 		elif s_name == "global_behavior": s["default"] = behavior_mode
 		elif s_name == "movement_algo": s["default"] = movement_algo
 		elif s_name == "target_node": s["default"] = target_node_id
-		
-		elif s_name == "auto_paint": s["default"] = auto_paint
-		elif s_name == "paint_type":
-			# [RESTORED] Map String back to UI integer index
-			var keys = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)["keys"]
-			var idx = keys.find(my_paint_type)
-			s["default"] = idx if idx != -1 else 0
-			 
 		elif s_name == "use_geometric_fc": s["default"] = use_geometric_fc
 		elif s_name == "use_zone_constraints": s["default"] = use_zone_constraints
 		elif s_name == "branching_prob": s["default"] = branching_probability
 		elif s_name == "destructive_backtrack": s["default"] = destructive_backtrack
-			
-	# Stats & Actions
+
+	# --- DYNAMIC PAINT CONFIGURATION UI ---
+	# [FIXED] Grouped all paint properties perfectly together with their own separator
+	settings.append({ "name": "sep_paint", "type": TYPE_NIL, "hint": "separator" })
+	
+	settings.append({ 
+		"name": "auto_paint", "label": "Auto Paint", "type": TYPE_BOOL, "default": auto_paint, 
+		"hint_text": "If enabled, the agent will automatically apply its Paint Configuration to the world on every step." 
+	})
+
+	var targets = ["NODE", "EDGE"]
+	var t_idx = targets.find(paint_target)
+	if t_idx == -1: t_idx = 0
+	
+	settings.append({
+		"name": "paint_target", "label": "Paint Target", "type": TYPE_INT, 
+		"default": t_idx, "hint": "enum", "hint_string": "Node,Edge"
+	})
+	
+	var avail_fields = ["type"]
+	var field_labels = ["Category (Type)"]
+	if paint_target == "EDGE":
+		avail_fields.append("weight")
+		field_labels.append("Weight (Cost)")
+		
+	var props = SemanticRegistry.properties.get(paint_target, {})
+	for k in props:
+		avail_fields.append(k)
+		field_labels.append(props[k].get("label", k.capitalize()))
+		
+	var f_idx = avail_fields.find(paint_field)
+	if f_idx == -1: f_idx = 0
+	var current_field = avail_fields[f_idx]
+	
+	settings.append({
+		"name": "paint_field", "label": "Paint Property", "type": TYPE_INT, 
+		"default": f_idx, "hint": "enum", "hint_string": ",".join(field_labels)
+	})
+	
+	if current_field == "type":
+		var cat_schema = SemanticRegistry.get_category_ui_schema(paint_target)
+		var keys = cat_schema["keys"]
+		var v_idx = keys.find(paint_value)
+		if v_idx == -1: v_idx = 0
+		settings.append({
+			"name": "paint_value", "label": "Paint Value", "type": TYPE_INT,
+			"default": v_idx, "hint": "enum", "hint_string": cat_schema["hint_string"]
+		})
+	elif current_field == "weight":
+		var safe_weight = float(paint_value) if paint_value != null and str(paint_value).is_valid_float() else 1.0
+		settings.append({ "name": "paint_value", "label": "Paint Value", "type": TYPE_FLOAT, "default": safe_weight })
+	else:
+		var p_def = props[current_field]
+		var safe_val = paint_value if paint_value != null else p_def["default"]
+		settings.append({ "name": "paint_value", "label": "Paint Value", "type": p_def["type"], "default": safe_val })
+
+	# Stats & Actions (Keep your existing bottom block)
 	settings.append({ "name": "stat_steps", "label": "Steps Taken", "type": TYPE_STRING, "default": "%d / %d" % [step_count, steps], "hint": "read_only" })
 	settings.append_array([
-		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "hint_text": "The absolute spatial (X, Y) coordinates of the agent in the world, operating independently of the graph's logical topology." },
+		{ "name": "pos", "type": TYPE_VECTOR2, "default": pos, "hint_text": "Absolute spatial coordinates." },
 		{ "name": "action_delete", "type": TYPE_BOOL, "hint": "action", "label": "Delete Agent" }
 	])
 	return settings
@@ -509,11 +549,39 @@ func apply_setting(key: String, value: Variant) -> void:
 		"steps": steps = value
 		
 		"auto_paint": auto_paint = value
-		"paint_type":
-			# [RESTORED] Map UI integer back to String key
-			var keys = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)["keys"]
-			if value >= 0 and value < keys.size():
-				my_paint_type = keys[value]
+		"paint_target":
+			paint_target = ["NODE", "EDGE"][int(value)]
+			paint_field = "type" 
+			# Reset value to the first available category key
+			var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
+			paint_value = keys[0] if not keys.is_empty() else "empty"
+			
+		"paint_field":
+			var avail_fields = ["type"]
+			if paint_target == "EDGE": avail_fields.append("weight")
+			for k in SemanticRegistry.properties.get(paint_target, {}): avail_fields.append(k)
+			
+			if int(value) >= 0 and int(value) < avail_fields.size():
+				var new_field = avail_fields[int(value)]
+				if new_field != paint_field:
+					paint_field = new_field
+					
+					# Reset paint_value so it matches the new field's expected type!
+					if paint_field == "type":
+						var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
+						paint_value = keys[0] if not keys.is_empty() else "empty"
+					elif paint_field == "weight":
+						paint_value = 1.0
+					else:
+						var props = SemanticRegistry.properties.get(paint_target, {})
+						paint_value = props[paint_field]["default"]
+		"paint_value":
+			if paint_field == "type":
+				var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
+				if int(value) >= 0 and int(value) < keys.size():
+					paint_value = keys[int(value)]
+			else:
+				paint_value = value
 				
 		"use_geometric_fc": use_geometric_fc = value
 		"use_zone_constraints": use_zone_constraints = value
@@ -526,16 +594,19 @@ func apply_setting(key: String, value: Variant) -> void:
 	if brain_dirty:
 		_refresh_brain()
 
+
 func apply_template_defaults() -> void:
 	var t = AgentWalker.spawn_template
 	behavior_mode = t.get("global_behavior", 0)
 	movement_algo = t.get("movement_algo", 0)
 	target_node_id = t.get("target_node_id", "")
 	steps = t.get("steps", 15)
-	my_paint_type = t.get("paint_type", "empty")
 	snap_to_grid = t.get("snap_to_grid", false)
 	
 	auto_paint = t.get("auto_paint", false)
+	paint_target = t.get("paint_target", "NODE")
+	paint_field = t.get("paint_field", "type")
+	paint_value = t.get("paint_value", "empty")
 	
 	use_geometric_fc = t.get("use_geometric_fc", false)
 	use_zone_constraints = t.get("use_zone_constraints", false)

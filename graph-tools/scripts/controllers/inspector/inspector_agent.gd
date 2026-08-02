@@ -208,7 +208,9 @@ func _get_agent_value(agent, key: String):
 		"global_behavior": return agent.behavior_mode
 		"movement_algo": return agent.movement_algo
 		"target_node": return agent.target_node_id
-		"paint_type": return agent.my_paint_type
+		"paint_target": return agent.paint_target
+		"paint_field": return agent.paint_field
+		"paint_value": return agent.paint_value
 	
 	if key in agent: return agent.get(key)
 	return null
@@ -240,10 +242,16 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		if agent.has_method("apply_setting"):
 			agent.apply_setting(key, value)
 			
-	# 5. UI Sync
+	# [NEW] 5. Structural UI Refresh
+	# If a setting fundamentally changes the UI schema, queue a rebuild.
+	# We use call_deferred to safely let the current UI finish its click event first!
+	if key in ["paint_target", "paint_field", "global_behavior"]:
+		request_refresh_ui.emit.call_deferred()
+			
+	# 6. UI Sync
 	if key == "target_node":
 		SettingsUIBuilder.sync_picker_button(_agent_inputs, "action_pick_target", "Target Node", value)
-
+		
 # ==============================================================================
 # 4. ALGORITHM SETTINGS (POPUP)
 # ==============================================================================

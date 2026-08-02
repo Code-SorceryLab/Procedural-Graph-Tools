@@ -183,10 +183,8 @@ func _on_input(key: String, value: Variant) -> void:
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
 			_:
-				# Dynamic Property
-				var node_obj = graph.nodes[id]
-				if node_obj.has_method("set_data"): node_obj.set_data(key, value)
-				elif "custom_data" in node_obj: node_obj.custom_data[key] = value
+				# Dynamic Property 
+				graph_editor.set_node_property(id, key, value)
 				
 	# Batch Mode Updates
 	else:
@@ -197,6 +195,4 @@ func _on_input(key: String, value: Variant) -> void:
 		else:
 			# Handle Batch Custom Properties
 			for id in _tracked_nodes:
-				var node_obj = graph.nodes[id]
-				if node_obj.has_method("set_data"): node_obj.set_data(key, value)
-				elif "custom_data" in node_obj: node_obj.custom_data[key] = value
+				graph_editor.set_node_property(id, key, value)

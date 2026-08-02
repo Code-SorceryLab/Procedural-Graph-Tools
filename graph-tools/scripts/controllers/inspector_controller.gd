@@ -125,15 +125,8 @@ func _clear_selection() -> void:
 func _on_wizard_requested(target_type: String) -> void:
 	if not _wizard_instance: return
 	
-	var idx = 0
-	match target_type:
-		"NODE": idx = 0
-		"EDGE": idx = 1
-		"AGENT": idx = 2
-		"ZONE": idx = 3
-		
-	_wizard_instance.input_target.selected = idx
-	_wizard_instance.popup_wizard()
+	# [FIXED] The new SemanticDataEditor handles tab switching internally!
+	_wizard_instance.popup_wizard(target_type)
 
 func _on_purge_requested(key: String, target: String) -> void:
 	var graph = graph_editor.graph
@@ -143,7 +136,9 @@ func _on_purge_requested(key: String, target: String) -> void:
 		"NODE":
 			for id in graph.nodes:
 				var node = graph.nodes[id]
-				if node.data.has(key): node.data.erase(key)
+				# [FIXED] Changed to custom_data
+				if "custom_data" in node and node.custom_data.has(key): 
+					node.custom_data.erase(key)
 		"EDGE":
 			for a in graph.edge_data:
 				for b in graph.edge_data[a]:
@@ -151,7 +146,15 @@ func _on_purge_requested(key: String, target: String) -> void:
 					if d.has(key): d.erase(key)
 		"AGENT":
 			for agent in graph.agents:
-				if key in agent: agent.set(key, null) 
+				# [FIXED] Changed to custom_data
+				if "custom_data" in agent and agent.custom_data.has(key): 
+					agent.custom_data.erase(key) 
+		"ZONE":
+			# [FIXED] Added support for Zones
+			if "zones" in graph:
+				for zone in graph.zones:
+					if "custom_data" in zone and zone.custom_data.has(key):
+						zone.custom_data.erase(key)
 	
 	print("InspectorController: Purged property '%s' from target '%s'" % [key, target])
 	_refresh_all_views()

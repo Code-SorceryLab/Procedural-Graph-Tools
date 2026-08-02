@@ -7,7 +7,7 @@ var recorded_commands: Array[GraphCommand] = []
 # The Real Graph (Who the commands will actually affect later)
 var _target_graph: Graph
 
-# [NEW] Zone Context State
+# Zone Context State
 var _active_zone: GraphZone = null
 var _use_smart_patch: bool = true
 var _grid_spacing: Vector2 = Vector2(64, 64) # Default fallback
@@ -68,7 +68,7 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	# 1. Update Simulation
 	super.add_node(id, pos)
 	
-	# [NEW] 1.5. Automatic Zone Registration Hook
+	# 1.5. Automatic Zone Registration Hook
 	if _active_zone:
 		_active_zone.register_node(id)
 		# Use Smart 2x2 (Radius 0) if enabled, otherwise 3x3 (Radius 1)
@@ -91,7 +91,6 @@ func add_zone(zone: GraphZone) -> void:
 	else:
 		push_error("GraphRecorder: Target graph missing add_zone method.")
 
-# ... (Keep all existing methods below: add_edge, remove_node, etc.) ...
 
 func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
 	var already_exists = has_edge(a, b)
@@ -117,7 +116,52 @@ func set_node_type(id: String, new_type: String) -> void:
 	var old_type = "empty" 
 	if _target_graph.nodes.has(id):
 		old_type = _target_graph.nodes[id].type
-	var cmd = CmdSetType.new(_target_graph, id, old_type, new_type)
+		
+	var cmd = CmdSetProperty.new(_target_graph, "NODE", id, "type", new_type, old_type)
+	recorded_commands.append(cmd)
+
+# Allows procedural generators to set custom variables on Nodes!
+func set_node_property(id: String, key: String, value: Variant) -> void:
+	if nodes.has(id):
+		if key in nodes[id]: nodes[id].set(key, value)
+		else: nodes[id].custom_data[key] = value
+	
+	var old_val = null
+	if _target_graph.nodes.has(id):
+		var t_node = _target_graph.nodes[id]
+		if key in t_node: old_val = t_node.get(key)
+		else: old_val = t_node.custom_data.get(key)
+		
+	var cmd = CmdSetProperty.new(_target_graph, "NODE", id, key, value, old_val)
+	recorded_commands.append(cmd)
+
+# Allows procedural generators to set custom variables on Edges!
+func set_edge_property(a: String, b: String, key: String, value: Variant) -> void:
+	# [FIX] Extremely safe nested dictionary traversal.
+	# Prevents crashes if the base Graph's has_edge() returns a false positive
+	# or if an undirected connection is stored in reverse order.
+	var real_u = a
+	var real_v = b
+	var found = false
+	
+	if edge_data.has(a) and edge_data[a].has(b):
+		found = true
+	elif edge_data.has(b) and edge_data[b].has(a):
+		real_u = b
+		real_v = a
+		found = true
+		
+	if not found: return
+		
+	# 1. Update Local Simulation
+	edge_data[real_u][real_v][key] = value
+		
+	# 2. Record Undo/Redo history for Target Graph
+	var old_val = null
+	if _target_graph.edge_data.has(real_u) and _target_graph.edge_data[real_u].has(real_v):
+		old_val = _target_graph.edge_data[real_u][real_v].get(key)
+		
+	var cmd = CmdSetProperty.new(_target_graph, "EDGE", [real_u, real_v], key, value, old_val)
 	recorded_commands.append(cmd)
 
 func add_agent(agent: AgentWalker) -> void:
