@@ -41,7 +41,7 @@ func _rebuild_edge_ui() -> void:
 	var count = _tracked_edges.size()
 	var mixed = _detect_mixed_state(ref_data)
 	
-	# 2. Prepare Shared Data [UPDATED FOR REGISTRY]
+	# 2. Prepare Shared Data
 	var schema_data = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_EDGE)
 	_type_keys_cache = schema_data["keys"]
 	var type_hint = schema_data["hint_string"]
@@ -76,25 +76,48 @@ func _rebuild_edge_ui() -> void:
 		"mixed": mixed.type 
 	})
 	
-	# (NOTE: lock_level was removed here because it's now handled by the dynamic loop below!)
+	# [NEW] HARDCODED PHYSICS INJECTION
+	# Intercepting these so they belong to the Core Properties visually.
+	var spring_len_val = ref_data.custom.get("physics_spring_length", 150.0)
+	schema.append({
+		"name": "physics_spring_length", "label": "Spring Length", "type": TYPE_FLOAT,
+		"default": spring_len_val, "mixed": mixed.custom_keys.has("physics_spring_length")
+	})
+
+	var stiff_val = ref_data.custom.get("physics_stiffness", 0.5)
+	schema.append({
+		"name": "physics_stiffness", "label": "Spring Stiffness", "type": TYPE_FLOAT,
+		"default": stiff_val, "step": 0.1, "mixed": mixed.custom_keys.has("physics_stiffness")
+	})
 	
-	# Dynamic Properties [UPDATED FOR REGISTRY]
+	# Dynamic Properties
 	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 	if not registered_props.is_empty():
-		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 		
-	for key in registered_props:
-		var def = registered_props[key]
-		var val = ref_data.custom.get(key, def.default)
-		
-		var item = { 
-			"name": key, "label": def.get("label", key.capitalize()), "type": def.type, "default": val 
-		}
-		
-		if mixed.custom_keys.has(key):
-			item["mixed"] = true
+		# Check if there are actual custom properties besides our intercepted physics ones
+		var has_custom = false
+		for k in registered_props:
+			if k not in ["physics_spring_length", "physics_stiffness"]:
+				has_custom = true
+				break
+				
+		if has_custom:
+			schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 			
-		schema.append(item)
+			for key in registered_props:
+				if key in ["physics_spring_length", "physics_stiffness"]: continue # Skip!
+				
+				var def = registered_props[key]
+				var val = ref_data.custom.get(key, def.default)
+				
+				var item = { 
+					"name": key, "label": def.get("label", key.capitalize()), "type": def.type, "default": val 
+				}
+				
+				if mixed.custom_keys.has(key):
+					item["mixed"] = true
+					
+				schema.append(item)
 
 	# Actions
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
@@ -115,7 +138,7 @@ func _get_reference_data() -> Dictionary:
 	var data = {
 		"weight": 1.0,
 		"direction": 0,
-		"type": "corridor", # [UPDATED] Defaults to String
+		"type": "corridor", 
 		"custom": {}
 	}
 	
@@ -208,7 +231,7 @@ func _on_input(key: String, value: Variant) -> void:
 					if graph.has_edge(v, u):
 						graph_editor.set_edge_property(v, u, "type", string_type)
 			_:
-				# Catch-all for Custom Data
+				# Catch-all for Custom Data (AND our new physics properties!)
 				graph_editor.set_edge_property(u, v, key, value)
 				if graph.has_edge(v, u):
 					graph_editor.set_edge_property(v, u, key, value)

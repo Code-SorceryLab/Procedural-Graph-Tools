@@ -162,6 +162,11 @@ func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false,
 	# Default type 0 (Standard) if not provided
 	if not final_data.has("type"): final_data["type"] = 0
 	
+	# Hardcoded Physics Variables
+	# Ensures the Buoyancy Engine always has valid mechanical data to read
+	if not final_data.has("physics_spring_length"): final_data["physics_spring_length"] = 150.0
+	if not final_data.has("physics_stiffness"): final_data["physics_stiffness"] = 0.5
+	
 	edge_data[a][b] = final_data
 	
 	if not directed:

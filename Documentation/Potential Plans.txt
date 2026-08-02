@@ -1,0 +1,22 @@
+# Procedural Graph Editor - Architecture & Roadmap
+
+## Current Engine State
+- **Semantic Registry:** A unified data structure handling customized semantic types and properties across four distinct targets: `NODE`, `EDGE`, `AGENT`, and `ZONE`.
+- **Universal Undo/Redo:** The `GraphHistory` and `CmdBatch` systems faithfully record data mutations across all targets, utilizing deep copies (`.duplicate(true)`) to prevent reference mutations.
+- **Contextual Hit Detection & UI:** Tools share base hit-detection logic. The editor provides live, contextual hover-glow feedback depending on which semantic object the active tool targets. Omni-box selection allows grabbing multiple targets concurrently.
+- **Agent Capabilities:** `AgentWalker` operates via a Capability/Brain architecture. The `CapPainter` allows agents to procedurally alter node types, edge weights, and custom properties as they traverse the graph.
+
+## Future Development Paths
+
+### 1. Force-Directed Layout (Buoyancy / Physics)
+**Goal:** Automatically untangle messy procedurally generated graphs.
+**Implementation:** Implement a Fruchterman-Reingold style physics step. Nodes act as repelling magnets (Coulomb's law); Edges act as attracting springs (Hooke's law). 
+**UI:** Driven by a continuous "Buoyancy Mode" toggle in the top menu bar, allowing the user to watch the graph organically untangle in real-time.
+
+### 2. Directed Acyclic Graphs (DAG) & Questlines
+**Goal:** Introduce logical constraint solving to represent progression systems, tech trees, or narrative questlines.
+**Implementation:** Create a `StrategyQuestGen` that enforces acyclic flows. Agents or generators will flag nodes with semantic data (e.g., `required_item`, `boss_encounter`) and dynamically update edge `lock_level` properties to ensure a mathematically solvable progression puzzle.
+
+### 3. Advanced Agent Graph Rewriting
+**Goal:** Evolve agents from passive painters to active architects.
+**Implementation:** Introduce cross-agent interactions and semantic-reading brains. Agents standing on the same node can trade data, merge nodes, sever edges, or spawn new branches based on the semantic properties of the zone they are currently occupying.

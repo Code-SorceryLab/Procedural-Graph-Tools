@@ -22,11 +22,17 @@ var graph: Graph = Graph.new()
 
 # --- PHYSICS/LOGIC ENGINE ---
 var simulation: Simulation
+var buoyancy_engine: BuoyancyEngine
 
 # --- STATE MANAGEMENT ---
 var tool_manager: GraphToolManager
 var is_picking_mode: bool = false
 var _pick_callback: Callable
+
+# Physics State
+var is_buoyancy_active: bool = false
+var _buoyancy_snapshot: Dictionary = {} # Stores starting positions to build Undo batch
+var _buoyancy_transaction_open: bool = false
 
 # Editor State (Public)
 var selected_nodes: Array[String] = []
@@ -77,6 +83,7 @@ func _ready() -> void:
 	
 	# Initialize the Simulation Engine
 	simulation = Simulation.new(graph)
+	buoyancy_engine = BuoyancyEngine.new()
 	
 	if grid_renderer:
 		grid_renderer.camera_ref = camera
@@ -111,6 +118,15 @@ func _ready() -> void:
 	
 	set_active_tool(GraphSettings.Tool.SELECT)
 	renderer.queue_redraw()
+
+func _process(delta: float) -> void:
+	if not is_buoyancy_active or not buoyancy_engine: return
+	
+	buoyancy_engine.step(graph, delta)
+	
+	# The buoyancy engine modified the node positions directly in the graph.
+	# We must tell the renderer to draw the new positions!
+	if renderer: renderer.queue_redraw()
 
 # ==============================================================================
 # 2. TOOL MANAGEMENT
@@ -575,12 +591,21 @@ func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
 	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
 	_commit_command(cmd)
 
-# Adds undo history support for custom node variables!
+# Adds undo history support for both native variables AND custom node data!
 func set_node_property(id: String, key: String, value: Variant) -> void:
 	if not graph.nodes.has(id): return
-	var old_value = graph.nodes[id].custom_data.get(key)
+	var node = graph.nodes[id]
+	var old_value = null
+	
+	# 1. Intelligently route the lookup based on where the variable lives
+	if key in node:
+		old_value = node.get(key)
+	else:
+		old_value = node.custom_data.get(key)
+		
 	if str(value) == str(old_value): return
 	
+	# 2. Command handles the rest
 	var cmd = CmdSetProperty.new(graph, "NODE", id, key, value, old_value)
 	_commit_command(cmd)
 
@@ -665,6 +690,7 @@ func load_new_graph(new_graph: Graph) -> void:
 	self.graph = new_graph
 	history = GraphHistory.new(graph)
 	simulation = Simulation.new(graph)
+	buoyancy_engine = BuoyancyEngine.new()
 	
 	_reset_local_state()
 	_reconstruct_state_from_ids()
@@ -694,6 +720,70 @@ func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
 		_center_camera_on_graph()
 	
 	StrategyExecutor.process_visualization(self, params, existing_ids)
+
+# --- PHYSICS / BUOYANCY API ---
+
+func set_buoyancy_active(active: bool) -> void:
+	is_buoyancy_active = active
+	
+	if is_buoyancy_active:
+		# 1. Start Transaction
+		_buoyancy_snapshot.clear()
+		_buoyancy_transaction_open = true
+		buoyancy_engine.clear_velocities()
+		
+		for id in graph.nodes:
+			_buoyancy_snapshot[id] = graph.nodes[id].position
+			
+		send_status_message("Buoyancy Physics: ENABLED")
+		
+	else:
+		# 2. End Transaction & Push to Undo Stack
+		send_status_message("Buoyancy Physics: DISABLED")
+		if not _buoyancy_transaction_open: return
+		
+		var batch = CmdBatch.new(graph, "Physics Layout", false)
+		
+		for id in _buoyancy_snapshot:
+			if not graph.nodes.has(id): continue
+			
+			var old_pos = _buoyancy_snapshot[id]
+			var new_pos = graph.nodes[id].position
+			
+			if old_pos.distance_squared_to(new_pos) > 0.1:
+				var cmd = CmdMoveNode.new(graph, id, old_pos, new_pos)
+				batch.add_command(cmd)
+				
+		if batch.get_command_count() > 0:
+			_commit_command(batch)
+			
+		_buoyancy_transaction_open = false
+		_buoyancy_snapshot.clear()
+
+# Fires exactly one discrete tick of physics (Without opening a continuous transaction)
+func apply_buoyancy_step() -> void:
+	if not buoyancy_engine: return
+	
+	# Take quick snapshot
+	var pre_states = {}
+	for id in graph.nodes: pre_states[id] = graph.nodes[id].position
+	
+	# Force a 1/60th of a second step
+	buoyancy_engine.step(graph, 1.0 / 60.0)
+	
+	# Generate instant Undo block
+	var batch = CmdBatch.new(graph, "Physics Step", false)
+	for id in pre_states:
+		if not graph.nodes.has(id): continue
+		var old = pre_states[id]
+		var new = graph.nodes[id].position
+		if old.distance_squared_to(new) > 0.1:
+			batch.add_command(CmdMoveNode.new(graph, id, old, new))
+			
+	if batch.get_command_count() > 0:
+		_commit_command(batch)
+		
+	if renderer: renderer.queue_redraw()
 
 # ==============================================================================
 # 6. INTERNAL HELPERS

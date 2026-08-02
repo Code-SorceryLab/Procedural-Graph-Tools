@@ -84,15 +84,18 @@ script = ExtResource("5_u2lal")
 graph_editor = NodePath("../GraphEditor")
 toolbar = NodePath("../UI/MainLayout/Workspace/Toolbar")
 
-[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "btn_step", "btn_play", "btn_reset", "sb_speed")]
+[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "menu_file", "menu_edit", "menu_graph", "btn_step", "btn_play", "btn_reset", "sb_speed")]
 script = ExtResource("7_el7nm")
 graph_editor = NodePath("../GraphEditor")
-status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/StatusLabel")
-tool_options_container = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/ToolOptionsContainer")
-btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnStep")
-btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
-btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
-sb_speed = NodePath("../UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox/SbSpeed")
+status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/StatusLabel")
+tool_options_container = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/ToolOptionsContainer")
+menu_file = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/File")
+menu_edit = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Edit")
+menu_graph = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Graph")
+btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnStep")
+btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
+btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
+sb_speed = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/SbSpeed")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 
@@ -128,53 +131,66 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="ContentRow" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer"]
 layout_mode = 2
 
-[node name="ToolOptionsContainer" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="MenuBar" type="MenuBar" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="File" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
+oversampling_override = 1.0
+
+[node name="Edit" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
+
+[node name="Graph" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
+
+[node name="ContentRow" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="ToolOptionsContainer" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="Spacer1" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="Spacer1" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 
-[node name="SimulationPanel" type="PanelContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="SimulationPanel" type="PanelContainer" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 
-[node name="SimHBox" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel"]
+[node name="SimHBox" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel"]
 layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 1
 
-[node name="BtnStep" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="BtnStep" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Step"
 
-[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="VSeparator" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 
-[node name="BtnPlay" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="BtnPlay" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Play"
 
-[node name="VSeparator2" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="VSeparator2" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 
-[node name="BtnReset" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="BtnReset" type="Button" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Reset"
 
-[node name="VSeparator3" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="VSeparator3" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 
-[node name="SbSpeed" type="SpinBox" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="SbSpeed" type="SpinBox" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 tooltip_text = "Simulation Speed (Ticks Per Second)"
@@ -182,14 +198,14 @@ max_value = 60.0
 value = 10.0
 suffix = "tps"
 
-[node name="VSeparator4" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow/SimulationPanel/SimHBox"]
+[node name="VSeparator4" type="VSeparator" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox"]
 layout_mode = 2
 
-[node name="Spacer2" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="Spacer2" type="Control" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="StatusLabel" type="Label" parent="UI/MainLayout/TopBar/MarginContainer/ContentRow"]
+[node name="StatusLabel" type="Label" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow"]
 layout_mode = 2
 text = "Ready"
 vertical_alignment = 1

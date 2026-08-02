@@ -4,7 +4,7 @@ extends InspectorStrategy
 # --- STATE ---
 var _tracked_nodes: Array[String] = []
 var _node_inputs: Dictionary = {}
-var _type_keys_cache: Array = [] # [NEW] Maps the UI integer index to the Registry String Key
+var _type_keys_cache: Array = [] 
 
 # ==============================================================================
 # 1. LIFECYCLE
@@ -48,7 +48,7 @@ func _rebuild_node_ui() -> void:
 	var first_id = valid_nodes[0]
 	var first_node = graph.nodes[first_id]
 	
-	# 2. Prepare Shared Data [UPDATED FOR REGISTRY]
+	# 2. Prepare Shared Data
 	var schema_data = SemanticRegistry.get_category_ui_schema(SemanticRegistry.TARGET_NODE)
 	_type_keys_cache = schema_data["keys"]
 	var type_hint = schema_data["hint_string"]
@@ -58,7 +58,7 @@ func _rebuild_node_ui() -> void:
 	
 	var schema = []
 	
-	# 3. Detect Mixed Values (for Batch Selection)
+	# 3. Detect Mixed Values
 	var mixed_keys = {}
 	if count > 1:
 		mixed_keys = _detect_mixed_values(valid_nodes, graph)
@@ -71,58 +71,79 @@ func _rebuild_node_ui() -> void:
 	
 	# --- BUILD CORE PROPERTIES ---
 	
-	# Position (Show editable for Single, or Average for Group)
+	# Position
 	if count == 1:
 		schema.append({ "name": "pos_x", "label": "Position X", "type": TYPE_FLOAT, "default": first_node.position.x, "step": GraphSettings.INSPECTOR_POS_STEP })
 		schema.append({ "name": "pos_y", "label": "Position Y", "type": TYPE_FLOAT, "default": first_node.position.y, "step": GraphSettings.INSPECTOR_POS_STEP })
 	else:
-		# Calculate Bounding Box Center
 		var center_sum = Vector2.ZERO
 		for id in valid_nodes: center_sum += graph.nodes[id].position
 		var avg = center_sum / count
 		schema.append({ "name": "stat_center", "label": "Avg Center", "type": TYPE_VECTOR2, "default": avg, "hint": "read_only" })
 
-	# Type (Editable in both modes)
+	# Type
 	schema.append({ 
 		"name": "type", 
 		"label": "Room Type", 
 		"type": TYPE_INT, 
-		"default": default_type_idx, # [UPDATED] Uses the UI Index, not the String Key
+		"default": default_type_idx,
 		"hint": "enum", 
 		"hint_string": type_hint,
 		"mixed": mixed_keys.get("type", false)
 	})
 	
-	# Neighbors (Single Only)
+	# Neighbors
 	if count == 1:
 		var neighbors = graph.get_neighbors(first_id)
 		var neighbor_text = "(None)" if neighbors.is_empty() else "\n".join(neighbors)
 		schema.append({ "name": "info_n", "label": "Neighbors", "type": TYPE_STRING, "default": neighbor_text, "hint": "read_only_multiline" })
 
-	# --- DYNAMIC PROPERTIES --- [UPDATED FOR REGISTRY]
+	# [NEW] HARDCODED PHYSICS INJECTION
+	# We intercept it here so it belongs to the Core Properties visually.
+	var phys_rep_val = 100.0
+	if "custom_data" in first_node:
+		phys_rep_val = first_node.custom_data.get("physics_repulsion", 100.0)
+		
+	schema.append({
+		"name": "physics_repulsion",
+		"label": "Physics Repulsion",
+		"type": TYPE_FLOAT,
+		"default": phys_rep_val,
+		"mixed": mixed_keys.get("physics_repulsion", false)
+	})
+
+	# --- DYNAMIC PROPERTIES ---
 	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 	if not registered_props.is_empty():
-		schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 		
-	for key in registered_props:
-		var def = registered_props[key]
-		var val = def.default
-		
-		# Use first node as reference
-		if "custom_data" in first_node:
-			val = first_node.custom_data.get(key, def.default)
+		# Check if there are any custom properties BESIDES the physics one
+		var has_custom = false
+		for k in registered_props:
+			if k != "physics_repulsion":
+				has_custom = true
+				break
+				
+		if has_custom:
+			schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 			
-		var item = { 
-			"name": key, 
-			"label": def.get("label", key.capitalize()), # Pull proper label from registry
-			"type": def.type, 
-			"default": val 
-		}
-		
-		if mixed_keys.get(key, false):
-			item["mixed"] = true
-			
-		schema.append(item)
+			for key in registered_props:
+				if key == "physics_repulsion": continue # Skip! We already rendered it above!
+				
+				var def = registered_props[key]
+				var val = def.default
+				
+				if "custom_data" in first_node:
+					val = first_node.custom_data.get(key, def.default)
+					
+				var item = { 
+					"name": key, 
+					"label": def.get("label", key.capitalize()),
+					"type": def.type, 
+					"default": val 
+				}
+				
+				if mixed_keys.get(key, false): item["mixed"] = true
+				schema.append(item)
 
 	# Wizard Button
 	schema.append({ "name": "action_add_property", "label": "Add Custom Data...", "type": TYPE_NIL, "hint": "button" })
@@ -144,11 +165,9 @@ func _detect_mixed_values(nodes: Array, graph: Graph) -> Dictionary:
 	for i in range(1, nodes.size()):
 		var other = graph.nodes[nodes[i]]
 		
-		# Check Type
 		if ref_node.type != other.type:
 			mixed["type"] = true
 			
-		# Check Custom Data [UPDATED FOR REGISTRY]
 		var registered = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 		for key in registered:
 			var val_a = ref_node.custom_data.get(key) if "custom_data" in ref_node else null
@@ -170,7 +189,6 @@ func _on_input(key: String, value: Variant) -> void:
 		request_wizard.emit("NODE")
 		return
 
-	# Single Mode Updates
 	if _tracked_nodes.size() == 1:
 		var id = _tracked_nodes[0]
 		var current_pos = graph.get_node_pos(id)
@@ -183,16 +201,14 @@ func _on_input(key: String, value: Variant) -> void:
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
 			_:
-				# Dynamic Property 
+				# Now physics_repulsion natively routes through here, triggering Undo history!
 				graph_editor.set_node_property(id, key, value)
 				
-	# Batch Mode Updates
 	else:
 		if key == "type":
 			var ui_idx = int(value)
 			if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 				graph_editor.set_node_type_bulk(_tracked_nodes, _type_keys_cache[ui_idx])
 		else:
-			# Handle Batch Custom Properties
 			for id in _tracked_nodes:
 				graph_editor.set_node_property(id, key, value)
