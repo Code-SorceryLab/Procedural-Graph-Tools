@@ -7,6 +7,7 @@ class_name FileController
 
 @export_group("UI File Tab")
 @export var save_btn: Button
+@export var save_as_btn: Button
 @export var load_btn: Button
 @export var file_status: Label
 @export var file_dialog: FileDialog
@@ -24,9 +25,11 @@ var _pending_action: Callable # Stores the function we paused
 var _current_path: String = ""
 
 func _ready() -> void:
-	save_btn.pressed.connect(_on_save_button_pressed)
-	load_btn.pressed.connect(_on_load_button_pressed)
-	settings_btn.pressed.connect(_on_settings_button_pressed)
+	# Button Connections
+	if save_btn: save_btn.pressed.connect(_on_save_button_pressed)
+	if save_as_btn: save_as_btn.pressed.connect(_on_save_as_button_pressed)
+	if load_btn: load_btn.pressed.connect(_on_load_button_pressed)
+	if settings_btn: settings_btn.pressed.connect(_on_settings_button_pressed)
 	
 	file_dialog.file_selected.connect(_on_file_selected)
 	
@@ -38,7 +41,7 @@ func _ready() -> void:
 	
 	# Listen for Ctrl+S from Editor
 	# We discard the graph argument since we have access to it via the export var
-	graph_editor.request_save_graph.connect(func(_g): _on_quick_save_requested())
+	graph_editor.request_save_graph.connect(func(_g): _on_save_button_pressed())
 	
 	# Initialize
 	_update_dirty_state(false)
@@ -81,8 +84,17 @@ func _on_discard_confirmed() -> void:
 
 # --- BUTTON HANDLERS ---
 
+# Standard Save Handler (Used by the Save Button AND Ctrl+S)
 func _on_save_button_pressed() -> void:
-	# "Save As..." unified behavior
+	if _current_path != "":
+		# We know the file, save directly using the universal router!
+		_execute_save(_current_path)
+	else:
+		# We don't know the file, treat as "Save As..."
+		_on_save_as_button_pressed()
+
+# Save As Handler (Always prompts the dialog)
+func _on_save_as_button_pressed() -> void:
 	_is_saving = true
 	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 	file_dialog.title = "Save As..."
@@ -91,16 +103,12 @@ func _on_save_button_pressed() -> void:
 		"*.graphml ; GraphML Network", 
 		"*.gexf ; GEXF Network"
 	]
-	file_dialog.popup_centered()
-
-# Quick Save Handler (Ctrl+S)
-func _on_quick_save_requested() -> void:
+	
+	# If we already have a path, pre-fill it in the dialog!
 	if _current_path != "":
-		# We know the file, save directly using the universal router!
-		_execute_save(_current_path)
-	else:
-		# We don't know the file, treat as "Save As..."
-		_on_save_button_pressed()
+		file_dialog.current_path = _current_path
+		
+	file_dialog.popup_centered()
 
 func _on_load_button_pressed() -> void:
 	# Loading destroys current data -> Use Gatekeeper
@@ -120,6 +128,21 @@ func _open_load_dialog() -> void:
 func _on_settings_button_pressed() -> void:
 	settings_window.show_settings()
 
+
+# Public entry point for New Graph (Protected by the Discard Gatekeeper)
+func request_new_graph() -> void:
+	_try_action(_execute_new_graph)
+
+func _execute_new_graph() -> void:
+	if graph_editor:
+		graph_editor.new_graph()
+	
+	_current_path = ""
+	if file_status:
+		file_status.text = "Ready"
+		file_status.modulate = Color.WHITE
+		
+	_update_dirty_state(false)
 
 # --- FILE OPERATIONS ---
 

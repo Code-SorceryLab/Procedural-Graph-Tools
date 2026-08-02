@@ -98,28 +98,34 @@ func _rebuild_node_ui() -> void:
 		var neighbor_text = "(None)" if neighbors.is_empty() else "\n".join(neighbors)
 		schema.append({ "name": "info_n", "label": "Neighbors", "type": TYPE_STRING, "default": neighbor_text, "hint": "read_only_multiline" })
 
-	# [NEW] HARDCODED PHYSICS INJECTION
+	# HARDCODED PHYSICS INJECTION
 	# We intercept it here so it belongs to the Core Properties visually.
+	var phys_mode_val = 0
 	var phys_rep_val = 100.0
+	
 	if "custom_data" in first_node:
+		phys_mode_val = first_node.custom_data.get("physics_mode", 0)
 		phys_rep_val = first_node.custom_data.get("physics_repulsion", 100.0)
 		
 	schema.append({
-		"name": "physics_repulsion",
-		"label": "Physics Repulsion",
-		"type": TYPE_FLOAT,
-		"default": phys_rep_val,
-		"mixed": mixed_keys.get("physics_repulsion", false)
+		"name": "physics_mode", "label": "Physics Mode", "type": TYPE_INT,
+		"default": phys_mode_val, "hint": "enum", "hint_string": "Dynamic (Normal),Anchored (Fixed),Ghost (Ignored)",
+		"mixed": mixed_keys.get("physics_mode", false)
+	})
+		
+	schema.append({
+		"name": "physics_repulsion", "label": "Physics Repulsion", "type": TYPE_FLOAT,
+		"default": phys_rep_val, "mixed": mixed_keys.get("physics_repulsion", false)
 	})
 
 	# --- DYNAMIC PROPERTIES ---
 	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 	if not registered_props.is_empty():
 		
-		# Check if there are any custom properties BESIDES the physics one
+		# Check if there are any custom properties BESIDES the physics ones
 		var has_custom = false
 		for k in registered_props:
-			if k != "physics_repulsion":
+			if k not in ["physics_repulsion", "physics_mode"]:
 				has_custom = true
 				break
 				
@@ -127,7 +133,7 @@ func _rebuild_node_ui() -> void:
 			schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 			
 			for key in registered_props:
-				if key == "physics_repulsion": continue # Skip! We already rendered it above!
+				if key in ["physics_repulsion", "physics_mode"]: continue # Skip! We already rendered them above!
 				
 				var def = registered_props[key]
 				var val = def.default

@@ -21,35 +21,36 @@ func step(graph: Graph, delta: float) -> void:
 	var forces: Dictionary = {}
 	var node_ids = graph.nodes.keys()
 	
-	# Initialize internal tracking arrays
 	for id in node_ids:
 		forces[id] = Vector2.ZERO
 		if not _velocities.has(id):
 			_velocities[id] = Vector2.ZERO
 
 	# --- 1. REPULSION (Coulomb's Law) ---
-	# Every node pushes every other node away.
 	for i in range(node_ids.size()):
 		var id_u = node_ids[i]
 		var node_u = graph.nodes[id_u]
-		var rep_u = node_u.get("physics_repulsion") if "physics_repulsion" in node_u else 100.0
+		var mode_u = node_u.custom_data.get("physics_mode", 0) if "custom_data" in node_u else 0
+		var rep_u = node_u.custom_data.get("physics_repulsion", 100.0) if "custom_data" in node_u else 100.0
 		
 		for j in range(i + 1, node_ids.size()):
 			var id_v = node_ids[j]
 			var node_v = graph.nodes[id_v]
-			var rep_v = node_v.get("physics_repulsion") if "physics_repulsion" in node_v else 100.0
+			var mode_v = node_v.custom_data.get("physics_mode", 0) if "custom_data" in node_v else 0
+			
+			# If EITHER node is a Ghost (2), they exert zero force on each other!
+			if mode_u == 2 or mode_v == 2: continue
+			
+			var rep_v = node_v.custom_data.get("physics_repulsion", 100.0) if "custom_data" in node_v else 100.0
 			
 			var diff = node_u.position - node_v.position
 			var dist_sq = diff.length_squared()
 			
-			# Prevent division by zero if nodes are exactly stacked
 			if dist_sq < 1.0:
 				diff = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
 				dist_sq = 1.0
 				
 			var dist = sqrt(dist_sq)
-			
-			# Force is inversely proportional to distance squared
 			var force_mag = ((rep_u + rep_v) * repulsion_multiplier) / dist_sq
 			var force_vec = (diff / dist) * force_mag
 			
@@ -57,12 +58,10 @@ func step(graph: Graph, delta: float) -> void:
 			forces[id_v] -= force_vec
 
 	# --- 2. ATTRACTION (Hooke's Law) ---
-	# Connected nodes pull each other like springs toward their ideal length.
 	var processed_edges = {}
 	
 	for u in graph.edge_data:
 		for v in graph.edge_data[u]:
-			# Ensure we only calculate each edge once (even if bidirectional)
 			var pair = [u, v]
 			pair.sort()
 			if processed_edges.has(pair): continue
@@ -74,6 +73,9 @@ func step(graph: Graph, delta: float) -> void:
 			var node_v = graph.nodes[v]
 			var edge_dict = graph.edge_data[u][v]
 			
+			# [NEW] If the Edge is Ignored (1), it exerts zero spring force!
+			if edge_dict.get("physics_mode", 0) == 1: continue
+			
 			var ideal_len = float(edge_dict.get("physics_spring_length", 150.0))
 			var stiffness = float(edge_dict.get("physics_stiffness", 0.5))
 			
@@ -81,7 +83,6 @@ func step(graph: Graph, delta: float) -> void:
 			var dist = diff.length()
 			
 			if dist > 0.1:
-				# Hooke's Law: Force = stiffness * displacement from rest
 				var displacement = dist - ideal_len
 				var force_mag = displacement * stiffness
 				var force_vec = (diff / dist) * force_mag
@@ -92,22 +93,22 @@ func step(graph: Graph, delta: float) -> void:
 	# --- 3. INTEGRATION (Apply Velocity) ---
 	for id in node_ids:
 		var node = graph.nodes[id]
+		var mode = node.custom_data.get("physics_mode", 0) if "custom_data" in node else 0
 		
-		# Add new forces to velocity (scaled by time)
+		# If the Node is Anchored (1) or Ghost (2), freeze it instantly.
+		if mode != 0:
+			_velocities[id] = Vector2.ZERO
+			continue
+		
 		var current_vel = _velocities[id]
 		current_vel += forces[id] * delta
-		
-		# Apply Damping (Friction)
 		current_vel *= damping
 		
-		# Clamp to Maximum Speed limit (prevents the simulation from exploding outward)
 		if current_vel.length() > max_velocity:
 			current_vel = current_vel.normalized() * max_velocity
 			
 		_velocities[id] = current_vel
 		
-		# Only update if there is meaningful movement to save on spatial grid recalculations
 		if current_vel.length_squared() > 0.01:
 			var new_pos = node.position + current_vel
-			# Use the Graph's API so it updates the Spatial Grid!
 			graph.set_node_position(id, new_pos)

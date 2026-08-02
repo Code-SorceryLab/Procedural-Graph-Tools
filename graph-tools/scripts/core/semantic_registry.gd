@@ -49,7 +49,10 @@ static func _static_init() -> void:
 	register_property(TARGET_NODE, "physics_repulsion", "Physics Repulsion", TYPE_FLOAT, 100.0)
 	register_property(TARGET_EDGE, "physics_spring_length", "Spring Length", TYPE_FLOAT, 150.0)
 	register_property(TARGET_EDGE, "physics_stiffness", "Spring Stiffness", TYPE_FLOAT, 0.5)
-
+	
+	# Physics Modes
+	register_property(TARGET_NODE, "physics_mode", "Physics Mode", TYPE_INT, 0)
+	register_property(TARGET_EDGE, "physics_mode", "Physics Mode", TYPE_INT, 0)
 
 # ------------------------------------------------------------------------------
 # 3. CATEGORY API (Types & Tags)

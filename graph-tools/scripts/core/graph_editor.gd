@@ -29,6 +29,9 @@ var tool_manager: GraphToolManager
 var is_picking_mode: bool = false
 var _pick_callback: Callable
 
+# File State
+var current_file_path: String = "" # Tracks the active save file!
+
 # Physics State
 var is_buoyancy_active: bool = false
 var _buoyancy_snapshot: Dictionary = {} # Stores starting positions to build Undo batch
@@ -639,6 +642,35 @@ func commit_undo_transaction() -> void:
 # ==============================================================================
 # 5. GENERAL API
 # ==============================================================================
+# Completely resets the editor context (Destroys Undo history, severs file connection)
+func new_graph() -> void:
+	# 1. Create a brand new Graph resource
+	self.graph = Graph.new()
+	
+	# 2. Reinitialize the engines tied to the graph
+	history = GraphHistory.new(graph)
+	simulation = Simulation.new(graph)
+	if buoyancy_engine: buoyancy_engine.clear_velocities()
+	
+	# 3. Sever the file binding and reset editor state
+	current_file_path = ""
+	_reset_local_state()
+	
+	# 4. Sync the Renderer
+	renderer.graph_ref = graph
+	renderer.selected_nodes_ref = selected_nodes
+	renderer.current_path_ref = current_path
+	renderer.new_nodes_ref = new_nodes
+	renderer.selected_agent_ids_ref = selected_agent_ids
+	
+	# 5. Emit signals to update the rest of the UI
+	graph_loaded.emit(graph)
+	history.history_changed.connect(simulation.validate_all_agents)
+	
+	_center_camera_on_graph()
+	renderer.queue_redraw()
+	send_status_message("Started a new graph.")
+
 func clear_graph() -> void:
 	if graph.nodes.is_empty() and graph.zones.is_empty(): return
 	var batch = CmdBatch.new(graph, "Clear Graph")

@@ -4,7 +4,7 @@ extends InspectorStrategy
 # --- STATE ---
 var _tracked_edges: Array = []
 var _edge_inputs: Dictionary = {}
-var _type_keys_cache: Array = [] # [NEW] Maps UI integers to Registry String Keys
+var _type_keys_cache: Array = [] # aps UI integers to Registry String Keys
 
 # ==============================================================================
 # 1. LIFECYCLE
@@ -76,8 +76,15 @@ func _rebuild_edge_ui() -> void:
 		"mixed": mixed.type 
 	})
 	
-	# [NEW] HARDCODED PHYSICS INJECTION
+	# HARDCODED PHYSICS INJECTION
 	# Intercepting these so they belong to the Core Properties visually.
+	var phys_mode_val = ref_data.custom.get("physics_mode", 0)
+	schema.append({
+		"name": "physics_mode", "label": "Physics Mode", "type": TYPE_INT,
+		"default": phys_mode_val, "hint": "enum", "hint_string": "Active Spring,Ignored",
+		"mixed": mixed.custom_keys.has("physics_mode")
+	})
+
 	var spring_len_val = ref_data.custom.get("physics_spring_length", 150.0)
 	schema.append({
 		"name": "physics_spring_length", "label": "Spring Length", "type": TYPE_FLOAT,
@@ -97,7 +104,7 @@ func _rebuild_edge_ui() -> void:
 		# Check if there are actual custom properties besides our intercepted physics ones
 		var has_custom = false
 		for k in registered_props:
-			if k not in ["physics_spring_length", "physics_stiffness"]:
+			if k not in ["physics_spring_length", "physics_stiffness", "physics_mode"]:
 				has_custom = true
 				break
 				
@@ -105,7 +112,7 @@ func _rebuild_edge_ui() -> void:
 			schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 			
 			for key in registered_props:
-				if key in ["physics_spring_length", "physics_stiffness"]: continue # Skip!
+				if key in ["physics_spring_length", "physics_stiffness", "physics_mode"]: continue # Skip!
 				
 				var def = registered_props[key]
 				var val = ref_data.custom.get(key, def.default)
@@ -231,7 +238,7 @@ func _on_input(key: String, value: Variant) -> void:
 					if graph.has_edge(v, u):
 						graph_editor.set_edge_property(v, u, "type", string_type)
 			_:
-				# Catch-all for Custom Data (AND our new physics properties!)
+				# Catch-all for Custom Data (AND our physics properties!)
 				graph_editor.set_edge_property(u, v, key, value)
 				if graph.has_edge(v, u):
 					graph_editor.set_edge_property(v, u, key, value)

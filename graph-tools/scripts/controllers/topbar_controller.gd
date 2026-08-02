@@ -5,6 +5,7 @@ extends Node
 @export var graph_editor: GraphEditor
 @export var status_label: Label
 @export var tool_options_container: HBoxContainer 
+@export var file_controller: FileController
 
 # --- MENUS ---
 @export_group("Menus")
@@ -52,15 +53,16 @@ func _ready() -> void:
 # ==============================================================================
 
 func _setup_menus() -> void:
-	# Setup File Menu (Placeholders for now)
+	# Setup File Menu
 	if menu_file:
 		menu_file.clear()
 		menu_file.add_item("New Graph", 101)
 		menu_file.add_item("Save", 102)
+		menu_file.add_item("Save As...", 104) # Added Save As
 		menu_file.add_item("Load", 103)
-		# We'll connect id_pressed when these are implemented
+		menu_file.id_pressed.connect(_on_file_menu_pressed)
 		
-	# Setup Edit Menu (Placeholders for now)
+	# Setup Edit Menu
 	if menu_edit:
 		menu_edit.clear()
 		menu_edit.add_item("Undo", 201)
@@ -76,6 +78,21 @@ func _setup_menus() -> void:
 		menu_graph.add_separator()
 		menu_graph.add_item("Force Directed Layout (1 Step)", 302)
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
+
+func _on_file_menu_pressed(id: int) -> void:
+	if not file_controller: return
+	
+	match id:
+		101: # New Graph (Guarded by FileController's discard check)
+			file_controller.request_new_graph()
+		102: # Save 
+			file_controller._on_save_button_pressed()
+		104: # Save As... 
+			file_controller._on_save_as_button_pressed()
+		103: # Load (Guarded by FileController's discard check)
+			file_controller._on_load_button_pressed()
+
+
 
 func _on_edit_menu_pressed(id: int) -> void:
 	match id:

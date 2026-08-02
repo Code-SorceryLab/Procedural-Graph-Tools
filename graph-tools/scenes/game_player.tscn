@@ -32,10 +32,11 @@ clear_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Gen
 spawn_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/SpawnBtn")
 clear_agents_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/HBoxContainer/ClearAgentsBtn")
 
-[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "load_btn", "file_status", "file_dialog", "settings_btn", "confirm_discard", "settings_window")]
+[node name="FileController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "save_btn", "save_as_btn", "load_btn", "file_status", "file_dialog", "settings_btn", "confirm_discard", "settings_window")]
 script = ExtResource("3_u2lal")
 graph_editor = NodePath("../GraphEditor")
 save_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/SaveBtn")
+save_as_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/SaveAsBtn")
 load_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/LoadBtn")
 file_status = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File/FileStatus")
 file_dialog = NodePath("../UI/FileDialog")
@@ -84,11 +85,12 @@ script = ExtResource("5_u2lal")
 graph_editor = NodePath("../GraphEditor")
 toolbar = NodePath("../UI/MainLayout/Workspace/Toolbar")
 
-[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "menu_file", "menu_edit", "menu_graph", "btn_step", "btn_play", "btn_reset", "sb_speed")]
+[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "file_controller", "menu_file", "menu_edit", "menu_graph", "btn_step", "btn_play", "btn_reset", "sb_speed")]
 script = ExtResource("7_el7nm")
 graph_editor = NodePath("../GraphEditor")
 status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/StatusLabel")
 tool_options_container = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/ToolOptionsContainer")
+file_controller = NodePath("../FileController")
 menu_file = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/File")
 menu_edit = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Edit")
 menu_graph = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Graph")
@@ -312,6 +314,10 @@ metadata/_tab_index = 1
 [node name="SaveBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
 layout_mode = 2
 text = "Save Graph"
+
+[node name="SaveAsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
+layout_mode = 2
+text = "Save Graph As..."
 
 [node name="LoadBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/File"]
 layout_mode = 2
