@@ -25,8 +25,9 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 		for id in target.nodes:
 			nodes[id] = target.nodes[id].duplicate()
 		
-		# 2. Duplicate Edge Data (Deep Copy)
-		edge_data = target.edge_data.duplicate(true)
+		# 2. Duplicate Canonical Edge Store (Deep Copy)
+		edge_store = target.edge_store.duplicate(true)
+		_rebuild_adjacency_cache() # Rebuild pathfinding map for the sandbox
 			
 		# 3. Rebuild spatial grid
 		_rebuild_spatial_grid()
@@ -137,31 +138,26 @@ func set_node_property(id: String, key: String, value: Variant) -> void:
 
 # Allows procedural generators to set custom variables on Edges!
 func set_edge_property(a: String, b: String, key: String, value: Variant) -> void:
-	# [FIX] Extremely safe nested dictionary traversal.
-	# Prevents crashes if the base Graph's has_edge() returns a false positive
-	# or if an undirected connection is stored in reverse order.
-	var real_u = a
-	var real_v = b
-	var found = false
-	
-	if edge_data.has(a) and edge_data[a].has(b):
-		found = true
-	elif edge_data.has(b) and edge_data[b].has(a):
-		real_u = b
-		real_v = a
-		found = true
-		
-	if not found: return
+	var edge_key = get_edge_key(a, b)
+	if not edge_store.has(edge_key): return
 		
 	# 1. Update Local Simulation
-	edge_data[real_u][real_v][key] = value
+	# (Route core variables directly, and custom data to the custom dict)
+	if key in ["weight", "direction"]:
+		edge_store[edge_key][key] = value
+		_rebuild_adjacency_cache()
+	else:
+		edge_store[edge_key].custom[key] = value
 		
 	# 2. Record Undo/Redo history for Target Graph
 	var old_val = null
-	if _target_graph.edge_data.has(real_u) and _target_graph.edge_data[real_u].has(real_v):
-		old_val = _target_graph.edge_data[real_u][real_v].get(key)
+	if _target_graph.edge_store.has(edge_key):
+		if key in ["weight", "direction"]:
+			old_val = _target_graph.edge_store[edge_key].get(key)
+		else:
+			old_val = _target_graph.edge_store[edge_key].custom.get(key)
 		
-	var cmd = CmdSetProperty.new(_target_graph, "EDGE", [real_u, real_v], key, value, old_val)
+	var cmd = CmdSetProperty.new(_target_graph, "EDGE", [a, b], key, value, old_val)
 	recorded_commands.append(cmd)
 
 func add_agent(agent: AgentWalker) -> void:

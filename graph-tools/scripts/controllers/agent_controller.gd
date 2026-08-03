@@ -182,17 +182,11 @@ func _update_visualization(agent) -> void:
 				graph_editor.run_pathfinding(agent.movement_algo)
 		else:
 			graph_editor.set_path_ends([])
-			graph_editor.current_path.clear()
-			if graph_editor.renderer:
-				graph_editor.renderer.current_path_ref = []
-				graph_editor.renderer.queue_redraw()
+			graph_editor.clear_current_path() 
 	else:
 		graph_editor.set_path_starts([])
 		graph_editor.set_path_ends([])
-		graph_editor.current_path.clear()
-		if graph_editor.renderer:
-			graph_editor.renderer.current_path_ref = []
-			graph_editor.renderer.queue_redraw()
+		graph_editor.clear_current_path()
 
 func _sync_inputs_to_agent(agent: AgentWalker) -> void:
 	if _active_inputs.has("global_behavior"):
@@ -312,9 +306,23 @@ func _on_behavior_changed(key: String, value: Variant) -> void:
 		print("Updated Global Template: %s -> %s" % [key, value])
 	else:
 		var agents_to_update = graph_editor.selected_agent_ids
+		var is_bulk = agents_to_update.size() > 1
+		
+		# Wrap bulk edits in an undo transaction
+		if is_bulk:
+			graph_editor.start_undo_transaction("Bulk Edit Agent Behaviors")
+			
 		for agent in agents_to_update:
-			if agent.has_method("apply_setting"):
-				agent.apply_setting(key, value)
+			# Map UI property names back to actual Agent variable names
+			var actual_key = key
+			match key:
+				"global_behavior": actual_key = "behavior_mode"
+				"target_node": actual_key = "target_node_id"
+				
+			graph_editor.set_agent_property(agent, actual_key, value)
+				
+		if is_bulk:
+			graph_editor.commit_undo_transaction()
 				
 		if not agents_to_update.is_empty():
 			_update_visualization(agents_to_update[0])

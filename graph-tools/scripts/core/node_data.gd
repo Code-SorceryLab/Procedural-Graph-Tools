@@ -14,7 +14,6 @@ enum RoomShape {
 
 # --- STRUCTURAL DATA (Hard Requirements) ---
 @export var position: Vector2 = Vector2.ZERO
-@export var connections: Dictionary = {} # Map<NeighborID, Weight>
 
 # --- VISUAL / CORE DATA (First-Class Citizens) ---
 # We keep these as strict variables because the Renderer/Generator uses them constantly.

@@ -6,7 +6,7 @@ extends RefCounted
 static func serialize(graph: Graph) -> String:
 	var data = {
 		"meta": {
-			"version": "1.5", # Bumped for Semantic Registry
+			"version": "1.6", # Bumped for Canonical Edge Store
 			"timestamp": Time.get_datetime_string_from_system(),
 			"next_ticket": graph._next_display_id
 		},
@@ -15,7 +15,7 @@ static func serialize(graph: Graph) -> String:
 		"nodes": [],
 		"edges": [],
 		"agents": [],
-		"zones": [] # Zone Container
+		"zones": []
 	}
 	
 	# 1. SERIALIZE NODES
@@ -34,42 +34,16 @@ static func serialize(graph: Graph) -> String:
 			
 		data["nodes"].append(node_dict)
 		
-	# 2. SERIALIZE EDGES
-	var processed_pairs = {} 
-	
-	for id_a in graph.edge_data:
-		for id_b in graph.edge_data[id_a]:
-			var pair_key = [id_a, id_b]
-			pair_key.sort()
-			if processed_pairs.has(pair_key): continue
-			
-			var data_ab = graph.edge_data[id_a][id_b]
-			var is_bidir = false
-			
-			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
-				var data_ba = graph.edge_data[id_b][id_a]
-				
-				# [FIX] Check if data is an object/dictionary before calling .hash(), 
-				# otherwise compare values directly if they are primitives (floats/ints/strings)
-				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
-					if data_ab.hash() == data_ba.hash():
-						is_bidir = true
-				elif data_ab == data_ba:
-					is_bidir = true
-			
-			if is_bidir:
-				processed_pairs[pair_key] = true
-				data["edges"].append({
-					"u": id_a, "v": id_b,
-					"bidir": true,
-					"data": data_ab
-				})
-			else:
-				data["edges"].append({
-					"u": id_a, "v": id_b,
-					"bidir": false,
-					"data": data_ab
-				})
+	# 2. SERIALIZE EDGES [UPDATED FOR CANONICAL STORE]
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		data["edges"].append({
+			"u": e.u,
+			"v": e.v,
+			"w": e.weight,
+			"dir": e.direction,
+			"data": e.custom
+		})
 			
 	# 3. SERIALIZE AGENTS
 	for agent in graph.agents:
@@ -109,9 +83,6 @@ static func deserialize(json_string: String) -> Graph:
 			var id = n.get("id", "")
 			var pos = Vector2(n.get("x", 0), n.get("y", 0))
 			
-			# Note: We use add_node here, which triggers the sync logic.
-			# BUT, since zones aren't loaded yet, the sync does nothing here.
-			# This is why we need post_load_fixup() at the end.
 			new_graph.add_node(id, pos)
 			
 			var type = n.get("type", 0)
@@ -121,7 +92,7 @@ static func deserialize(json_string: String) -> Graph:
 				if n.has("custom_data") and "custom_data" in node_ref:
 					node_ref.custom_data = n["custom_data"]
 				
-	# 4. Restore Edges
+	# 4. Restore Edges [UPDATED FOR CANONICAL STORE]
 	if data.has("edges"):
 		for e in data["edges"]:
 			var u = e.get("u") if e.has("u") else e.get("from")
@@ -129,13 +100,26 @@ static func deserialize(json_string: String) -> Graph:
 			
 			if not new_graph.nodes.has(u) or not new_graph.nodes.has(v): continue
 				
-			var edge_data = e.get("data", {})
-			if e.has("w") and not edge_data.has("weight"): edge_data["weight"] = e["w"]
-				
-			var weight = edge_data.get("weight", 1.0)
-			var is_bidir = e.get("bidir", true)
+			var weight = e.get("w", e.get("weight", 1.0))
 			
-			new_graph.add_edge(u, v, weight, not is_bidir, edge_data)
+			# Handle legacy 'bidir' bool fallback if 'dir' int isn't present
+			var is_directed = false
+			var forced_dir = 0
+			
+			if e.has("dir"):
+				is_directed = (int(e["dir"]) != 0)
+				forced_dir = int(e["dir"])
+			elif e.has("bidir"):
+				is_directed = not e["bidir"]
+				forced_dir = 1 if is_directed else 0
+			
+			var edge_data = e.get("data", {})
+			new_graph.add_edge(u, v, weight, is_directed, edge_data)
+			
+			# If we imported a legacy file and it forced a Reverse direction, patch it
+			if forced_dir == 2:
+				var key = new_graph.get_edge_key(u, v)
+				if new_graph.edge_store.has(key): new_graph.edge_store[key].direction = 2
 
 	# 5. Restore Zones
 	if data.has("zones"):
@@ -150,9 +134,7 @@ static func deserialize(json_string: String) -> Graph:
 			if agent:
 				new_graph.add_agent(agent)
 				
-	# [NEW] 7. POST-LOAD REPAIR
-	# Now that Nodes AND Zones exist, we force a sync so the rosters populate.
-	# This also rebuilds the spatial grid for selection.
+	# 7. POST-LOAD REPAIR
 	if new_graph.has_method("post_load_fixup"):
 		new_graph.post_load_fixup()
 				
@@ -215,14 +197,12 @@ static func export_graphml(graph: Graph) -> String:
 	xml += "         xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns\n"
 	xml += "         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">\n"
 
-	# 1. Define Hardcoded Core Keys
 	xml += "\t<!-- Node Core Properties -->\n"
 	xml += "\t<key id=\"x\" for=\"node\" attr.name=\"x\" attr.type=\"double\"/>\n"
 	xml += "\t<key id=\"y\" for=\"node\" attr.name=\"y\" attr.type=\"double\"/>\n"
 	xml += "\t<key id=\"type\" for=\"node\" attr.name=\"type\" attr.type=\"string\"/>\n"
 	xml += "\t<key id=\"shape\" for=\"node\" attr.name=\"shape\" attr.type=\"int\"/>\n"
 
-	# 2. Dynamically Discover Semantic Keys (Custom Data)
 	var custom_keys = {}
 	for id in graph.nodes:
 		var node = graph.nodes[id] as NodeData
@@ -239,11 +219,9 @@ static func export_graphml(graph: Graph) -> String:
 
 	xml += "\t<!-- Edge Properties -->\n"
 	xml += "\t<key id=\"weight\" for=\"edge\" attr.name=\"weight\" attr.type=\"double\"/>\n"
-
-	# 3. Open the Graph definition (Now defaults to DIRECTED)
 	xml += "\n\t<graph id=\"G\" edgedefault=\"directed\">\n"
 
-	# 4. Write Nodes
+	# Write Nodes
 	for id in graph.nodes:
 		var node = graph.nodes[id] as NodeData
 		xml += "\t\t<node id=\"%s\">\n" % id
@@ -258,45 +236,24 @@ static func export_graphml(graph: Graph) -> String:
 
 		xml += "\t\t</node>\n"
 
-	# 5. Write Edges (With Directionality Checking)
-	var processed_pairs = {}
+	# Write Edges [UPDATED FOR CANONICAL STORE]
 	var edge_id_counter = 0
-
-	for id_a in graph.edge_data:
-		for id_b in graph.edge_data[id_a]:
-			var pair_key = [id_a, id_b]
-			pair_key.sort()
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		
+		# GraphML needs explicit source and target depending on direction
+		var src = e.u
+		var tgt = e.v
+		if e.direction == 2:
+			src = e.v
+			tgt = e.u
 			
-			var data_ab = graph.edge_data[id_a][id_b]
-			var is_bidir = false
-			
-			# Check if the exact same edge exists in reverse
-			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
-				var data_ba = graph.edge_data[id_b][id_a]
-				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
-					if data_ab.hash() == data_ba.hash(): is_bidir = true
-				elif data_ab == data_ba:
-					is_bidir = true
-					
-			if is_bidir:
-				# Skip if we already wrote the undirected version of this pair
-				if processed_pairs.has(pair_key): continue
-				processed_pairs[pair_key] = true
-				
-			var safe_weight = 1.0
-			if typeof(data_ab) == TYPE_DICTIONARY:
-				safe_weight = str(data_ab.get("weight", 1.0)).to_float()
-			else:
-				safe_weight = str(data_ab).to_float()
-				
-			# Map to XML attributes
-			var dir_str = "false" if is_bidir else "true"
-			
-			xml += "\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" directed=\"%s\">\n" % [edge_id_counter, id_a, id_b, dir_str]
-			xml += "\t\t\t<data key=\"weight\">%f</data>\n" % safe_weight
-			xml += "\t\t</edge>\n"
-			
-			edge_id_counter += 1
+		var dir_str = "false" if e.direction == 0 else "true"
+		
+		xml += "\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" directed=\"%s\">\n" % [edge_id_counter, src, tgt, dir_str]
+		xml += "\t\t\t<data key=\"weight\">%f</data>\n" % e.weight
+		xml += "\t\t</edge>\n"
+		edge_id_counter += 1
 
 	xml += "\t</graph>\n"
 	xml += "</graphml>\n"
@@ -309,36 +266,22 @@ static func export_gexf(graph: Graph) -> String:
 	xml += "<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n"
 	xml += "\t<meta>\n\t\t<creator>GraphTools</creator>\n\t\t<description>Procedural Dungeon Graph</description>\n\t</meta>\n"
 	
-	# 1. Pre-scan to determine Global Directionality
+	# Pre-scan for directionality [UPDATED FOR CANONICAL STORE]
 	var has_unidirectional = false
-	for id_a in graph.edge_data:
-		for id_b in graph.edge_data[id_a]:
-			var is_bidir = false
-			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
-				var data_ab = graph.edge_data[id_a][id_b]
-				var data_ba = graph.edge_data[id_b][id_a]
-				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
-					if data_ab.hash() == data_ba.hash(): is_bidir = true
-				elif data_ab == data_ba:
-					is_bidir = true
-					
-			if not is_bidir:
-				has_unidirectional = true
-				break
-		if has_unidirectional: break
+	for key in graph.edge_store:
+		if graph.edge_store[key].direction != 0:
+			has_unidirectional = true
+			break
 
-	# Open Graph dynamically based on our pre-scan
 	var e_default = "directed" if has_unidirectional else "undirected"
 	xml += "\t<graph defaultedgetype=\"%s\">\n" % e_default
 
-	# 2. Define Core Attributes
 	xml += "\t\t<attributes class=\"node\">\n"
 	xml += "\t\t\t<attribute id=\"x\" title=\"x\" type=\"float\"/>\n"
 	xml += "\t\t\t<attribute id=\"y\" title=\"y\" type=\"float\"/>\n"
 	xml += "\t\t\t<attribute id=\"type\" title=\"type\" type=\"string\"/>\n"
 	xml += "\t\t\t<attribute id=\"shape\" title=\"shape\" type=\"integer\"/>\n"
 
-	# Dynamically Discover Semantic Keys (Custom Data)
 	var custom_keys = {}
 	for id in graph.nodes:
 		var node = graph.nodes[id] as NodeData
@@ -354,20 +297,17 @@ static func export_gexf(graph: Graph) -> String:
 				xml += "\t\t\t<attribute id=\"%s\" title=\"%s\" type=\"%s\"/>\n" % [c_key, c_key, attr_type]
 	xml += "\t\t</attributes>\n"
 
-	# 3. Write Nodes
+	# Write Nodes
 	xml += "\t\t<nodes>\n"
 	for id in graph.nodes:
 		var node = graph.nodes[id] as NodeData
 		xml += "\t\t\t<node id=\"%s\" label=\"%s\">\n" % [id, id]
 		xml += "\t\t\t\t<attvalues>\n"
-		
-		# Core Data
 		xml += "\t\t\t\t\t<attvalue for=\"x\" value=\"%f\"/>\n" % node.position.x
 		xml += "\t\t\t\t\t<attvalue for=\"y\" value=\"%f\"/>\n" % node.position.y
 		xml += "\t\t\t\t\t<attvalue for=\"type\" value=\"%s\"/>\n" % node.type
 		xml += "\t\t\t\t\t<attvalue for=\"shape\" value=\"%d\"/>\n" % node.shape
 
-		# Custom Data
 		for c_key in node.custom_data:
 			var val_str = str(node.custom_data[c_key]).xml_escape()
 			xml += "\t\t\t\t\t<attvalue for=\"%s\" value=\"%s\"/>\n" % [c_key, val_str]
@@ -376,43 +316,20 @@ static func export_gexf(graph: Graph) -> String:
 		xml += "\t\t\t</node>\n"
 	xml += "\t\t</nodes>\n"
 
-	# 4. Write Edges
+	# Write Edges [UPDATED FOR CANONICAL STORE]
 	xml += "\t\t<edges>\n"
-	var processed_pairs = {}
 	var edge_id_counter = 0
-
-	for id_a in graph.edge_data:
-		for id_b in graph.edge_data[id_a]:
-			var pair_key = [id_a, id_b]
-			pair_key.sort()
-
-			var data_ab = graph.edge_data[id_a][id_b]
-			var is_bidir = false
-
-			if graph.edge_data.has(id_b) and graph.edge_data[id_b].has(id_a):
-				var data_ba = graph.edge_data[id_b][id_a]
-				if typeof(data_ab) == TYPE_DICTIONARY and typeof(data_ba) == TYPE_DICTIONARY:
-					if data_ab.hash() == data_ba.hash(): is_bidir = true
-				elif data_ab == data_ba:
-					is_bidir = true
-
-			# [FIX] Safely unwrap the weight dictionary
-			var safe_weight = 1.0
-			if typeof(data_ab) == TYPE_DICTIONARY:
-				safe_weight = str(data_ab.get("weight", 1.0)).to_float()
-			else:
-				safe_weight = str(data_ab).to_float()
-
-			if not has_unidirectional:
-				# Graph is 100% Undirected: Deduplicate pair
-				if processed_pairs.has(pair_key): continue
-				processed_pairs[pair_key] = true
-				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, id_a, id_b, safe_weight]
-			else:
-				# Graph is Mixed/Directed: Explicit A->B
-				xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, id_a, id_b, safe_weight]
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		
+		var src = e.u
+		var tgt = e.v
+		if e.direction == 2:
+			src = e.v
+			tgt = e.u
 			
-			edge_id_counter += 1
+		xml += "\t\t\t<edge id=\"e%d\" source=\"%s\" target=\"%s\" weight=\"%f\"/>\n" % [edge_id_counter, src, tgt, e.weight]
+		edge_id_counter += 1
 			
 	xml += "\t\t</edges>\n"
 	xml += "\t</graph>\n"
@@ -436,6 +353,7 @@ static func import_graphml(xml_string: String) -> Graph:
 	var current_edge_target = ""
 	var current_edge_directed = false
 	var current_data_key = ""
+	var pending_edge_weight = 1.0
 	
 	while parser.read() == OK:
 		var node_type = parser.get_node_type()
@@ -462,23 +380,13 @@ static func import_graphml(xml_string: String) -> Graph:
 			elif tag_name == "edge":
 				current_edge_source = _get_attr(parser, "source")
 				current_edge_target = _get_attr(parser, "target")
+				pending_edge_weight = 1.0
 				
-				# Check for local direction override, fallback to graph default
 				var dir_attr = _get_attr(parser, "directed")
 				if dir_attr != "":
 					current_edge_directed = (dir_attr.to_lower() == "true")
 				else:
 					current_edge_directed = default_directed
-				
-				if not graph.edge_data.has(current_edge_source): 
-					graph.edge_data[current_edge_source] = {}
-				graph.edge_data[current_edge_source][current_edge_target] = {"weight": 1.0}
-				
-				# Setup the reverse path only if it's undirected
-				if not current_edge_directed:
-					if not graph.edge_data.has(current_edge_target): 
-						graph.edge_data[current_edge_target] = {}
-					graph.edge_data[current_edge_target][current_edge_source] = {"weight": 1.0}
 				
 			elif tag_name == "data":
 				current_data_key = _get_attr(parser, "key")
@@ -509,11 +417,7 @@ static func import_graphml(xml_string: String) -> Graph:
 					
 			elif current_edge_source != "" and current_edge_target != "":
 				if attr_name == "weight":
-					var w = float(parsed_val)
-					graph.edge_data[current_edge_source][current_edge_target]["weight"] = w
-					# Apply reverse weight only if undirected
-					if not current_edge_directed:
-						graph.edge_data[current_edge_target][current_edge_source]["weight"] = w
+					pending_edge_weight = float(parsed_val)
 					
 		# 3. Closing Tag </tag>
 		elif node_type == XMLParser.NODE_ELEMENT_END:
@@ -521,14 +425,18 @@ static func import_graphml(xml_string: String) -> Graph:
 			if tag_name == "node":
 				current_node_id = ""
 			elif tag_name == "edge":
+				# COMMIT THE EDGE [UPDATED FOR CANONICAL STORE]
 				var src = current_edge_source
 				var tgt = current_edge_target
 				if graph.nodes.has(src) and graph.nodes.has(tgt):
-					var w = graph.edge_data[src][tgt].get("weight", 1.0)
-					graph.nodes[src].connections[tgt] = w
-					# Sync reverse legacy connection only if undirected
-					if not current_edge_directed:
-						graph.nodes[tgt].connections[src] = w
+					var is_directed = current_edge_directed
+					var is_reversed = (src > tgt)
+					
+					graph.add_edge(src, tgt, pending_edge_weight, is_directed)
+					
+					if is_directed and is_reversed:
+						var key = graph.get_edge_key(src, tgt)
+						if graph.edge_store.has(key): graph.edge_store[key].direction = 2
 					
 				current_edge_source = ""
 				current_edge_target = ""
@@ -554,7 +462,6 @@ static func import_gexf(xml_string: String) -> Graph:
 	while parser.read() == OK:
 		var node_type = parser.get_node_type()
 		
-		# 1. Opening Tags (GEXF stores almost everything as attributes)
 		if node_type == XMLParser.NODE_ELEMENT:
 			var tag_name = parser.get_node_name()
 			
@@ -604,20 +511,17 @@ static func import_gexf(xml_string: String) -> Graph:
 				if weight_str != "":
 					w = float(weight_str)
 					
-				# Apply forward edge
-				if not graph.edge_data.has(src): 
-					graph.edge_data[src] = {}
-				graph.edge_data[src][tgt] = {"weight": w}
-				graph.nodes[src].connections[tgt] = w
-				
-				# Apply reverse edge if the graph defaults to undirected
-				if not default_directed:
-					if not graph.edge_data.has(tgt): 
-						graph.edge_data[tgt] = {}
-					graph.edge_data[tgt][src] = {"weight": w}
-					graph.nodes[tgt].connections[src] = w
+				# COMMIT THE EDGE [UPDATED FOR CANONICAL STORE]
+				if graph.nodes.has(src) and graph.nodes.has(tgt):
+					var is_directed = default_directed
+					var is_reversed = (src > tgt)
+					
+					graph.add_edge(src, tgt, w, is_directed)
+					
+					if is_directed and is_reversed:
+						var key = graph.get_edge_key(src, tgt)
+						if graph.edge_store.has(key): graph.edge_store[key].direction = 2
 
-		# 2. Closing Tags
 		elif node_type == XMLParser.NODE_ELEMENT_END:
 			if parser.get_node_name() == "node":
 				current_node_id = ""

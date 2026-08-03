@@ -213,6 +213,7 @@ func _get_agent_value(agent, key: String):
 		"paint_value": return agent.paint_value
 	
 	if key in agent: return agent.get(key)
+	if "custom_data" in agent and agent.custom_data.has(key): return agent.custom_data.get(key)
 	return null
 
 # ==============================================================================
@@ -237,14 +238,24 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		graph_editor.request_node_pick(func(id): _on_setting_changed("target_node", id))
 		return
 	
-	# 4. Standard Apply
+	# 4. Standard Apply (Wrapped in Undo Transaction!)
+	var is_bulk = _tracked_agents.size() > 1
+	if is_bulk:
+		graph_editor.start_undo_transaction("Bulk Edit Agents")
+		
 	for agent in _tracked_agents:
-		if agent.has_method("apply_setting"):
-			agent.apply_setting(key, value)
+		# Map UI property names back to actual Agent variable names
+		var actual_key = key
+		match key:
+			"global_behavior": actual_key = "behavior_mode"
+			"target_node": actual_key = "target_node_id"
 			
-	# [NEW] 5. Structural UI Refresh
-	# If a setting fundamentally changes the UI schema, queue a rebuild.
-	# We use call_deferred to safely let the current UI finish its click event first!
+		graph_editor.set_agent_property(agent, actual_key, value)
+			
+	if is_bulk:
+		graph_editor.commit_undo_transaction()
+			
+	# 5. Structural UI Refresh
 	if key in ["paint_target", "paint_field", "global_behavior"]:
 		request_refresh_ui.emit.call_deferred()
 			
@@ -288,13 +299,26 @@ func _open_algo_popup() -> void:
 func _on_algo_settings_confirmed(new_settings: Dictionary, algo_key: String = "") -> void:
 	if _tracked_agents.is_empty(): return
 	
+	var is_bulk = _tracked_agents.size() > 1
+	if is_bulk:
+		graph_editor.start_undo_transaction("Configure Agent Algorithm")
+	
 	for agent in _tracked_agents:
-		if not agent.algo_settings.has(algo_key):
-			agent.algo_settings[algo_key] = {}
-		agent.algo_settings[algo_key].merge(new_settings, true)
+		# To make Dictionary changes undoable, we must assign a brand new Dictionary object
+		var new_algo_settings = agent.algo_settings.duplicate(true)
+		if not new_algo_settings.has(algo_key):
+			new_algo_settings[algo_key] = {}
+		new_algo_settings[algo_key].merge(new_settings, true)
 		
+		# Set it via the Command pipeline!
+		graph_editor.set_agent_property(agent, "algo_settings", new_algo_settings)
+		
+		# Ensure path recalculates (if side-effect interceptor isn't catching it)
 		if agent.has_method("_recalculate_path") and graph_editor.graph:
 			agent._recalculate_path(graph_editor.graph)
+			
+	if is_bulk:
+		graph_editor.commit_undo_transaction()
 			
 	request_refresh_ui.emit()
 

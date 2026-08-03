@@ -58,30 +58,8 @@ func _get_node_at_pos(pos: Vector2) -> String:
 	return _graph.get_node_at_position(pos, _renderer.node_radius)
 
 func _get_edge_at_pos(pos: Vector2) -> Array:
-	var best_edge = []
-	var best_dist = 400.0 # Pixel search radius squared
-	
-	for u in _graph.edge_data:
-		for v in _graph.edge_data[u]:
-			if not _graph.nodes.has(u) or not _graph.nodes.has(v): continue
-			var p1 = _graph.nodes[u].position
-			var p2 = _graph.nodes[v].position
-			
-			var l2 = p1.distance_squared_to(p2)
-			var dist = 0.0
-			if l2 == 0: 
-				dist = pos.distance_squared_to(p1)
-			else:
-				var t = max(0, min(1, (pos - p1).dot(p2 - p1) / l2))
-				var proj = p1 + t * (p2 - p1)
-				dist = pos.distance_squared_to(proj)
-				
-			if dist < best_dist:
-				best_dist = dist
-				best_edge = [u, v]
-				
-	if best_edge.size() == 2: best_edge.sort()
-	return best_edge
+	#Radius of 20 pixels.
+	return _graph.get_edge_at_position(pos, 20.0)
 
 func _get_agent_at_pos(pos: Vector2) -> Object:
 	if _renderer and _renderer.has_method("get_agent_at_position"):
@@ -111,16 +89,8 @@ func _get_nodes_in_rect(rect: Rect2) -> Array[String]:
 	return result
 
 func _get_edges_in_rect(rect: Rect2) -> Array:
-	var result = []
-	for u in _graph.edge_data:
-		for v in _graph.edge_data[u]:
-			if not _graph.nodes.has(u) or not _graph.nodes.has(v): continue
-			# Check if both connected nodes are inside the selection box
-			if rect.has_point(_graph.nodes[u].position) and rect.has_point(_graph.nodes[v].position):
-				var pair = [u, v]
-				pair.sort()
-				if not result.has(pair): result.append(pair)
-	return result
+	# Delegates to the Graph's highly accurate segment-intersection logic
+	return _graph.get_edges_in_rect(rect)
 
 func _get_agents_in_rect(rect: Rect2) -> Array:
 	var result = []

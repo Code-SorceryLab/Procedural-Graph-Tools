@@ -7,8 +7,14 @@ const SPATIAL_GRID = preload("res://scripts/utils/spatial_grid.gd")
 # 1. Export the main dictionary
 @export var nodes: Dictionary = {}
 
-# Stores rich data for edges [FromID][ToID] = { data }
-@export var edge_data: Dictionary = {}
+# Canonical Edge Store
+# Format: { "nodeA___nodeB": { "u": "nodeA", "v": "nodeB", "weight": 1.0, "direction": int, "custom": {} } }
+# Direction: 0 = Bi-directional, 1 = u->v, 2 = v->u
+@export var edge_store: Dictionary = {}
+
+# Ffast runtime cache for A* pathfinding
+var _adjacency_map: Dictionary = {}
+
 const MIN_TRAVERSAL_COST: float = 0.1
 
 # --- ZONES LAYER ---
@@ -38,7 +44,7 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 		_ensure_spatial_grid()
 		_spatial_grid.add_node(id, pos, _node_radius)
 		
-		# [NEW] IMMEDIATE ZONE SYNC
+		# IMMEDIATE ZONE SYNC
 		# Fundamental Fix: Any node born on a tile automatically joins that zone.
 		_sync_node_zone_membership(id, pos)
 		
@@ -50,24 +56,16 @@ func remove_node(id: String) -> void:
 	if _spatial_grid != null:
 		_spatial_grid.remove_node(id)
 	
-	# 2. Clean Edges (Legacy Adjacency)
-	for other_id: String in nodes:
-		var other_node: NodeData = nodes[other_id]
-		if other_node.connections.has(id):
-			other_node.connections.erase(id)
+	# 2. Clean Canonical Edges
+	var keys_to_erase = []
+	for key in edge_store:
+		if edge_store[key].u == id or edge_store[key].v == id:
+			keys_to_erase.append(key)
 			
-	# Clean Rich Edge Data (Phantom Edge Prevention)
-	# A. Delete all outgoing edges originating from this node
-	if edge_data.has(id):
-		edge_data.erase(id)
+	for key in keys_to_erase:
+		edge_store.erase(key)
 		
-	# B. Delete all incoming edges pointing to this node from other nodes
-	for other_id in edge_data:
-		if edge_data[other_id].has(id):
-			edge_data[other_id].erase(id)
-			# Clean up empty sub-dictionaries to prevent key bloat
-			if edge_data[other_id].is_empty():
-				edge_data.erase(other_id)
+	_rebuild_adjacency_cache()
 			
 	# 3. Clean Zones
 	for zone in zones:
@@ -139,109 +137,130 @@ func register_imported_agent(agent: AgentWalker) -> void:
 
 # --- Edge Management ---
 
-# Now accepts an optional 'data' dictionary for future expansion
-func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
-	if not nodes.has(a) or not nodes.has(b):
-		push_error("Graph: Attempted to connect non-existent nodes [%s, %s]" % [a, b])
-		return
-	
-	# 1. Update Legacy Adjacency (For A* Speed)
-	var node_a: NodeData = nodes[a]
-	node_a.connections[b] = weight
-	
-	if not directed:
-		var node_b: NodeData = nodes[b]
-		node_b.connections[a] = weight
+# Guarantees A->B and B->A always return the exact same Dictionary key
+func get_edge_key(a: String, b: String) -> String:
+	return a + "___" + b if a < b else b + "___" + a
 
-	# 2. Update Rich Edge Data (For Logic/Inspector)
-	if not edge_data.has(a): edge_data[a] = {}
+func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
+	if not nodes.has(a) or not nodes.has(b): return
 	
-	# Merge weight into data so we have a single source of truth inside edge_data
-	var final_data = extra_data.duplicate()
-	final_data["weight"] = weight
-	# Default type 0 (Standard) if not provided
-	if not final_data.has("type"): final_data["type"] = 0
+	var key = get_edge_key(a, b)
+	var is_a_first = (a < b)
+	var dir = 0 if not directed else (1 if is_a_first else 2)
 	
-	# Hardcoded Physics Variables
-	# Ensures the Buoyancy Engine always has valid mechanical data to read
-	if not final_data.has("physics_spring_length"): final_data["physics_spring_length"] = 150.0
-	if not final_data.has("physics_stiffness"): final_data["physics_stiffness"] = 0.5
-	
-	edge_data[a][b] = final_data
-	
-	if not directed:
-		if not edge_data.has(b): edge_data[b] = {}
-		# Create independent copy for the return path
-		edge_data[b][a] = final_data.duplicate()
+	if edge_store.has(key):
+		var existing = edge_store[key]
+		# Merge directions if appending opposite directed edge
+		if directed and existing.direction != 0 and existing.direction != dir:
+			existing.direction = 0 # Upgrade to Bi-directional
+		elif not directed:
+			existing.direction = 0
+			
+		existing.weight = weight
+		for k in extra_data: existing.custom[k] = extra_data[k]
+	else:
+		var custom = extra_data.duplicate()
+		if not custom.has("type"): custom["type"] = 0
+		if not custom.has("physics_spring_length"): custom["physics_spring_length"] = 150.0
+		if not custom.has("physics_stiffness"): custom["physics_stiffness"] = 0.5
+		
+		edge_store[key] = {
+			"u": a if is_a_first else b, 
+			"v": b if is_a_first else a, 
+			"weight": weight,
+			"direction": dir,
+			"custom": custom
+		}
+		
+	_rebuild_adjacency_cache()
 
 func remove_edge(a: String, b: String, directed: bool = false) -> void:
-	# 1. Clear Legacy
-	if nodes.has(a): nodes[a].connections.erase(b)
-	if not directed and nodes.has(b): nodes[b].connections.erase(a)
+	var key = get_edge_key(a, b)
+	if not edge_store.has(key): return
 	
-	# 2. Clear Rich Data
-	if edge_data.has(a): edge_data[a].erase(b)
-	if not directed and edge_data.has(b): edge_data[b].erase(a)
+	if not directed:
+		edge_store.erase(key)
+	else:
+		var existing = edge_store[key]
+		if existing.direction == 0:
+			# Downgrade bidir to a single direction
+			var is_a_first = (a < b)
+			existing.direction = 2 if is_a_first else 1
+		else:
+			edge_store.erase(key)
+			
+	_rebuild_adjacency_cache()
 
 func clear_edges() -> void:
-	# 1. Clear Legacy
-	for id in nodes:
-		if nodes[id] is NodeData:
-			nodes[id].connections.clear()
-	# 2. Clear Rich Data
-	edge_data.clear()
+	edge_store.clear()
+	_rebuild_adjacency_cache()
 
-func has_edge(a: String, b: String) -> bool:
-	if nodes.has(a):
-		return nodes[a].connections.has(b)
-	return false
+# Fast pathfinding cache generator
+func _rebuild_adjacency_cache() -> void:
+	_adjacency_map.clear()
+	for id in nodes: _adjacency_map[id] = {}
+		
+	for key in edge_store:
+		var e = edge_store[key]
+		if not _adjacency_map.has(e.u) or not _adjacency_map.has(e.v): continue
+		
+		if e.direction == 0:
+			_adjacency_map[e.u][e.v] = e.weight
+			_adjacency_map[e.v][e.u] = e.weight
+		elif e.direction == 1:
+			_adjacency_map[e.u][e.v] = e.weight
+		elif e.direction == 2:
+			_adjacency_map[e.v][e.u] = e.weight
 
 # --- Helpers ---
 
+func has_edge(a: String, b: String) -> bool:
+	if _adjacency_map.has(a): return _adjacency_map[a].has(b)
+	return false
+
 func get_neighbors(id: String) -> Array:
-	if nodes.has(id):
-		return nodes[id].connections.keys()
+	if _adjacency_map.has(id): return _adjacency_map[id].keys()
 	return []
 
 func get_edge_weight(a: String, b: String) -> float:
-	if nodes.has(a):
-		return nodes[a].connections.get(b, INF)
+	if _adjacency_map.has(a) and _adjacency_map[a].has(b):
+		return _adjacency_map[a][b]
 	return INF
 
-# Helper to get the full data object
 func get_edge_data(a: String, b: String) -> Dictionary:
-	if edge_data.has(a) and edge_data[a].has(b):
-		return edge_data[a][b]
+	var key = get_edge_key(a, b)
+	if edge_store.has(key): return edge_store[key].custom
 	return {}
 
-# Unified Cost Function
-# Used by A*, Dijkstra, and Decision Making behaviors.
 func get_travel_cost(from_id: String, to_id: String) -> float:
 	var base_dist = get_edge_weight(from_id, to_id)
 	if base_dist == INF: return INF
 		
 	var multiplier = 1.0
-	
-	# Resolve Zone
 	var to_pos = nodes[to_id].position
 	var grid_spacing = GraphSettings.GRID_SPACING
 	var grid_pos = Vector2i(round(to_pos.x / grid_spacing.x), round(to_pos.y / grid_spacing.y))
 	
 	var zone = get_zone_at(grid_pos)
 	if zone:
-		# [THE FIX] Check 'is_traversable' instead of 'allow_new_nodes'
-		if not zone.is_traversable:
-			return INF # Absolute Wall
-			
-		# [FEATURE] Apply the cost multiplier (Mud vs Road)
+		if not zone.is_traversable: return INF
 		multiplier = zone.traversal_cost
 
 	return base_dist * multiplier
 
 func get_node_pos(id: String) -> Vector2:
-	if nodes.has(id):
-		return nodes[id].position
+	if nodes.has(id): return nodes[id].position
 	return Vector2.ZERO
+
+func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
+	if not has_edge(id_a, id_b):
+		add_edge(id_a, id_b, weight, true)
+		return
+		
+	var key = get_edge_key(id_a, id_b)
+	if edge_store.has(key):
+		edge_store[key].weight = weight
+		_rebuild_adjacency_cache()
 
 # --- Spatial Grid Methods ---
 
@@ -302,65 +321,30 @@ func get_nodes_in_rect(rect: Rect2) -> Array[String]:
 
 func get_edges_in_rect(rect: Rect2) -> Array:
 	var result = []
-	var checked = {}
-	
-	# Geometry setup...
 	var rect_tl = rect.position
 	var rect_tr = Vector2(rect.end.x, rect.position.y)
 	var rect_br = rect.end
 	var rect_bl = Vector2(rect.position.x, rect.end.y)
 	
-	# [THE FIX] Iterate ALL edges. 
-	# Do NOT use _spatial_grid here, or you can't select the middle of a wire.
-	for a in edge_data:
-		if not nodes.has(a): continue
-		var pos_a = nodes[a].position
+	for key in edge_store:
+		var e = edge_store[key]
+		if not nodes.has(e.u) or not nodes.has(e.v): continue
 		
-		for b in edge_data[a]:
-			if not nodes.has(b): continue
+		var pos_a = nodes[e.u].position
+		var pos_b = nodes[e.v].position
+		var pair = [e.u, e.v]
+		
+		if rect.has_point(pos_a) and rect.has_point(pos_b):
+			result.append(pair); continue
 			
-			var pair = [a, b]
-			pair.sort() # Sort internally for deduplication
+		if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tl, rect_tr) != null or \
+		   Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tr, rect_br) != null or \
+		   Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_br, rect_bl) != null or \
+		   Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_bl, rect_tl) != null:
+			result.append(pair)
 			
-			if checked.has(pair): continue
-			checked[pair] = true
-			
-			var pos_b = nodes[b].position
-			
-			# 1. Box Check (Points inside)
-			if rect.has_point(pos_a) and rect.has_point(pos_b):
-				result.append(pair); continue
-			
-			# 2. Segment Intersection Check (The "Crossing" Logic)
-			# This detects wires that cross the box even if endpoints are outside.
-			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tl, rect_tr) != null:
-				result.append(pair); continue
-			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_tr, rect_br) != null:
-				result.append(pair); continue
-			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_br, rect_bl) != null:
-				result.append(pair); continue
-			if Geometry2D.segment_intersects_segment(pos_a, pos_b, rect_bl, rect_tl) != null:
-				result.append(pair); continue
-				
 	return result
 
-# Updates existing edge or creates new one
-func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
-	# 1. Handle Non-Existent Edge
-	if not has_edge(id_a, id_b):
-		add_edge(id_a, id_b, weight) # FIXED: Was 'connect_node'
-		return
-		
-	# 2. Update Legacy Adjacency (CRITICAL for A* Pathfinding)
-	if nodes.has(id_a):
-		nodes[id_a].connections[id_b] = weight
-		
-	# 3. Update Rich Data (For Inspector/Logic)
-	if edge_data.has(id_a) and edge_data[id_a].has(id_b):
-		edge_data[id_a][id_b]["weight"] = weight
-	
-	# Note: We do NOT automatically update B->A here. 
-	# This allows for asymmetric weights (e.g. going uphill vs downhill).
 
 # --- ZONE MANAGEMENT ---
 func add_zone(zone: GraphZone) -> void:
@@ -407,19 +391,18 @@ func _sync_node_zone_membership(node_id: String, world_pos: Vector2) -> void:
 
 # Call this immediately after loading a graph from JSON
 func post_load_fixup() -> void:
-	# 1. Rebuild Spatial Grid (Crucial for clicking/selecting)
+	_rebuild_adjacency_cache()
 	_rebuild_spatial_grid()
 	
-	# 2. Re-sync Geographical Zones
-	# Since serializers often bypass 'add_node', we must manually 
-	# introduce every node to the zones again.
 	if not zones.is_empty():
 		for id in nodes:
 			var pos = nodes[id].position
 			_sync_node_zone_membership(id, pos)
-			
-	# 3. Optional: Verify Integrity
-	# (e.g. ensure all edges point to valid nodes)
+	
+	if not zones.is_empty():
+		for id in nodes:
+			var pos = nodes[id].position
+			_sync_node_zone_membership(id, pos)
 
 # Find node at exact position (for mouse picking)
 func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
@@ -440,39 +423,23 @@ func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
 	
 	return closest_id
 
-# Returns a sorted pair [id_a, id_b] if an edge is found, or empty [] if none.
 func get_edge_at_position(pos: Vector2, max_dist: float = 10.0) -> Array:
 	var closest_dist = INF
 	var closest_pair = []
 	
-	# Cache checked pairs to avoid checking A->B and B->A twice
-	var checked = {}
-	
-	# Iterate our new edge_data structure
-	for a in edge_data:
-		if not nodes.has(a): continue
-		var pos_a = nodes[a].position
+	for key in edge_store:
+		var e = edge_store[key]
+		if not nodes.has(e.u) or not nodes.has(e.v): continue
 		
-		for b in edge_data[a]:
-			if not nodes.has(b): continue
+		var pos_a = nodes[e.u].position
+		var pos_b = nodes[e.v].position
+		var point_on_segment = Geometry2D.get_closest_point_to_segment(pos, pos_a, pos_b)
+		var dist = pos.distance_to(point_on_segment)
+		
+		if dist < max_dist and dist < closest_dist:
+			closest_dist = dist
+			closest_pair = [e.u, e.v]
 			
-			# Create canonical key (Alphabetically sorted)
-			var pair = [a, b]
-			pair.sort()
-			
-			if checked.has(pair): continue
-			checked[pair] = true
-			
-			var pos_b = nodes[b].position
-			
-			# MATH: Distance to Line Segment
-			var point_on_segment = Geometry2D.get_closest_point_to_segment(pos, pos_a, pos_b)
-			var dist = pos.distance_to(point_on_segment)
-			
-			if dist < max_dist and dist < closest_dist:
-				closest_dist = dist
-				closest_pair = pair
-				
 	return closest_pair
 
 # Get spatial grid stats for debugging
@@ -484,8 +451,9 @@ func get_spatial_stats() -> Dictionary:
 func clear() -> void:
 	nodes.clear()
 	
-	# Clear Edge Data
-	edge_data.clear()
+	# Clear Canonical Edge Store and its cache
+	edge_store.clear()
+	_adjacency_map.clear()
 	
 	# Clear visual/logical zones
 	zones.clear()

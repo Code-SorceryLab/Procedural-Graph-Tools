@@ -266,6 +266,25 @@ func remove_agent(agent) -> void:
 	var cmd = CmdRemoveAgent.new(graph, agent)
 	_commit_command(cmd)
 
+# Safe Accessor
+func get_agents() -> Array:
+	return graph.agents
+
+# Undoable Agent Mutation
+func set_agent_property(agent: Object, key: String, value: Variant) -> void:
+	if not is_instance_valid(agent) or not graph.agents.has(agent): return
+	
+	var old_value = null
+	if key in agent:
+		old_value = agent.get(key)
+	else:
+		old_value = agent.custom_data.get(key)
+		
+	if str(value) == str(old_value): return
+	
+	var cmd = CmdSetProperty.new(graph, "AGENT", agent, key, value, old_value)
+	_commit_command(cmd)
+
 # --- Selection Operations ---
 
 func set_selection_batch(nodes: Array[String], edges: Array, clear_existing: bool = true) -> void:
@@ -463,6 +482,25 @@ func set_zone_selection(zones: Array, clear_others: bool = true) -> void:
 	SignalManager.zone_selection_changed.emit(selected_zones)
 	renderer.queue_redraw()
 
+# Safe Accessor
+func get_zones() -> Array[GraphZone]:
+	return graph.zones
+
+# Undoable Zone Mutation
+func set_zone_property(zone: GraphZone, key: String, value: Variant) -> void:
+	if not is_instance_valid(zone) or not graph.zones.has(zone): return
+	
+	var old_value = null
+	if key in zone:
+		old_value = zone.get(key)
+	else:
+		old_value = zone.custom_data.get(key)
+		
+	if str(value) == str(old_value): return
+	
+	var cmd = CmdSetProperty.new(graph, "ZONE", zone, key, value, old_value)
+	_commit_command(cmd)
+
 # --- Connection Operations ---
 
 func connect_nodes(id_a: String, id_b: String, weight: float = 1.0) -> void:
@@ -479,13 +517,18 @@ func disconnect_nodes(id_a: String, id_b: String) -> void:
 # --- Modification Operations ---
 
 func set_node_position(id: String, new_pos: Vector2, is_preview: bool = false) -> void:
-	graph.set_node_position(id, new_pos)
-	
 	if is_preview:
+		# Live mouse dragging: modify graph directly without spamming the undo stack
+		graph.set_node_position(id, new_pos)
 		renderer.queue_redraw()
 	else:
-		mark_modified()
-		renderer.queue_redraw()
+		# Inspector edit: wrap in an undoable command!
+		if not graph.nodes.has(id): return
+		var old_pos = graph.get_node_pos(id)
+		
+		if old_pos.distance_squared_to(new_pos) > 0.1:
+			var cmd = CmdMoveNode.new(graph, id, old_pos, new_pos)
+			_commit_command(cmd)
 
 func modify_zone_cells(zone: GraphZone, cells_to_add: Array[Vector2i], cells_to_remove: Array[Vector2i]) -> void:
 	if not graph.zones.has(zone): return
@@ -576,22 +619,27 @@ func set_node_labels(labels: Dictionary) -> void:
 		renderer.queue_redraw()
 
 func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
-	if not graph.has_edge(id_a, id_b): return
-	var current_w = graph.get_edge_weight(id_a, id_b)
-	if is_equal_approx(current_w, weight): return
-	var cmd = CmdSetEdgeWeight.new(graph, id_a, id_b, weight)
-	_commit_command(cmd)
+	set_edge_property(id_a, id_b, "weight", weight)
 
 func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
-	var has_ab = graph.has_edge(id_a, id_b)
-	var has_ba = graph.has_edge(id_b, id_a)
+	set_edge_property(id_a, id_b, "direction", mode)
+
+func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
+	var edge_key = graph.get_edge_key(id_a, id_b)
+	if not graph.edge_store.has(edge_key): return
 	
-	var current_mode = 0 # Bi-Dir
-	if has_ab and not has_ba: current_mode = 1
-	if not has_ab and has_ba: current_mode = 2
+	var edge_record = graph.edge_store[edge_key]
+	var old_value = null
 	
-	if current_mode == mode: return
-	var cmd = CmdSetEdgeDirection.new(graph, id_a, id_b, mode)
+	# Route the lookup based on where the variable lives
+	if key in ["weight", "direction"]:
+		old_value = edge_record.get(key)
+	else:
+		old_value = edge_record.custom.get(key)
+		
+	if str(value) == str(old_value): return
+	
+	var cmd = CmdSetProperty.new(graph, "EDGE", [id_a, id_b], key, value, old_value)
 	_commit_command(cmd)
 
 # Adds undo history support for both native variables AND custom node data!
@@ -612,14 +660,6 @@ func set_node_property(id: String, key: String, value: Variant) -> void:
 	var cmd = CmdSetProperty.new(graph, "NODE", id, key, value, old_value)
 	_commit_command(cmd)
 
-func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
-	if not graph.has_edge(id_a, id_b): return
-	var current_data = graph.get_edge_data(id_a, id_b)
-	var old_value = current_data.get(key)
-	if str(value) == str(old_value): return
-	
-	var cmd = CmdSetProperty.new(graph, "EDGE", [id_a, id_b], key, value, old_value)
-	_commit_command(cmd)
 
 func get_edge_property(id_a: String, id_b: String, key: String, default: Variant = null) -> Variant:
 	if graph.has_edge(id_a, id_b):
@@ -638,6 +678,23 @@ func start_undo_transaction(action_name: String, refocus_camera: bool = true) ->
 func commit_undo_transaction() -> void:
 	var batch = history.commit_transaction()
 	if batch: mark_modified()
+
+
+# --- RENDERER / DISPLAY API ---
+
+func request_redraw() -> void:
+	if renderer: renderer.queue_redraw()
+
+func clear_current_path() -> void:
+	current_path.clear()
+	if renderer: 
+		renderer.current_path_ref = current_path
+		renderer.queue_redraw()
+
+func set_debug_depth(enabled: bool) -> void:
+	if renderer:
+		renderer.debug_show_depth = enabled
+		renderer.queue_redraw()
 
 # ==============================================================================
 # 5. GENERAL API

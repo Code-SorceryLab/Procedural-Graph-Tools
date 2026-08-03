@@ -27,8 +27,6 @@ func _apply(val: Variant) -> void:
 			if not _graph.nodes.has(_id): return
 			var node = _graph.nodes[_id]
 			
-			# If the key is a hardcoded variable (like 'type'), set it directly.
-			# Otherwise, it belongs in the custom_data dictionary.
 			if _key in node:
 				node.set(_key, val)
 			else:
@@ -37,14 +35,17 @@ func _apply(val: Variant) -> void:
 				
 		SemanticRegistry.TARGET_EDGE:
 			var u = _id[0]; var v = _id[1]
-			if not _graph.has_edge(u, v): return
-			var edge_dict = _graph.edge_data[u][v]
+			var edge_key = _graph.get_edge_key(u, v)
 			
-			if _key == "weight":
-				edge_dict["weight"] = val
+			if not _graph.edge_store.has(edge_key): return
+			var edge_record = _graph.edge_store[edge_key]
+			
+			if _key in ["weight", "direction"]:
+				edge_record[_key] = val
+				_graph._rebuild_adjacency_cache()
 			else:
-				if val == null: edge_dict.erase(_key)
-				else: edge_dict[_key] = val
+				if val == null: edge_record.custom.erase(_key)
+				else: edge_record.custom[_key] = val
 				
 		SemanticRegistry.TARGET_AGENT, SemanticRegistry.TARGET_ZONE:
 			var obj = _id

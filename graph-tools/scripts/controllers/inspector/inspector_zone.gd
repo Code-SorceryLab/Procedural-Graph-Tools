@@ -95,20 +95,14 @@ func _on_input(key: String, value: Variant) -> void:
 	var zone = _tracked_zones[0] as GraphZone
 	
 	if key == "action_add_property":
-		request_wizard.emit(SemanticRegistry.TARGET_ZONE) # [UPDATED]
+		request_wizard.emit(SemanticRegistry.TARGET_ZONE)
 		return
 
-	# Core Properties
-	if key in ["zone_name", "zone_color", "allow_new_nodes", "is_traversable", "traversal_cost", "damage_per_tick", "zone_type"]:
-		zone.set(key, value)
-		
-		if key == "zone_color":
-			graph_editor.renderer.queue_redraw()
-			graph_editor.mark_modified()
-		elif key == "zone_name":
-			graph_editor.mark_modified()
-			
-	# Dynamic Properties
-	else:
-		zone.custom_data[key] = value
-		graph_editor.mark_modified()
+	# Route ALL property changes through the Command API!
+	# (This automatically updates both native vars like 'zone_color' 
+	# and custom vars like 'loot_tier', and flags the graph as modified!)
+	graph_editor.set_zone_property(zone, key, value)
+	
+	# If we tweaked a visual setting like the zone's color, ask for a redraw
+	if key == "zone_color":
+		graph_editor.request_redraw()

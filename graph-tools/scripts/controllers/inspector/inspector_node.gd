@@ -211,6 +211,9 @@ func _on_input(key: String, value: Variant) -> void:
 				graph_editor.set_node_property(id, key, value)
 				
 	else:
+		# BULK EDIT PATH
+		graph_editor.start_undo_transaction("Bulk Edit Node Property")
+		
 		if key == "type":
 			var ui_idx = int(value)
 			if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
@@ -218,3 +221,5 @@ func _on_input(key: String, value: Variant) -> void:
 		else:
 			for id in _tracked_nodes:
 				graph_editor.set_node_property(id, key, value)
+				
+		graph_editor.commit_undo_transaction()

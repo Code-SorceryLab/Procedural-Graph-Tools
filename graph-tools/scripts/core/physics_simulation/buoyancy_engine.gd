@@ -73,7 +73,7 @@ func step(graph: Graph, delta: float) -> void:
 			var node_v = graph.nodes[v]
 			var edge_dict = graph.edge_data[u][v]
 			
-			# [NEW] If the Edge is Ignored (1), it exerts zero spring force!
+			# If the Edge is Ignored (1), it exerts zero spring force!
 			if edge_dict.get("physics_mode", 0) == 1: continue
 			
 			var ideal_len = float(edge_dict.get("physics_spring_length", 150.0))

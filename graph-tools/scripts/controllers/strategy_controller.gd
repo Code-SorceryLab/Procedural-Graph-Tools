@@ -215,8 +215,14 @@ func _on_clear_agents_pressed() -> void:
 		return
 		
 	var agents_to_nuke = graph_editor.graph.agents.duplicate()
+	
+	# Wrap all agent removals in a single Undo step
+	graph_editor.start_undo_transaction("Clear All Agents")
+	
 	for agent in agents_to_nuke:
 		graph_editor.remove_agent(agent)
+		
+	graph_editor.commit_undo_transaction()
 	
 	graph_editor.set_path_ends([])
 	graph_editor.set_path_starts([])
@@ -248,5 +254,4 @@ func _refresh_visibility() -> void:
 				row.visible = not is_advanced or _show_advanced
 
 func _on_debug_depth_toggled(toggled: bool) -> void:
-	graph_editor.renderer.debug_show_depth = toggled
-	graph_editor.renderer.queue_redraw()
+	graph_editor.set_debug_depth(toggled)

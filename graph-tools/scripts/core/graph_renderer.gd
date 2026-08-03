@@ -163,47 +163,71 @@ func _draw_zone_logical_bounds(zone: GraphZone, color: Color, border_color: Colo
 # ==============================================================================
 
 func _draw_layer_edges() -> void:
-	var drawn_bidirectional := {} 
+	if graph_ref.edge_store.is_empty(): return
 	
-	for id: String in graph_ref.nodes:
-		var start_pos = graph_ref.get_node_pos(id)
+	for key in graph_ref.edge_store:
+		var e = graph_ref.edge_store[key]
 		
-		for neighbor: String in graph_ref.get_neighbors(id):
-			var end_pos = graph_ref.get_node_pos(neighbor)
-			var pair = [id, neighbor]
-			pair.sort()
+		# Validate nodes exist
+		if not graph_ref.nodes.has(e.u) or not graph_ref.nodes.has(e.v):
+			continue
 			
-			# Highlight Selection
-			if selected_edges_ref.has(pair):
-				draw_line(start_pos, end_pos, selected_color, edge_width + 4.0)
-			elif hovered_edge_ref == pair: # Hover Feedback
-				draw_line(start_pos, end_pos, hover_color, edge_width + 2.0)
-			elif cut_preview_edges.has(pair): # Red Highlight for Cut Tool
-				draw_line(start_pos, end_pos, Color(1.0, 0.2, 0.2, 0.8), edge_width + 2.0)
+		var pos_a = graph_ref.nodes[e.u].position
+		var pos_b = graph_ref.nodes[e.v].position
+		var pair = [e.u, e.v]
+		pair.sort()
+		
+		# --- Determine Styling ---
+		var draw_color = GraphSettings.COLOR_EDGE
+		var current_width = edge_width
+		
+		if selected_edges_ref.has(pair):
+			draw_color = selected_color
+			current_width += 4.0
+		elif hovered_edge_ref == pair:
+			draw_color = hover_color
+			current_width += 2.0
+		elif cut_preview_edges.has(pair):
+			draw_color = Color(1.0, 0.2, 0.2, 0.8)
+			current_width += 2.0
 			
-			# Check Bidirectionality
-			var is_bidirectional = graph_ref.has_edge(neighbor, id)
+		# --- 1. Handle Self-Loop (A -> A) ---
+		if e.u == e.v:
+			# Draw a little curly loop sticking out of the top-right of the node
+			var loop_radius = node_radius * 1.5
+			var loop_center = pos_a + Vector2(node_radius, -node_radius)
+			draw_arc(loop_center, loop_radius, -PI*0.8, PI*1.3, 32, draw_color, current_width)
 			
-			if is_bidirectional:
-				if drawn_bidirectional.has(pair): continue
-				drawn_bidirectional[pair] = true
-				draw_line(start_pos, end_pos, GraphSettings.COLOR_EDGE, edge_width)
-			else:
-				draw_line(start_pos, end_pos, GraphSettings.COLOR_EDGE, edge_width)
-				_draw_edge_arrow(start_pos, end_pos)
+			# If it's explicitly directed (1 or 2), add an arrow
+			if e.direction != 0:
+				# Arbitrary point on the loop to stick the arrow
+				var arrow_pos = loop_center + Vector2(-loop_radius, 0)
+				var fake_from = arrow_pos + Vector2(0, -10)
+				_draw_edge_arrow(fake_from, arrow_pos, draw_color, current_width)
+			
+			continue
+			
+		# --- 2. Handle Normal Edge (A -> B) ---
+		draw_line(pos_a, pos_b, draw_color, current_width)
+		
+		# Render Arrow if Directed (1 = u->v, 2 = v->u)
+		if e.direction == 1:
+			_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
+		elif e.direction == 2:
+			_draw_edge_arrow(pos_b, pos_a, draw_color, current_width)
 
-func _draw_edge_arrow(from: Vector2, to: Vector2) -> void:
+# Helper to draw the arrowhead at the end of the line
+func _draw_edge_arrow(from: Vector2, to: Vector2, color: Color, width: float) -> void:
 	var dir = (to - from).normalized()
+	# Pull back from the exact center of the target node so the arrow doesn't disappear under it
 	var tip_offset = node_radius + 6.0
 	var tip = to - (dir * tip_offset)
+	
 	var arrow_size = 12.0
 	var angle = PI / 5.0
 	
 	var p1 = tip - dir.rotated(angle) * arrow_size
 	var p2 = tip - dir.rotated(-angle) * arrow_size
-	
-	var color = GraphSettings.COLOR_EDGE
-	var width = edge_width + 1.0
 	
 	draw_line(tip, p1, color, width)
 	draw_line(tip, p2, color, width)

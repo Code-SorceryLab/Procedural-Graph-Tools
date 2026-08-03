@@ -39,22 +39,20 @@ func handle_input(event: InputEvent) -> void:
 func _calculate_intersections() -> void:
 	_intersected_edges.clear()
 	
-	for u_id in _graph.nodes:
-		var u_pos = _graph.get_node_pos(u_id)
-		var neighbors = _graph.get_neighbors(u_id)
+	for key in _graph.edge_store:
+		var e = _graph.edge_store[key]
+		if not _graph.nodes.has(e.u) or not _graph.nodes.has(e.v): continue
 		
-		for v_id in neighbors:
-			if u_id > v_id: continue # unique pairs only
-				
-			var v_pos = _graph.get_node_pos(v_id)
-			var intersection = Geometry2D.segment_intersects_segment(
-				_start_pos, _current_pos, u_pos, v_pos
-			)
-			
-			if intersection != null:
-				var pair = [u_id, v_id]
-				pair.sort()
-				_intersected_edges.append(pair)
+		var u_pos = _graph.nodes[e.u].position
+		var v_pos = _graph.nodes[e.v].position
+		
+		var intersection = Geometry2D.segment_intersects_segment(
+			_start_pos, _current_pos, u_pos, v_pos
+		)
+		
+		if intersection != null:
+			# edge_store inherently stores u and v in alphabetical order
+			_intersected_edges.append([e.u, e.v])
 
 func _perform_cut() -> void:
 	if _intersected_edges.is_empty(): return
