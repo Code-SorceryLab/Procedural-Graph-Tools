@@ -4,7 +4,6 @@ class_name StrategyDAG
 func _init() -> void:
 	super._init()
 	strategy_name = "DAG / Questline"
-	# [FIX] Set to false so the Assessor doesn't wipe your existing dungeon!
 	reset_on_generate = false 
 	supports_grow = false
 	supports_agents = false
@@ -27,11 +26,31 @@ func get_settings() -> Array[Dictionary]:
 	})
 	settings.append({
 		"name": "val_root", "label": "Root Room Type", "type": TYPE_STRING,
-		"default": "start", "hint_text": "The 'type' string assigned to depth 0 nodes."
+		"default": "start"
 	})
 	settings.append({
 		"name": "val_sink", "label": "Sink Room Type", "type": TYPE_STRING,
-		"default": "boss", "hint_text": "The 'type' string assigned to final dead-end nodes."
+		"default": "boss"
+	})
+	
+	# --- LOCK & KEY SETTINGS ---
+	settings.append({ "name": "sep_locks", "type": TYPE_NIL, "hint": "separator" })
+	
+	settings.append({
+		"name": "use_locks", "label": "Generate Locks & Keys", "type": TYPE_BOOL,
+		"default": true
+	})
+	settings.append({
+		"name": "num_locks", "label": "Number of Locks", "type": TYPE_INT,
+		"default": 3, "min": 1, "max": 20
+	})
+	settings.append({
+		"name": "key_lock", "label": "Lock Prop Key", "type": TYPE_STRING,
+		"default": "requires", "hint_text": "Edge property for required items."
+	})
+	settings.append({
+		"name": "key_item", "label": "Item Prop Key", "type": TYPE_STRING,
+		"default": "items", "hint_text": "Node property for contained items."
 	})
 
 	# --- ARCHITECT SETTINGS ---
@@ -63,23 +82,45 @@ func get_settings() -> Array[Dictionary]:
 	return settings
 
 func execute(recorder: GraphRecorder, params: Dictionary) -> void:
-	# 1. Seed RNG
 	var seed_str = params.get("strategy_seed", "")
 	if seed_str != "": rng.seed = seed_str.hash()
 	else: rng.randomize()
 		
+	# --- UNIVERSAL SEMANTIC INJECTION ---
+	var k_depth = params.get("key_depth", "dag_depth")
+	var v_root = params.get("val_root", "start")
+	var v_sink = params.get("val_sink", "boss")
+	
+	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_root, v_root.capitalize(), Color(0.2, 0.8, 0.2))
+	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_sink, v_sink.capitalize(), Color(0.8, 0.2, 0.2))
+	
+	# Set DAG Depth to show up as a simple floating label
+	SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_depth, "DAG Depth", TYPE_INT, 0, SemanticRegistry.DisplayMode.LABEL)
+	
+	if params.get("use_locks", true):
+		var k_lock = params.get("key_lock", "requires")
+		var k_item = params.get("key_item", "items")
+		
+		# Set Keys and Locks to render as highly visible Badges!
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
+	# ------------------------------------
+
 	var mode = params.get("dag_mode", 0)
 	
 	if mode == 0:
 		_run_architect(recorder, params)
 	else:
 		_run_assessor(recorder, params)
+		
+	# Post-Processing: Distribute Locks and Keys!
+	if params.get("use_locks", true) and not recorder.nodes.is_empty():
+		_distribute_locks(recorder, params)
 
 # ==============================================================================
 # MODE A: THE ARCHITECT (Generative)
 # ==============================================================================
 func _run_architect(recorder: GraphRecorder, params: Dictionary) -> void:
-	# [FIX] Because reset_on_generate is false, Architect must manually wipe the canvas
 	recorder.clear() 
 	
 	var total_nodes = params.get("total_nodes", 15)
@@ -117,9 +158,8 @@ func _run_architect(recorder: GraphRecorder, params: Dictionary) -> void:
 			var offset_y = (sibling_idx - (layer_size - 1) / 2.0) * spacing.y
 			
 			recorder.add_node(id, Vector2(pos_x, offset_y))
-			
-			# Apply exposed semantics!
 			recorder.set_node_property(id, k_depth, layer_idx)
+			
 			if layer_idx == 0: recorder.set_node_property(id, "type", v_root)
 			elif layer_idx == layers.size() - 1: recorder.set_node_property(id, "type", v_sink)
 				
@@ -207,7 +247,6 @@ func _run_assessor(recorder: GraphRecorder, params: Dictionary) -> void:
 	for e in edges_to_delete: recorder.remove_edge(e.u, e.v, e.dir)
 	for e in edges_to_create: recorder.add_edge(e.u, e.v, e.w, true, e.data)
 		
-	# 3. Inject Semantics
 	var out_degrees = {}
 	for id in recorder.nodes: out_degrees[id] = 0
 	for e in edges_to_create: out_degrees[e.u] += 1
@@ -221,3 +260,74 @@ func _run_assessor(recorder: GraphRecorder, params: Dictionary) -> void:
 		var node_keys: Array[String] = []
 		node_keys.assign(recorder.nodes.keys())
 		recorder.create_zone_from_nodes("Assessed DAG", Color(0.2, 0.8, 0.8, 0.5), node_keys)
+
+
+# ==============================================================================
+# PUZZLE ENGINE: LOCK AND KEY DISTRIBUTOR
+# ==============================================================================
+func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
+	var k_depth = params.get("key_depth", "dag_depth")
+	var k_lock = params.get("key_lock", "requires")
+	var k_item = params.get("key_item", "items")
+	var max_locks = params.get("num_locks", 3)
+	
+	# 1. Group nodes by depth so we can easily fetch them
+	var nodes_by_depth = {}
+	for id in recorder.nodes:
+		var node_data = recorder.nodes[id]
+		var depth = 0
+		if k_depth in node_data: depth = node_data.get(k_depth)
+		elif "custom_data" in node_data: depth = node_data.custom_data.get(k_depth, 0)
+			
+		if not nodes_by_depth.has(depth): nodes_by_depth[depth] = []
+		nodes_by_depth[depth].append(id)
+		
+	# 2. Get all valid edges to lock (Exclude depth 0->1 edges to ensure keys have room to spawn)
+	var candidate_edges = []
+	for key in recorder.edge_store:
+		var e = recorder.edge_store[key]
+		var u_depth = 0
+		var node_u = recorder.nodes[e.u]
+		if k_depth in node_u: u_depth = node_u.get(k_depth)
+		elif "custom_data" in node_u: u_depth = node_u.custom_data.get(k_depth, 0)
+			
+		if u_depth > 0: # Only lock edges deeper in the graph
+			candidate_edges.append({"u": e.u, "v": e.v, "u_depth": u_depth})
+			
+	# Shuffle to ensure random distribution
+	var rng_pool = candidate_edges.duplicate()
+	var locks_placed = 0
+	
+	# 3. Apply Locks and Distribute Keys
+	while locks_placed < max_locks and not rng_pool.is_empty():
+		# Pick a random edge to lock
+		var rand_idx = rng.randi() % rng_pool.size()
+		var edge_data = rng_pool.pop_at(rand_idx)
+		
+		# Collect all nodes that exist at a depth <= the lock's origin
+		var valid_key_nodes = []
+		for d in range(0, edge_data.u_depth + 1):
+			if nodes_by_depth.has(d):
+				valid_key_nodes.append_array(nodes_by_depth[d])
+				
+		if valid_key_nodes.is_empty(): continue
+		
+		# Generate the key identifier
+		var key_name = "Key_%s" % ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"][locks_placed % 6]
+		
+		# Apply the Lock to the Edge
+		recorder.set_edge_property(edge_data.u, edge_data.v, k_lock, key_name)
+		
+		# Apply the Key to a mathematically valid Node
+		var key_node_id = valid_key_nodes[rng.randi() % valid_key_nodes.size()]
+		var node_ref = recorder.nodes[key_node_id]
+		
+		# Append it safely so we don't overwrite existing items in that room
+		var existing_items = ""
+		if k_item in node_ref: existing_items = str(node_ref.get(k_item))
+		elif "custom_data" in node_ref: existing_items = str(node_ref.custom_data.get(k_item, ""))
+			
+		var new_val = key_name if existing_items == "" else existing_items + ", " + key_name
+		recorder.set_node_property(key_node_id, k_item, new_val)
+		
+		locks_placed += 1

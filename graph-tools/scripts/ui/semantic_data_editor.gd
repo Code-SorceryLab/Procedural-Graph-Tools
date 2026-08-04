@@ -116,10 +116,11 @@ func _build_target_tab(target: String) -> Control:
 
 	var tree_prop = Tree.new()
 	tree_prop.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	tree_prop.columns = 3
+	tree_prop.columns = 4 # [FIX] Expanded to 4 columns!
 	tree_prop.set_column_title(0, "System Key")
 	tree_prop.set_column_title(1, "Display Label")
 	tree_prop.set_column_title(2, "Data Type")
+	tree_prop.set_column_title(3, "Visual Mode")
 	tree_prop.set_column_titles_visible(true)
 	tree_prop.hide_root = true
 	_property_trees[target] = tree_prop
@@ -128,17 +129,25 @@ func _build_target_tab(target: String) -> Control:
 	# Property Inputs
 	var hb_prop = HBoxContainer.new()
 	var prop_key = LineEdit.new(); prop_key.placeholder_text = "key (e.g. lock_lvl)"; prop_key.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var prop_label = LineEdit.new(); prop_label.placeholder_text = "Label (e.g. Lock Level)"; prop_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var prop_label = LineEdit.new(); prop_label.placeholder_text = "Label"; prop_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var prop_type = OptionButton.new()
 	for t in TYPES: prop_type.add_item(TYPE_NAMES[t])
+	
+	# [FIX] Add Display Mode Dropdown!
+	var prop_display = OptionButton.new()
+	prop_display.add_item("Hidden")
+	prop_display.add_item("Label")
+	prop_display.add_item("Badge")
+	
 	var prop_add = Button.new(); prop_add.text = "Add"
 	var prop_del = Button.new(); prop_del.text = "Delete"; prop_del.modulate = Color(1, 0.4, 0.4)
 
-	hb_prop.add_child(prop_key); hb_prop.add_child(prop_label); hb_prop.add_child(prop_type); hb_prop.add_child(prop_add); hb_prop.add_child(prop_del)
+	hb_prop.add_child(prop_key); hb_prop.add_child(prop_label); hb_prop.add_child(prop_type); hb_prop.add_child(prop_display)
+	hb_prop.add_child(prop_add); hb_prop.add_child(prop_del)
 	content.add_child(hb_prop)
 
 	# Bind property signals
-	prop_add.pressed.connect(_on_add_property.bind(target, prop_key, prop_label, prop_type))
+	prop_add.pressed.connect(_on_add_property.bind(target, prop_key, prop_label, prop_type, prop_display))
 	prop_del.pressed.connect(_on_del_property.bind(target))
 
 	return vb
@@ -170,6 +179,7 @@ func _refresh_property_tree(target: String) -> void:
 	var tree: Tree = _property_trees[target]
 	tree.clear()
 	var root = tree.create_item()
+	var display_names = ["Hidden", "Label", "Badge"]
 
 	var props = SemanticRegistry.properties[target]
 	for key in props:
@@ -178,6 +188,7 @@ func _refresh_property_tree(target: String) -> void:
 		item.set_text(0, key)
 		item.set_text(1, prop["label"])
 		item.set_text(2, TYPE_NAMES.get(prop["type"], "Unknown"))
+		item.set_text(3, display_names[prop.get("display", 0)])
 		item.set_metadata(0, key)
 
 # ==============================================================================
@@ -222,7 +233,7 @@ func _on_del_category(target: String) -> void:
 
 # --- PROPERTY ACTIONS ---
 
-func _on_add_property(target: String, key_edit: LineEdit, label_edit: LineEdit, type_btn: OptionButton) -> void:
+func _on_add_property(target: String, key_edit: LineEdit, label_edit: LineEdit, type_btn: OptionButton, display_btn: OptionButton) -> void:
 	var key = key_edit.text.strip_edges()
 	if not _validate_key(key): return
 	if SemanticRegistry.properties[target].has(key): return
@@ -239,7 +250,8 @@ func _on_add_property(target: String, key_edit: LineEdit, label_edit: LineEdit, 
 		TYPE_STRING: default_val = ""
 		TYPE_COLOR: default_val = Color.WHITE
 
-	SemanticRegistry.register_property(target, key, d_label, type_idx, default_val)
+	var display_mode = display_btn.selected
+	SemanticRegistry.register_property(target, key, d_label, type_idx, default_val, display_mode)
 	
 	key_edit.text = ""
 	label_edit.text = ""

@@ -165,7 +165,8 @@ func _draw_zone_logical_bounds(zone: GraphZone, color: Color, border_color: Colo
 func _draw_layer_edges() -> void:
 	if graph_ref.edge_store.is_empty(): return
 	
-	var drawn_pairs = {} # Prevent drawing the same line twice for bidirectional edges
+	var drawn_pairs = {}
+	var edge_decorators = [] # [NEW] Cache semantic text to draw AFTER lines so it stays on top
 	
 	for key in graph_ref.edge_store:
 		var e = graph_ref.edge_store[key]
@@ -182,7 +183,6 @@ func _draw_layer_edges() -> void:
 		pair.sort()
 		
 		# --- Direction & Deduplication ---
-		# Check if the reverse edge exists to determine if it's bidirectional
 		var key_rev = graph_ref.get_edge_key(e.v, e.u)
 		var is_bidir = graph_ref.edge_store.has(key_rev)
 		
@@ -206,25 +206,45 @@ func _draw_layer_edges() -> void:
 			current_width += 2.0
 			
 		# --- 1. Handle Self-Loop (A -> A) ---
+		var midpoint = Vector2.ZERO
+		
 		if e.u == e.v:
-			# Draw a little curly loop sticking out of the top-right of the node
 			var loop_radius = node_radius * 1.5
 			var loop_center = pos_a + Vector2(node_radius, -node_radius)
 			draw_arc(loop_center, loop_radius, -PI*0.8, PI*1.3, 32, draw_color, current_width)
 			
-			# Self loops always get an arrow to show flow
 			var arrow_pos = loop_center + Vector2(-loop_radius, 0)
 			var fake_from = arrow_pos + Vector2(0, -10)
 			_draw_edge_arrow(fake_from, arrow_pos, draw_color, current_width)
 			
-			continue
+			midpoint = loop_center + Vector2(0, -loop_radius)
 			
 		# --- 2. Handle Normal Edge (A -> B) ---
-		draw_line(pos_a, pos_b, draw_color, current_width)
-		
-		# Only draw the directional arrow if it's NOT bidirectional
-		if not is_bidir:
-			_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
+		else:
+			draw_line(pos_a, pos_b, draw_color, current_width)
+			if not is_bidir:
+				_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
+			midpoint = (pos_a + pos_b) / 2.0
+				
+		# --- 3. Gather Semantic Decorators ---
+		if not e.custom.is_empty():
+			var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
+			for prop_key in e.custom:
+				if not props.has(prop_key): continue
+				var mode = props[prop_key].get("display", 0)
+				if mode != SemanticRegistry.DisplayMode.HIDDEN:
+					edge_decorators.append({
+						"pos": midpoint,
+						"text": str(e.custom[prop_key]),
+						"mode": mode
+					})
+					# Offset the midpoint slightly so multiple badges on one edge stack nicely
+					midpoint += Vector2(0, -18) 
+
+	# --- 4. Draw Gathered Decorators (On top of lines) ---
+	for dec in edge_decorators:
+		_draw_semantic_decorator(dec.pos, dec.text, dec.mode)
+
 
 # Helper to draw the arrowhead at the end of the line
 func _draw_edge_arrow(from: Vector2, to: Vector2, color: Color, width: float) -> void:
@@ -348,6 +368,58 @@ func _draw_node_indicators(id: String, pos: Vector2) -> void:
 		var label = ",".join(end_indices)
 		var text_pos = pos + Vector2(node_radius + 4, -node_radius + 8)
 		draw_string(font, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, GraphSettings.COLOR_PATH_END)
+
+	# --- Semantic Decorators ---
+	var node_data = graph_ref.nodes[id] as NodeData
+	if not node_data.custom_data.is_empty():
+		var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
+		var dec_offset = pos + Vector2(0, -node_radius - 12) # Start drawing above the node
+		
+		for prop_key in node_data.custom_data:
+			if not props.has(prop_key): continue
+			var mode = props[prop_key].get("display", 0)
+			if mode != SemanticRegistry.DisplayMode.HIDDEN:
+				var text = str(node_data.custom_data[prop_key])
+				_draw_semantic_decorator(dec_offset, text, mode)
+				dec_offset += Vector2(0, -18) # Stack upwards
+
+func _draw_semantic_decorator(pos: Vector2, text: String, mode: int) -> void:
+	if text == "": return
+	var font_size = 12
+	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	
+	if mode == SemanticRegistry.DisplayMode.LABEL:
+		# Draw clean floating text with a slight shadow for legibility
+		var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 3.0)
+		draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.5))
+		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+		
+	elif mode == SemanticRegistry.DisplayMode.BADGE:
+		# Draw a crisp, dark pill-shaped background with bright text
+		var padding = Vector2(8, 4)
+		var bg_rect = Rect2(pos - (text_size / 2.0) - padding, text_size + (padding * 2.0))
+		var corner_radius = bg_rect.size.y / 2.0
+		
+		# Inner badge color (Dark charcoal)
+		var bg_col = Color(0.15, 0.15, 0.15, 0.9)
+		# Outer rim color (Subtle silver)
+		var border_col = Color(0.6, 0.6, 0.6, 0.8)
+		
+		# Draw the rounded rect for the badge
+		var style = StyleBoxFlat.new()
+		style.bg_color = bg_col
+		style.border_color = border_col
+		style.border_width_left = 1; style.border_width_right = 1
+		style.border_width_top = 1; style.border_width_bottom = 1
+		style.set_corner_radius_all(int(corner_radius))
+		style.anti_aliasing = true
+		
+		# Draw via Godot's built-in StyleBox rendering
+		style.draw(get_canvas_item(), bg_rect)
+		
+		# Draw the text perfectly centered in the badge
+		var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 3.0)
+		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
 
 # ==============================================================================
 # 8. DOMAIN: AGENTS

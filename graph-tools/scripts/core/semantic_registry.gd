@@ -23,8 +23,10 @@ static var properties: Dictionary = {
 }
 
 # ------------------------------------------------------------------------------
-# 2. INITIALIZATION (Runs automatically on boot)
+# 2. INITIALIZATION & ENUMS
 # ------------------------------------------------------------------------------
+enum DisplayMode { HIDDEN = 0, LABEL = 1, BADGE = 2 }
+
 static func _static_init() -> void:
 	# --- DEFAULT NODE CATEGORIES ---
 	register_category(TARGET_NODE, "empty", "Empty", Color(0.8, 0.8, 0.8))
@@ -42,16 +44,14 @@ static func _static_init() -> void:
 	register_category(TARGET_EDGE, "climbable", "Climbable", Color(0.8, 0.6, 0.2))
 
 	# --- DEFAULT PROPERTIES ---
-	register_property(TARGET_EDGE, "lock_level", "Lock Level", TYPE_INT, 0)
+	register_property(TARGET_EDGE, "lock_level", "Lock Level", TYPE_INT, 0, DisplayMode.HIDDEN)
 	
 	# Physics Properties
-	register_property(TARGET_NODE, "physics_repulsion", "Physics Repulsion", TYPE_FLOAT, 100.0)
-	register_property(TARGET_EDGE, "physics_spring_length", "Spring Length", TYPE_FLOAT, 150.0)
-	register_property(TARGET_EDGE, "physics_stiffness", "Spring Stiffness", TYPE_FLOAT, 0.5)
-	
-	# Physics Modes
-	register_property(TARGET_NODE, "physics_mode", "Physics Mode", TYPE_INT, 0)
-	register_property(TARGET_EDGE, "physics_mode", "Physics Mode", TYPE_INT, 0)
+	register_property(TARGET_NODE, "physics_repulsion", "Physics Repulsion", TYPE_FLOAT, 100.0, DisplayMode.HIDDEN)
+	register_property(TARGET_EDGE, "physics_spring_length", "Spring Length", TYPE_FLOAT, 150.0, DisplayMode.HIDDEN)
+	register_property(TARGET_EDGE, "physics_stiffness", "Spring Stiffness", TYPE_FLOAT, 0.5, DisplayMode.HIDDEN)
+	register_property(TARGET_NODE, "physics_mode", "Physics Mode", TYPE_INT, 0, DisplayMode.HIDDEN)
+	register_property(TARGET_EDGE, "physics_mode", "Physics Mode", TYPE_INT, 0, DisplayMode.HIDDEN)
 
 # ------------------------------------------------------------------------------
 # 3. CATEGORY API (Types & Tags)
@@ -92,12 +92,17 @@ static func get_category_ui_schema(target: String) -> Dictionary:
 # ------------------------------------------------------------------------------
 # 4. PROPERTY API (Custom Variables)
 # ------------------------------------------------------------------------------
-static func register_property(target: String, key: String, label: String, type: int, default_val: Variant) -> void:
+static func register_property(target: String, key: String, label: String, type: int, default_val: Variant, display_mode: int = 0) -> void:
 	properties[target][key] = {
 		"label": label,
 		"type": type,
-		"default": default_val
+		"default": default_val,
+		"display": display_mode
 	}
+
+static func ensure_property(target: String, key: String, label: String, type: int, default_val: Variant, display_mode: int = 0) -> void:
+	if not properties[target].has(key):
+		register_property(target, key, label, type, default_val, display_mode)
 
 static func remove_property(target: String, key: String) -> void:
 	if properties[target].has(key):
@@ -105,3 +110,9 @@ static func remove_property(target: String, key: String) -> void:
 
 static func get_properties_for_target(target: String) -> Dictionary:
 	return properties[target]
+	
+# Safely registers a category only if it doesn't already exist.
+# Prevents overwriting user-customized colors/names!
+static func ensure_category(target: String, key: String, display_name: String, color: Color) -> void:
+	if not categories[target].has(key):
+		register_category(target, key, display_name, color)
