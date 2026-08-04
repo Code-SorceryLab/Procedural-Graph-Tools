@@ -207,7 +207,6 @@ func _on_input(key: String, value: Variant) -> void:
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
 			_:
-				# Now physics_repulsion natively routes through here, triggering Undo history!
 				graph_editor.set_node_property(id, key, value)
 				
 	else:

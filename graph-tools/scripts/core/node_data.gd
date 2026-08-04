@@ -20,9 +20,6 @@ enum RoomShape {
 var type: String = "empty"
 @export var shape: RoomShape = RoomShape.AUTO
 
-# Hardcoded Physics Variable
-# The base repulsion strength of this specific node (Higher = pushes others away harder)
-var physics_repulsion: float = 100.0
 
 # --- SEMANTIC DATA (The "Database") ---
 # Stores anything else: "depth", "temperature", "is_locked", "loot_table_id", etc.
@@ -60,6 +57,5 @@ func serialize() -> Dictionary:
 		"y": position.y,
 		"type": type,
 		"shape": shape,
-		"physics_repulsion": physics_repulsion,
 		"custom_data": custom_data
 	}

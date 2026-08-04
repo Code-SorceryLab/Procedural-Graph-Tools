@@ -42,7 +42,6 @@ static func _static_init() -> void:
 	register_category(TARGET_EDGE, "climbable", "Climbable", Color(0.8, 0.6, 0.2))
 
 	# --- DEFAULT PROPERTIES ---
-	# Notice we migrated lock_level here! It is no longer hardcoded edge data.
 	register_property(TARGET_EDGE, "lock_level", "Lock Level", TYPE_INT, 0)
 	
 	# Physics Properties

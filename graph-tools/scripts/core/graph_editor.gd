@@ -28,6 +28,7 @@ var buoyancy_engine: BuoyancyEngine
 var tool_manager: GraphToolManager
 var is_picking_mode: bool = false
 var _pick_callback: Callable
+var _transaction_depth: int = 0
 
 # File State
 var current_file_path: String = "" # Tracks the active save file!
@@ -503,15 +504,15 @@ func set_zone_property(zone: GraphZone, key: String, value: Variant) -> void:
 
 # --- Connection Operations ---
 
-func connect_nodes(id_a: String, id_b: String, weight: float = 1.0) -> void:
+func connect_nodes(id_a: String, id_b: String, weight: float = 1.0, directed: bool = false) -> void:
 	if graph.has_edge(id_a, id_b): return
-	var cmd = CmdConnect.new(graph, id_a, id_b, weight)
+	var cmd = CmdConnect.new(graph, id_a, id_b, weight, directed)
 	_commit_command(cmd)
 
-func disconnect_nodes(id_a: String, id_b: String) -> void:
+func disconnect_nodes(id_a: String, id_b: String, directed: bool = false) -> void:
 	if not graph.has_edge(id_a, id_b): return
 	var weight = graph.get_edge_weight(id_a, id_b)
-	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight)
+	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight, directed)
 	_commit_command(cmd)
 
 # --- Modification Operations ---
@@ -622,7 +623,25 @@ func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
 	set_edge_property(id_a, id_b, "weight", weight)
 
 func set_edge_directionality(id_a: String, id_b: String, mode: int) -> void:
-	set_edge_property(id_a, id_b, "direction", mode)
+	# mode: 0 = Bidir, 1 = Fwd (A->B), 2 = Rev (B->A)
+	var w = graph.get_edge_weight(id_a, id_b)
+	if w == INF: w = graph.get_edge_weight(id_b, id_a)
+	if w == INF: w = 1.0
+
+	# Wrap in a single transaction since we might be adding/removing multiple edges!
+	start_undo_transaction("Set Edge Direction")
+
+	if mode == 0:
+		if not graph.has_edge(id_a, id_b): connect_nodes(id_a, id_b, w, true)
+		if not graph.has_edge(id_b, id_a): connect_nodes(id_b, id_a, w, true)
+	elif mode == 1:
+		if not graph.has_edge(id_a, id_b): connect_nodes(id_a, id_b, w, true)
+		if graph.has_edge(id_b, id_a): disconnect_nodes(id_b, id_a, true)
+	elif mode == 2:
+		if graph.has_edge(id_a, id_b): disconnect_nodes(id_a, id_b, true)
+		if not graph.has_edge(id_b, id_a): connect_nodes(id_b, id_a, w, true)
+
+	commit_undo_transaction()
 
 func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) -> void:
 	var edge_key = graph.get_edge_key(id_a, id_b)
@@ -631,9 +650,8 @@ func set_edge_property(id_a: String, id_b: String, key: String, value: Variant) 
 	var edge_record = graph.edge_store[edge_key]
 	var old_value = null
 	
-	# Route the lookup based on where the variable lives
-	if key in ["weight", "direction"]:
-		old_value = edge_record.get(key)
+	if key == "weight":
+		old_value = edge_record.weight
 	else:
 		old_value = edge_record.custom.get(key)
 		
@@ -673,11 +691,33 @@ func get_edge_property(id_a: String, id_b: String, key: String, default: Variant
 # --- TRANSACTION MANAGEMENT ---
 
 func start_undo_transaction(action_name: String, refocus_camera: bool = true) -> void:
-	history.start_transaction(action_name, refocus_camera)
+	# Only start a new batch if we aren't already inside one
+	if _transaction_depth == 0:
+		history.start_transaction(action_name, refocus_camera)
+	_transaction_depth += 1
 
 func commit_undo_transaction() -> void:
-	var batch = history.commit_transaction()
-	if batch: mark_modified()
+	if _transaction_depth > 0:
+		_transaction_depth -= 1
+		
+		# Only commit and redraw when the outermost transaction finally closes
+		if _transaction_depth == 0:
+			var batch = history.commit_transaction()
+			if batch:
+				# 1. Update UI
+				mark_modified()
+				# 2. Update Screen
+				renderer.queue_redraw()
+
+func _commit_command(cmd: GraphCommand) -> void:
+	history.add_command(cmd)
+	
+	# [CRITICAL SPEED FIX] 
+	# Only trigger heavy UI rebuilds and Canvas redraws if we are NOT 
+	# in the middle of a bulk editing loop!
+	if _transaction_depth == 0:
+		mark_modified()
+		renderer.queue_redraw()
 
 
 # --- RENDERER / DISPLAY API ---
@@ -742,10 +782,6 @@ func clear_graph() -> void:
 func mark_modified() -> void:
 	graph_modified.emit()
 
-func _commit_command(cmd: GraphCommand) -> void:
-	history.add_command(cmd)
-	mark_modified()
-	renderer.queue_redraw()
 
 # --- HISTORY MANAGEMENT (Undo/Redo) ---
 

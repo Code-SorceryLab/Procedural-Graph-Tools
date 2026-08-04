@@ -142,52 +142,69 @@ func _get_reference_data() -> Dictionary:
 	var u = pair[0]; var v = pair[1]
 	var graph = graph_editor.graph
 	
-	var edge_key = graph.get_edge_key(u, v)
+	var key_fwd = graph.get_edge_key(u, v)
+	var key_rev = graph.get_edge_key(v, u)
 	
-	# Fallback if edge doesn't exist
-	if not graph.edge_store.has(edge_key):
+	var has_fwd = graph.edge_store.has(key_fwd)
+	var has_rev = graph.edge_store.has(key_rev)
+	
+	var ref_edge = null
+	var dir = 0
+	
+	# Determine Direction Status & grab a reference record
+	if has_fwd and has_rev:
+		dir = 0
+		ref_edge = graph.edge_store[key_fwd]
+	elif has_fwd:
+		dir = 1
+		ref_edge = graph.edge_store[key_fwd]
+	elif has_rev:
+		dir = 2
+		ref_edge = graph.edge_store[key_rev]
+	else:
 		return { "weight": 1.0, "direction": 0, "type": "corridor", "custom": {} }
 		
-	var e = graph.edge_store[edge_key]
-	
-	var data = {
-		"weight": e.weight,
-		"direction": e.direction,
-		"type": str(e.custom.get("type", "corridor")), 
-		"custom": e.custom 
+	return {
+		"weight": ref_edge.weight,
+		"direction": dir,
+		"type": str(ref_edge.custom.get("type", "corridor")), 
+		"custom": ref_edge.custom 
 	}
-	
-	return data
 
 func _detect_mixed_state(ref: Dictionary) -> Dictionary:
 	var mixed = { "weight": false, "direction": false, "type": false, "custom_keys": {} }
-	if _tracked_edges.size() <= 1: return mixed
-	
 	var graph = graph_editor.graph
 	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 	
-	for i in range(1, _tracked_edges.size()):
-		var pair = _tracked_edges[i]
-		var edge_key = graph.get_edge_key(pair[0], pair[1])
+	# Notice we start from 0! Even a single selected edge might be internally 
+	# asymmetrical (e.g. A->B weight is 1.0, B->A weight is 5.0)
+	for pair in _tracked_edges:
+		var key_fwd = graph.get_edge_key(pair[0], pair[1])
+		var key_rev = graph.get_edge_key(pair[1], pair[0])
 		
-		if not graph.edge_store.has(edge_key): continue
-		var e = graph.edge_store[edge_key]
+		var has_fwd = graph.edge_store.has(key_fwd)
+		var has_rev = graph.edge_store.has(key_rev)
 		
-		# 1. Check Core Variables
-		if not is_equal_approx(e.weight, ref.weight): mixed.weight = true
-		if e.direction != ref.direction: mixed.direction = true
+		# 1. Check Direction Mixed
+		var d = 0
+		if has_fwd and has_rev: d = 0
+		elif has_fwd: d = 1
+		elif has_rev: d = 2
+		if d != ref.direction: mixed.direction = true
 		
-		# 2. Check Type
-		if str(e.custom.get("type", "corridor")) != ref.type: mixed.type = true
-		
-		# 3. Check Custom
-		for key in registered_props:
-			if mixed.custom_keys.has(key): continue
-			var val_other = e.custom.get(key)
-			var val_ref = ref.custom.get(key)
-			if str(val_other) != str(val_ref):
-				mixed.custom_keys[key] = true
-				
+		# Helper to compare any edge record against our reference
+		var check_edge = func(e):
+			if not is_equal_approx(e.weight, ref.weight): mixed.weight = true
+			if str(e.custom.get("type", "corridor")) != ref.type: mixed.type = true
+			for key in registered_props:
+				if mixed.custom_keys.has(key): continue
+				if str(e.custom.get(key)) != str(ref.custom.get(key)):
+					mixed.custom_keys[key] = true
+
+		# 2. Check Data Mixed (Evaluate both sides of the line if they exist!)
+		if has_fwd: check_edge.call(graph.edge_store[key_fwd])
+		if has_rev: check_edge.call(graph.edge_store[key_rev])
+			
 	return mixed
 
 # ==============================================================================
@@ -201,29 +218,33 @@ func _on_input(key: String, value: Variant) -> void:
 		request_wizard.emit(SemanticRegistry.TARGET_EDGE)
 		return
 	
-	#var graph = graph_editor.graph
-	var is_bulk = _tracked_edges.size() > 1
+	var graph = graph_editor.graph
 	
-	# Wrap bulk edits in a single Undo Transaction!
-	if is_bulk:
-		graph_editor.start_undo_transaction("Bulk Edit Edges")
+	# ALWAYS wrap edge edits in a transaction, because modifying a single 
+	# bidirectional line on the screen means modifying TWO records in the database.
+	graph_editor.start_undo_transaction("Edit Edge Properties")
 	
 	for pair in _tracked_edges:
 		var u = pair[0]; var v = pair[1]
 		
+		var has_fwd = graph.edge_store.has(graph.get_edge_key(u, v))
+		var has_rev = graph.edge_store.has(graph.get_edge_key(v, u))
+		
 		match key:
 			"weight":
-				graph_editor.set_edge_weight(u, v, value)
+				if has_fwd: graph_editor.set_edge_weight(u, v, value)
+				if has_rev: graph_editor.set_edge_weight(v, u, value)
 			"direction":
 				graph_editor.set_edge_directionality(u, v, int(value))
 			"type":
 				var ui_idx = int(value)
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					var string_type = _type_keys_cache[ui_idx]
-					graph_editor.set_edge_property(u, v, "type", string_type)
+					if has_fwd: graph_editor.set_edge_property(u, v, "type", string_type)
+					if has_rev: graph_editor.set_edge_property(v, u, "type", string_type)
 			_:
 				# Catch-all for Custom Data (AND our physics properties!)
-				graph_editor.set_edge_property(u, v, key, value)
+				if has_fwd: graph_editor.set_edge_property(u, v, key, value)
+				if has_rev: graph_editor.set_edge_property(v, u, key, value)
 				
-	if is_bulk:
-		graph_editor.commit_undo_transaction()
+	graph_editor.commit_undo_transaction()

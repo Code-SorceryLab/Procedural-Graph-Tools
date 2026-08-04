@@ -59,6 +59,22 @@ func end_zone() -> void:
 			add_zone(_active_zone)
 		_active_zone = null
 
+# Creates a zone retroactively from an array of existing node IDs.
+func create_zone_from_nodes(zone_name: String, color: Color, node_ids: Array[String], use_smart_patch: bool = true) -> void:
+	start_zone(zone_name, color, use_smart_patch)
+	
+	for id in node_ids:
+		if nodes.has(id):
+			_active_zone.register_node(id)
+			var pos = nodes[id].position
+			# Use Smart 2x2 (Radius 0) if enabled, otherwise 3x3 (Radius 1)
+			var r = 0 if _use_smart_patch else 1
+			_active_zone.add_patch_at_world_pos(pos, _grid_spacing, r)
+		else:
+			push_warning("GraphRecorder: Attempted to add missing node '%s' to zone '%s'" % [id, zone_name])
+			
+	end_zone()
+
 # ==============================================================================
 # 2. MUTATOR OVERRIDES (With Hooks)
 # ==============================================================================
@@ -96,9 +112,17 @@ func add_zone(zone: GraphZone) -> void:
 func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
 	var already_exists = has_edge(a, b)
 	super.add_edge(a, b, weight, directed, extra_data)
+	
 	if not already_exists:
-		var cmd = CmdConnect.new(_target_graph, a, b, weight)
+		# [FIX] Pass the directed flag to the command!
+		var cmd = CmdConnect.new(_target_graph, a, b, weight, directed)
 		recorded_commands.append(cmd)
+		
+		# [FIX] Preserve any custom semantic data the generator added!
+		if not extra_data.is_empty():
+			for k in extra_data:
+				var cmd_prop = CmdSetProperty.new(_target_graph, "EDGE", [a, b], k, extra_data[k], null)
+				recorded_commands.append(cmd_prop)
 
 func remove_node(id: String) -> void:
 	super.remove_node(id)

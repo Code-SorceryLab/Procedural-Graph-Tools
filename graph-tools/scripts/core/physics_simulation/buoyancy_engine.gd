@@ -60,35 +60,39 @@ func step(graph: Graph, delta: float) -> void:
 	# --- 2. ATTRACTION (Hooke's Law) ---
 	var processed_edges = {}
 	
-	for u in graph.edge_data:
-		for v in graph.edge_data[u]:
-			var pair = [u, v]
-			pair.sort()
-			if processed_edges.has(pair): continue
-			processed_edges[pair] = true
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		var u = e.u
+		var v = e.v
+		
+		# Deduplicate bidirectional edges so we only calculate 1 spring per connection
+		var pair = [u, v]
+		pair.sort()
+		if processed_edges.has(pair): continue
+		processed_edges[pair] = true
+		
+		if not graph.nodes.has(u) or not graph.nodes.has(v): continue
+		
+		var node_u = graph.nodes[u]
+		var node_v = graph.nodes[v]
+		var edge_custom = e.custom
+		
+		# If the Edge is Ignored (1), it exerts zero spring force!
+		if edge_custom.get("physics_mode", 0) == 1: continue
+		
+		var ideal_len = float(edge_custom.get("physics_spring_length", 150.0))
+		var stiffness = float(edge_custom.get("physics_stiffness", 0.5))
+		
+		var diff = node_v.position - node_u.position
+		var dist = diff.length()
+		
+		if dist > 0.1:
+			var displacement = dist - ideal_len
+			var force_mag = displacement * stiffness
+			var force_vec = (diff / dist) * force_mag
 			
-			if not graph.nodes.has(u) or not graph.nodes.has(v): continue
-			
-			var node_u = graph.nodes[u]
-			var node_v = graph.nodes[v]
-			var edge_dict = graph.edge_data[u][v]
-			
-			# If the Edge is Ignored (1), it exerts zero spring force!
-			if edge_dict.get("physics_mode", 0) == 1: continue
-			
-			var ideal_len = float(edge_dict.get("physics_spring_length", 150.0))
-			var stiffness = float(edge_dict.get("physics_stiffness", 0.5))
-			
-			var diff = node_v.position - node_u.position
-			var dist = diff.length()
-			
-			if dist > 0.1:
-				var displacement = dist - ideal_len
-				var force_mag = displacement * stiffness
-				var force_vec = (diff / dist) * force_mag
-				
-				forces[u] += force_vec
-				forces[v] -= force_vec
+			forces[u] += force_vec
+			forces[v] -= force_vec
 
 	# --- 3. INTEGRATION (Apply Velocity) ---
 	for id in node_ids:

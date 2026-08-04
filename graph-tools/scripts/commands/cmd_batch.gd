@@ -16,10 +16,17 @@ func add_command(cmd: GraphCommand) -> void:
 	_commands.append(cmd)
 
 func execute() -> void:
+	print("--- BATCH START: '", _name, "' (", _commands.size(), " commands) ---")
+	var start_time = Time.get_ticks_msec()
+	
 	for cmd in _commands:
 		cmd.execute()
+		
+	var duration = Time.get_ticks_msec() - start_time
+	print("--- BATCH END: Executed in ", duration, "ms ---")
 
 func undo() -> void:
+	print("--- UNDO BATCH: '", _name, "' ---")
 	var reversed = _commands.duplicate()
 	reversed.reverse()
 	for cmd in reversed:

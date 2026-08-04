@@ -165,6 +165,8 @@ func _draw_zone_logical_bounds(zone: GraphZone, color: Color, border_color: Colo
 func _draw_layer_edges() -> void:
 	if graph_ref.edge_store.is_empty(): return
 	
+	var drawn_pairs = {} # Prevent drawing the same line twice for bidirectional edges
+	
 	for key in graph_ref.edge_store:
 		var e = graph_ref.edge_store[key]
 		
@@ -174,8 +176,20 @@ func _draw_layer_edges() -> void:
 			
 		var pos_a = graph_ref.nodes[e.u].position
 		var pos_b = graph_ref.nodes[e.v].position
+		
+		# Use the alphabetical pair to deduplicate and check selection
 		var pair = [e.u, e.v]
 		pair.sort()
+		
+		# --- Direction & Deduplication ---
+		# Check if the reverse edge exists to determine if it's bidirectional
+		var key_rev = graph_ref.get_edge_key(e.v, e.u)
+		var is_bidir = graph_ref.edge_store.has(key_rev)
+		
+		if is_bidir and drawn_pairs.has(pair):
+			continue # We already drew the base line for this pair
+			
+		drawn_pairs[pair] = true
 		
 		# --- Determine Styling ---
 		var draw_color = GraphSettings.COLOR_EDGE
@@ -198,23 +212,19 @@ func _draw_layer_edges() -> void:
 			var loop_center = pos_a + Vector2(node_radius, -node_radius)
 			draw_arc(loop_center, loop_radius, -PI*0.8, PI*1.3, 32, draw_color, current_width)
 			
-			# If it's explicitly directed (1 or 2), add an arrow
-			if e.direction != 0:
-				# Arbitrary point on the loop to stick the arrow
-				var arrow_pos = loop_center + Vector2(-loop_radius, 0)
-				var fake_from = arrow_pos + Vector2(0, -10)
-				_draw_edge_arrow(fake_from, arrow_pos, draw_color, current_width)
+			# Self loops always get an arrow to show flow
+			var arrow_pos = loop_center + Vector2(-loop_radius, 0)
+			var fake_from = arrow_pos + Vector2(0, -10)
+			_draw_edge_arrow(fake_from, arrow_pos, draw_color, current_width)
 			
 			continue
 			
 		# --- 2. Handle Normal Edge (A -> B) ---
 		draw_line(pos_a, pos_b, draw_color, current_width)
 		
-		# Render Arrow if Directed (1 = u->v, 2 = v->u)
-		if e.direction == 1:
+		# Only draw the directional arrow if it's NOT bidirectional
+		if not is_bidir:
 			_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
-		elif e.direction == 2:
-			_draw_edge_arrow(pos_b, pos_a, draw_color, current_width)
 
 # Helper to draw the arrowhead at the end of the line
 func _draw_edge_arrow(from: Vector2, to: Vector2, color: Color, width: float) -> void:

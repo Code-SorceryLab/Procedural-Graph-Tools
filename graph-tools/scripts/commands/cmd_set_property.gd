@@ -40,9 +40,11 @@ func _apply(val: Variant) -> void:
 			if not _graph.edge_store.has(edge_key): return
 			var edge_record = _graph.edge_store[edge_key]
 			
-			if _key in ["weight", "direction"]:
-				edge_record[_key] = val
-				_graph._rebuild_adjacency_cache()
+			if _key == "weight":
+				edge_record.weight = val
+				# [PIVOT] Lightning fast O(1) Cache Update!
+				if not _graph._adjacency_map.has(u): _graph._adjacency_map[u] = {}
+				_graph._adjacency_map[u][v] = val
 			else:
 				if val == null: edge_record.custom.erase(_key)
 				else: edge_record.custom[_key] = val

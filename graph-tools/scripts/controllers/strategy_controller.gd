@@ -45,6 +45,7 @@ func _ready() -> void:
 	strategies.append(StrategyPolar.new()) 
 	strategies.append(StrategyAnalyze.new())
 	strategies.append(StrategyGrammar.new())
+	strategies.append(StrategyDAG.new())
 	
 	algo_select.clear()
 	for i in range(strategies.size()):

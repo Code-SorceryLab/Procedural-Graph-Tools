@@ -149,7 +149,9 @@ func _create_zone_row(zone: GraphZone) -> void:
 	
 	# Signal: Update data and redraw immediately
 	btn_type.item_selected.connect(func(index):
-		zone.zone_type = index
+		# Route through Editor API for Undo support
+		graph_editor.set_zone_property(zone, "zone_type", index)
+		
 		# Force stats refresh so label updates from [Cells] to (Nodes)
 		_full_zone_rebuild() 
 		graph_editor.renderer.queue_redraw()
@@ -164,7 +166,8 @@ func _create_zone_row(zone: GraphZone) -> void:
 	chk_lock.tooltip_text = "If checked, selecting one node selects the whole group."
 	
 	chk_lock.toggled.connect(func(toggled):
-		zone.is_grouped = toggled
+		# Route through Editor API for Undo support
+		graph_editor.set_zone_property(zone, "is_grouped", toggled)
 		
 		# Responsiveness: Auto-select nodes when locking
 		if toggled and not zone.registered_nodes.is_empty():

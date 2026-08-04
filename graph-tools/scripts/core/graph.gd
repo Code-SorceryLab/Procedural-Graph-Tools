@@ -12,10 +12,11 @@ const SPATIAL_GRID = preload("res://scripts/utils/spatial_grid.gd")
 # Direction: 0 = Bi-directional, 1 = u->v, 2 = v->u
 @export var edge_store: Dictionary = {}
 
-# Ffast runtime cache for A* pathfinding
+# Fast runtime cache for A* pathfinding
 var _adjacency_map: Dictionary = {}
 
 const MIN_TRAVERSAL_COST: float = 0.1
+
 
 # --- ZONES LAYER ---
 @export var zones: Array[GraphZone] = []
@@ -65,7 +66,11 @@ func remove_node(id: String) -> void:
 	for key in keys_to_erase:
 		edge_store.erase(key)
 		
-	_rebuild_adjacency_cache()
+	# [PIVOT] O(1) Cache cleanup instead of full rebuild
+	if _adjacency_map.has(id): _adjacency_map.erase(id)
+	for other_id in _adjacency_map:
+		if _adjacency_map[other_id].has(id):
+			_adjacency_map[other_id].erase(id)
 			
 	# 3. Clean Zones
 	for zone in zones:
@@ -137,80 +142,70 @@ func register_imported_agent(agent: AgentWalker) -> void:
 
 # --- Edge Management ---
 
-# Guarantees A->B and B->A always return the exact same Dictionary key
+# [PIVOT] Keys are now strictly directed: "A->B"
 func get_edge_key(a: String, b: String) -> String:
-	return a + "___" + b if a < b else b + "___" + a
+	return a + "->" + b
 
 func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
 	if not nodes.has(a) or not nodes.has(b): return
 	
-	var key = get_edge_key(a, b)
-	var is_a_first = (a < b)
-	var dir = 0 if not directed else (1 if is_a_first else 2)
+	# 1. Add Forward Edge (A -> B)
+	_add_directed_record(a, b, weight, extra_data)
+	
+	# 2. Add Reverse Edge if Undirected (B -> A)
+	if not directed:
+		_add_directed_record(b, a, weight, extra_data.duplicate())
+
+# Internal helper for O(1) single-direction inserts
+func _add_directed_record(u: String, v: String, weight: float, custom: Dictionary) -> void:
+	var key = get_edge_key(u, v)
 	
 	if edge_store.has(key):
-		var existing = edge_store[key]
-		# Merge directions if appending opposite directed edge
-		if directed and existing.direction != 0 and existing.direction != dir:
-			existing.direction = 0 # Upgrade to Bi-directional
-		elif not directed:
-			existing.direction = 0
-			
-		existing.weight = weight
-		for k in extra_data: existing.custom[k] = extra_data[k]
+		edge_store[key].weight = weight
+		for k in custom: edge_store[key].custom[k] = custom[k]
 	else:
-		var custom = extra_data.duplicate()
-		if not custom.has("type"): custom["type"] = 0
-		if not custom.has("physics_spring_length"): custom["physics_spring_length"] = 150.0
-		if not custom.has("physics_stiffness"): custom["physics_stiffness"] = 0.5
+		var c = custom.duplicate()
+		if not c.has("type"): c["type"] = 0
+		if not c.has("physics_spring_length"): c["physics_spring_length"] = 150.0
+		if not c.has("physics_stiffness"): c["physics_stiffness"] = 0.5
 		
 		edge_store[key] = {
-			"u": a if is_a_first else b, 
-			"v": b if is_a_first else a, 
+			"u": u,
+			"v": v,
 			"weight": weight,
-			"direction": dir,
-			"custom": custom
+			"direction": 1, # Always 1 (Forward) because the key itself provides direction!
+			"custom": c
 		}
 		
-	_rebuild_adjacency_cache()
+	# [PIVOT] O(1) Local Cache Update! No more full graph rebuilds!
+	if not _adjacency_map.has(u): _adjacency_map[u] = {}
+	_adjacency_map[u][v] = weight
 
 func remove_edge(a: String, b: String, directed: bool = false) -> void:
-	var key = get_edge_key(a, b)
-	if not edge_store.has(key): return
-	
+	var key_ab = get_edge_key(a, b)
+	if edge_store.has(key_ab):
+		edge_store.erase(key_ab)
+		if _adjacency_map.has(a): _adjacency_map[a].erase(b)
+		
 	if not directed:
-		edge_store.erase(key)
-	else:
-		var existing = edge_store[key]
-		if existing.direction == 0:
-			# Downgrade bidir to a single direction
-			var is_a_first = (a < b)
-			existing.direction = 2 if is_a_first else 1
-		else:
-			edge_store.erase(key)
-			
-	_rebuild_adjacency_cache()
+		var key_ba = get_edge_key(b, a)
+		if edge_store.has(key_ba):
+			edge_store.erase(key_ba)
+			if _adjacency_map.has(b): _adjacency_map[b].erase(a)
 
 func clear_edges() -> void:
 	edge_store.clear()
-	_rebuild_adjacency_cache()
+	_adjacency_map.clear()
 
-# Fast pathfinding cache generator
+# Fast pathfinding cache generator (Used mainly for loading saves)
 func _rebuild_adjacency_cache() -> void:
 	_adjacency_map.clear()
 	for id in nodes: _adjacency_map[id] = {}
 		
 	for key in edge_store:
 		var e = edge_store[key]
-		if not _adjacency_map.has(e.u) or not _adjacency_map.has(e.v): continue
-		
-		if e.direction == 0:
-			_adjacency_map[e.u][e.v] = e.weight
-			_adjacency_map[e.v][e.u] = e.weight
-		elif e.direction == 1:
-			_adjacency_map[e.u][e.v] = e.weight
-		elif e.direction == 2:
-			_adjacency_map[e.v][e.u] = e.weight
+		if not _adjacency_map.has(e.u): _adjacency_map[e.u] = {}
+		_adjacency_map[e.u][e.v] = e.weight
 
 # --- Helpers ---
 
@@ -253,14 +248,14 @@ func get_node_pos(id: String) -> Vector2:
 	return Vector2.ZERO
 
 func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
-	if not has_edge(id_a, id_b):
-		add_edge(id_a, id_b, weight, true)
-		return
-		
 	var key = get_edge_key(id_a, id_b)
 	if edge_store.has(key):
 		edge_store[key].weight = weight
-		_rebuild_adjacency_cache()
+		# [PIVOT] O(1) Local Cache Update!
+		if not _adjacency_map.has(id_a): _adjacency_map[id_a] = {}
+		_adjacency_map[id_a][id_b] = weight
+	else:
+		add_edge(id_a, id_b, weight, true)
 
 # --- Spatial Grid Methods ---
 
@@ -321,6 +316,8 @@ func get_nodes_in_rect(rect: Rect2) -> Array[String]:
 
 func get_edges_in_rect(rect: Rect2) -> Array:
 	var result = []
+	var checked_pairs = {} # Prevent selecting A->B and B->A twice
+	
 	var rect_tl = rect.position
 	var rect_tr = Vector2(rect.end.x, rect.position.y)
 	var rect_br = rect.end
@@ -330,9 +327,14 @@ func get_edges_in_rect(rect: Rect2) -> Array:
 		var e = edge_store[key]
 		if not nodes.has(e.u) or not nodes.has(e.v): continue
 		
+		# Deduplicate visual checks
+		var pair = [e.u, e.v]
+		pair.sort()
+		if checked_pairs.has(pair): continue
+		checked_pairs[pair] = true
+		
 		var pos_a = nodes[e.u].position
 		var pos_b = nodes[e.v].position
-		var pair = [e.u, e.v]
 		
 		if rect.has_point(pos_a) and rect.has_point(pos_b):
 			result.append(pair); continue
@@ -426,10 +428,17 @@ func get_node_at_position(pos: Vector2, pick_radius: float = -1.0) -> String:
 func get_edge_at_position(pos: Vector2, max_dist: float = 10.0) -> Array:
 	var closest_dist = INF
 	var closest_pair = []
+	var checked_pairs = {}
 	
 	for key in edge_store:
 		var e = edge_store[key]
 		if not nodes.has(e.u) or not nodes.has(e.v): continue
+		
+		# Deduplicate visual checks
+		var pair = [e.u, e.v]
+		pair.sort()
+		if checked_pairs.has(pair): continue
+		checked_pairs[pair] = true
 		
 		var pos_a = nodes[e.u].position
 		var pos_b = nodes[e.v].position
@@ -438,7 +447,7 @@ func get_edge_at_position(pos: Vector2, max_dist: float = 10.0) -> Array:
 		
 		if dist < max_dist and dist < closest_dist:
 			closest_dist = dist
-			closest_pair = [e.u, e.v]
+			closest_pair = pair
 			
 	return closest_pair
 
