@@ -385,41 +385,59 @@ func _draw_node_indicators(id: String, pos: Vector2) -> void:
 
 func _draw_semantic_decorator(pos: Vector2, text: String, mode: int) -> void:
 	if text == "": return
-	var font_size = 12
-	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	
+	# --- 1. PARSE TAGS: e.g., "[key:#FF0000] Alpha" ---
+	var icon_name = ""
+	var icon_color = Color.WHITE
+	var display_text = text
+	
+	if text.begins_with("[") and text.find("]") > 0:
+		var end_idx = text.find("]")
+		var tag = text.substr(1, end_idx - 1)
+		display_text = text.substr(end_idx + 1).strip_edges()
+		
+		var parts = tag.split(":")
+		if parts.size() > 0: icon_name = parts[0].strip_edges()
+		if parts.size() > 1 and parts[1].is_valid_html_color(): 
+			icon_color = Color(parts[1].strip_edges())
+	
+	# --- 2. CALCULATE LAYOUT ---
+	var font_size = 12
+	var text_size = font.get_string_size(display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var icon_size = 14.0 if icon_name != "" else 0.0
+	var spacing = 4.0 if icon_name != "" else 0.0
+	var total_width = text_size.x + icon_size + spacing
+	
+	# --- 3. DRAW ---
 	if mode == SemanticRegistry.DisplayMode.LABEL:
-		# Draw clean floating text with a slight shadow for legibility
-		var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 3.0)
-		draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color(0, 0, 0, 0.5))
-		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+		var start_x = pos.x - (total_width / 2.0)
+		if icon_name != "":
+			GraphIconLibrary.draw_icon(self, icon_name, Vector2(start_x + icon_size/2.0, pos.y - 2), icon_size, icon_color)
+			start_x += icon_size + spacing
+		
+		var text_pos = Vector2(start_x, pos.y + text_size.y/3.0)
+		draw_string(font, text_pos + Vector2(1, 1), display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0, 0, 0, 0.5))
+		draw_string(font, text_pos, display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
 		
 	elif mode == SemanticRegistry.DisplayMode.BADGE:
-		# Draw a crisp, dark pill-shaped background with bright text
 		var padding = Vector2(8, 4)
-		var bg_rect = Rect2(pos - (text_size / 2.0) - padding, text_size + (padding * 2.0))
-		var corner_radius = bg_rect.size.y / 2.0
+		var bg_rect = Rect2(pos - Vector2(total_width/2.0, text_size.y/2.0) - padding, Vector2(total_width, text_size.y) + (padding * 2.0))
 		
-		# Inner badge color (Dark charcoal)
-		var bg_col = Color(0.15, 0.15, 0.15, 0.9)
-		# Outer rim color (Subtle silver)
-		var border_col = Color(0.6, 0.6, 0.6, 0.8)
-		
-		# Draw the rounded rect for the badge
 		var style = StyleBoxFlat.new()
-		style.bg_color = bg_col
-		style.border_color = border_col
-		style.border_width_left = 1; style.border_width_right = 1
-		style.border_width_top = 1; style.border_width_bottom = 1
-		style.set_corner_radius_all(int(corner_radius))
+		style.bg_color = Color(0.15, 0.15, 0.15, 0.9)
+		style.border_color = icon_color if icon_name != "" else Color(0.6, 0.6, 0.6, 0.8)
+		style.set_border_width_all(1) # [FIXED] Uses the Godot 4 setter method!
+		style.set_corner_radius_all(int(bg_rect.size.y / 2.0))
 		style.anti_aliasing = true
-		
-		# Draw via Godot's built-in StyleBox rendering
 		style.draw(get_canvas_item(), bg_rect)
 		
-		# Draw the text perfectly centered in the badge
-		var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 3.0)
-		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+		var start_x = pos.x - (total_width / 2.0)
+		if icon_name != "":
+			GraphIconLibrary.draw_icon(self, icon_name, Vector2(start_x + icon_size/2.0, pos.y), icon_size, icon_color)
+			start_x += icon_size + spacing
+			
+		var text_pos = Vector2(start_x, pos.y + text_size.y/3.0)
+		draw_string(font, text_pos, display_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
 
 # ==============================================================================
 # 8. DOMAIN: AGENTS
@@ -446,8 +464,26 @@ func _draw_layer_agents() -> void:
 				
 				_draw_agent_token(draw_pos, is_selected, agent)
 				
+				# Draw Semantic Decorators (like the Inventory!) over the Agent
+				_draw_agent_decorators(draw_pos, agent)
+				
 				if is_selected:
 					_draw_agent_brain_visuals(agent)
+
+# Helper function to draw agent semantic data
+func _draw_agent_decorators(pos: Vector2, agent: Object) -> void:
+	if not "custom_data" in agent or agent.custom_data.is_empty(): return
+	
+	var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_AGENT)
+	var dec_offset = pos + Vector2(0, -GraphSettings.AGENT_RADIUS - 12)
+	
+	for prop_key in agent.custom_data:
+		if not props.has(prop_key): continue
+		var mode = props[prop_key].get("display", 0)
+		if mode != SemanticRegistry.DisplayMode.HIDDEN:
+			var text = str(agent.custom_data[prop_key])
+			_draw_semantic_decorator(dec_offset, text, mode)
+			dec_offset += Vector2(0, -18)
 
 func _draw_agent_token(center: Vector2, is_selected: bool, agent_ref: Object) -> void:
 	var radius = GraphSettings.AGENT_RADIUS

@@ -114,14 +114,13 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	
 	_refresh_brain()
 
-func reset_state() -> void:
+func reset_state(graph: Graph = null) -> void:
 	step_count = 0
 	current_node_id = start_node_id 
 	pos = _initial_pos              
 	history.clear()
 	last_bump_pos = Vector2.INF 
 	
-	# Reset the RNG to its starting state so replay is identical
 	rng.seed = my_seed
 	
 	if start_node_id != "":
@@ -129,12 +128,11 @@ func reset_state() -> void:
 		
 	is_finished = false
 	
-	# Reset Brain
-	if brain: brain.enter(self, null)
+	if brain: brain.enter(self, graph)
 
-	# Reset Capabilities (if they have state)
+	# Pass the graph into the capabilities so they can restore the world!
 	for cap in capabilities.values():
-		cap.setup(null) 
+		cap.setup(graph)
 
 # Function to set seed deterministically 
 func set_seed(new_seed: int) -> void:

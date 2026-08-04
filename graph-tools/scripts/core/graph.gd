@@ -257,6 +257,21 @@ func set_edge_weight(id_a: String, id_b: String, weight: float) -> void:
 	else:
 		add_edge(id_a, id_b, weight, true)
 
+# ==============================================================================
+# SAFE MUTATORS (Overridden by GraphRecorder for Undo/Redo)
+# ==============================================================================
+func set_node_property(id: String, key: String, value: Variant) -> void:
+	if nodes.has(id):
+		if key in nodes[id]: nodes[id].set(key, value)
+		else: nodes[id].custom_data[key] = value
+
+func set_edge_property(a: String, b: String, key: String, value: Variant) -> void:
+	var edge_key = get_edge_key(a, b)
+	if edge_store.has(edge_key):
+		if key in ["weight", "direction"]: edge_store[edge_key][key] = value
+		else: edge_store[edge_key].custom[key] = value
+
+
 # --- Spatial Grid Methods ---
 
 # Initialize spatial grid

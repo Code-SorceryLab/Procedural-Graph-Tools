@@ -114,6 +114,9 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
 		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
 		
+		# Give the Agent a highly visible gold floating label for its inventory!
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_AGENT, "inventory", "Backpack", TYPE_STRING, "", SemanticRegistry.DisplayMode.LABEL)
+	
 	if params.get("use_logic_gates", true):
 		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
 	# ------------------------------------
@@ -309,6 +312,9 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 	var rng_pool = candidate_edges.duplicate()
 	var locks_placed = 0
 	
+	# [NEW] Define our vivid vector colors
+	var colors = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#e67e22"]
+	
 	while locks_placed < max_locks and not rng_pool.is_empty():
 		var rand_idx = rng.randi() % rng_pool.size()
 		var edge_data = rng_pool.pop_at(rand_idx)
@@ -320,9 +326,15 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 				
 		if valid_key_nodes.is_empty(): continue
 		
-		var key_name = "Key_%s" % ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"][locks_placed % 6]
+		# [NEW] Generate the visual tags
+		var color_hex = colors[locks_placed % colors.size()]
+		var key_letter = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"][locks_placed % 6]
 		
-		recorder.set_edge_property(edge_data.u, edge_data.v, k_lock, key_name)
+		var lock_tag = "[lock:%s] Key %s" % [color_hex, key_letter]
+		var item_tag = "[key:%s] Key %s" % [color_hex, key_letter]
+		
+		# Set Lock on Edge (Using lock_tag)
+		recorder.set_edge_property(edge_data.u, edge_data.v, k_lock, lock_tag)
 		
 		var key_node_id = valid_key_nodes[rng.randi() % valid_key_nodes.size()]
 		var node_ref = recorder.nodes[key_node_id]
@@ -331,7 +343,8 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 		if k_item in node_ref: existing_items = str(node_ref.get(k_item))
 		elif "custom_data" in node_ref: existing_items = str(node_ref.custom_data.get(k_item, ""))
 			
-		var new_val = key_name if existing_items == "" else existing_items + ", " + key_name
+		# Set Item on Node (Using item_tag)
+		var new_val = item_tag if existing_items == "" else existing_items + ", " + item_tag
 		recorder.set_node_property(key_node_id, k_item, new_val)
 		
 		locks_placed += 1

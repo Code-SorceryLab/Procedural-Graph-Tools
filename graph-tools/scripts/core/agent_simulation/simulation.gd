@@ -79,10 +79,13 @@ func _snapshot_agent(agent) -> Dictionary:
 		"pos": agent.pos,
 		"node_id": agent.current_node_id,
 		"step_count": agent.step_count,
-		"history": agent.history.duplicate(),
+		"history": agent.history.duplicate(true),
 		"active": agent.active,
 		"is_finished": agent.is_finished,
-		"last_bump_pos": agent.last_bump_pos 
+		"last_bump_pos": agent.last_bump_pos,
+		
+		# Snapshot the agent's custom data! (This captures the Backpack and Loot Memory)
+		"custom_data": agent.custom_data.duplicate(true) 
 	}
 
 # Called whenever Undo/Redo occurs
@@ -107,20 +110,21 @@ func reset_state() -> GraphCommand:
 	# 1. Snapshot Current State
 	var pre_reset_states = {}
 	for agent in graph.agents:
-		# [FIX] Use display_id
 		pre_reset_states[agent.display_id] = _snapshot_agent(agent)
 
 	# 2. Reset Internal Sim State
 	tick_count = 0
 	
+	# [FIX] Create a recorder so CapInventory's world-repairs are caught by Undo/Redo!
+	var recorder = GraphRecorder.new(graph)
+	
 	# 3. Apply Reset & Record Differences
 	for agent in graph.agents:
-		# [FIX] Use display_id
 		if not pre_reset_states.has(agent.display_id): continue
 		var start_state = pre_reset_states[agent.display_id]
 		
-		# --- APPLY RESET LOGIC ---
-		agent.reset_state() 
+		# Pass RECORDER instead of raw graph
+		agent.reset_state(recorder) 
 		
 		var target_pos = agent.pos 
 		var target_node = ""
@@ -134,14 +138,16 @@ func reset_state() -> GraphCommand:
 		if target_node != "":
 			agent.history.append({ "node": target_node, "step": 0 })
 			
-		# --- END RESET LOGIC ---
-
 		# 4. Snapshot New State & Create Command
 		var end_state = _snapshot_agent(agent)
 		
 		if start_state.hash() != end_state.hash():
 			var cmd = CmdUpdateAgent.new(graph, agent, start_state, end_state)
 			batch.add_command(cmd)
+			
+	# Add all the world-repair commands (like returning the items) to the batch!
+	for cmd in recorder.recorded_commands:
+		batch.add_command(cmd)
 	
 	SignalManager.simulation_reset.emit()
 			

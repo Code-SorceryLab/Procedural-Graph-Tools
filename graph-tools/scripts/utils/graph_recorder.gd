@@ -24,6 +24,9 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 		# 1. Duplicate nodes
 		for id in target.nodes:
 			nodes[id] = target.nodes[id].duplicate()
+			# Deep copy the dictionary so the Sandbox doesn't poison the Live Graph!
+			if "custom_data" in nodes[id]:
+				nodes[id].custom_data = target.nodes[id].custom_data.duplicate(true)
 		
 		# 2. Duplicate Canonical Edge Store (Deep Copy)
 		edge_store = target.edge_store.duplicate(true)
@@ -147,16 +150,18 @@ func set_node_type(id: String, new_type: String) -> void:
 
 # Allows procedural generators to set custom variables on Nodes!
 func set_node_property(id: String, key: String, value: Variant) -> void:
-	if nodes.has(id):
-		if key in nodes[id]: nodes[id].set(key, value)
-		else: nodes[id].custom_data[key] = value
-	
+	# [FIX] 1. Grab old_val FIRST before modifying the sandbox!
 	var old_val = null
 	if _target_graph.nodes.has(id):
 		var t_node = _target_graph.nodes[id]
 		if key in t_node: old_val = t_node.get(key)
 		else: old_val = t_node.custom_data.get(key)
 		
+	# 2. Mutate Local Sandbox
+	if nodes.has(id):
+		if key in nodes[id]: nodes[id].set(key, value)
+		else: nodes[id].custom_data[key] = value
+	
 	var cmd = CmdSetProperty.new(_target_graph, "NODE", id, key, value, old_val)
 	recorded_commands.append(cmd)
 
@@ -165,21 +170,20 @@ func set_edge_property(a: String, b: String, key: String, value: Variant) -> voi
 	var edge_key = get_edge_key(a, b)
 	if not edge_store.has(edge_key): return
 		
-	# 1. Update Local Simulation
-	# (Route core variables directly, and custom data to the custom dict)
-	if key in ["weight", "direction"]:
-		edge_store[edge_key][key] = value
-		_rebuild_adjacency_cache()
-	else:
-		edge_store[edge_key].custom[key] = value
-		
-	# 2. Record Undo/Redo history for Target Graph
+	# [FIX] 1. Grab old_val FIRST before modifying the sandbox!
 	var old_val = null
 	if _target_graph.edge_store.has(edge_key):
 		if key in ["weight", "direction"]:
 			old_val = _target_graph.edge_store[edge_key].get(key)
 		else:
 			old_val = _target_graph.edge_store[edge_key].custom.get(key)
+			
+	# 2. Update Local Sandbox
+	if key in ["weight", "direction"]:
+		edge_store[edge_key][key] = value
+		_rebuild_adjacency_cache()
+	else:
+		edge_store[edge_key].custom[key] = value
 		
 	var cmd = CmdSetProperty.new(_target_graph, "EDGE", [a, b], key, value, old_val)
 	recorded_commands.append(cmd)

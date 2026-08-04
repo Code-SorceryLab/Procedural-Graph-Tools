@@ -25,7 +25,15 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		var items_str = node_data.custom_data.get("items", "")
 		if items_str != "":
 			for item in items_str.split(","):
-				inv.add_key(item.strip_edges())
+				var clean_item = item.strip_edges()
+				if clean_item != "": 
+					# Pass the memory to the Backpack
+					inv.add_key(clean_item, current, items_str)
+			
+			# Safely consume the item! 
+			# (If using GraphRecorder, this pushes to Ctrl+Z automatically. 
+			# If Live Ticking, CapInventory will restore it on reset!)
+			graph.set_node_property(current, "items", "")
 
 	# 2. Check for Victory
 	if graph.nodes.has(current) and graph.nodes[current].type == "boss":
@@ -46,8 +54,10 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		
 		# --- CONSTRAINT A: Locks ---
 		var req = e.custom.get("requires", "")
-		if req != "" and (not inv or not inv.has_key(req)):
-			continue # We don't have the key!
+		if req != "":
+			var clean_req = CapInventory.extract_raw_name(req)
+			if not inv or not inv.has_key(clean_req):
+				continue # We don't have the key!
 			
 		# --- CONSTRAINT B: Logic Gates ---
 		var target_node = graph.nodes[v]
