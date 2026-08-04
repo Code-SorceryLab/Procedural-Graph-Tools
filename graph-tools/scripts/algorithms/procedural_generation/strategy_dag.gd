@@ -53,6 +53,19 @@ func get_settings() -> Array[Dictionary]:
 		"default": "items", "hint_text": "Node property for contained items."
 	})
 
+	# --- LOGIC GATES SETTINGS ---
+	settings.append({ "name": "sep_logic", "type": TYPE_NIL, "hint": "separator" })
+	
+	settings.append({
+		"name": "use_logic_gates", "label": "Generate Logic Gates", "type": TYPE_BOOL,
+		"default": true
+	})
+	settings.append({
+		"name": "prob_and_gate", "label": "AND Gate Probability", "type": TYPE_FLOAT,
+		"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.1,
+		"hint_text": "Chance a converging node becomes an AND gate instead of an OR gate."
+	})
+
 	# --- ARCHITECT SETTINGS ---
 	settings.append({ "name": "sep_arch", "type": TYPE_NIL, "hint": "separator" })
 	
@@ -93,17 +106,16 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	
 	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_root, v_root.capitalize(), Color(0.2, 0.8, 0.2))
 	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_sink, v_sink.capitalize(), Color(0.8, 0.2, 0.2))
-	
-	# Set DAG Depth to show up as a simple floating label
 	SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_depth, "DAG Depth", TYPE_INT, 0, SemanticRegistry.DisplayMode.LABEL)
 	
 	if params.get("use_locks", true):
 		var k_lock = params.get("key_lock", "requires")
 		var k_item = params.get("key_item", "items")
-		
-		# Set Keys and Locks to render as highly visible Badges!
 		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
 		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
+		
+	if params.get("use_logic_gates", true):
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
 	# ------------------------------------
 
 	var mode = params.get("dag_mode", 0)
@@ -116,6 +128,10 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	# Post-Processing: Distribute Locks and Keys!
 	if params.get("use_locks", true) and not recorder.nodes.is_empty():
 		_distribute_locks(recorder, params)
+		
+	# Post-Processing: Distribute Logic Gates!
+	if params.get("use_logic_gates", true) and not recorder.nodes.is_empty():
+		_distribute_logic_gates(recorder, params)
 
 # ==============================================================================
 # MODE A: THE ARCHITECT (Generative)
@@ -198,7 +214,6 @@ func _run_assessor(recorder: GraphRecorder, params: Dictionary) -> void:
 	var v_root = params.get("val_root", "start")
 	var v_sink = params.get("val_sink", "boss")
 	
-	# 1. Breadth-First Search (BFS)
 	var depths = {}
 	var queue = []
 	
@@ -222,7 +237,6 @@ func _run_assessor(recorder: GraphRecorder, params: Dictionary) -> void:
 						depths[n] = depths[curr] + 1
 						queue.append(n)
 						
-	# 2. Enforce Acyclicity
 	var edges_to_delete = []
 	var edges_to_create = []
 	
@@ -271,7 +285,6 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 	var k_item = params.get("key_item", "items")
 	var max_locks = params.get("num_locks", 3)
 	
-	# 1. Group nodes by depth so we can easily fetch them
 	var nodes_by_depth = {}
 	for id in recorder.nodes:
 		var node_data = recorder.nodes[id]
@@ -282,7 +295,6 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 		if not nodes_by_depth.has(depth): nodes_by_depth[depth] = []
 		nodes_by_depth[depth].append(id)
 		
-	# 2. Get all valid edges to lock (Exclude depth 0->1 edges to ensure keys have room to spawn)
 	var candidate_edges = []
 	for key in recorder.edge_store:
 		var e = recorder.edge_store[key]
@@ -291,20 +303,16 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 		if k_depth in node_u: u_depth = node_u.get(k_depth)
 		elif "custom_data" in node_u: u_depth = node_u.custom_data.get(k_depth, 0)
 			
-		if u_depth > 0: # Only lock edges deeper in the graph
+		if u_depth > 0: 
 			candidate_edges.append({"u": e.u, "v": e.v, "u_depth": u_depth})
 			
-	# Shuffle to ensure random distribution
 	var rng_pool = candidate_edges.duplicate()
 	var locks_placed = 0
 	
-	# 3. Apply Locks and Distribute Keys
 	while locks_placed < max_locks and not rng_pool.is_empty():
-		# Pick a random edge to lock
 		var rand_idx = rng.randi() % rng_pool.size()
 		var edge_data = rng_pool.pop_at(rand_idx)
 		
-		# Collect all nodes that exist at a depth <= the lock's origin
 		var valid_key_nodes = []
 		for d in range(0, edge_data.u_depth + 1):
 			if nodes_by_depth.has(d):
@@ -312,17 +320,13 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 				
 		if valid_key_nodes.is_empty(): continue
 		
-		# Generate the key identifier
 		var key_name = "Key_%s" % ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"][locks_placed % 6]
 		
-		# Apply the Lock to the Edge
 		recorder.set_edge_property(edge_data.u, edge_data.v, k_lock, key_name)
 		
-		# Apply the Key to a mathematically valid Node
 		var key_node_id = valid_key_nodes[rng.randi() % valid_key_nodes.size()]
 		var node_ref = recorder.nodes[key_node_id]
 		
-		# Append it safely so we don't overwrite existing items in that room
 		var existing_items = ""
 		if k_item in node_ref: existing_items = str(node_ref.get(k_item))
 		elif "custom_data" in node_ref: existing_items = str(node_ref.custom_data.get(k_item, ""))
@@ -331,3 +335,26 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 		recorder.set_node_property(key_node_id, k_item, new_val)
 		
 		locks_placed += 1
+
+# ==============================================================================
+# PUZZLE ENGINE: LOGIC GATE DISTRIBUTOR
+# ==============================================================================
+func _distribute_logic_gates(recorder: GraphRecorder, params: Dictionary) -> void:
+	var prob_and = params.get("prob_and_gate", 0.3)
+	var in_degrees = {}
+	
+	# Initialize all nodes to 0 incoming edges
+	for id in recorder.nodes:
+		in_degrees[id] = 0
+		
+	# Calculate actual In-Degree (how many edges point TO the node)
+	for key in recorder.edge_store:
+		var e = recorder.edge_store[key]
+		if in_degrees.has(e.v):
+			in_degrees[e.v] += 1
+			
+	# Assign gates only to Convergence Points
+	for id in in_degrees:
+		if in_degrees[id] > 1:
+			var gate_type = "AND" if rng.randf() < prob_and else "OR"
+			recorder.set_node_property(id, "logic_gate", gate_type)

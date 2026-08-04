@@ -2,7 +2,7 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator"
+const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve Questline,Diagnosis"
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
@@ -110,6 +110,7 @@ func _init(p_uuid: String, p_display_id: int, start_pos: Vector2, start_node: St
 	add_capability("Motor", CapMotor.new(self))
 	add_capability("Painter", CapPainter.new(self))
 	add_capability("Builder", CapBuilder.new(self))
+	add_capability("Inventory", CapInventory.new(self))
 	
 	_refresh_brain()
 
@@ -261,9 +262,17 @@ static func deserialize(data: Dictionary) -> AgentWalker:
 # ==============================================================================
 
 func step(graph: Graph, _context: Dictionary = {}) -> void:
+	# --- DEBUG INJECTION ---
+	print("[AGENT_%d] Step Tick | Active: %s | Finished: %s | Node: %s" % [display_id, active, is_finished, current_node_id])
+	
 	if not active: return
 	if steps != -1 and step_count >= steps:
+		print("[AGENT_%d] Died of old age (Steps: %d/%d)" % [display_id, step_count, steps])
 		is_finished = true
+		return
+
+	if current_node_id == "" or not graph.nodes.has(current_node_id):
+		print("[AGENT_%d] Error: Standing in the void! Node ID: '%s'" % [display_id, current_node_id])
 		return
 
 	# 1. Tick Capabilities
@@ -272,6 +281,8 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 
 	# 2. Run Brain
 	if not brain: _refresh_brain()
+	
+	print("[AGENT_%d] Brain Executing: Mode %d" % [display_id, behavior_mode])
 	brain.step(self, graph)
 	
 	# 3. Auto-Paint Logic
@@ -282,9 +293,11 @@ func _refresh_brain() -> void:
 	match behavior_mode:
 		0: set_behavior(BehaviorsStandard.Hold.new())
 		1: set_behavior(BehaviorsStandard.Wander.new()) 
-		2: set_behavior(BehaviorGrow.new()) # We will refactor this one later
+		2: set_behavior(BehaviorGrow.new()) 
 		3: set_behavior(BehaviorsStandard.Seek.new(movement_algo))
 		4: set_behavior(BehaviorMazeGen.new()) 
+		5: set_behavior(BehaviorSolver.new())
+		6: set_behavior(BehaviorsStandard.BehaviorDiagnostic.new()) # [DIAGNOSTIC OVERRIDE]
 		_: set_behavior(BehaviorsStandard.Hold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
@@ -532,27 +545,33 @@ func get_agent_settings() -> Array[Dictionary]:
 	return settings
 
 func apply_setting(key: String, value: Variant) -> void:
+	# --- DEBUG INJECTION ---
+	print("[AGENT_%d] Inspector Updated -> Key: %s | Value: %s" % [display_id, key, str(value)])
+	
 	var brain_dirty = false
 	match key:
 		"agent_seed":
-			if str(value) != "":
-				set_seed(SeedUtils.hash_seed(str(value)))
+			if str(value) != "": set_seed(SeedUtils.hash_seed(str(value)))
 		"global_behavior": 
 			behavior_mode = value
 			brain_dirty = true
+			is_finished = false
 		"movement_algo": 
 			movement_algo = value
 			brain_dirty = true
-		"target_node": target_node_id = value
+		"target_node": 
+			target_node_id = value
+			is_finished = false
 		"active": active = value
 		"snap_to_grid": snap_to_grid = value
-		"steps": steps = value
-		
+		"steps": 
+			steps = value
+			if steps == -1 or step_count < steps: is_finished = false
+			
 		"auto_paint": auto_paint = value
 		"paint_target":
 			paint_target = ["NODE", "EDGE"][int(value)]
 			paint_field = "type" 
-			# Reset value to the first available category key
 			var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
 			paint_value = keys[0] if not keys.is_empty() else "empty"
 			
@@ -565,8 +584,6 @@ func apply_setting(key: String, value: Variant) -> void:
 				var new_field = avail_fields[int(value)]
 				if new_field != paint_field:
 					paint_field = new_field
-					
-					# Reset paint_value so it matches the new field's expected type!
 					if paint_field == "type":
 						var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
 						paint_value = keys[0] if not keys.is_empty() else "empty"

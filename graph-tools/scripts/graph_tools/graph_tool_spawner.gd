@@ -118,15 +118,20 @@ func _spawn_under_mouse() -> void:
 	var id = _get_node_at_pos(mouse_pos)
 	
 	if id != "":
-		# 1. Create the object
+		# 1. Create the temporary object
 		var agent = _target_strategy.create_agent_for_node(id, _editor.graph)
 		
 		if agent:
-			# 2. Add via Editor
+			# 2. Add via Editor (This queues CmdAddAgent, which CLONES the Agent for Undo/Redo!)
 			_editor.add_agent(agent)
 			
-			# Select the NODE to show context
-			_editor.set_selection_batch([id], [], true)
+			# 3. Retrieve the ACTUAL agent that was injected into the live Graph!
+			var live_agent = _editor.graph.get_agent_by_uuid(agent.uuid)
+			if live_agent == null: 
+				live_agent = agent # Fallback just in case
+				
+			# 4. Select the LIVE agent so the Inspector modifies the real one
+			_editor.set_agent_selection([live_agent], true)
 			_update_markers()
 			
 			if _editor.has_signal("request_inspector_view"):

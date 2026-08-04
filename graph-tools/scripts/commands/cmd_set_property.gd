@@ -52,12 +52,18 @@ func _apply(val: Variant) -> void:
 		SemanticRegistry.TARGET_AGENT, SemanticRegistry.TARGET_ZONE:
 			var obj = _id
 			if not is_instance_valid(obj): return
-			
+
 			if _key in obj:
 				obj.set(_key, val)
 			else:
 				if val == null: obj.custom_data.erase(_key)
 				else: obj.custom_data[_key] = val
+
+			# --- Refresh agent brain when required ---
+			if _target_type == SemanticRegistry.TARGET_AGENT:
+				if _key in ["behavior_mode", "movement_algo"]:
+					if obj.has_method("_refresh_brain"):
+						obj._refresh_brain()
 
 func get_name() -> String:
 	return "Set %s Property '%s'" % [_target_type.capitalize(), _key]
