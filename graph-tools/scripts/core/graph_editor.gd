@@ -188,6 +188,11 @@ func set_path_ends(ids: Array) -> void:
 	renderer.path_end_ids = ids
 	renderer.queue_redraw()
 
+func set_action_edges(edges: Array) -> void:
+	if renderer:
+		renderer.highlighted_action_edges_ref = edges
+		renderer.queue_redraw()
+
 func _refresh_path(algo_index: int = 3) -> void:
 	if path_start_ids.size() == 1 and path_end_ids.size() == 1:
 		var start = path_start_ids[0]
@@ -201,7 +206,12 @@ func _refresh_path(algo_index: int = 3) -> void:
 	else:
 		current_path.clear()
 		renderer.current_path_ref = current_path
-		
+
+func set_agent_breadcrumbs(paths: Array) -> void:
+	if renderer:
+		renderer.agent_breadcrumbs_ref = paths
+		renderer.queue_redraw()
+
 # --- Node Operations ---
 
 func create_node(pos: Vector2) -> String:

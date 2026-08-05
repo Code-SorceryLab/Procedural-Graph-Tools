@@ -2,7 +2,7 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve Questline,Diagnosis"
+const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve Questline,Player Controlled"
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # ==============================================================================
@@ -295,7 +295,7 @@ func _refresh_brain() -> void:
 		3: set_behavior(BehaviorsStandard.Seek.new(movement_algo))
 		4: set_behavior(BehaviorMazeGen.new()) 
 		5: set_behavior(BehaviorSolver.new())
-		6: set_behavior(BehaviorsStandard.BehaviorDiagnostic.new()) # [DIAGNOSTIC OVERRIDE]
+		6: set_behavior(BehaviorManual.new())
 		_: set_behavior(BehaviorsStandard.Hold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:

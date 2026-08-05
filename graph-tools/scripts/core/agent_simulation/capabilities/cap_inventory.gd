@@ -46,3 +46,41 @@ func _get_keys() -> Array[String]:
 		var clean = k.strip_edges()
 		if clean != "": arr.append(clean)
 	return arr
+
+# --- SHARED RULE VALIDATION ---
+
+# Checks if the agent is legally allowed to traverse this edge
+static func can_unlock_edge(agent: AgentWalker, graph: Graph, from_id: String, to_id: String) -> bool:
+	var custom_edge_data = graph.get_edge_data(from_id, to_id)
+	var req = custom_edge_data.get("requires", "")
+	if req == "": return true # No lock
+	
+	var inv = agent.get_capability("Inventory") as CapInventory
+	if not inv: return false
+	
+	var clean_req = CapInventory.extract_raw_name(req)
+	return inv.has_key(clean_req)
+
+# Consumes any items at the given node and puts them in the backpack
+static func consume_items_at_node(agent: AgentWalker, graph: Graph, node_id: String) -> void:
+	var inv = agent.get_capability("Inventory") as CapInventory
+	if not inv or not graph.nodes.has(node_id): return
+	
+	var node_data = graph.nodes[node_id]
+	
+	# [FIXED] Safely extract the items string whether it is a native variable or custom data
+	var items_str = ""
+	if "items" in node_data:
+		var raw_val = node_data.get("items")
+		if raw_val != null: items_str = str(raw_val)
+	elif "custom_data" in node_data:
+		items_str = str(node_data.custom_data.get("items", ""))
+	
+	if items_str != "":
+		for item in items_str.split(","):
+			var clean_item = item.strip_edges()
+			if clean_item != "": 
+				inv.add_key(clean_item, node_id, items_str)
+		
+		# Safely consume from the graph
+		graph.set_node_property(node_id, "items", "")

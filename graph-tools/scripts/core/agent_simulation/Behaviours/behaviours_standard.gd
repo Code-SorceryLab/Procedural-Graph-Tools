@@ -26,18 +26,18 @@ class Wander extends AgentBehavior:
 		var neighbors = graph.get_neighbors(current_id)
 		
 		# --- DEBUG EXPOSURE ---
-		print("[WANDER DEBUG] At '%s' | Found %d outgoing neighbors." % [current_id, neighbors.size()])
+		#print("[WANDER DEBUG] At '%s' | Found %d outgoing neighbors." % [current_id, neighbors.size()])
 		
 		if neighbors.is_empty():
-			print("[WANDER DEBUG] Dead End! I am trapped.")
+			#print("[WANDER DEBUG] Dead End! I am trapped.")
 			return
 
 		# Bypass external utilities to guarantee safe selection
 		var target_id = neighbors[agent.rng.randi() % neighbors.size()]
-		print("[WANDER DEBUG] Picked target: '%s'" % target_id)
+		#print("[WANDER DEBUG] Picked target: '%s'" % target_id)
 
 		if AgentNavigator.can_enter_node(graph, target_id):
-			print("[WANDER DEBUG] Move approved! Walking...")
+			#print("[WANDER DEBUG] Move approved! Walking...")
 			var motor = agent.get_capability("Motor") as CapMotor
 			if motor:
 				motor.move_to_node(target_id, graph)
@@ -46,7 +46,7 @@ class Wander extends AgentBehavior:
 				
 			_session_path.append(target_id)
 		else:
-			print("[WANDER DEBUG] Move REJECTED by Zone/Geometry constraints!")
+			#print("[WANDER DEBUG] Move REJECTED by Zone/Geometry constraints!")
 			agent.last_bump_pos = graph.get_node_pos(target_id)
 
 	# --- Internal Logic ---

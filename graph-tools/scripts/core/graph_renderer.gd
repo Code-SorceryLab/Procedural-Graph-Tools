@@ -48,6 +48,9 @@ var hovered_zone_ref: Object = null
 var snap_preview_pos: Vector2 = Vector2.INF
 var selection_rect: Rect2 = Rect2()
 var cut_preview_edges: Array = []
+var highlighted_action_edges_ref: Array = []
+var agent_breadcrumbs_ref: Array = []
+
 
 var brush_preview_cells: Array[Vector2i] = []
 var brush_preview_color: Color = Color.WHITE
@@ -70,12 +73,18 @@ var tool_line_end: Vector2 = Vector2.INF
 func _ready() -> void:
 	font = ThemeDB.get_fallback_font()
 
+func _process(_delta: float) -> void:
+	# Only force continuous screen redraws if we actually have flowing edges to animate!
+	if highlighted_action_edges_ref.size() > 0:
+		queue_redraw()
+
 func _draw() -> void:
 	if not graph_ref: return
 	
 	# Render Order (Painter's Algorithm: Back to Front)
 	_draw_layer_zones()
 	_draw_layer_edges()
+	_draw_breadcrumbs()
 	_draw_layer_path()
 	_draw_layer_brush()
 	_draw_layer_nodes()
@@ -166,7 +175,7 @@ func _draw_layer_edges() -> void:
 	if graph_ref.edge_store.is_empty(): return
 	
 	var drawn_pairs = {}
-	var edge_decorators = [] # [NEW] Cache semantic text to draw AFTER lines so it stays on top
+	var edge_decorators = [] # Cache semantic text to draw AFTER lines so it stays on top
 	
 	for key in graph_ref.edge_store:
 		var e = graph_ref.edge_store[key]
@@ -221,9 +230,35 @@ func _draw_layer_edges() -> void:
 			
 		# --- 2. Handle Normal Edge (A -> B) ---
 		else:
-			draw_line(pos_a, pos_b, draw_color, current_width)
-			if not is_bidir:
-				_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
+			# Check if this line should be an animated Action Edge!
+			var is_action_edge = false
+			var flow_start = pos_a
+			var flow_end = pos_b
+			
+			for act_pair in highlighted_action_edges_ref:
+				# Since we deduplicate, check if the action edge matches this line in EITHER direction
+				if (act_pair[0] == e.u and act_pair[1] == e.v):
+					is_action_edge = true
+					break
+				elif (act_pair[0] == e.v and act_pair[1] == e.u):
+					is_action_edge = true
+					# Reverse the flow points so the animation marches the right way!
+					flow_start = pos_b
+					flow_end = pos_a
+					break
+			
+			if is_action_edge:
+				# Draw the animated green flowing line!
+				var action_color = Color(0.2, 0.8, 0.2, 0.9)
+				_draw_flowing_dashed_line(flow_start, flow_end, action_color, current_width + 1.0)
+				if not is_bidir:
+					_draw_edge_arrow(pos_a, pos_b, action_color, current_width + 1.0)
+			else:
+				# Draw standard solid line
+				draw_line(pos_a, pos_b, draw_color, current_width)
+				if not is_bidir:
+					_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
+					
 			midpoint = (pos_a + pos_b) / 2.0
 				
 		# --- 3. Gather Semantic Decorators ---
@@ -261,6 +296,48 @@ func _draw_edge_arrow(from: Vector2, to: Vector2, color: Color, width: float) ->
 	
 	draw_line(tip, p1, color, width)
 	draw_line(tip, p2, color, width)
+
+func _draw_flowing_dashed_line(from: Vector2, to: Vector2, color: Color, width: float) -> void:
+	var vec = to - from
+	var length = vec.length()
+	var dir = vec.normalized()
+	
+	# Visual Tuning
+	var dash_len = 10.0
+	var gap_len = 8.0
+	var pattern_len = dash_len + gap_len
+	var speed = 40.0 # Pixels per second
+	
+	# Use Godot's internal clock to calculate the flowing offset
+	var time_sec = Time.get_ticks_msec() / 1000.0
+	var offset = fmod(time_sec * speed, pattern_len)
+	
+	var current_dist = offset - pattern_len
+	while current_dist < length:
+		var start_d = max(current_dist, 0.0)
+		var end_d = min(current_dist + dash_len, length)
+		
+		if start_d < end_d:
+			var p1 = from + dir * start_d
+			var p2 = from + dir * end_d
+			draw_line(p1, p2, color, width, true)
+			
+		current_dist += pattern_len
+
+func _draw_breadcrumbs() -> void:
+	for path in agent_breadcrumbs_ref:
+		if path.size() < 2: continue
+		
+		# Vibrant, high-contrast Golden Orange with full opacity
+		var trail_color = Color(1.0, 0.65, 0.1, 1.0) 
+		
+		# Draw the path line (crisp and solid)
+		draw_polyline(path, trail_color, 4.0, true)
+		
+		# Draw distinct waypoint dots with a dark inner core (looks like a tracker!)
+		for i in range(path.size() - 1):
+			draw_circle(path[i], 6.0, trail_color)
+			draw_circle(path[i], 3.0, Color(0.15, 0.15, 0.15, 1.0))
 
 # ==============================================================================
 # 5. DOMAIN: PATHFINDING

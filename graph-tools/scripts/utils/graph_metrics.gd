@@ -44,15 +44,17 @@ static func _get_basic_counts(graph: Graph) -> Dictionary:
 	var edge_count = 0
 	var processed_pairs = {}
 	
-	# Undirected Edge Deduplication
-	for a in graph.edge_data:
-		for b in graph.edge_data[a]:
-			var pair = [a, b]
-			pair.sort()
-			if not processed_pairs.has(pair):
-				processed_pairs[pair] = true
-				edge_count += 1
-				
+	# [FIX] Iterate safely over the new edge_store instead of the deprecated edge_data
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		var pair = [e.u, e.v]
+		pair.sort()
+		
+		# Undirected Deduplication
+		if not processed_pairs.has(pair):
+			processed_pairs[pair] = true
+			edge_count += 1
+			
 	# Node Degrees (Shape analysis)
 	var disconnected = 0
 	var dead_ends = 0
@@ -60,6 +62,7 @@ static func _get_basic_counts(graph: Graph) -> Dictionary:
 	var intersections = 0
 	
 	for id in graph.nodes:
+		# get_neighbors is perfectly safe!
 		var deg = graph.get_neighbors(id).size()
 		if deg == 0: disconnected += 1
 		elif deg == 1: dead_ends += 1

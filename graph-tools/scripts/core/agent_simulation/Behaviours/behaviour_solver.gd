@@ -18,22 +18,8 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	var current = agent.current_node_id
 	if current == "": return
 	
-	# 1. Pick up Items at Current Node
-	var inv = agent.get_capability("Inventory") as CapInventory
-	if inv and graph.nodes.has(current):
-		var node_data = graph.nodes[current]
-		var items_str = node_data.custom_data.get("items", "")
-		if items_str != "":
-			for item in items_str.split(","):
-				var clean_item = item.strip_edges()
-				if clean_item != "": 
-					# Pass the memory to the Backpack
-					inv.add_key(clean_item, current, items_str)
-			
-			# Safely consume the item! 
-			# (If using GraphRecorder, this pushes to Ctrl+Z automatically. 
-			# If Live Ticking, CapInventory will restore it on reset!)
-			graph.set_node_property(current, "items", "")
+	# 1. Pick up Items at Current Node (Using Shared Rules)
+	CapInventory.consume_items_at_node(agent, graph, current)
 
 	# 2. Check for Victory
 	if graph.nodes.has(current) and graph.nodes[current].type == "boss":
@@ -52,12 +38,9 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		var pair = [current, v]
 		if explored_edges.has(pair): continue # Already explored this specific edge
 		
-		# --- CONSTRAINT A: Locks ---
-		var req = e.custom.get("requires", "")
-		if req != "":
-			var clean_req = CapInventory.extract_raw_name(req)
-			if not inv or not inv.has_key(clean_req):
-				continue # We don't have the key!
+		# --- CONSTRAINT A: Locks (Using Shared Rules) ---
+		if not CapInventory.can_unlock_edge(agent, graph, current, v):
+			continue # We don't have the key!
 			
 		# --- CONSTRAINT B: Logic Gates ---
 		var target_node = graph.nodes[v]

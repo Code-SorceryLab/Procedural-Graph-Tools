@@ -180,6 +180,15 @@ func _on_reset_pressed() -> void:
 	if graph_editor and graph_editor.simulation:
 		var cmd = graph_editor.simulation.reset_state()
 		if cmd: graph_editor._commit_command(cmd)
+		
+		# Force the Control Tool to recalculate its paths and UI instantly!
+		if graph_editor.tool_manager and graph_editor.tool_manager.current_tool:
+			var current_tool = graph_editor.tool_manager.current_tool
+			if current_tool.has_method("_update_action_edges"):
+				current_tool._update_action_edges()
+			if current_tool.has_method("_refresh_ui"):
+				current_tool._refresh_ui()
+				
 		if graph_editor.renderer: graph_editor.renderer.queue_redraw()
 
 func _on_speed_changed(value: float) -> void:

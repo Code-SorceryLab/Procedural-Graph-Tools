@@ -42,9 +42,10 @@ func copy() -> void:
 	var checked_edges = {}
 	
 	for id_a in selected_nodes:
-		if not graph.edge_data.has(id_a): continue
+		# Use the public API instead of accessing the raw, internal dictionaries
+		var neighbors = graph.get_neighbors(id_a)
 		
-		for id_b in graph.edge_data[id_a]:
+		for id_b in neighbors:
 			if node_set.has(id_b):
 				var pair = [id_a, id_b]
 				pair.sort()
@@ -53,7 +54,12 @@ func copy() -> void:
 				
 				var w = graph.get_edge_weight(id_a, id_b)
 				var is_directed = not graph.has_edge(id_b, id_a)
-				var e_data = graph.get_edge_data(id_a, id_b) 
+				
+				# Fetch custom properties
+				var e_data = {}
+				if graph.has_method("get_edge_data"):
+					var raw_data = graph.get_edge_data(id_a, id_b)
+					if raw_data is Dictionary: e_data = raw_data
 				
 				clipboard_data["edges"].append({
 					"u": id_a,
