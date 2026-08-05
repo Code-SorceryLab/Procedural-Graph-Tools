@@ -59,7 +59,7 @@ zone_list = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zon
 btn_add_zone = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/BtnAddZone")
 lbl_stats = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Zone/LblStats")
 
-[node name="AnalysisController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_calculate", "btn_export", "btn_copy", "results_label", "file_dialog")]
+[node name="AnalysisController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "btn_calculate", "btn_export", "btn_copy", "results_label", "file_dialog", "analysis_settings_container")]
 script = ExtResource("6_20qpb")
 graph_editor = NodePath("../GraphEditor")
 btn_calculate = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/CalculateBtn")
@@ -67,6 +67,7 @@ btn_export = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/An
 btn_copy = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/CopyBtn")
 results_label = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/MarginContainer/ResultsRTL")
 file_dialog = NodePath("../UI/FileDialog")
+analysis_settings_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/AnalysisSettingsContainer")
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
 script = ExtResource("5_5u163")
@@ -412,6 +413,9 @@ text = "Stats: "
 visible = false
 layout_mode = 2
 metadata/_tab_index = 4
+
+[node name="AnalysisSettingsContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
+layout_mode = 2
 
 [node name="CalculateBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis"]
 layout_mode = 2
