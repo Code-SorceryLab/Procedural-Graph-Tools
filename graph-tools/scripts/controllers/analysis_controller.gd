@@ -106,10 +106,21 @@ func _on_analysis_setting_changed(key: String, value: Variant) -> void:
 func _on_calculate_pressed() -> void:
 	if not graph_editor or not graph_editor.graph: return
 		
-	# Pass the fully populated dynamic settings dictionary!
-	_latest_report = GraphMetrics.generate_report(graph_editor.graph, _analysis_params) 
+	# 1. Lock UI and show processing state
+	btn_calculate.disabled = true
+	btn_export.disabled = true
+	btn_copy.disabled = true
+	
+	if results_label:
+		results_label.text = "[center][color=#f5d142]Calculating... (Background Thread Active)[/color][/center]"
+		
+	# 2. Await the coroutine! The UI remains totally responsive while this waits.
+	_latest_report = await GraphMetrics.generate_report(graph_editor.graph, _analysis_params) 
+	
+	# 3. Render results and unlock UI
 	_populate_results_ui(_latest_report)
 	
+	btn_calculate.disabled = false
 	if btn_export: btn_export.disabled = false
 	if btn_copy: btn_copy.disabled = false
 

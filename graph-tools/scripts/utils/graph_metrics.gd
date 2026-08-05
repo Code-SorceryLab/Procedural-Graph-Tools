@@ -10,7 +10,7 @@ static func get_analysis_options_schema() -> Array[Dictionary]:
 		{ "name": "tangle_max_iters", "label": "Tangle Iteration Limit", "type": TYPE_INT, "default": 100000, "min": 1000, "max": 10000000, "step": 1000 }
 	]
 
-# Update the main signature to accept the params dictionary
+# The 'await' keyword inside this function automatically turns it into a Coroutine!
 static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary:
 	var report = {
 		"timestamp": Time.get_datetime_string_from_system(),
@@ -28,11 +28,13 @@ static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary
 	_calculate_markov(graph, report)
 	_calculate_zones(graph, report)
 	
-	# Pass the params down to the algorithms that need them!
+	# Pause execution here if we are threading the Tangles!
 	if params.get("do_tangles", false):
-		_calculate_tangles(graph, report, params)
+		await _calculate_tangles(graph, report, params)
 		
 	return report
+
+
 
 # --- 1. TOPOLOGICAL METRICS ---
 static func _calculate_topology(graph: Graph, report: Dictionary) -> void:
@@ -469,8 +471,14 @@ static func _calculate_zones(graph: Graph, report: Dictionary) -> void:
 	}
 
 # --- 6. TANGLE METRICS ---
+# Changed to an async coroutine
 static func _calculate_tangles(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var tangle_data = GraphTangle.calculate(graph, params)
+	var tangle_solver = GraphTangle.new()
+	tangle_solver.calculate_async(graph, params)
+	
+	# Suspend execution until the background thread fires this signal
+	var tangle_data = await tangle_solver.calculation_finished
+	
 	report["robertson_seymour_tangles"] = {
 		"tangle_treewidth": tangle_data["treewidth"],
 		"tangle_calculation_method": tangle_data["method"]
