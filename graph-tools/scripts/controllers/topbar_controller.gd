@@ -23,6 +23,11 @@ extends Node
 # --- STATE ---
 var _active_tool_inputs: Dictionary = {}
 var is_buoyancy_active: bool = false
+var is_auto_crystallize_active: bool = false # Tracks crystallization state
+
+var is_edge_snapping_active: bool = false
+var is_node_fusing_active: bool = false
+
 
 # Playback State
 var is_playing: bool = false
@@ -77,10 +82,18 @@ func _setup_menus() -> void:
 	# Setup Graph Menu
 	if menu_graph:
 		menu_graph.clear()
+		
+		# --- BUOYANCY PHYSICS SECTION ---
+		menu_graph.add_separator() 
 		menu_graph.add_check_item("Enable Buoyancy Mode", 301)
-		menu_graph.add_separator()
+		menu_graph.add_check_item("Auto-Crystallize (Snap & Freeze)", 303)
+		menu_graph.add_check_item("Enable Edge Tension Snapping", 304) # [NEW]
+		menu_graph.add_check_item("Enable Node Collision Fusing", 305) # [NEW]
 		menu_graph.add_item("Force Directed Layout (1 Step)", 302)
+		menu_graph.add_separator() 
+		
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
+		
 
 # Dynamic Undo/Redo Labels
 func _on_edit_menu_about_to_popup() -> void:
@@ -134,14 +147,34 @@ func _on_graph_menu_pressed(id: int) -> void:
 			var idx = menu_graph.get_item_index(301)
 			menu_graph.set_item_checked(idx, is_buoyancy_active)
 			
-			if graph_editor:
-				# We will implement this flag in GraphEditor next!
-				if graph_editor.has_method("set_buoyancy_active"):
-					graph_editor.set_buoyancy_active(is_buoyancy_active)
+			if graph_editor and graph_editor.has_method("set_buoyancy_active"):
+				graph_editor.set_buoyancy_active(is_buoyancy_active)
 				
 		302: # Fire a single instantaneous physics step
 			if graph_editor and graph_editor.has_method("apply_buoyancy_step"):
 				graph_editor.apply_buoyancy_step()
+				
+		303: # Toggle Auto-Crystallize Mode
+			is_auto_crystallize_active = not is_auto_crystallize_active
+			var idx = menu_graph.get_item_index(303)
+			menu_graph.set_item_checked(idx, is_auto_crystallize_active)
+			
+			if graph_editor and graph_editor.has_method("set_buoyancy_crystallize"):
+				graph_editor.set_buoyancy_crystallize(is_auto_crystallize_active)
+		
+		304: # Toggle Edge Snapping
+			is_edge_snapping_active = not is_edge_snapping_active
+			var idx = menu_graph.get_item_index(304)
+			menu_graph.set_item_checked(idx, is_edge_snapping_active)
+			if graph_editor and graph_editor.has_method("set_buoyancy_edge_snapping"):
+				graph_editor.set_buoyancy_edge_snapping(is_edge_snapping_active)
+		
+		305: # Toggle Node Fusing
+			is_node_fusing_active = not is_node_fusing_active
+			var idx = menu_graph.get_item_index(305)
+			menu_graph.set_item_checked(idx, is_node_fusing_active)
+			if graph_editor and graph_editor.has_method("set_buoyancy_node_fusing"):
+				graph_editor.set_buoyancy_node_fusing(is_node_fusing_active)
 
 # ==============================================================================
 # SIMULATION HANDLERS

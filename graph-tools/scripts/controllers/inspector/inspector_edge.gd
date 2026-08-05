@@ -97,14 +97,31 @@ func _rebuild_edge_ui() -> void:
 		"default": stiff_val, "step": 0.1, "mixed": mixed.custom_keys.has("physics_stiffness")
 	})
 	
+	# [NEW] Add Snappable Toggle
+	var snap_val = ref_data.custom.get("physics_snappable", false)
+	schema.append({
+		"name": "physics_snappable", "label": "Can Snap (Tension)", "type": TYPE_BOOL,
+		"default": snap_val, "mixed": mixed.custom_keys.has("physics_snappable")
+	})
+	
+	# [NEW] Add Snap Threshold
+	var thresh_val = ref_data.custom.get("physics_snap_threshold", 400.0)
+	schema.append({
+		"name": "physics_snap_threshold", "label": "Snap Threshold", "type": TYPE_FLOAT,
+		"default": thresh_val, "step": 10.0, "mixed": mixed.custom_keys.has("physics_snap_threshold")
+	})
+	
 	# Dynamic Properties
 	var registered_props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 	if not registered_props.is_empty():
 		
+		# Skip our hardcoded physics keys
+		var skip_keys = ["physics_spring_length", "physics_stiffness", "physics_mode", "physics_snappable", "physics_snap_threshold"]
+		
 		# Check if there are actual custom properties besides our intercepted physics ones
 		var has_custom = false
 		for k in registered_props:
-			if k not in ["physics_spring_length", "physics_stiffness", "physics_mode"]:
+			if k not in skip_keys:
 				has_custom = true
 				break
 				
@@ -112,7 +129,7 @@ func _rebuild_edge_ui() -> void:
 			schema.append({ "name": "sep_custom", "type": TYPE_NIL, "hint": "separator" })
 			
 			for key in registered_props:
-				if key in ["physics_spring_length", "physics_stiffness", "physics_mode"]: continue # Skip!
+				if key in skip_keys: continue # Skip!
 				
 				var def = registered_props[key]
 				var val = ref_data.custom.get(key, def.default)

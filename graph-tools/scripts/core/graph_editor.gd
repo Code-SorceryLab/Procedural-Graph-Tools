@@ -126,11 +126,34 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not is_buoyancy_active or not buoyancy_engine: return
 	
-	buoyancy_engine.step(graph, delta)
+	# The engine moves the nodes and reports any structural damage back to us
+	var destruction_report = buoyancy_engine.step(graph, delta)
 	
 	# The buoyancy engine modified the node positions directly in the graph.
-	# We must tell the renderer to draw the new positions!
 	if renderer: renderer.queue_redraw()
+	
+	# --- PROCESS DESTRUCTIVE PHYSICS SAFELY ---
+	# We process the dictionary here using the Editor's native delete/disconnect methods
+	# so that Undo/Redo, Agents, and visual selection states are safely handled!
+	var has_damage = destruction_report["snapped_edges"].size() > 0 or destruction_report["fused_nodes"].size() > 0
+	
+	if has_damage:
+		start_undo_transaction("Physics Destruction")
+		
+		for pair in destruction_report["snapped_edges"]:
+			disconnect_nodes(pair[0], pair[1])
+			
+		for pair in destruction_report["fused_nodes"]:
+			var scrap_id = pair[1] # Keep the first one, delete the second one
+			delete_node(scrap_id)
+			
+			# CRITICAL: Remove deleted nodes from physics caches to prevent crashing when toggling Buoyancy!
+			if _buoyancy_snapshot.has(scrap_id):
+				_buoyancy_snapshot.erase(scrap_id)
+			if buoyancy_engine._velocities.has(scrap_id):
+				buoyancy_engine._velocities.erase(scrap_id)
+				
+		commit_undo_transaction()
 
 # ==============================================================================
 # 2. TOOL MANAGEMENT
@@ -894,6 +917,19 @@ func set_buoyancy_active(active: bool) -> void:
 			
 		_buoyancy_transaction_open = false
 		_buoyancy_snapshot.clear()
+
+func set_buoyancy_crystallize(is_active: bool) -> void:
+	if buoyancy_engine:
+		# Pass the active graph in so the engine can melt the nodes
+		buoyancy_engine.set_auto_crystallize(is_active, graph)
+
+func set_buoyancy_edge_snapping(is_active: bool) -> void:
+	if buoyancy_engine:
+		buoyancy_engine.global_edge_snapping = is_active
+
+func set_buoyancy_node_fusing(is_active: bool) -> void:
+	if buoyancy_engine:
+		buoyancy_engine.global_node_fusing = is_active
 
 # Fires exactly one discrete tick of physics (Without opening a continuous transaction)
 func apply_buoyancy_step() -> void:
