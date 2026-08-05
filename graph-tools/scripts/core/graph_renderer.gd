@@ -66,6 +66,12 @@ var _depth_cache_dirty: bool = true
 var tool_line_start: Vector2 = Vector2.INF
 var tool_line_end: Vector2 = Vector2.INF
 
+# --- TRANSFORM VISUALS ---
+var transform_rect: Rect2 = Rect2()
+var transform_border_color: Color = Color(0.3, 0.6, 1.0, 0.8) # Sleek UI Blue
+var transform_handle_color: Color = Color.WHITE
+const HANDLE_SIZE: float = 10.0
+
 # ==============================================================================
 # 2. LIFECYCLE & MAIN LOOP
 # ==============================================================================
@@ -93,6 +99,9 @@ func _draw() -> void:
 	_draw_layer_labels()
 	_draw_layer_interaction()
 	_draw_layer_selection_box()
+	
+	if transform_rect.has_area():
+		_draw_transform_box()
 	
 	if debug_show_depth:
 		_draw_layer_debug_depth()
@@ -680,6 +689,26 @@ func _draw_layer_selection_box() -> void:
 	if selection_rect.has_area():
 		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_Fill, true)
 		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_BORDER, false, 1.0)
+
+func _draw_transform_box() -> void:
+	# 1. Draw the bounding box border (2px thick)
+	draw_rect(transform_rect, transform_border_color, false, 2.0)
+	
+	# 2. The 8 mathematical directions
+	var dirs = [
+		Vector2(-1, -1), Vector2(0, -1), Vector2(1, -1), # Top
+		Vector2(-1, 0),                  Vector2(1, 0),  # Middle
+		Vector2(-1, 1),  Vector2(0, 1),  Vector2(1, 1)   # Bottom
+	]
+	
+	# 3. Draw the grab handles
+	for d in dirs:
+		var pos = transform_rect.position + (transform_rect.size / 2.0) + (d * transform_rect.size / 2.0)
+		var h_rect = Rect2(pos - Vector2(HANDLE_SIZE / 2.0, HANDLE_SIZE / 2.0), Vector2(HANDLE_SIZE, HANDLE_SIZE))
+		
+		# Fill it white, then draw a blue border around the handle
+		draw_rect(h_rect, transform_handle_color, true)
+		draw_rect(h_rect, transform_border_color, false, 1.5)
 
 # ==============================================================================
 # 11. DOMAIN: DEBUG (DEPTH)

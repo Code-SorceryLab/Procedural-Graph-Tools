@@ -4,11 +4,39 @@ extends RefCounted
 # --- MODULAR ANALYSIS SCHEMA ---
 static func get_analysis_options_schema() -> Array[Dictionary]:
 	return [
-		{ "name": "do_tangles", "label": "Calculate Tangles & Treewidth", "type": TYPE_BOOL, "default": false },
+		# Tangles
+		{ "name": "do_tangles", "label": "Calculate Tangles & Treewidth", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Extracts the exact Treewidth.\nWarning: Computationally heavy." },
 		{ "name": "tangle_force_exact", "label": "Force Exact Tangles (May freeze editor!)", "type": TYPE_BOOL, "default": false, 
-		  "hint": "If true, ignores the iteration limit and computes until finished. (Still capped at 63 nodes due to 64-bit math limits)." },
-		{ "name": "tangle_max_iters", "label": "Tangle Iteration Limit", "type": TYPE_INT, "default": 100000, "min": 1000, "max": 10000000, "step": 1000 }
+		  "hint": "If true, ignores the iteration limit and computes until finished.\n(Still capped at 63 nodes due to 64-bit math limits)." },
+		{ "name": "tangle_max_iters", "label": "Tangle Iteration Limit", "type": TYPE_INT, "default": 100000, "min": 1000, "max": 10000000, "step": 1000, 
+		  "hint": "Maximum iterations before falling back\nto the greedy approximation." },
+
+		# Chromatic Math
+		{ "name": "do_chromatic", "label": "Calculate Chromatic Number", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Finds the minimum number of colors\nneeded to paint the graph." },
+		{ "name": "chromatic_force_exact", "label": "Force Exact Chromatic (May freeze!)", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Ignores the iteration limit to find\nthe exact mathematically perfect coloring." },
+		{ "name": "chromatic_max_iters", "label": "Chromatic Iteration Limit", "type": TYPE_INT, "default": 100000, "min": 1000, "max": 10000000, "step": 1000, 
+		  "hint": "Max recursive branches before aborting." },
+	
+		# Max Exploration Math
+		{ "name": "do_longest_path", "label": "Calculate Max Exploration (Longest Path)", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Finds the longest possible continuous path\nwithout revisiting any nodes." },
+		{ "name": "longest_path_force_exact", "label": "Force Exact Longest Path", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Bypasses iteration limits to guarantee\nthe absolute longest path." },
+		{ "name": "longest_path_max_iters", "label": "Longest Path Iteration Limit", "type": TYPE_INT, "default": 200000, "min": 1000, "max": 10000000, "step": 1000, 
+		  "hint": "Max permutations to check before yielding\nthe best path found so far." },
+		
+		# Eulerian Math
+		{ "name": "do_eulerian", "label": "Calculate Edge Traversal (Eulerian Path)", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Checks if an agent can traverse\nevery edge exactly once." },
+		
+		# Community Detection
+		{ "name": "do_louvain", "label": "Calculate Biomes (Community Detection)", "type": TYPE_BOOL, "default": false, 
+		  "hint": "Uses the Louvain Method to cluster nodes\ninto logical districts based on edge density." }
 	]
+
 
 # The 'await' keyword inside this function automatically turns it into a Coroutine!
 static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary:
@@ -28,11 +56,28 @@ static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary
 	_calculate_markov(graph, report)
 	_calculate_zones(graph, report)
 	
-	# Pause execution here if we are threading the Tangles!
+	# Pause execution here if we are threading the Tangles
 	if params.get("do_tangles", false):
 		await _calculate_tangles(graph, report, params)
-		
+	
+	# Pause for the Chromatic thread
+	if params.get("do_chromatic", false):
+		await _calculate_chromatic(graph, report, params)
+	
+	# Pause for the Longest Path thread!
+	if params.get("do_longest_path", false):
+		await _calculate_longest_path(graph, report, params)
+	
+	# Pause for Eulerian Thread
+	if params.get("do_eulerian", false):
+		await _calculate_eulerian(graph, report, params)
+	
+	# Pause for Louvain Thread
+	if params.get("do_louvain", false):
+		await _calculate_louvain(graph, report, params)
+	
 	return report
+	
 
 
 
@@ -470,7 +515,7 @@ static func _calculate_zones(graph: Graph, report: Dictionary) -> void:
 		"aggregate_area_size": total_area
 	}
 
-# --- 6. TANGLE METRICS ---
+# --- 6. HEAVY METRICS ---
 # Changed to an async coroutine
 static func _calculate_tangles(graph: Graph, report: Dictionary, params: Dictionary) -> void:
 	var tangle_solver = GraphTangle.new()
@@ -483,3 +528,99 @@ static func _calculate_tangles(graph: Graph, report: Dictionary, params: Diction
 		"tangle_treewidth": tangle_data["treewidth"],
 		"tangle_calculation_method": tangle_data["method"]
 	}
+	
+# Coroutine Caller
+static func _calculate_chromatic(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var chromatic_solver = GraphChromatic.new()
+	chromatic_solver.calculate_async(graph, params)
+	
+	var c_data = await chromatic_solver.calculation_finished
+	
+	report["chromatic_coloring"] = {
+		"chromatic_number": c_data["chromatic_number"],
+		"chromatic_calculation_method": c_data["method"]
+	}
+
+# Coroutine Caller
+static func _calculate_longest_path(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var path_solver = GraphLongestPath.new()
+	path_solver.calculate_async(graph, params)
+	
+	var path_data = await path_solver.calculation_finished
+	
+	report["max_exploration_path"] = {
+		"max_path_length": path_data["max_path_length"],
+		"is_hamiltonian": path_data["is_hamiltonian"],
+		"longest_path_calculation_method": path_data["method"]
+	}
+	
+	# Convert the ordered path array into edge pairs for interactive highlighting!
+	var ordered_nodes = path_data["path_nodes"]
+	var path_edges = []
+	for i in range(ordered_nodes.size() - 1):
+		var pair = [ordered_nodes[i], ordered_nodes[i+1]]
+		pair.sort()
+		path_edges.append(pair)
+		
+	if not report.has("_selection_data"): report["_selection_data"] = {}
+	report["_selection_data"]["max_path_length"] = { "nodes": ordered_nodes, "edges": path_edges }
+
+# Coroutine Caller
+static func _calculate_eulerian(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var eulerian_solver = GraphEulerian.new()
+	eulerian_solver.calculate_async(graph, params)
+	
+	var e_data = await eulerian_solver.calculation_finished
+	
+	report["eulerian_edge_traversal"] = {
+		"has_eulerian_circuit": e_data["has_circuit"],
+		"has_eulerian_path": e_data["has_path"],
+		"odd_degree_nodes": e_data["odd_nodes"]
+	}
+	
+	# Interactive Highlighting setup
+	var ordered_nodes = e_data["path_nodes"]
+	if not ordered_nodes.is_empty():
+		var path_edges = []
+		for i in range(ordered_nodes.size() - 1):
+			var pair = [ordered_nodes[i], ordered_nodes[i+1]]
+			pair.sort()
+			path_edges.append(pair)
+			
+		# Show the exact count of the path (which equals Edge Count) so we have a clickable UI element
+		report["eulerian_edge_traversal"]["full_traversal_route_length"] = ordered_nodes.size()
+		
+		if not report.has("_selection_data"): report["_selection_data"] = {}
+		report["_selection_data"]["full_traversal_route_length"] = { "nodes": ordered_nodes, "edges": path_edges }
+
+# Coroutine Caller
+static func _calculate_louvain(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var louvain_solver = GraphLouvain.new()
+	louvain_solver.calculate_async(graph, params)
+	
+	var c_data = await louvain_solver.calculation_finished
+	
+	report["community_detection"] = {
+		"modularity_score": c_data["modularity"],
+		"detected_communities": c_data["communities"],
+		"districts": {} # We will list them as nested clickables!
+	}
+	
+	# Group the nodes by their detected Community ID
+	var districts = {}
+	var c_map = c_data["communities_map"]
+	
+	for node_id in c_map:
+		var c_id = c_map[node_id]
+		if not districts.has(c_id): districts[c_id] = []
+		districts[c_id].append(node_id)
+		
+	if not report.has("_selection_data"): report["_selection_data"] = {}
+	
+	# Create a clickable UI link for every single biome detected!
+	for c_id in districts.keys():
+		var dist_name = "district_%d" % c_id
+		var count = districts[c_id].size()
+		
+		report["community_detection"]["districts"][dist_name] = count
+		report["_selection_data"][dist_name] = { "nodes": districts[c_id], "edges": [] }
