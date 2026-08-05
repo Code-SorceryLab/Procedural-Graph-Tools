@@ -8,7 +8,9 @@ class_name FileController
 @export_group("UI File Tab")
 @export var save_btn: Button
 @export var save_as_btn: Button
+@export var save_selection_btn: Button
 @export var load_btn: Button
+@export var load_prefab_btn: Button
 @export var file_status: Label
 @export var file_dialog: FileDialog
 
@@ -30,6 +32,9 @@ func _ready() -> void:
 	if save_as_btn: save_as_btn.pressed.connect(_on_save_as_button_pressed)
 	if load_btn: load_btn.pressed.connect(_on_load_button_pressed)
 	if settings_btn: settings_btn.pressed.connect(_on_settings_button_pressed)
+	if save_selection_btn: save_selection_btn.pressed.connect(_on_save_selection_pressed)
+	if load_prefab_btn: load_prefab_btn.pressed.connect(_on_load_prefab_pressed)
+	
 	
 	file_dialog.file_selected.connect(_on_file_selected)
 	
@@ -128,6 +133,25 @@ func _open_load_dialog() -> void:
 func _on_settings_button_pressed() -> void:
 	settings_window.show_settings()
 
+func _on_save_selection_pressed() -> void:
+	if graph_editor.selected_nodes.is_empty():
+		file_status.text = "Select nodes to save a Prefab!"
+		file_status.modulate = GraphSettings.COLOR_UI_ERROR
+		return
+		
+	_is_saving = true
+	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	file_dialog.title = "Save Selection As Template..."
+	file_dialog.filters = ["*.json ; JSON Prefab"]
+	file_dialog.popup_centered()
+
+func _on_load_prefab_pressed() -> void:
+	_is_saving = false
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.title = "Load Prefab to Stamp"
+	file_dialog.filters = ["*.json ; JSON Prefab"]
+	file_dialog.popup_centered()
+
 
 # Public entry point for New Graph (Protected by the Discard Gatekeeper)
 func request_new_graph() -> void:
@@ -147,9 +171,25 @@ func _execute_new_graph() -> void:
 # --- FILE OPERATIONS ---
 
 func _on_file_selected(path: String) -> void:
-	# 1. Handle Unified Save As
 	if file_dialog.title == "Save As...":
 		_execute_save(path)
+		return
+		
+	# Save Selection Route
+	if file_dialog.title == "Save Selection As Template...":
+		if not path.ends_with(".json"): path += ".json"
+		var output = GraphSerializer.serialize_selection(graph_editor.graph, graph_editor.selected_nodes)
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if file:
+			file.store_string(output)
+			file.close()
+			file_status.text = "Template Saved: " + path.get_file()
+			file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
+		return
+		
+	# Load Prefab Route
+	if file_dialog.title == "Load Prefab to Stamp":
+		_load_prefab_into_clipboard(path)
 		return
 
 	# 2. Handle Load Router
@@ -190,6 +230,42 @@ func _execute_save(path: String) -> void:
 		file_status.text = "Error writing file!"
 		file_status.modulate = GraphSettings.COLOR_UI_ERROR
 
+# Converts a saved Graph JSON directly into Clipboard format!
+func _load_prefab_into_clipboard(path: String) -> void:
+	if not FileAccess.file_exists(path): return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var prefab_graph = GraphSerializer.deserialize(file.get_as_text())
+	if not prefab_graph: return
+		
+	var clip_data = { "nodes": [], "edges": [] }
+	
+	# Because we used serialize_selection(), the node coordinates ARE the offsets!
+	for id in prefab_graph.nodes:
+		var n = prefab_graph.nodes[id]
+		clip_data["nodes"].append({
+			"id": id,
+			"type": n.type,
+			"offset_x": n.position.x,
+			"offset_y": n.position.y,
+			"custom_data": n.custom_data.duplicate(true)
+		})
+		
+	for key in prefab_graph.edge_store:
+		var e = prefab_graph.edge_store[key]
+		clip_data["edges"].append({
+			"u": e.u, "v": e.v, "w": e.weight, "dir": true, "data": e.custom.duplicate(true)
+		})
+		
+	DisplayServer.clipboard_set(JSON.stringify(clip_data))
+	file_status.text = "Loaded into Stamp Tool!"
+	file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
+	
+	# Automatically switch the user to the Stamp tool!
+	# (Ensure your GraphEditor has a method to change tools, or emit a signal here)
+	if graph_editor.has_method("set_tool"):
+		graph_editor.set_tool("stamp")
+
 func _load_graph(path: String) -> void:
 	if not FileAccess.file_exists(path):
 		return
@@ -200,6 +276,8 @@ func _load_graph(path: String) -> void:
 	
 	if new_graph != null:
 		graph_editor.load_new_graph(new_graph)
+		# SILENT VALIDATION PASS
+		GraphValidator.validate(graph_editor.graph, true)
 		
 		file_status.text = "Loaded: " + path.get_file()
 		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
@@ -221,6 +299,8 @@ func _load_graphml(path: String) -> void:
 	
 	if new_graph != null:
 		graph_editor.load_new_graph(new_graph)
+		# SILENT VALIDATION PASS
+		GraphValidator.validate(graph_editor.graph, true)
 		
 		file_status.text = "Loaded: " + path.get_file()
 		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS
@@ -242,6 +322,8 @@ func _load_gexf(path: String) -> void:
 	
 	if new_graph != null:
 		graph_editor.load_new_graph(new_graph)
+		# SILENT VALIDATION PASS
+		GraphValidator.validate(graph_editor.graph, true)
 		
 		file_status.text = "Loaded: " + path.get_file()
 		file_status.modulate = GraphSettings.COLOR_UI_SUCCESS

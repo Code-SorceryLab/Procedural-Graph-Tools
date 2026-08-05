@@ -222,7 +222,7 @@ func _on_reset_pressed() -> void:
 			if current_tool.has_method("_refresh_ui"):
 				current_tool._refresh_ui()
 				
-		if graph_editor.renderer: graph_editor.renderer.queue_redraw()
+		graph_editor.request_redraw()
 
 func _on_speed_changed(value: float) -> void:
 	var old_delay = play_speed

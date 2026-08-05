@@ -1,4 +1,4 @@
-class_name GraphPlanarity
+class_name AnalysisPlanarity
 extends RefCounted
 
 # The master entry point. Returns a dictionary with the boolean result and a mathematical reason.

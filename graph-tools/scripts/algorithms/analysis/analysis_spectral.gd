@@ -1,4 +1,4 @@
-class_name GraphSpectral
+class_name AnalysisSpectral
 extends RefCounted
 
 # Analyzes the graph's Laplacian Matrix to find the Fiedler Vector.

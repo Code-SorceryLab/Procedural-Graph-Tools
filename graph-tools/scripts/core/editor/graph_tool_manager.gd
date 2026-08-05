@@ -47,6 +47,8 @@ func set_active_tool(tool_id: int) -> void:
 			current_tool = GraphToolZoneBrush.new(_editor)
 		GraphSettings.Tool.CONTROL:
 			current_tool = GraphToolControl.new(_editor)
+		GraphSettings.Tool.STAMP:
+			current_tool = GraphToolStamp.new(_editor)
 		_:
 			push_warning("ToolManager: Unknown tool ID %d. Defaulting to Select." % tool_id)
 			current_tool = GraphToolSelect.new(_editor)

@@ -51,6 +51,9 @@ var cut_preview_edges: Array = []
 var highlighted_action_edges_ref: Array = []
 var agent_breadcrumbs_ref: Array = []
 
+# --- STAMP PREVIEW VISUALS ---
+var stamp_preview_pos: Vector2 = Vector2.ZERO
+var stamp_preview_data: Dictionary = {}
 
 var brush_preview_cells: Array[Vector2i] = []
 var brush_preview_color: Color = Color.WHITE
@@ -99,6 +102,10 @@ func _draw() -> void:
 	_draw_layer_labels()
 	_draw_layer_interaction()
 	_draw_layer_selection_box()
+	
+	# Draw the ghost prefab if the Stamp tool is active
+	if not stamp_preview_data.is_empty():
+		_draw_stamp_preview()
 	
 	if transform_rect.has_area():
 		_draw_transform_box()
@@ -401,6 +408,48 @@ func _draw_brush_cursor_preview() -> void:
 		
 		draw_rect(rect, brush_preview_color, true)
 		draw_rect(rect, Color.WHITE, false, 2.0)
+
+func _draw_stamp_preview() -> void:
+	if not stamp_preview_data.has("nodes"): return
+	
+	var ghost_alpha = 0.4
+	
+	# 1. Pre-calculate all global positions so we can connect the edges
+	var preview_positions = {}
+	for node_data in stamp_preview_data["nodes"]:
+		var global_pos = stamp_preview_pos + Vector2(node_data["offset_x"], node_data["offset_y"])
+		preview_positions[node_data["id"]] = global_pos
+		
+	# 2. Draw Ghost Edges (drawn first so they sit under the nodes)
+	if stamp_preview_data.has("edges"):
+		for edge in stamp_preview_data["edges"]:
+			var u_id = edge["u"]
+			var v_id = edge["v"]
+			
+			if preview_positions.has(u_id) and preview_positions.has(v_id):
+				var p1 = preview_positions[u_id]
+				var p2 = preview_positions[v_id]
+				# Draw a translucent white line for the connections
+				draw_line(p1, p2, Color(1, 1, 1, 0.3), 3.0, true)
+				
+	# 3. Draw Ghost Nodes
+	for node_data in stamp_preview_data["nodes"]:
+		var pos = preview_positions[node_data["id"]]
+		var type_name = str(node_data.get("type", "empty"))
+		
+		# Fallback gray color
+		var node_color = Color(0.6, 0.6, 0.6, ghost_alpha)
+		
+		# If you have a semantic color registered, use it!
+		if SemanticRegistry.categories.has("NODE") and SemanticRegistry.categories["NODE"].has(type_name):
+			var reg_color = SemanticRegistry.categories["NODE"][type_name]["color"]
+			node_color = Color(reg_color.r, reg_color.g, reg_color.b, ghost_alpha)
+			
+		# Draw the translucent fill
+		draw_circle(pos, node_radius, node_color)
+		
+		# Draw a slightly brighter border ring to make the shapes pop
+		draw_arc(pos, node_radius, 0, TAU, 32, Color(1, 1, 1, ghost_alpha * 1.5), 2.0, true)
 
 # ==============================================================================
 # 7. DOMAIN: NODES

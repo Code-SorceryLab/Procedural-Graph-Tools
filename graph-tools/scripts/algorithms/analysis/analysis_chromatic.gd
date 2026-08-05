@@ -1,4 +1,4 @@
-class_name GraphChromatic
+class_name AnalysisChromatic
 extends RefCounted
 
 signal calculation_finished(result: Dictionary)

@@ -1,4 +1,4 @@
-class_name GraphLongestPath
+class_name AnalysisLongestPath
 extends RefCounted
 
 signal calculation_finished(result: Dictionary)

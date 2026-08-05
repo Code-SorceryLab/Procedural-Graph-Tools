@@ -1,4 +1,4 @@
-class_name GraphMarkov
+class_name AnalysisMarkov
 extends RefCounted
 
 # Builds a transition matrix and calculates the Fundamental Matrix (I - Q)^-1

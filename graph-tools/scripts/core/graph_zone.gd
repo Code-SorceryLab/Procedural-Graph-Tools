@@ -242,7 +242,7 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	return zone
 
 
-# [NEW] Rebuilds the optimization dictionary from the list
+# Rebuilds the optimization dictionary from the list
 func rebuild_lookup() -> void:
 	_roster_lookup.clear()
 	for id in registered_nodes:

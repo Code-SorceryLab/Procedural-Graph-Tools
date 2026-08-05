@@ -92,7 +92,7 @@ static func _calculate_topology(graph: Graph, report: Dictionary) -> void:
 	topo_data["cyclomatic_complexity"] = topo_data["edge_count"] - topo_data["node_count"] + topo_data["connected_components"]
 	
 	# Mathematical Planarity Check
-	var planarity_data = GraphPlanarity.check_planarity(graph)
+	var planarity_data = AnalysisPlanarity.check_planarity(graph)
 	topo_data["is_planar"] = "Yes" if planarity_data["is_planar"] else "No"
 	topo_data["planarity_reason"] = planarity_data["reason"]
 	
@@ -101,14 +101,14 @@ static func _calculate_topology(graph: Graph, report: Dictionary) -> void:
 	topo_data.merge(_get_k_core_metrics(graph, report))
 	
 	# --- Spectral Graph Theory (Bottlenecks) ---
-	var spectral_data = GraphSpectral.analyze_bottlenecks(graph)
+	var spectral_data = AnalysisSpectral.analyze_bottlenecks(graph)
 	topo_data["algebraic_connectivity"] = spectral_data["fiedler_value"]
 	topo_data["bisection_side_a"] = spectral_data["side_a"].size()
 	topo_data["bisection_side_b"] = spectral_data["side_b"].size()
 	topo_data["bisection_cut_edges"] = spectral_data["cut_edges"].size()
 	
 	# --- Information Theory ---
-	var entropy_data = GraphEntropy.calculate(graph)
+	var entropy_data = AnalysisEntropy.calculate(graph)
 	topo_data["structural_entropy"] = entropy_data["shannon_entropy"]
 	
 	# Stash them for the interactive UI links!
@@ -486,7 +486,7 @@ static func _calculate_agents(graph: Graph, report: Dictionary) -> void:
 
 # --- 4. MARKOV CHAIN FLOW ANALYSIS ---
 static func _calculate_markov(graph: Graph, report: Dictionary) -> void:
-	var flow_data = GraphMarkov.analyze_flow(graph)
+	var flow_data = AnalysisMarkov.analyze_flow(graph)
 	
 	if flow_data.get("status") == "Success":
 		# Wire up the bottleneck ID to the interactive UI selection system!
@@ -518,7 +518,7 @@ static func _calculate_zones(graph: Graph, report: Dictionary) -> void:
 # --- 6. HEAVY METRICS ---
 # Changed to an async coroutine
 static func _calculate_tangles(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var tangle_solver = GraphTangle.new()
+	var tangle_solver = AnalysisTangle.new()
 	tangle_solver.calculate_async(graph, params)
 	
 	# Suspend execution until the background thread fires this signal
@@ -531,7 +531,7 @@ static func _calculate_tangles(graph: Graph, report: Dictionary, params: Diction
 	
 # Coroutine Caller
 static func _calculate_chromatic(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var chromatic_solver = GraphChromatic.new()
+	var chromatic_solver = AnalysisChromatic.new()
 	chromatic_solver.calculate_async(graph, params)
 	
 	var c_data = await chromatic_solver.calculation_finished
@@ -543,7 +543,7 @@ static func _calculate_chromatic(graph: Graph, report: Dictionary, params: Dicti
 
 # Coroutine Caller
 static func _calculate_longest_path(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var path_solver = GraphLongestPath.new()
+	var path_solver = AnalysisLongestPath.new()
 	path_solver.calculate_async(graph, params)
 	
 	var path_data = await path_solver.calculation_finished
@@ -567,7 +567,7 @@ static func _calculate_longest_path(graph: Graph, report: Dictionary, params: Di
 
 # Coroutine Caller
 static func _calculate_eulerian(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var eulerian_solver = GraphEulerian.new()
+	var eulerian_solver = AnalysisEulerian.new()
 	eulerian_solver.calculate_async(graph, params)
 	
 	var e_data = await eulerian_solver.calculation_finished
@@ -595,7 +595,7 @@ static func _calculate_eulerian(graph: Graph, report: Dictionary, params: Dictio
 
 # Coroutine Caller
 static func _calculate_louvain(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var louvain_solver = GraphLouvain.new()
+	var louvain_solver = AnalysisLouvain.new()
 	louvain_solver.calculate_async(graph, params)
 	
 	var c_data = await louvain_solver.calculation_finished

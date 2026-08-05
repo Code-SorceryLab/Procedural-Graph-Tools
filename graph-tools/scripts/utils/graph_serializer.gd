@@ -159,6 +159,63 @@ static func _deserialize_properties(data: Dictionary) -> void:
 			var def = data[target][key]
 			SemanticRegistry.register_property(target, key, def.get("label", key), int(def.get("type", TYPE_STRING)), def.get("default", null))
 
+# --- ADD THIS UNDER YOUR PUBLIC API ---
+
+static func serialize_selection(graph: Graph, selected_nodes: Array) -> String:
+	var data = {
+		"meta": {
+			"version": "1.6",
+			"timestamp": Time.get_datetime_string_from_system(),
+			"next_ticket": 1
+		},
+		"legend": _serialize_categories(),
+		"schema": _serialize_properties(),
+		"nodes": [],
+		"edges": [],
+		"agents": [],
+		"zones": []
+	}
+	
+	if selected_nodes.is_empty(): return JSON.stringify(data, "\t")
+		
+	# 1. Calculate the spatial center of the selection
+	var center = Vector2.ZERO
+	for id in selected_nodes:
+		center += graph.nodes[id].position
+	center /= selected_nodes.size()
+	
+	var node_set = {}
+	
+	# 2. Serialize Nodes (Offsetting them to be centered at 0,0)
+	for id in selected_nodes:
+		node_set[id] = true
+		var node_obj = graph.nodes[id]
+		var node_dict = {
+			"id": id,
+			"x": node_obj.position.x - center.x,
+			"y": node_obj.position.y - center.y,
+			"type": node_obj.type,
+			"shape": node_obj.shape
+		}
+		if "custom_data" in node_obj:
+			node_dict["custom_data"] = node_obj.custom_data.duplicate(true)
+		data["nodes"].append(node_dict)
+		
+	# 3. Serialize Internal Edges
+	for key in graph.edge_store:
+		var e = graph.edge_store[key]
+		# Only include edges where BOTH connected nodes are in our selection
+		if node_set.has(e.u) and node_set.has(e.v):
+			data["edges"].append({
+				"u": e.u,
+				"v": e.v,
+				"w": e.weight,
+				"dir": 1,
+				"data": e.custom.duplicate(true)
+			})
+			
+	return JSON.stringify(data, "\t")
+
 static func generate_uuid() -> String:
 	var uuid = ""
 	var chars = "0123456789abcdef"

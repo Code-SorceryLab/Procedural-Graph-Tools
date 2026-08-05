@@ -1,4 +1,4 @@
-class_name GraphTangle
+class_name AnalysisTangle
 extends RefCounted
 
 # We emit this when the background thread completes!

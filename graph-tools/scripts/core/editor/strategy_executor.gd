@@ -72,4 +72,4 @@ static func process_visualization(editor: GraphEditor, params: Dictionary, origi
 	# Apply Highlight to Editor
 	editor.new_nodes = new_nodes
 	editor.renderer.new_nodes_ref = new_nodes
-	editor.renderer.queue_redraw()
+	editor.request_redraw()

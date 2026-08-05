@@ -78,14 +78,12 @@ static func can_enter_node(graph: Graph, node_id: String) -> bool:
 
 # Helper to standardize cost calculation across algorithms
 static func get_traversal_cost(graph: Graph, from_id: String, to_id: String) -> float:
-	# 1. Base Edge Weight
-	var cost = graph.get_edge_weight(from_id, to_id)
 	
-	# 2. Zone Penalties (e.g. Mud)
+	# 1. Edge Weight + Zone Penalties (e.g. Mud)
 	# This queries the graph to see if 'to_id' is in a zone with 'traversal_cost > 1.0'
-	var zone_multiplier = graph.get_node_traversal_multiplier(to_id)
+	return graph.get_travel_cost(from_id, to_id)
 	
-	return cost * zone_multiplier
+	
 
 # ==============================================================================
 # 4. SHARED HELPERS

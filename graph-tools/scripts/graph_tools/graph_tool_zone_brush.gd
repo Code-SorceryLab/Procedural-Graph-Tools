@@ -60,7 +60,7 @@ func exit() -> void:
 	# Clear stroke buffer
 	if _renderer:
 		_renderer.pending_stroke_cells.clear()
-		_renderer.queue_redraw()
+		_editor.request_redraw()
 		
 	super.exit()
 
@@ -155,7 +155,7 @@ func _sync_stroke_visuals() -> void:
 	_renderer.pending_stroke_cells = cell_list
 	_renderer.pending_stroke_color = _target_zone.zone_color
 	_renderer.pending_stroke_is_erase = stroke_is_erase
-	_renderer.queue_redraw()
+	_editor.request_redraw()
 
 func _end_stroke() -> void:
 	if not _is_stroking: return
@@ -181,7 +181,7 @@ func _end_stroke() -> void:
 	
 	# Cleanup Visuals
 	_renderer.pending_stroke_cells.clear()
-	_renderer.queue_redraw()
+	_editor.request_redraw()
 	
 	# Cleanup State
 	_pending_cells.clear()
@@ -214,12 +214,12 @@ func _update_preview() -> void:
 	else:
 		_renderer.brush_preview_color = Color(0.2, 1.0, 0.2, 0.5) # Green
 		
-	_renderer.queue_redraw()
+	_editor.request_redraw()
 
 func _clear_preview() -> void:
 	if _renderer:
 		_renderer.brush_preview_cells = []
-		_renderer.queue_redraw()
+		_editor.request_redraw()
 
 func _get_snapped_mouse_pos() -> Vector2:
 	var raw = _editor.get_global_mouse_position()

@@ -1,0 +1,223 @@
+{
+	"agents": [],
+	"edges": [
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:2",
+			"v": "man:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:3",
+			"v": "man:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:3",
+			"v": "man:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:4",
+			"v": "man:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:4",
+			"v": "man:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "man:5",
+			"v": "man:4",
+			"w": 1.0
+		}
+	],
+	"legend": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"climbable": {
+				"color": "cc9933ff",
+				"name": "Climbable"
+			},
+			"corridor": {
+				"color": "ccccccff",
+				"name": "Corridor"
+			},
+			"door_locked": {
+				"color": "cc3333ff",
+				"name": "Door (Locked)"
+			},
+			"door_open": {
+				"color": "996633ff",
+				"name": "Door (Open)"
+			},
+			"secret": {
+				"color": "6633ccff",
+				"name": "Secret Passage"
+			}
+		},
+		"NODE": {
+			"boss": {
+				"color": "990000ff",
+				"name": "Boss"
+			},
+			"empty": {
+				"color": "ccccccff",
+				"name": "Empty"
+			},
+			"enemy": {
+				"color": "cc4d4dff",
+				"name": "Enemy"
+			},
+			"shop": {
+				"color": "663399ff",
+				"name": "Shop"
+			},
+			"spawn": {
+				"color": "33cc33ff",
+				"name": "Spawn"
+			},
+			"treasure": {
+				"color": "ffcc33ff",
+				"name": "Treasure"
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"meta": {
+		"next_ticket": 1,
+		"timestamp": "2026-08-05T16:55:06",
+		"version": "1.6"
+	},
+	"nodes": [
+		{
+			"custom_data": {
+
+			},
+			"id": "man:2",
+			"shape": 0,
+			"type": "empty",
+			"x": -30.0,
+			"y": -30.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:3",
+			"shape": 0,
+			"type": "empty",
+			"x": 30.0,
+			"y": -30.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:4",
+			"shape": 0,
+			"type": "empty",
+			"x": 30.0,
+			"y": 30.0
+		},
+		{
+			"custom_data": {
+
+			},
+			"id": "man:5",
+			"shape": 0,
+			"type": "empty",
+			"x": -30.0,
+			"y": 30.0
+		}
+	],
+	"schema": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"lock_level": {
+				"default": 0,
+				"display": 0,
+				"label": "Lock Level",
+				"type": 2
+			},
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_spring_length": {
+				"default": 150.0,
+				"display": 0,
+				"label": "Spring Length",
+				"type": 3
+			},
+			"physics_stiffness": {
+				"default": 0.5,
+				"display": 0,
+				"label": "Spring Stiffness",
+				"type": 3
+			}
+		},
+		"NODE": {
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_repulsion": {
+				"default": 100.0,
+				"display": 0,
+				"label": "Physics Repulsion",
+				"type": 3
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"zones": []
+}

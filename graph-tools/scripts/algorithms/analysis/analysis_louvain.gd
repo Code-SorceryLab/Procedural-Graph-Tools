@@ -1,4 +1,4 @@
-class_name GraphLouvain
+class_name AnalysisLouvain
 extends RefCounted
 
 signal calculation_finished(result: Dictionary)

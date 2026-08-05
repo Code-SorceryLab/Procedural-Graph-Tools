@@ -107,7 +107,7 @@ const COLOR_UI_DISABLED: Color = Color(1, 1, 1, 0.5)
 # 5. TOOL DEFINITIONS
 # ==============================================================================
 # Reordered to match Input Map Keys (1 through 7)
-enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN, ZONE_BRUSH, CONTROL }
+enum Tool { SELECT, ADD_NODE, DELETE, CONNECT, CUT, PAINT, TYPE_PAINT, SPAWN, ZONE_BRUSH, CONTROL, STAMP }
 
 const ICON_PLACEHOLDER = "res://assets/icons/tool_placeholder.svg"
 
@@ -122,7 +122,8 @@ static var TOOLBAR_LAYOUT: Array[Tool] = [
 	Tool.TYPE_PAINT,
 	Tool.SPAWN,
 	Tool.ZONE_BRUSH,
-	Tool.CONTROL
+	Tool.CONTROL,
+	Tool.STAMP
 ]
 
 # 2. DEFINITIONS (Now includes the explicit 'action' again)
@@ -136,7 +137,8 @@ static var TOOL_DATA: Dictionary = {
 	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" },
 	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""},
 	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": ""},
-	Tool.CONTROL:      { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": ""}
+	Tool.CONTROL:      { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": ""},
+	Tool.STAMP:      { "name": "Stamp", "action": "tool_stamp", "icon_path": ""}
 }
 
 
@@ -240,5 +242,57 @@ static var grammar_rules: Dictionary = {
 		"apply_edges": [
 			["A", "B", {"weight": 1.0, "type": "door_locked"}] 
 		]
+	},
+	"Triangle to Hub": {
+		"description": "Finds a triangle of 3 connected nodes. Severs the triangle edges and inserts a central Hub node connecting all three.",
+		"match_nodes": {
+			"A": {}, 
+			"B": {},
+			"C": {} 
+		},
+		"match_edges": [
+			["A", "B"],
+			["B", "C"],
+			["C", "A"] # Matches only if they form a closed loop of 3!
+		],
+		"remove_edges": [
+			["A", "B"], ["B", "C"], ["C", "A"]
+		],
+		"apply_nodes": {
+			"Center": { "is_new": true, "type": "hub" } 
+		},
+		"apply_edges": [
+			["A", "Center"],
+			["B", "Center"],
+			["C", "Center"]
+		]
+	},
+	"Organic Sprawl": {
+		"description": "Finds a Dead End and has a 60% chance to extend it. Run this for 10-20 Generations to watch the dungeon grow organically.",
+		"probability": 0.6,
+		"max_applications": 3, # Only grows a maximum of 3 branches per generation
+		"match_nodes": {
+			"A": { "shape": NodeData.RoomShape.DEAD_END }
+		},
+		"remove_edges": [],
+		"apply_nodes": {
+			"B": { "is_new": true, "type": "corridor" } 
+		},
+		"apply_edges": [
+			["A", "B", {"weight": 1.0}]
+		]
 	}
+}
+
+static var grammar_pipelines: Dictionary = {
+	"Dungeon Generator V1": [
+		# 1. Grow the basic structure dynamically
+		{ "rule": "Organic Sprawl", "generations": 15 },
+		
+		# 2. Clean up awkward triangles that formed during sprawl
+		{ "rule": "Triangle to Hub", "generations": 3 },
+		
+		# 3. Seal off the remaining far edges with Boss Rooms
+		{ "rule": "Boss Lock", "generations": 1 }
+	]
 }

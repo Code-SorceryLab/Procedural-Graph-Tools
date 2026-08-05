@@ -139,7 +139,7 @@ func _create_zone_row(zone: GraphZone) -> void:
 	lbl_count.add_theme_font_size_override("font_size", 10)
 	row.add_child(lbl_count)
 	
-	# [NEW] F. Zone Type Dropdown (Geo / Logic)
+	# F. Zone Type Dropdown (Geo / Logic)
 	var btn_type = OptionButton.new()
 	btn_type.add_item("Geo", GraphZone.ZoneType.GEOGRAPHICAL)
 	btn_type.add_item("Logic", GraphZone.ZoneType.LOGICAL)
@@ -154,7 +154,7 @@ func _create_zone_row(zone: GraphZone) -> void:
 		
 		# Force stats refresh so label updates from [Cells] to (Nodes)
 		_full_zone_rebuild() 
-		graph_editor.renderer.queue_redraw()
+		graph_editor.request_redraw()
 	)
 	row.add_child(btn_type)
 	

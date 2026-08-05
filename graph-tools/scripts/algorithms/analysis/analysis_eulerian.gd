@@ -1,4 +1,4 @@
-class_name GraphEulerian
+class_name AnalysisEulerian
 extends RefCounted
 
 signal calculation_finished(result: Dictionary)

@@ -1,4 +1,4 @@
-class_name GraphEntropy
+class_name AnalysisEntropy
 extends RefCounted
 
 # Calculates the Shannon Entropy (Information Theory) of the graph's degree distribution.
