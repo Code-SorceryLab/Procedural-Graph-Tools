@@ -4,13 +4,6 @@ extends RefCounted
 # ==============================================================================
 # 1. THE MATH: CARTESIAN PRODUCT GENERATOR
 # ==============================================================================
-# Takes a Sweep Definition and calculates every possible combination of parameters.
-# sweep_def example: 
-# {
-#    "width": { "mode": "sweep", "type": TYPE_INT, "min": 10, "max": 20, "step": 5 },
-#    "iterations": { "mode": "fixed", "value": 4 },
-#    "use_zones": { "mode": "fixed", "value": true }
-# }
 static func generate_combinations(sweep_def: Dictionary) -> Array[Dictionary]:
 	var keys = sweep_def.keys()
 	var values_per_key = []
@@ -22,7 +15,8 @@ static func generate_combinations(sweep_def: Dictionary) -> Array[Dictionary]:
 		if config.get("mode", "fixed") == "fixed":
 			possible_values.append(config.get("value"))
 			
-		# Handle Enum Checklists
+		elif config.get("mode") == "sweep":
+			# Handle Enum Checklists
 			if config.get("is_enum", false):
 				var selections = config.get("enum_selection", [])
 				if selections.is_empty():
@@ -30,18 +24,23 @@ static func generate_combinations(sweep_def: Dictionary) -> Array[Dictionary]:
 				else:
 					possible_values.append_array(selections)
 			else:
+				# Handle Numeric Ranges
 				var cur = float(config.get("min", 0.0))
 				var end = float(config.get("max", 1.0))
 				var step = float(config.get("step", 1.0))
-			
+				
 				# Safety check to prevent infinite while-loops
 				if step <= 0.0001: step = 1.0
-			
+				
 				var is_int = config.get("type") == TYPE_INT
-			
-				while cur <= end + 0.00001: # Tiny epsilon for float precision
+				
+				# Safety check: If Min is greater than Max, just use Min to prevent a 0-array collapse
+				if cur > end:
 					possible_values.append(int(cur) if is_int else cur)
-					cur += step
+				else:
+					while cur <= end + 0.00001: # Tiny epsilon for float precision
+						possible_values.append(int(cur) if is_int else cur)
+						cur += step
 				
 		values_per_key.append(possible_values)
 		
@@ -63,15 +62,13 @@ static func _cartesian_recurse(keys: Array, values_per_key: Array, depth: int, c
 	for val in values_per_key[depth]:
 		current_dict[keys[depth]] = val
 		_cartesian_recurse(keys, values_per_key, depth + 1, current_dict, results)
-
 # ==============================================================================
 # 2. SCHEMA EXTRACTION
 # ==============================================================================
 # Extracts the baseline settings from any strategy and pre-formats them for a Sweep UI
-static func get_sweep_schema(strategy_script: Script) -> Dictionary:
+
+static func get_sweep_schema(raw_settings: Array) -> Dictionary:
 	var sweep_schema = {}
-	var dummy: GraphStrategy = strategy_script.new()
-	var raw_settings = dummy.get_settings()
 	
 	for s in raw_settings:
 		var s_name = s.get("name", "")

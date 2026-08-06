@@ -72,9 +72,15 @@ func _populate_dropdown() -> void:
 func _on_strategy_selected(index: int) -> void:
 	if index < 0 or index >= available_strategies.size(): return
 	
-	# We can just read the schema directly from the instantiated strategy!
 	var selected_strategy = available_strategies[index]
-	_current_schema = ExperimentBuilder.get_sweep_schema(selected_strategy.get_script())
+	var raw_settings = selected_strategy.get_settings()
+	
+	# Inject the GraphMetrics schema directly into the UI!
+	raw_settings.append({ "name": "sep_metrics", "type": TYPE_NIL })
+	raw_settings.append_array(GraphMetrics.get_analysis_options_schema())
+	
+	# Pass the combined array to the Builder
+	_current_schema = ExperimentBuilder.get_sweep_schema(raw_settings)
 	
 	_build_ui_from_schema()
 
@@ -185,15 +191,22 @@ func _create_input_for_type(type: int, default_val: Variant) -> Control:
 		spin.min_value = -99999.0
 		spin.max_value = 99999.0
 		spin.step = 1.0 if type == TYPE_INT else 0.05
-		spin.value = float(default_val)
+		
+		# Safely fallback to 0 if default_val is null
+		spin.value = float(default_val) if default_val != null else 0.0
 		return spin
+		
 	elif type == TYPE_BOOL:
 		var chk = CheckBox.new()
-		chk.button_pressed = bool(default_val)
+		
+		# Safely fallback to false if default_val is null
+		# In Godot 4, we must explicitly check for null before casting to bool
+		chk.button_pressed = default_val if (default_val != null and typeof(default_val) == TYPE_BOOL) else false
 		return chk
+		
 	else:
 		var txt = LineEdit.new()
-		txt.text = str(default_val)
+		txt.text = str(default_val) if default_val != null else ""
 		return txt
 
 # ==============================================================================
