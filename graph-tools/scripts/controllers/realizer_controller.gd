@@ -19,6 +19,7 @@ var _atlas_mappings: Dictionary = {
 	"default_wall": Vector2i(1, 0)
 }
 var _mapping_popup: TileMappingPopup
+var _shape_popup: AlgorithmSettingsPopup
 
 func _ready() -> void:
 	_build_ui()
@@ -28,7 +29,12 @@ func _ready() -> void:
 	add_child(_mapping_popup)
 	_mapping_popup.confirmed.connect(_on_mapping_confirmed)
 	
-	# [NEW] Load saved mappings from disk on startup
+	# Setup the Shape Ratios Popup
+	_shape_popup = AlgorithmSettingsPopup.new()
+	add_child(_shape_popup)
+	_shape_popup.settings_confirmed.connect(_on_shape_settings_confirmed)
+	
+	# Load saved mappings from disk on startup
 	var saved_mappings = ConfigManager.load_rasterizer_mappings()
 	if not saved_mappings.is_empty():
 		# Merge overrides defaults with saved values, while keeping defaults 
@@ -61,8 +67,7 @@ func _build_ui() -> void:
 		  "hint_text": "Extra tiles added around the outermost boundaries of the map to prevent rooms on the edges from being clipped." },
 		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
 		
-		{ "name": "room_shape", "label": "Room Shape", "type": TYPE_INT, "hint": "enum", "options": "Square,Circle", "default": 0, 
-		  "hint_text": "The geometric footprint stamped into the grid at each node's location." },
+		{ "name": "btn_shape_ratios", "label": "Configure Shape Ratios...", "type": TYPE_NIL, "hint": "button" },
 		{ "name": "room_radius_min", "label": "Min Room Radius", "type": TYPE_INT, "default": 2, "min": 1, "max": 20, 
 		  "hint_text": "Minimum size of a room. A radius of 2 generates a 5x5 tile footprint." },
 		{ "name": "room_radius_max", "label": "Max Room Radius", "type": TYPE_INT, "default": 4, "min": 1, "max": 20, 
@@ -73,6 +78,8 @@ func _build_ui() -> void:
 		  "hint_text": "If true, the A* pathfinder can carve diagonal hallways, making paths look less rigid and blocky." },
 		{ "name": "corridor_radius", "label": "Corridor Thickness", "type": TYPE_INT, "default": 0, "min": 0, "max": 5, 
 		  "hint_text": "Thickness of connecting hallways. 0 = 1 tile wide, 1 = 3 tiles wide, 2 = 5 tiles wide." },
+		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false,
+		  "hint_text": "Draws the raw corridor pathways directly over the room interiors. Useful for debugging topological connections." },
 		{ "name": "sep_4", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": 0, "min": 0, "max": 10, 
@@ -85,6 +92,11 @@ func _build_ui() -> void:
 	
 	for item in schema:
 		if item.has("default"): _params[item["name"]] = item["default"]
+			
+	# Inject the hidden shape ratio defaults directly!
+	_params["ratio_square"] = 1
+	_params["ratio_circle"] = 0
+	_params["ratio_triangle"] = 0
 			
 	var section = SettingsUIBuilder.create_collapsible_section(ui_container, "TileMap Realizer", true)
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
@@ -99,6 +111,14 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 			_mapping_popup.open(tile_map_layer.tile_set, _atlas_mappings)
 		else:
 			push_warning("Cannot open Tile Mapper: No TileSet assigned to the TileMapLayer.")
+	elif key == "btn_shape_ratios":
+		# Explicitly type the array as Array[Dictionary]
+		var shape_schema: Array[Dictionary] = [
+			{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": 1, "min": 0 },
+			{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
+			{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": 0, "min": 0 }
+		]
+		_shape_popup.open_settings("Room Shape Distribution", shape_schema, _params)
 	else:
 		_params[key] = value
 
@@ -109,6 +129,10 @@ func _on_mapping_confirmed() -> void:
 	# Persist the new mappings to disk instantly
 	ConfigManager.save_rasterizer_mappings(_atlas_mappings)
 
+func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
+	# Merge the popup's output directly into the Realizer's parameters
+	_params.merge(new_settings, true)
+
 # ==============================================================================
 # PIPELINE EXECUTION
 # ==============================================================================
@@ -118,7 +142,6 @@ func _on_rasterize_pressed() -> void:
 	if graph == null or graph.nodes.is_empty(): return
 	if not tile_map_layer: return
 
-	var start_time = Time.get_ticks_msec()
 	_realizer = GraphRealizer.new()
 	var grid = _realizer.realize(graph, _params)
 	

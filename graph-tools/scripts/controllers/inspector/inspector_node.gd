@@ -102,12 +102,12 @@ func _rebuild_node_ui() -> void:
 	# We intercept it here so it belongs to the Core Properties visually.
 	var phys_mode_val = 0
 	var phys_rep_val = 100.0
-	var phys_fusable_val = false # [NEW]
+	var phys_fusable_val = false
 	
 	if "custom_data" in first_node:
 		phys_mode_val = first_node.custom_data.get("physics_mode", 0)
 		phys_rep_val = first_node.custom_data.get("physics_repulsion", 100.0)
-		phys_fusable_val = first_node.custom_data.get("physics_fusable", false) # [NEW]
+		phys_fusable_val = first_node.custom_data.get("physics_fusable", false)
 		
 	schema.append({
 		"name": "physics_mode", "label": "Physics Mode", "type": TYPE_INT,

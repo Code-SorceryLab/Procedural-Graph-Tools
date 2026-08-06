@@ -99,26 +99,26 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	if seed_str != "": rng.seed = seed_str.hash()
 	else: rng.randomize()
 		
-	# --- UNIVERSAL SEMANTIC INJECTION ---
+	# --- UNIVERSAL SEMANTIC INJECTION (Flagged as CORE) ---
 	var k_depth = params.get("key_depth", "dag_depth")
 	var v_root = params.get("val_root", "start")
 	var v_sink = params.get("val_sink", "boss")
 	
-	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_root, v_root.capitalize(), Color(0.2, 0.8, 0.2))
-	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_sink, v_sink.capitalize(), Color(0.8, 0.2, 0.2))
-	SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_depth, "DAG Depth", TYPE_INT, 0, SemanticRegistry.DisplayMode.LABEL)
+	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_root, v_root.capitalize(), Color(0.2, 0.8, 0.2), true)
+	SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_sink, v_sink.capitalize(), Color(0.8, 0.2, 0.2), true)
+	SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_depth, "DAG Depth", TYPE_INT, 0, SemanticRegistry.DisplayMode.LABEL, true)
 	
 	if params.get("use_locks", true):
 		var k_lock = params.get("key_lock", "requires")
 		var k_item = params.get("key_item", "items")
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
 		
 		# Give the Agent a highly visible gold floating label for its inventory!
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_AGENT, "inventory", "Backpack", TYPE_STRING, "", SemanticRegistry.DisplayMode.LABEL)
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_AGENT, "inventory", "Backpack", TYPE_STRING, "", SemanticRegistry.DisplayMode.LABEL, true)
 	
 	if params.get("use_logic_gates", true):
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE)
+		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
 	# ------------------------------------
 
 	var mode = params.get("dag_mode", 0)
@@ -326,7 +326,7 @@ func _distribute_locks(recorder: GraphRecorder, params: Dictionary) -> void:
 				
 		if valid_key_nodes.is_empty(): continue
 		
-		# [NEW] Generate the visual tags
+		# Generate the visual tags
 		var color_hex = colors[locks_placed % colors.size()]
 		var key_letter = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"][locks_placed % 6]
 		

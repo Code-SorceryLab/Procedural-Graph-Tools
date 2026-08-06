@@ -19,6 +19,8 @@ const TYPE_NAMES = {
 # Internal references to the dynamically generated trees
 var _category_trees: Dictionary = {}
 var _property_trees: Dictionary = {}
+var _category_del_btns: Dictionary = {} 
+var _property_del_btns: Dictionary = {}
 
 # ==============================================================================
 # 1. LIFECYCLE & DYNAMIC UI GENERATION
@@ -97,7 +99,10 @@ func _build_target_tab(target: String) -> Control:
 	var cat_name = LineEdit.new(); cat_name.placeholder_text = "Name (e.g. Boss Room)"; cat_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var cat_color = ColorPickerButton.new(); cat_color.custom_minimum_size = Vector2(40, 0); cat_color.color = Color.WHITE
 	var cat_add = Button.new(); cat_add.text = "Add"
-	var cat_del = Button.new(); cat_del.text = "Delete"; cat_del.modulate = Color(1, 0.4, 0.4)
+	var cat_del = Button.new(); cat_del.text = "Delete"
+	cat_del.disabled = true # Start disabled
+	cat_del.modulate = Color(1, 1, 1, 0.5) # Start grayed out
+	_category_del_btns[target] = cat_del # Track it
 
 	hb_cat.add_child(cat_key); hb_cat.add_child(cat_name); hb_cat.add_child(cat_color); hb_cat.add_child(cat_add); hb_cat.add_child(cat_del)
 	content.add_child(hb_cat)
@@ -105,6 +110,7 @@ func _build_target_tab(target: String) -> Control:
 	# Bind category signals
 	cat_add.pressed.connect(_on_add_category.bind(target, cat_key, cat_name, cat_color))
 	cat_del.pressed.connect(_on_del_category.bind(target))
+	tree_cat.item_selected.connect(_on_category_selected.bind(target, cat_del))
 
 	content.add_child(HSeparator.new())
 
@@ -140,7 +146,10 @@ func _build_target_tab(target: String) -> Control:
 	prop_display.add_item("Badge")
 	
 	var prop_add = Button.new(); prop_add.text = "Add"
-	var prop_del = Button.new(); prop_del.text = "Delete"; prop_del.modulate = Color(1, 0.4, 0.4)
+	var prop_del = Button.new(); prop_del.text = "Delete"
+	prop_del.disabled = true # Start disabled
+	prop_del.modulate = Color(1, 1, 1, 0.5) # Start grayed out
+	_property_del_btns[target] = prop_del # Track it
 
 	hb_prop.add_child(prop_key); hb_prop.add_child(prop_label); hb_prop.add_child(prop_type); hb_prop.add_child(prop_display)
 	hb_prop.add_child(prop_add); hb_prop.add_child(prop_del)
@@ -149,6 +158,7 @@ func _build_target_tab(target: String) -> Control:
 	# Bind property signals
 	prop_add.pressed.connect(_on_add_property.bind(target, prop_key, prop_label, prop_type, prop_display))
 	prop_del.pressed.connect(_on_del_property.bind(target))
+	tree_prop.item_selected.connect(_on_property_selected.bind(target, prop_del))
 
 	return vb
 
@@ -162,6 +172,11 @@ func _refresh_all_tabs() -> void:
 		_refresh_property_tree(target)
 
 func _refresh_category_tree(target: String) -> void:
+	# Lock button because selection is cleared!
+	if _category_del_btns.has(target):
+		_category_del_btns[target].disabled = true
+		_category_del_btns[target].modulate = Color(1, 1, 1, 0.5)
+		
 	var tree: Tree = _category_trees[target]
 	tree.clear()
 	var root = tree.create_item()
@@ -170,12 +185,21 @@ func _refresh_category_tree(target: String) -> void:
 	for key in cats:
 		var cat = cats[key]
 		var item = tree.create_item(root)
-		item.set_text(0, key)
+		
+		# Add padlock for Core data
+		var display_key = key + (" 🔒" if cat.get("is_core", false) else "")
+		
+		item.set_text(0, display_key)
 		item.set_text(1, cat["name"])
-		item.set_custom_bg_color(2, cat["color"]) # Visually displays the color in the 3rd column!
+		item.set_custom_bg_color(2, cat["color"])
 		item.set_metadata(0, key)
 
 func _refresh_property_tree(target: String) -> void:
+	# Lock button because selection is cleared!
+	if _property_del_btns.has(target):
+		_property_del_btns[target].disabled = true
+		_property_del_btns[target].modulate = Color(1, 1, 1, 0.5)
+
 	var tree: Tree = _property_trees[target]
 	tree.clear()
 	var root = tree.create_item()
@@ -185,7 +209,11 @@ func _refresh_property_tree(target: String) -> void:
 	for key in props:
 		var prop = props[key]
 		var item = tree.create_item(root)
-		item.set_text(0, key)
+		
+		# Add padlock for Core data
+		var display_key = key + (" 🔒" if prop.get("is_core", false) else "")
+		
+		item.set_text(0, display_key)
 		item.set_text(1, prop["label"])
 		item.set_text(2, TYPE_NAMES.get(prop["type"], "Unknown"))
 		item.set_text(3, display_names[prop.get("display", 0)])
@@ -200,6 +228,28 @@ func _validate_key(key: String) -> bool:
 	var regex = RegEx.new()
 	regex.compile("^[a-zA-Z0-9_]+$")
 	return regex.search(key) != null
+
+# ==============================================================================
+# SELECTION HANDLERS
+# ==============================================================================
+
+func _on_category_selected(target: String, del_btn: Button) -> void:
+	var item = _category_trees[target].get_selected()
+	if item:
+		var key = item.get_metadata(0)
+		var is_core = SemanticRegistry.categories[target][key].get("is_core", false)
+		del_btn.disabled = is_core
+		# Visually gray out if locked, bright red if deletable
+		del_btn.modulate = Color(1, 1, 1, 0.5) if is_core else Color(1, 0.4, 0.4)
+
+func _on_property_selected(target: String, del_btn: Button) -> void:
+	var item = _property_trees[target].get_selected()
+	if item:
+		var key = item.get_metadata(0)
+		var is_core = SemanticRegistry.properties[target][key].get("is_core", false)
+		del_btn.disabled = is_core
+		# Visually gray out if locked, bright red if deletable
+		del_btn.modulate = Color(1, 1, 1, 0.5) if is_core else Color(1, 0.4, 0.4)
 
 # --- CATEGORY ACTIONS ---
 
@@ -216,6 +266,7 @@ func _on_add_category(target: String, key_edit: LineEdit, name_edit: LineEdit, c
 	key_edit.text = ""
 	name_edit.text = ""
 	
+	SemanticRegistry.save_user_data() # Persist to disk
 	_refresh_category_tree(target)
 	property_defined.emit(key)
 
@@ -228,6 +279,7 @@ func _on_del_category(target: String) -> void:
 	SemanticRegistry.remove_category(target, key)
 	purge_requested.emit(key, target)
 	
+	SemanticRegistry.save_user_data() # Persist to disk
 	_refresh_category_tree(target)
 	property_defined.emit(key)
 
@@ -256,6 +308,7 @@ func _on_add_property(target: String, key_edit: LineEdit, label_edit: LineEdit, 
 	key_edit.text = ""
 	label_edit.text = ""
 	
+	SemanticRegistry.save_user_data() # Persist to disk
 	_refresh_property_tree(target)
 	property_defined.emit(key)
 
@@ -268,5 +321,6 @@ func _on_del_property(target: String) -> void:
 	SemanticRegistry.remove_property(target, key)
 	purge_requested.emit(key, target)
 	
+	SemanticRegistry.save_user_data() # Persist to disk
 	_refresh_property_tree(target)
 	property_defined.emit(key)

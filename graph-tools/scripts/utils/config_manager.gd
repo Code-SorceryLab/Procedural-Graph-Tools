@@ -125,3 +125,55 @@ static func load_rasterizer_mappings() -> Dictionary:
 			loaded_mappings[key] = config.get_value("RasterizerMappings", key)
 			
 	return loaded_mappings
+
+# ==============================================================================
+# SEMANTIC DATA MAPPINGS
+# ==============================================================================
+
+static func save_semantic_data(categories: Dictionary, properties: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("SemanticCategories"): config.erase_section("SemanticCategories")
+	if config.has_section("SemanticProperties"): config.erase_section("SemanticProperties")
+	
+	# Save only User-created categories (ignore Core)
+	for target in categories:
+		var target_cats = {}
+		for key in categories[target]:
+			if not categories[target][key].get("is_core", false):
+				target_cats[key] = categories[target][key]
+		config.set_value("SemanticCategories", target, target_cats)
+		
+	# Save only User-created properties (ignore Core)
+	for target in properties:
+		var target_props = {}
+		for key in properties[target]:
+			if not properties[target][key].get("is_core", false):
+				target_props[key] = properties[target][key]
+		config.set_value("SemanticProperties", target, target_props)
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: push_error("ConfigManager: Failed to save Semantic Data.")
+
+static func load_semantic_data(categories_ref: Dictionary, properties_ref: Dictionary) -> void:
+	var config = ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK: return
+	
+	if config.has_section("SemanticCategories"):
+		for target in config.get_section_keys("SemanticCategories"):
+			var saved_cats = config.get_value("SemanticCategories", target, {})
+			for key in saved_cats:
+				# Protect existing core categories from being overwritten by old save files!
+				if categories_ref[target].has(key) and categories_ref[target][key].get("is_core", false):
+					continue
+				categories_ref[target][key] = saved_cats[key]
+				
+	if config.has_section("SemanticProperties"):
+		for target in config.get_section_keys("SemanticProperties"):
+			var saved_props = config.get_value("SemanticProperties", target, {})
+			for key in saved_props:
+				# Protect existing core properties from being overwritten by old save files!
+				if properties_ref[target].has(key) and properties_ref[target][key].get("is_core", false):
+					continue
+				properties_ref[target][key] = saved_props[key]

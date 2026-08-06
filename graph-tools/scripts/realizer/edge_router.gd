@@ -59,17 +59,25 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var edge_type = edge.custom.get("type", "")
 		# If you register Edge categories to floor IDs later, you can swap edge_floor_id here!
 
-		# Stamp the Path
+		# Check for the debug toggle
+		var debug_routing = params.get("debug_routing", false)
+
+		# 4. Stamp the Path into the GridData
 		for point in path:
 			if corridor_radius == 0:
-				grid.set_cell(point.x, point.y, edge_floor_id)
+				# ONLY paint if it's void, OR if we are forcing the debug pathway visible
+				if grid.get_cell(point.x, point.y) == TilePalette.VOID_ID or debug_routing:
+					grid.set_cell(point.x, point.y, edge_floor_id)
+					
 				astar.set_point_weight_scale(point, 1.0) 
 			else:
 				var rect = Rect2i(point.x - corridor_radius, point.y - corridor_radius, corridor_radius * 2 + 1, corridor_radius * 2 + 1)
-				grid.fill_rect(rect, edge_floor_id)
 				
+				# Loop through the thickened area manually so we don't blindly overwrite rooms
 				for dy in range(rect.size.y):
 					for dx in range(rect.size.x):
 						var p = Vector2i(rect.position.x + dx, rect.position.y + dy)
 						if grid.in_bounds_vec(p):
+							if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID or debug_routing:
+								grid.set_cell(p.x, p.y, edge_floor_id)
 							astar.set_point_weight_scale(p, 1.0)
