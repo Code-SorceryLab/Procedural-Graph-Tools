@@ -4,6 +4,11 @@ extends RefCounted
 # --- MODULAR ANALYSIS SCHEMA ---
 static func get_analysis_options_schema() -> Array[Dictionary]:
 	return [
+		# --- Core Metrics Toggle ---
+		{ "name": "do_basic_metrics", "label": "Calculate Basic Metrics", "type": TYPE_BOOL, "default": true, 
+		  "hint": "Calculates topology, spatial stats, agent metrics, and Markov flow.\nDisable this for maximum graph generation speed." },
+		{ "name": "sep_basic", "type": TYPE_NIL, "hint": "separator" },
+		
 		# Tangles
 		{ "name": "do_tangles", "label": "Calculate Tangles & Treewidth", "type": TYPE_BOOL, "default": false, 
 		  "hint": "Extracts the exact Treewidth.\nWarning: Computationally heavy." },

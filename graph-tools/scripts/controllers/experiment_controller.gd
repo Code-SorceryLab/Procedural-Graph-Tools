@@ -2,6 +2,11 @@ class_name ExperimentController
 extends Node
 
 # --- UI REFERENCES ---
+@export_group("Core Systems")
+@export var graph_editor: GraphEditor
+
+
+
 @export_group("UI Elements")
 @export var strategy_dropdown: OptionButton
 @export var settings_container: VBoxContainer
@@ -9,12 +14,12 @@ extends Node
 @export var progress_bar: ProgressBar
 @export var status_label: Label
 
-@export_group("Data Dashboard")
-@export var results_table: Tree
-@export var export_btn: Button
+@export_group("Popup Triggers")
+@export var metrics_btn: Button      # Button to open Metrics Config
+@export var view_results_btn: Button # Button to open Results Table
 @export var export_dialog: FileDialog
 
-# Cache the results so the exporter can access them later
+# Cache the results
 var _latest_results: Array[Dictionary] = []
 
 # --- INTERNAL STATE ---
@@ -22,8 +27,15 @@ var available_strategies: Array[GraphStrategy] = []
 var _current_schema: Dictionary = {}
 var _input_refs: Dictionary = {} 
 var _current_runner: ExperimentRunner
+var _last_executed_strategy_index: int = 0 
+
 var _warning_dialog: ConfirmationDialog
+var _metrics_popup: AlgorithmSettingsPopup
+var _results_popup: AcceptDialog
+var _results_table: Tree
+var _metrics_config: Dictionary = {}
 var _pending_combinations: Array[Dictionary] = []
+
 
 func _ready() -> void:
 	if run_button: run_button.pressed.connect(_on_run_pressed)
@@ -31,15 +43,20 @@ func _ready() -> void:
 	
 	if progress_bar: progress_bar.value = 0
 	if status_label: status_label.text = "Ready to build experiment."
+	if view_results_btn: 
+		view_results_btn.disabled = true
+		view_results_btn.pressed.connect(func(): _results_popup.popup_centered())
 	
-	if export_btn: 
-		export_btn.pressed.connect(_on_export_pressed)
-		export_btn.disabled = true
 	if export_dialog:
 		export_dialog.file_selected.connect(_on_export_file_selected)
 	
+	# Load default metric settings so they exist even if the user never opens the popup
+	for def in GraphMetrics.get_analysis_options_schema():
+		_metrics_config[def.name] = def.get("default")
 	
-	# INITIALIZE IN CODE (Mirrors StrategyController)
+	_setup_popups()
+	
+	# INITIALIZE IN CODE
 	available_strategies.append(StrategyGrid.new())
 	available_strategies.append(StrategyWalker.new()) 
 	available_strategies.append(StrategyMST.new())
@@ -50,37 +67,73 @@ func _ready() -> void:
 	available_strategies.append(StrategyGrammar.new())
 	available_strategies.append(StrategyDAG.new())
 	
-	# Setup the dynamic warning dialog
+	_populate_dropdown()
+
+# ==============================================================================
+# POPUP CONSTRUCTION
+# ==============================================================================
+func _setup_popups() -> void:
+	# 1. Warning Dialog
 	_warning_dialog = ConfirmationDialog.new()
 	_warning_dialog.dialog_text = "Warning: large sweep detected."
 	_warning_dialog.get_ok_button().text = "Run Anyway"
 	_warning_dialog.confirmed.connect(_start_experiment)
 	add_child(_warning_dialog)
 	
-	_populate_dropdown()
+	# 2. Metrics Popup (Using your existing class!)
+	_metrics_popup = AlgorithmSettingsPopup.new()
+	_metrics_popup.settings_confirmed.connect(func(new_settings): _metrics_config = new_settings)
+	add_child(_metrics_popup)
+	
+	if metrics_btn:
+		metrics_btn.pressed.connect(func(): 
+			_metrics_popup.open_settings("Advanced Metrics", GraphMetrics.get_analysis_options_schema(), _metrics_config)
+		)
+		
+	# 3. Results Dashboard Popup (Dynamically Built)
+	_results_popup = AcceptDialog.new()
+	_results_popup.title = "Experiment Dashboard"
+	_results_popup.size = Vector2(900, 600)
+	_results_popup.get_ok_button().text = "Close"
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_results_popup.add_child(vbox)
+	
+	_results_table = Tree.new()
+	_results_table.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	
+	# Listen for double-clicks on the table rows!
+	_results_table.item_activated.connect(_on_result_row_double_clicked)
+	
+	vbox.add_child(_results_table)
+	
+	var export_btn = Button.new()
+	export_btn.text = "Export to CSV"
+	export_btn.custom_minimum_size = Vector2(0, 40)
+	export_btn.pressed.connect(_on_export_pressed)
+	vbox.add_child(export_btn)
+	
+	add_child(_results_popup)
 
+# ==============================================================================
+# UI GENERATION
+# ==============================================================================
 func _populate_dropdown() -> void:
 	if not strategy_dropdown: return
 	strategy_dropdown.clear()
-	
 	for i in range(available_strategies.size()):
 		strategy_dropdown.add_item(available_strategies[i].strategy_name, i)
-		
 	if available_strategies.size() > 0:
 		_on_strategy_selected(0)
 
 func _on_strategy_selected(index: int) -> void:
 	if index < 0 or index >= available_strategies.size(): return
-	
 	var selected_strategy = available_strategies[index]
-	var raw_settings = selected_strategy.get_settings()
 	
-	# Inject the GraphMetrics schema directly into the UI!
-	raw_settings.append({ "name": "sep_metrics", "type": TYPE_NIL })
-	raw_settings.append_array(GraphMetrics.get_analysis_options_schema())
-	
-	# Pass the combined array to the Builder
-	_current_schema = ExperimentBuilder.get_sweep_schema(raw_settings)
+	# [FIX] We call .get_settings() to pass the Array directly to the Builder!
+	_current_schema = ExperimentBuilder.get_sweep_schema(selected_strategy.get_settings())
 	
 	_build_ui_from_schema()
 
@@ -217,7 +270,7 @@ func _on_run_pressed() -> void:
 	# CANCELLATION LOGIC
 	if _current_runner != null and _current_runner.is_running:
 		status_label.text = "Cancelling experiment... (Waiting for active threads to finish)"
-		run_button.disabled = true # Prevent double-clicking cancel
+		run_button.disabled = true 
 		_current_runner.cancel()
 		return
 		
@@ -230,17 +283,14 @@ func _on_run_pressed() -> void:
 		var param_def = { "type": refs["type"], "mode": refs["mode"], "is_enum": is_enum }
 		
 		if refs["mode"] == "fixed":
-			if is_enum:
-				param_def["value"] = refs["fixed_input"].selected
-			else:
-				param_def["value"] = _get_control_value(refs["fixed_input"], refs["type"])
+			if is_enum: param_def["value"] = refs["fixed_input"].selected
+			else: param_def["value"] = _get_control_value(refs["fixed_input"], refs["type"])
 		else:
 			if is_enum:
 				var selections = []
 				var chks = refs["enum_checkboxes"]
 				for i in range(chks.size()):
-					if chks[i].button_pressed:
-						selections.append(i)
+					if chks[i].button_pressed: selections.append(i)
 				param_def["enum_selection"] = selections
 			else:
 				param_def["min"] = _get_control_value(refs["min_input"], refs["type"])
@@ -250,9 +300,13 @@ func _on_run_pressed() -> void:
 		sweep_def[key] = param_def
 		
 	var combinations = ExperimentBuilder.generate_combinations(sweep_def)
+	
+	# [NEW] Inject the confirmed Metrics Configuration into EVERY combination dictionary
+	for comb in combinations:
+		comb.merge(_metrics_config, true)
+	
 	_pending_combinations = combinations
 	
-	# WARNING LOGIC
 	if combinations.size() > 1000:
 		_warning_dialog.dialog_text = "Warning: You are about to execute %d procedural generations.\n\nThis will heavily utilize your CPU and may take significant time to complete.\n\nDo you want to proceed?" % combinations.size()
 		_warning_dialog.popup_centered()
@@ -272,7 +326,7 @@ func _start_experiment() -> void:
 	_current_runner = ExperimentRunner.new()
 	_current_runner.progress_updated.connect(_on_progress_updated)
 	_current_runner.experiment_finished.connect(_on_experiment_finished)
-	
+	_last_executed_strategy_index = strategy_dropdown.selected
 	_current_runner.run_batch(strategy_script, _pending_combinations)
 
 func _on_progress_updated(completed: int, total: int) -> void:
@@ -282,12 +336,10 @@ func _on_progress_updated(completed: int, total: int) -> void:
 	status_label.text = "Processing: %d / %d" % [completed, total]
 
 func _on_experiment_finished(results: Array[Dictionary]) -> void:
-	# Reset the Run/Cancel button
 	run_button.text = "Run Experiment"
 	run_button.modulate = Color.WHITE
 	run_button.disabled = false
 	
-	# Let the user know if they aborted
 	if _current_runner != null and _current_runner._cancel_flag:
 		status_label.text = "Experiment aborted. Retrieved %d completed graphs." % results.size()
 	else:
@@ -295,61 +347,56 @@ func _on_experiment_finished(results: Array[Dictionary]) -> void:
 	
 	if results.size() > 0:
 		_latest_results = results
-		if export_btn: export_btn.disabled = false
+		if view_results_btn: view_results_btn.disabled = false
 		_populate_results_table(results)
 
 func _get_control_value(ctrl: Control, type: int) -> Variant:
-	if ctrl is SpinBox:
-		return int(ctrl.value) if type == TYPE_INT else ctrl.value
-	elif ctrl is CheckBox:
-		return ctrl.button_pressed
-	elif ctrl is LineEdit:
-		return ctrl.text
+	if ctrl is SpinBox: return int(ctrl.value) if type == TYPE_INT else ctrl.value
+	elif ctrl is CheckBox: return ctrl.button_pressed
+	elif ctrl is LineEdit: return ctrl.text
 	return null
 
 # ==============================================================================
 # DASHBOARD & EXPORT
 # ==============================================================================
-
 func _populate_results_table(results: Array[Dictionary]) -> void:
-	if not results_table or results.is_empty(): return
+	if not _results_table or results.is_empty(): return
 	
-	results_table.clear()
-	
+	_results_table.clear()
 	var first_row = results[0]
 	var p_keys = first_row["params"].keys()
 	var m_keys = first_row["metrics"].keys()
 	
-	# 1. Setup Columns (1 for ID, + Params, + Metrics)
-	var total_cols = 1 + p_keys.size() + m_keys.size()
-	results_table.columns = total_cols
-	results_table.set_column_titles_visible(true)
-	
-	# Build Headers
-	results_table.set_column_title(0, "ID")
-	var col_idx = 1
+	# Filter out the metrics config from the params list so they don't bloat the CSV/Table
+	var filtered_p_keys = []
 	for k in p_keys:
-		results_table.set_column_title(col_idx, k)
+		if not _metrics_config.has(k): filtered_p_keys.append(k)
+	
+	var total_cols = 1 + filtered_p_keys.size() + m_keys.size()
+	_results_table.columns = total_cols
+	_results_table.set_column_titles_visible(true)
+	
+	_results_table.set_column_title(0, "ID")
+	var col_idx = 1
+	for k in filtered_p_keys:
+		_results_table.set_column_title(col_idx, k)
 		col_idx += 1
 	for k in m_keys:
-		results_table.set_column_title(col_idx, k.capitalize())
+		_results_table.set_column_title(col_idx, k.capitalize())
 		col_idx += 1
 		
-	# 2. Populate Data
-	var root = results_table.create_item()
-	results_table.hide_root = true
+	var root = _results_table.create_item()
+	_results_table.hide_root = true
 	
 	for row in results:
-		var item = results_table.create_item(root)
+		var item = _results_table.create_item(root)
 		item.set_text(0, str(row["run_id"]))
 		
 		col_idx = 1
-		for k in p_keys:
+		for k in filtered_p_keys:
 			var val = row["params"].get(k, "")
-			# Format floats cleanly for the UI
 			if val is float: val = "%.2f" % val
 			item.set_text(col_idx, str(val))
-			# Make parameter columns slightly dimmer to separate them from metrics visually
 			item.set_custom_color(col_idx, Color(0.7, 0.7, 0.7)) 
 			col_idx += 1
 			
@@ -379,3 +426,44 @@ func _on_export_file_selected(path: String) -> void:
 		status_label.text = "Exported %d rows to CSV!" % _latest_results.size()
 	else:
 		status_label.text = "Error saving CSV to disk!"
+
+
+# ==============================================================================
+# VISUALIZATION MAPPING
+# ==============================================================================
+func _on_result_row_double_clicked() -> void:
+	if not graph_editor:
+		push_warning("ExperimentController: Cannot visualize - GraphEditor reference is missing!")
+		return
+		
+	var selected_item = _results_table.get_selected()
+	if not selected_item: return
+	
+	# The root item is hidden, so column 0 is always our Run ID
+	var run_id_str = selected_item.get_text(0)
+	if run_id_str == "": return
+	
+	var run_id = int(run_id_str)
+	var target_result = null
+	
+	for res in _latest_results:
+		if res["run_id"] == run_id:
+			target_result = res
+			break
+			
+	if not target_result: return
+	
+	# Close the popup so the user can see the graph generate
+	_results_popup.hide()
+	
+	# Fetch the exact strategy and parameter blueprint used for this row
+	var strategy = available_strategies[_last_executed_strategy_index]
+	var params = target_result["params"].duplicate()
+	
+	status_label.text = "Visualizing Run ID %d in the Graph Editor..." % run_id
+	
+	# Mimic the StrategyController's generation flow
+	if strategy is StrategyWalker or strategy.reset_on_generate:
+		graph_editor.clear_graph()
+		
+	graph_editor.apply_strategy(strategy, params)

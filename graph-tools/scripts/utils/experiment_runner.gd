@@ -134,12 +134,13 @@ func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
 		"zones": {}
 	}
 	
-	# 1. Run the massive synchronous suite!
-	GraphMetrics._calculate_topology(g, report)
-	GraphMetrics._calculate_spatial(g, report)
-	GraphMetrics._calculate_agents(g, report)
-	GraphMetrics._calculate_markov(g, report)
-	GraphMetrics._calculate_zones(g, report)
+	# 1. Run the massive synchronous suite (If Enabled!)
+	if params.get("do_basic_metrics", true):
+		GraphMetrics._calculate_topology(g, report)
+		GraphMetrics._calculate_spatial(g, report)
+		GraphMetrics._calculate_agents(g, report)
+		GraphMetrics._calculate_markov(g, report)
+		GraphMetrics._calculate_zones(g, report)
 	
 	# ==========================================================================
 	# 2. HEAVY METRICS (Synchronous Thread-Safe Execution)

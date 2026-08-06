@@ -112,7 +112,12 @@ func _ready() -> void:
 	# 1. Initialize Default Parameters from Schema
 	var schema = GraphMetrics.get_analysis_options_schema()
 	for item in schema:
-		_analysis_params[item.name] = item.default
+		# Skip UI separators (TYPE_NIL)
+		if item.get("type") == TYPE_NIL:
+			continue
+			
+		# Safely get the default value, falling back to null if it doesn't exist
+		_analysis_params[item.name] = item.get("default")
 		
 	# 2. Instantiate and hook up the Popup
 	_settings_popup = AlgorithmSettingsPopup.new()

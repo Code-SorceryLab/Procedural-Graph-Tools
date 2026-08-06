@@ -72,15 +72,16 @@ results_label = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer
 file_dialog = NodePath("../UI/FileDialog")
 btn_settings = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Analysis/SettingsBtn")
 
-[node name="ExperimentController" type="Node" parent="." node_paths=PackedStringArray("strategy_dropdown", "settings_container", "run_button", "progress_bar", "status_label", "results_table", "export_btn", "export_dialog")]
+[node name="ExperimentController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_dropdown", "settings_container", "run_button", "progress_bar", "status_label", "metrics_btn", "view_results_btn", "export_dialog")]
 script = ExtResource("7_52jev")
+graph_editor = NodePath("../GraphEditor")
 strategy_dropdown = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/StrategyBtn")
 settings_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/SettingsContainer")
 run_button = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/RunBtn")
 progress_bar = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ProgressBar")
 status_label = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/StatusLbl")
-results_table = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ResultsTableTree")
-export_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ExportBtn")
+metrics_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/MetricsBtn")
+view_results_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ViewResultsBtn")
 export_dialog = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ExportDialog")
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
@@ -487,13 +488,13 @@ layout_mode = 2
 layout_mode = 2
 text = "Status:"
 
-[node name="ResultsTableTree" type="Tree" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
+[node name="MetricsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
 layout_mode = 2
-size_flags_vertical = 3
+text = "Metrics Config"
 
-[node name="ExportBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
+[node name="ViewResultsBtn" type="Button" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
 layout_mode = 2
-text = "Export"
+text = "View Results"
 
 [node name="ExportDialog" type="FileDialog" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
 oversampling_override = 1.0
