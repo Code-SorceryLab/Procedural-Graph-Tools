@@ -35,7 +35,16 @@ static func _static_init() -> void:
 	register_category(TARGET_NODE, "treasure", "Treasure", Color(1.0, 0.8, 0.2))
 	register_category(TARGET_NODE, "boss", "Boss", Color(0.6, 0.0, 0.0))
 	register_category(TARGET_NODE, "shop", "Shop", Color(0.4, 0.2, 0.6))
+	
+	# --- SCP FACILITY CATEGORIES ---
+	register_category(TARGET_NODE, "scp_light", "Light Containment", Color(0.9, 0.9, 0.9))
+	register_category(TARGET_NODE, "scp_heavy", "Heavy Containment", Color(0.4, 0.4, 0.4))
+	register_category(TARGET_NODE, "scp_office", "Research Office", Color(0.6, 0.7, 0.9))
+	register_category(TARGET_NODE, "scp_breach", "Breached Sector", Color(0.8, 0.2, 0.2))
+	
 
+	register_property(TARGET_NODE, "clearance_req", "Clearance Required", TYPE_INT, 1, DisplayMode.BADGE)
+	
 	# --- DEFAULT EDGE CATEGORIES ---
 	register_category(TARGET_EDGE, "corridor", "Corridor", Color(0.8, 0.8, 0.8))
 	register_category(TARGET_EDGE, "door_open", "Door (Open)", Color(0.6, 0.4, 0.2))

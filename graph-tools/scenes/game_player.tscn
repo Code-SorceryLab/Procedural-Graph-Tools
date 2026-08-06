@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=20 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -13,7 +13,25 @@
 [ext_resource type="PackedScene" uid="uid://c8s5vkkqy6b61" path="res://scenes/semantic_data_editor.tscn" id="6_gea6l"]
 [ext_resource type="Script" uid="uid://7fgscwjm0rx0" path="res://scripts/controllers/experiment_controller.gd" id="7_52jev"]
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
+[ext_resource type="Script" uid="uid://bww3ug35oq5p" path="res://scripts/controllers/realizer_controller.gd" id="8_i30wh"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
+[ext_resource type="Texture2D" uid="uid://cq2y7wtdi43cp" path="res://assets/Tilemap.png" id="13_xxfec"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jdcg6"]
+texture = ExtResource("13_xxfec")
+texture_region_size = Vector2i(32, 32)
+0:0/0 = 0
+1:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_pplb5"]
+tile_size = Vector2i(32, 32)
+sources/0 = SubResource("TileSetAtlasSource_jdcg6")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_v0keg"]
 bg_color = Color(0.1764706, 0.1764706, 0.1764706, 1)
@@ -84,6 +102,12 @@ metrics_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/E
 view_results_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ViewResultsBtn")
 export_dialog = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment/ExportDialog")
 
+[node name="RealizerController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "tile_map_layer", "ui_container")]
+script = ExtResource("8_i30wh")
+graph_editor = NodePath("../GraphEditor")
+tile_map_layer = NodePath("../TileMapLayer")
+ui_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/UIContainer")
+
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
 script = ExtResource("5_5u163")
 graph_editor = NodePath("../GraphEditor")
@@ -114,6 +138,10 @@ btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/Conte
 btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
 btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
 sb_speed = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/SbSpeed")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
+texture_filter = 1
+tile_set = SubResource("TileSet_pplb5")
 
 [node name="GraphEditor" parent="." instance=ExtResource("2_it57u")]
 
@@ -500,10 +528,18 @@ text = "View Results"
 oversampling_override = 1.0
 initial_position = 1
 
-[node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+[node name="Realizer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 6
+
+[node name="UIContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer"]
+layout_mode = 2
+
+[node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 7
 
 [node name="LblNoSelection" type="Label" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Inspector"]
 modulate = Color(1, 1, 1, 0.5)

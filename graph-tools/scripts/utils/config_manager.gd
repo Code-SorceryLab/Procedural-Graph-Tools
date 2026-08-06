@@ -92,3 +92,36 @@ static func _apply_input_bind(action: String, data: Dictionary) -> void:
 	
 	# 3. Add the new custom bind
 	InputMap.action_add_event(action, new_event)
+
+
+# ==============================================================================
+# RASTERIZER MAPPINGS
+# ==============================================================================
+
+static func save_rasterizer_mappings(mappings: Dictionary) -> void:
+	var config = ConfigFile.new()
+	# Load existing file first to preserve Input and History settings!
+	config.load(SETTINGS_PATH) 
+	
+	# Clear the old section entirely to prevent orphaned keys if you deleted a semantic type
+	if config.has_section("RasterizerMappings"):
+		config.erase_section("RasterizerMappings")
+		
+	# Save the new mapping Dictionary
+	for key in mappings:
+		config.set_value("RasterizerMappings", key, mappings[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK:
+		push_error("ConfigManager: Failed to save Rasterizer Mappings.")
+
+static func load_rasterizer_mappings() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_mappings = {}
+	
+	if err == OK and config.has_section("RasterizerMappings"):
+		for key in config.get_section_keys("RasterizerMappings"):
+			loaded_mappings[key] = config.get_value("RasterizerMappings", key)
+			
+	return loaded_mappings
