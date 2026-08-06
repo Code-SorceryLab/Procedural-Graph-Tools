@@ -132,17 +132,37 @@ func _on_rasterize_pressed() -> void:
 		_realizer.wall_id: { "source_id": floor_source_id, "atlas_coords": def_wall_atlas }
 	}
 	
-	# 3. Inject Semantic Types (Floors AND Walls)
+	# Helper function to auto-detect terrain data from an atlas coordinate
+	var get_mapping_data = func(atlas_coord: Vector2i) -> Dictionary:
+		var source = tile_map_layer.tile_set.get_source(floor_source_id)
+		if source is TileSetAtlasSource:
+			# Get the Godot TileData resource for the clicked tile
+			var tile_data = source.get_tile_data(atlas_coord, 0)
+			# If the terrain_set is valid (>= 0), the user set up Autotiling for this tile!
+			if tile_data and tile_data.terrain_set >= 0:
+				return { 
+					"is_terrain": true, 
+					"terrain_set": tile_data.terrain_set, 
+					"terrain": tile_data.terrain 
+				}
+		# Fallback to standard static tile
+		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord }
+
+	# 3. Inject Semantic Types & Auto-Detect Terrains
+	# Update the default floor/wall with terrain detection
+	mapping[_realizer.floor_id] = get_mapping_data.call(def_floor_atlas)
+	mapping[_realizer.wall_id] = get_mapping_data.call(def_wall_atlas)
+	
 	for cat_key in _realizer.semantic_floor_ids:
 		var s_floor_id = _realizer.semantic_floor_ids[cat_key]
 		var s_wall_id = _realizer.semantic_wall_map[s_floor_id]
 		
-		# Look up the specific coordinates you clicked in the popup, or fallback to the defaults
 		var custom_floor = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
 		var custom_wall = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
 		
-		mapping[s_floor_id] = { "source_id": floor_source_id, "atlas_coords": custom_floor }
-		mapping[s_wall_id] = { "source_id": floor_source_id, "atlas_coords": custom_wall }
+		# Auto-detect terrain status for both semantic floors and walls
+		mapping[s_floor_id] = get_mapping_data.call(custom_floor)
+		mapping[s_wall_id] = get_mapping_data.call(custom_wall)
 		
 	# 4. Paint to Screen
 	TileMapAdapter.apply_to_layer(grid, tile_map_layer, mapping)
