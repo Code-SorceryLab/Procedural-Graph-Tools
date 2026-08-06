@@ -593,3 +593,38 @@ static func _parse_xml_value(text: String, type: String) -> Variant:
 		"double", "float": return text.to_float()
 		"boolean": return text.to_lower() == "true"
 		_: return text
+
+# ==============================================================================
+# BATCH EXPERIMENT CSV EXPORT
+# ==============================================================================
+static func export_experiment_csv(results: Array[Dictionary]) -> String:
+	if results.is_empty(): return ""
+
+	var csv = ""
+	var first_row = results[0]
+	var p_keys = first_row["params"].keys()
+	var m_keys = first_row["metrics"].keys()
+
+	# 1. Build Headers
+	var headers = ["Run_ID"]
+	for k in p_keys: headers.append("Param_" + k)
+	for k in m_keys: headers.append("Metric_" + k)
+	
+	csv += ",".join(headers) + "\n"
+
+	# 2. Extract Data Rows
+	for row in results:
+		var line = [str(row["run_id"])]
+		
+		for k in p_keys:
+			# Ensure we escape any strings that might have commas
+			var val = str(row["params"].get(k, ""))
+			if "," in val: val = "\"%s\"" % val 
+			line.append(val)
+			
+		for k in m_keys:
+			line.append(str(row["metrics"].get(k, 0)))
+
+		csv += ",".join(line) + "\n"
+
+	return csv

@@ -1,0 +1,17 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bihs01gu115ug"
+
+[deps]
+
+files=["res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation"]
+
+source_file="res://Saved_Logs/Polar Wedges Experiment Log.csv"
+dest_files=["res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Param.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation", "res://Saved_Logs/Polar Wedges Experiment Log.Metric.translation"]
+
+[params]
+
+compress=true
+delimiter=0
