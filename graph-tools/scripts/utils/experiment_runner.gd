@@ -124,7 +124,7 @@ func _monitor_progress() -> void:
 
 # A synchronous metric extractor that flattens the GraphMetrics output for CSV export
 func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
-	# [FIX] Pre-allocate the dictionary keys so GraphMetrics doesn't crash!
+	# Pre-allocate the dictionary keys so GraphMetrics doesn't crash!
 	var report = {
 		"_selection_data": {},
 		"topological": {},
@@ -141,24 +141,68 @@ func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
 	GraphMetrics._calculate_markov(g, report)
 	GraphMetrics._calculate_zones(g, report)
 	
-	# 2. Safely run Heavy Metrics (Synchronously bypass the async wrappers)
+	# ==========================================================================
+	# 2. HEAVY METRICS (Synchronous Thread-Safe Execution)
 	# Because we are ALREADY in a background thread, we instantiate the solvers 
-	# and run their underlying synchronous calculation methods.
+	# and run their underlying calculate() methods directly, bypassing awaits.
+	# ==========================================================================
+	
+	# Longest Path
 	if params.get("do_longest_path", false):
 		var path_solver = AnalysisLongestPath.new()
-		if path_solver.has_method("calculate"): # Assumes calculate() is the sync version of calculate_async()
+		if path_solver.has_method("calculate"): 
 			var data = path_solver.calculate(g, params)
-			report["max_exploration_path"] = { "max_path_length": data.get("max_path_length", 0) }
+			report["max_exploration_path"] = { 
+				"max_path_length": data.get("max_path_length", 0),
+				"is_hamiltonian": data.get("is_hamiltonian", false)
+			}
 
+	# Louvain Community Detection
 	if params.get("do_louvain", false):
 		var louvain_solver = AnalysisLouvain.new()
 		if louvain_solver.has_method("calculate"):
 			var data = louvain_solver.calculate(g, params)
-			report["community_detection"] = { "modularity_score": data.get("modularity", 0.0) }
+			report["community_detection"] = { 
+				"modularity_score": data.get("modularity", 0.0),
+				"detected_communities": data.get("communities", 0)
+			}
 			
-	# (You can expand this block for Chromatic, Tangles, and Eulerian based on your solver APIs)
+	# Robertson-Seymour Tangles (Treewidth)
+	if params.get("do_tangles", false):
+		var tangle_solver = AnalysisTangle.new()
+		if tangle_solver.has_method("calculate"):
+			var data = tangle_solver.calculate(g, params)
+			report["robertson_seymour_tangles"] = {
+				"tangle_treewidth": data.get("treewidth", 0)
+				# Skipping the "method" string so it doesn't clutter numeric CSV data, 
+				# but you can add it if you want categorical columns.
+			}
+			
+	# Chromatic Number
+	if params.get("do_chromatic", false):
+		var chromatic_solver = AnalysisChromatic.new()
+		if chromatic_solver.has_method("calculate"):
+			var data = chromatic_solver.calculate(g, params)
+			report["chromatic_coloring"] = {
+				"chromatic_number": data.get("chromatic_number", 0)
+			}
+			
+	# Eulerian Edge Traversal
+	if params.get("do_eulerian", false):
+		var eulerian_solver = AnalysisEulerian.new()
+		if eulerian_solver.has_method("calculate"):
+			var data = eulerian_solver.calculate(g, params)
+			var path_nodes = data.get("path_nodes", [])
+			report["eulerian_edge_traversal"] = {
+				"has_eulerian_circuit": data.get("has_circuit", false),
+				"has_eulerian_path": data.get("has_path", false),
+				"odd_degree_nodes": data.get("odd_nodes", 0),
+				"full_traversal_route_length": path_nodes.size()
+			}
 
-	# 3. Flatten the nested dictionary for the UI Table and CSV Exporter
+	# ==========================================================================
+	# 3. CSV & DASHBOARD FLATTENER
+	# ==========================================================================
 	var flat_metrics = {}
 	
 	for category in report:
@@ -169,7 +213,7 @@ func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
 			for key in data:
 				var val = data[key]
 				
-				# Handle specific nested structures like shapes
+				# Handle specific nested structures like topological shapes
 				if typeof(val) == TYPE_DICTIONARY:
 					if key == "shapes":
 						for sk in val: flat_metrics["shape_" + sk] = val[sk]
