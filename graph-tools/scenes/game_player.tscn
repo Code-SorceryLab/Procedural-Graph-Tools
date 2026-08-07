@@ -40,12 +40,11 @@ bg_color = Color(0.1764706, 0.1764706, 0.1764706, 1)
 [node name="GamePlayer" type="Node"]
 script = ExtResource("1_wv330")
 
-[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "debug_depth_chk", "grow_btn", "generate_btn", "clear_btn", "spawn_btn", "clear_agents_btn")]
+[node name="StrategyController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "algo_select", "settings_container", "grow_btn", "generate_btn", "clear_btn", "spawn_btn", "clear_agents_btn")]
 script = ExtResource("2_hgyw2")
 graph_editor = NodePath("../GraphEditor")
 algo_select = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/AlgoSelect")
 settings_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/InputContainer")
-debug_depth_chk = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody/DebugDepthChk")
 grow_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GrowBtn")
 generate_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/GenerateBtn")
 clear_btn = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ClearBtn")
@@ -393,10 +392,6 @@ size_flags_horizontal = 3
 
 [node name="InputContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
 layout_mode = 2
-
-[node name="DebugDepthChk" type="CheckBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
-layout_mode = 2
-text = "Show Depth Numbers"
 
 [node name="MergeChk" type="CheckBox" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Generation/ScrollGen/ScrollBody"]
 layout_mode = 2

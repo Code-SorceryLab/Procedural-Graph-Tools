@@ -64,7 +64,7 @@ const PARAM_TOOLTIPS = {
 }
 
 # ==============================================================================
-# 3. RENDERER VISUALS (SIZES)
+# 3. RENDERER VISUALS
 # ==============================================================================
 const NODE_RADIUS: float = 12.0
 const EDGE_WIDTH: float = 3.0
@@ -75,6 +75,7 @@ const AGENT_CLICK_RADIUS: float = 7.0    # Slightly larger hit-box for easier cl
 const AGENT_STACK_THRESHOLD: int = 5     # 6+ agents become a "Stack Icon"
 const AGENT_RING_OFFSET: float = 16.0    # Distance from node center to agent token
 
+static var OVERLAY_DEPTH_RAINBOW: bool = false
 # ==============================================================================
 # 4. UI STATE COLORS
 # ==============================================================================

@@ -18,7 +18,6 @@ func _exit_tree() -> void:
 @export var algo_select: OptionButton
 @export var settings_container: Control 
 
-@export var debug_depth_chk: CheckBox
 @export var grow_btn: Button      # "Extend Branch"
 @export var generate_btn: Button  # "Create New Graph"
 @export var clear_btn: Button
@@ -82,7 +81,6 @@ func _ready() -> void:
 	if clear_agents_btn:
 		clear_agents_btn.pressed.connect(_on_clear_agents_pressed)
 	
-	debug_depth_chk.toggled.connect(_on_debug_depth_toggled)
 	
 	if strategies.size() > 0:
 		_on_algo_selected(0)
@@ -334,8 +332,6 @@ func _refresh_visibility() -> void:
 			else:
 				row.visible = not is_advanced or _show_advanced
 
-func _on_debug_depth_toggled(toggled: bool) -> void:
-	graph_editor.set_debug_depth(toggled)
 
 
 # ==============================================================================

@@ -4,6 +4,7 @@ extends PanelContainer
 var chk_atomic: CheckBox
 var spin_history: SpinBox
 var chk_grid: CheckBox
+var chk_rainbow_depth: CheckBox
 var input_container: VBoxContainer
 
 var btn_close: Button
@@ -26,6 +27,7 @@ func _ready() -> void:
 	chk_atomic = find_child("ChkAtomic", true, false)
 	spin_history = find_child("SpinHistory", true, false)
 	chk_grid = find_child("ChkGrid", true, false)
+	chk_rainbow_depth = find_child("ChkRainbowDepth", true, false)
 	
 	btn_close = find_child("BtnClose", true, false)
 	btn_apply = find_child("ApplyBtn", true, false)
@@ -43,6 +45,7 @@ func _ready() -> void:
 	if chk_atomic: chk_atomic.toggled.connect(_on_setting_changed.bind("atomic"))
 	if spin_history: spin_history.value_changed.connect(_on_setting_changed.bind("history"))
 	if chk_grid: chk_grid.toggled.connect(_on_setting_changed.bind("grid"))
+	if chk_rainbow_depth: chk_rainbow_depth.toggled.connect(_on_setting_changed.bind("rainbow_depth"))
 	
 	hide()
 	set_process_input(false)
@@ -51,8 +54,13 @@ func show_settings() -> void:
 	# 1. Load LIVE state into our STAGING buffer
 	_temp_settings["atomic"] = GraphSettings.USE_ATOMIC_UNDO
 	_temp_settings["history"] = GraphSettings.MAX_HISTORY_STEPS
+	
 	if "SHOW_GRID" in GraphSettings:
 		_temp_settings["grid"] = GraphSettings.SHOW_GRID
+		
+	# Load Rainbow Depth
+	if "OVERLAY_DEPTH_RAINBOW" in GraphSettings:
+		_temp_settings["rainbow_depth"] = GraphSettings.OVERLAY_DEPTH_RAINBOW
 		
 	_temp_inputs.clear() # Clear any unapplied input changes from last time
 	
@@ -78,7 +86,11 @@ func _evaluate_dirty() -> void:
 	
 	if _temp_settings.get("atomic") != GraphSettings.USE_ATOMIC_UNDO: is_dirty = true
 	if _temp_settings.get("history") != GraphSettings.MAX_HISTORY_STEPS: is_dirty = true
+	
 	if "SHOW_GRID" in GraphSettings and _temp_settings.get("grid") != GraphSettings.SHOW_GRID: is_dirty = true
+	
+	if "OVERLAY_DEPTH_RAINBOW" in GraphSettings and _temp_settings.get("rainbow_depth") != GraphSettings.OVERLAY_DEPTH_RAINBOW: 
+		is_dirty = true
 	
 	# If we have any pending keybind changes, we are dirty
 	if not _temp_inputs.is_empty(): is_dirty = true
@@ -91,6 +103,7 @@ func _sync_ui_to_temp_state() -> void:
 	if chk_atomic: chk_atomic.set_pressed_no_signal(_temp_settings.get("atomic", false))
 	if spin_history: spin_history.set_value_no_signal(_temp_settings.get("history", 50))
 	if chk_grid: chk_grid.set_pressed_no_signal(_temp_settings.get("grid", true))
+	if chk_rainbow_depth: chk_rainbow_depth.set_pressed_no_signal(_temp_settings.get("rainbow_depth", false))
 	
 	_build_input_list()
 
@@ -102,8 +115,12 @@ func _on_apply_pressed() -> void:
 	# 1. Commit Settings to Memory
 	GraphSettings.USE_ATOMIC_UNDO = _temp_settings.get("atomic", false)
 	GraphSettings.MAX_HISTORY_STEPS = _temp_settings.get("history", 50)
+	
 	if "SHOW_GRID" in GraphSettings:
 		GraphSettings.SHOW_GRID = _temp_settings.get("grid", true)
+		
+	if "OVERLAY_DEPTH_RAINBOW" in GraphSettings:
+		GraphSettings.OVERLAY_DEPTH_RAINBOW = _temp_settings.get("rainbow_depth", false)
 		
 	# 2. Commit Inputs to Memory
 	for action in _temp_inputs:
@@ -123,6 +140,7 @@ func _on_defaults_pressed() -> void:
 	_temp_settings["atomic"] = false
 	_temp_settings["history"] = 50
 	_temp_settings["grid"] = true
+	_temp_settings["rainbow_depth"] = false # Default off
 	
 	# 2. Fetch default keybinds directly from Godot's ProjectSettings
 	for action in ConfigManager.INPUT_ACTIONS:

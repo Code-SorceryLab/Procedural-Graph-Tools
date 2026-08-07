@@ -32,6 +32,8 @@ static func save_config() -> void:
 	config.set_value("View", "show_right_bar", GraphSettings.UI_SHOW_RIGHT_BAR)
 	config.set_value("View", "show_top_bar", GraphSettings.UI_SHOW_TOP_BAR)
 	
+	config.set_value("View", "depth_rainbow", GraphSettings.OVERLAY_DEPTH_RAINBOW)
+	
 	# 2. Store Input Map
 	_save_inputs(config)
 	
@@ -60,6 +62,8 @@ static func load_config() -> void:
 	GraphSettings.UI_SHOW_LEFT_BAR = config.get_value("View", "show_left_bar", true)
 	GraphSettings.UI_SHOW_RIGHT_BAR = config.get_value("View", "show_right_bar", true)
 	GraphSettings.UI_SHOW_TOP_BAR = config.get_value("View", "show_top_bar", true)
+	
+	GraphSettings.OVERLAY_DEPTH_RAINBOW = config.get_value("View", "depth_rainbow", false)
 	
 	# 2. Load Input Map
 	_load_inputs(config)

@@ -64,6 +64,7 @@ var pending_stroke_is_erase: bool = false
 # --- INTERNAL CACHE ---
 var _depth_cache: Dictionary = {}
 var _depth_cache_dirty: bool = true
+var _max_depth_in_cache: int = 0 # Tracks the deepest node for heatmap math
 
 # --- OVERLAY STATE ---
 var tool_line_start: Vector2 = Vector2.INF
@@ -90,6 +91,11 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if not graph_ref: return
 	
+	# Pre-calculate and draw the halos underneath EVERYTHING
+	if debug_show_depth:
+		if _depth_cache_dirty: _recalculate_depth_cache()
+		_draw_layer_depth_halos() 
+	
 	# Render Order (Painter's Algorithm: Back to Front)
 	_draw_layer_zones()
 	_draw_layer_edges()
@@ -103,15 +109,15 @@ func _draw() -> void:
 	_draw_layer_interaction()
 	_draw_layer_selection_box()
 	
-	# Draw the ghost prefab if the Stamp tool is active
 	if not stamp_preview_data.is_empty():
 		_draw_stamp_preview()
 	
 	if transform_rect.has_area():
 		_draw_transform_box()
 	
+	# Draw the crisp depth labels on top of EVERYTHING
 	if debug_show_depth:
-		_draw_layer_debug_depth()
+		_draw_layer_depth_labels()
 
 # ==============================================================================
 # 3. DOMAIN: ZONES
@@ -763,69 +769,154 @@ func _draw_transform_box() -> void:
 # 11. DOMAIN: DEBUG (DEPTH)
 # ==============================================================================
 
-func _draw_layer_debug_depth() -> void:
-	if _depth_cache_dirty: _recalculate_depth_cache()
-	
-	var font_size = 14
-	var start_hue = 0.33 
-	var hue_step = 0.05 
+func _draw_layer_depth_halos() -> void:
+	# 1. Fetch Setting
+	var use_rainbow = false
+	if "OVERLAY_DEPTH_RAINBOW" in GraphSettings:
+		use_rainbow = GraphSettings.OVERLAY_DEPTH_RAINBOW
+		
+	var halo_radius = node_radius * 2.5
+	var rainbow_start_hue = 0.33 
+	var rainbow_hue_step = 0.05 
 	
 	for id in _depth_cache:
 		if not graph_ref.nodes.has(id): continue
 		var pos = graph_ref.get_node_pos(id)
 		var depth_val = _depth_cache[id]
-		var text = str(depth_val)
 		
-		var current_hue = fmod(start_hue + (depth_val * hue_step), 1.0)
-		var depth_color = Color.from_hsv(current_hue, 0.55, 1.0)
+		var depth_color: Color
 		
+		if use_rainbow:
+			# --- MODE A: Endless Rainbow ---
+			var current_hue = fmod(rainbow_start_hue + (depth_val * rainbow_hue_step), 1.0)
+			depth_color = Color.from_hsv(current_hue, 0.75, 1.0, 0.25)
+		else:
+			# --- MODE B: Absolute Heatmap (Yellow -> Blue) ---
+			var ratio = 0.0
+			if _max_depth_in_cache > 0:
+				ratio = float(depth_val) / float(_max_depth_in_cache)
+			
+			# HSV Interpolation: Yellow is ~0.15, Dark Blue is ~0.65
+			var current_hue = lerp(0.15, 0.65, ratio)
+			
+			# Deeper nodes become darker and more saturated
+			var saturation = lerp(0.5, 0.9, ratio)
+			var value = lerp(1.0, 0.5, ratio)
+			depth_color = Color.from_hsv(current_hue, saturation, value, 0.35)
+			
+			# Make the pure Seed nodes pop aggressively
+			if depth_val == 0:
+				depth_color = Color(1.0, 1.0, 0.8, 0.6) # Hot bright white-yellow
+				
+		draw_circle(pos, halo_radius, depth_color)
+
+func _draw_layer_depth_labels() -> void:
+	var font_size = 11
+	
+	for id in _depth_cache:
+		if not graph_ref.nodes.has(id): continue
+		var pos = graph_ref.get_node_pos(id)
+		var text = str(_depth_cache[id])
+		
+		# 1. Calculate sizing
 		var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
-		var text_pos = pos + Vector2(-text_size.x / 2.0, text_size.y / 4.0)
+		var padding = Vector2(8, 4)
 		
-		draw_string_outline(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, 4, Color.BLACK)
-		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, depth_color)
+		# 2. Position the pill slightly below the node body
+		var badge_center = pos + Vector2(0, node_radius + 12)
+		var badge_rect = Rect2(badge_center - (text_size / 2.0) - (padding / 2.0), text_size + padding)
+		
+		# 3. Draw a crisp UI Pill Background
+		var style = StyleBoxFlat.new()
+		style.bg_color = Color(0.1, 0.1, 0.1, 0.85)
+		style.set_corner_radius_all(int(badge_rect.size.y / 2.0))
+		style.anti_aliasing = true
+		style.draw(get_canvas_item(), badge_rect)
+		
+		# 4. Draw the actual number
+		var text_pos = badge_center + Vector2(-text_size.x / 2.0, text_size.y / 3.0)
+		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
 
 func _recalculate_depth_cache() -> void:
 	_depth_cache.clear()
-	if graph_ref.nodes.is_empty(): return
+	_max_depth_in_cache = 0
+	if not graph_ref or graph_ref.nodes.is_empty(): 
+		_depth_cache_dirty = false
+		return
 		
-	var seeds: Array[String] = []
+	# --- 1. DISCOVER ISLANDS (Connected Component Analysis) ---
+	var visited_for_islands = {}
+	var islands = []
 	
-	# 1. Selected Spawns [UPDATED TO STRING]
-	for id in selected_nodes_ref:
-		if graph_ref.nodes.has(id):
-			if graph_ref.nodes[id].type == "spawn": seeds.append(id)
-	
-	# 2. All Spawns [UPDATED TO STRING]
-	if seeds.is_empty():
-		for id in graph_ref.nodes:
-			if graph_ref.nodes[id].type == "spawn": seeds.append(id)
+	for id in graph_ref.nodes:
+		if visited_for_islands.has(id): continue
+		
+		# Found a new island, flood-fill to map its boundaries
+		var current_island = []
+		var queue = [id]
+		visited_for_islands[id] = true
+		current_island.append(id)
+		
+		while not queue.is_empty():
+			var current = queue.pop_front()
+			for neighbor in graph_ref.get_neighbors(current):
+				if not visited_for_islands.has(neighbor):
+					visited_for_islands[neighbor] = true
+					current_island.append(neighbor)
+					queue.append(neighbor)
+					
+		islands.append(current_island)
+		
+	# --- 2. SEED SELECTION & BFS PER ISLAND ---
+	for island in islands:
+		var island_seeds = []
+		
+		# PRIORITY 1: User Selected Nodes
+		# If the user has explicitly selected nodes, those become the starting point(s)
+		for id in selected_nodes_ref:
+			if island.has(id):
+				island_seeds.append(id)
 				
-	# 3. Center Fallback
-	if seeds.is_empty():
-		var closest = ""
-		var min_dist = INF
-		for id in graph_ref.nodes:
-			var d = graph_ref.get_node_pos(id).length_squared()
-			if d < min_dist:
-				min_dist = d
-				closest = id
-		if closest != "": seeds.append(closest)
-
-	var queue: Array = []
-	for seed_id in seeds:
-		_depth_cache[seed_id] = 0
-		queue.append(seed_id)
-		
-	while not queue.is_empty():
-		var current = queue.pop_front()
-		var current_depth = _depth_cache[current]
-		
-		for neighbor in graph_ref.get_neighbors(current):
-			if not _depth_cache.has(neighbor):
-				_depth_cache[neighbor] = current_depth + 1
-				queue.append(neighbor)
-	
+		# PRIORITY 2: Semantic 'Spawn' Nodes
+		# If no user selection, fallback to nodes designated as spawns
+		if island_seeds.is_empty():
+			for id in island:
+				if graph_ref.nodes[id].type == "spawn":
+					island_seeds.append(id)
+					
+		# PRIORITY 3: Geometric Center Fallback
+		# If the island has no selected nodes and no spawns, find the node closest to 0,0
+		if island_seeds.is_empty():
+			var closest = ""
+			var min_dist = INF
+			for id in island:
+				var d = graph_ref.get_node_pos(id).length_squared()
+				if d < min_dist:
+					min_dist = d
+					closest = id
+			if closest != "":
+				island_seeds.append(closest)
+				
+		# --- 3. MAP THE DEPTH ---
+		var bfs_queue = []
+		for seed in island_seeds:
+			_depth_cache[seed] = 0
+			bfs_queue.append(seed)
+			
+		while not bfs_queue.is_empty():
+			var current = bfs_queue.pop_front()
+			var current_depth = _depth_cache[current]
+			
+			for neighbor in graph_ref.get_neighbors(current):
+				if not _depth_cache.has(neighbor):
+					var new_depth = current_depth + 1
+					_depth_cache[neighbor] = new_depth
+					bfs_queue.append(neighbor)
+					
+					# Track the deepest point
+					if new_depth > _max_depth_in_cache:
+						_max_depth_in_cache = new_depth
+					
 	_depth_cache_dirty = false
 
 # ==============================================================================

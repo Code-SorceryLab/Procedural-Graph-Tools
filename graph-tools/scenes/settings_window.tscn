@@ -67,6 +67,13 @@ text = "Grid Visible"
 [node name="ChkGrid" type="CheckBox" parent="MarginContainer/VBoxContainer/GridContainer"]
 layout_mode = 2
 
+[node name="LblRainbowDepth" type="Label" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+text = "Use Rainbow Depth Overlay"
+
+[node name="ChkRainbowDepth" type="CheckBox" parent="MarginContainer/VBoxContainer/GridContainer"]
+layout_mode = 2
+
 [node name="HSeparator2" type="HSeparator" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 

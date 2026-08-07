@@ -6,8 +6,6 @@ extends Node
 @export var status_label: Label
 @export var tool_options_container: HBoxContainer 
 @export var file_controller: FileController
-
-# [NEW] Moved from FileController
 @export var settings_window: PanelContainer
 
 # --- MENUS ---
@@ -27,9 +25,9 @@ extends Node
 var _active_tool_inputs: Dictionary = {}
 var is_buoyancy_active: bool = false
 var is_auto_crystallize_active: bool = false # Tracks crystallization state
-
 var is_edge_snapping_active: bool = false
 var is_node_fusing_active: bool = false
+var is_depth_overlay_active: bool = false
 
 # Playback State
 var is_playing: bool = false
@@ -77,7 +75,7 @@ func _setup_menus() -> void:
 		menu_edit.add_separator()
 		menu_edit.add_item("Clear Graph", 203)
 		menu_edit.add_separator() 
-		menu_edit.add_item("Settings", 204) # [NEW] Added Settings to Edit Menu
+		menu_edit.add_item("Settings", 204) # Added Settings to Edit Menu
 		menu_edit.id_pressed.connect(_on_edit_menu_pressed)
 		
 		# Hook into the popup event to dynamically update labels!
@@ -94,7 +92,10 @@ func _setup_menus() -> void:
 		menu_graph.add_check_item("Enable Edge Tension Snapping", 304)
 		menu_graph.add_check_item("Enable Node Collision Fusing", 305)
 		menu_graph.add_item("Force Directed Layout (1 Step)", 302)
+		
+		# --- OVERLAYS SECTION ---
 		menu_graph.add_separator() 
+		menu_graph.add_check_item("Overlay: Topological Depth", 306)
 		
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
 		
@@ -178,6 +179,13 @@ func _on_graph_menu_pressed(id: int) -> void:
 			menu_graph.set_item_checked(idx, is_node_fusing_active)
 			if graph_editor and graph_editor.has_method("set_buoyancy_node_fusing"):
 				graph_editor.set_buoyancy_node_fusing(is_node_fusing_active)
+				
+		306: # Toggle Topological Depth
+			is_depth_overlay_active = not is_depth_overlay_active
+			var idx = menu_graph.get_item_index(306)
+			menu_graph.set_item_checked(idx, is_depth_overlay_active)
+			if graph_editor and graph_editor.has_method("set_debug_depth"):
+				graph_editor.set_debug_depth(is_depth_overlay_active)
 
 # ==============================================================================
 # SIMULATION HANDLERS
