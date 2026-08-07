@@ -269,7 +269,7 @@ func _test_analyze_rooms() -> void:
 	graph.add_edge("n2", "n3")
 	
 	# 2. Run Analysis
-	var strategy = StrategyAnalyze.new()
+	var strategy = StrategyBiomeFiller.new()
 	var params = {"auto_types": true}
 	
 	editor.apply_strategy(strategy, params)

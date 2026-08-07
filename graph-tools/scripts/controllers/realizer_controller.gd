@@ -57,6 +57,9 @@ func _ready() -> void:
 	add_child(_biome_selector)
 	_biome_selector.confirmed.connect(_on_biome_selected)
 	
+	# Load the Biomes from disk BEFORE updating the UI!
+	_biome_params = ConfigManager.load_biome_overrides()
+	
 	# Update the button visuals on startup
 	_update_biome_button_text()
 	
@@ -155,7 +158,6 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 		_shape_popup.open_settings("Global Shape Distribution", shape_schema, _params)
 		
 	elif key == "btn_biome_config":
-		print("[UI_DEBUG] Opening Biome Selector")
 		_biome_dropdown.clear()
 		
 		# Fetch the raw category dictionary so we have access to the colors!
@@ -207,9 +209,15 @@ func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
 		_biome_params[_current_editing_biome] = new_settings
 		_current_editing_biome = "" # Reset state
 		_update_biome_button_text() # Update the sidebar UI instantly!
+		
+		# [NEW] Save to disk immediately!
+		ConfigManager.save_biome_overrides(_biome_params)
 	else:
 		# We were editing Global Settings!
 		_params.merge(new_settings, true)
+		
+		# [OPTIONAL ENHANCEMENT] If you want Global shapes to persist, 
+		# we will need a save function for _params later!
 
 func _on_biome_selected() -> void:
 	var idx = _biome_dropdown.selected

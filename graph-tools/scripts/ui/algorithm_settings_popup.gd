@@ -77,6 +77,28 @@ func _create_control_row(def: Dictionary) -> void:
 	var row = HBoxContainer.new()
 	_content_container.add_child(row)
 	
+	# Add dynamic color icon if the schema provides one!
+	if def.has("color") and typeof(def.color) == TYPE_COLOR:
+		var icon = TextureRect.new()
+		var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		img.fill(def.color)
+		
+		var border_color = def.color.darkened(0.5)
+		for x in range(16):
+			img.set_pixel(x, 0, border_color)
+			img.set_pixel(x, 15, border_color)
+		for y in range(16):
+			img.set_pixel(0, y, border_color)
+			img.set_pixel(15, y, border_color)
+			
+		icon.texture = ImageTexture.create_from_image(img)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		# Add a little breathing room around the square
+		var margin = MarginContainer.new()
+		margin.add_theme_constant_override("margin_right", 5)
+		margin.add_child(icon)
+		row.add_child(margin)
+	
 	# 1. Label
 	var lbl = Label.new()
 	lbl.text = def.get("label", def.name).capitalize()

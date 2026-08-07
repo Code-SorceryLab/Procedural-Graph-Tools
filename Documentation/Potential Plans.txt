@@ -1,10 +1,5 @@
 # Procedural Graph Editor - Architecture & Roadmap
 
-## Current Engine State
-- **Semantic Registry:** A unified data structure handling customized semantic types and properties across four distinct targets: `NODE`, `EDGE`, `AGENT`, and `ZONE`.
-- **Universal Undo/Redo:** The `GraphHistory` and `CmdBatch` systems faithfully record data mutations across all targets, utilizing deep copies (`.duplicate(true)`) to prevent reference mutations.
-- **Contextual Hit Detection & UI:** Tools share base hit-detection logic. The editor provides live, contextual hover-glow feedback depending on which semantic object the active tool targets. Omni-box selection allows grabbing multiple targets concurrently.
-- **Agent Capabilities:** `AgentWalker` operates via a Capability/Brain architecture. The `CapPainter` allows agents to procedurally alter node types, edge weights, and custom properties as they traverse the graph.
 
 ## Future Development Paths
 
@@ -17,38 +12,31 @@
 
 
 
+-lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
+
+
+-Agent branching option bugged out for some reason and won't be set to anything other than 0.0
+
+
+(Likely most important to do before anything else)
+-Upgrade semantic data editor to label certain data fields as undeletable, to prevent certain fields like buoyancy from being deleted since core functionality depends on them.
 
 
 
+-Tilemap editor for ease of creation of tiles for tilemap.
 
 
 
+-Cancellable analysis (because tangles fucking suck)
+	
+-Custom room shapes
 
-
-
-
-
-
-
-
-
-
-
-
+-Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
 
 
 GRAPH GRAMMAR UPGRADES:
 
 4. Spatial Resolution Hooks The Limitation: When is_new spawns a node, it places it at the exact mathematical midpoint (pos_a + pos_b) / 2.0. In a dense graph, rewriting a few edges will cause multiple nodes to visually pile up on the same coordinate.The Upgrade: We can hook the grammar engine directly into your physics system. When the grammar injects a new node, it triggers a localized spatial relaxation (a quick burst of repulsive forces just for the new node and its immediate neighbors) so the graph automatically untangles itself during the rewrite process.
-
-
-
-
-
-
-
-
-
 
 
 
@@ -65,6 +53,15 @@ Leverages: StrategyController, GraphMetrics, GraphSerializer
     What it does – let the user select a strategy, define ranges for its parameters (seed, branch probability, step limit, etc.), and automatically execute dozens/hundreds of runs, collecting metrics each time. Results are displayed in a sortable table and can be exported as CSV/JSON for external analysis (R, Python).
 
     Why it matters – this single feature turns the tool from an interactive editor into a research laboratory. It answers questions like “How does branching probability affect dead‑end count?” or “Which walker algorithm produces the most loops?” without manual clicking.
+
+
+
+
+
+
+
+
+
 
 2. Strategy Pipeline / Multi‑Pass Generation
 

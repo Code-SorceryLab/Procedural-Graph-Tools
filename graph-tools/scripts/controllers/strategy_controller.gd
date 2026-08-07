@@ -31,6 +31,9 @@ var current_strategy: GraphStrategy
 var _active_inputs: Dictionary = {} 
 var _current_schema: Array[Dictionary] = [] 
 
+# Popup State for Biome Filler
+var _biome_palette_popup: AlgorithmSettingsPopup
+
 # UI State
 var _show_advanced: bool = false
 var _advanced_toggle_btn: CheckButton
@@ -43,7 +46,7 @@ func _ready() -> void:
 	strategies.append(StrategyDLA.new())
 	strategies.append(StrategyCA.new())
 	strategies.append(StrategyPolar.new()) 
-	strategies.append(StrategyAnalyze.new())
+	strategies.append(StrategyBiomeFiller.new())
 	strategies.append(StrategyGrammar.new())
 	strategies.append(StrategyDAG.new())
 	

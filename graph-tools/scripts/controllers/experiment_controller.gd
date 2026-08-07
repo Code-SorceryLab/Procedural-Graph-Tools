@@ -63,7 +63,7 @@ func _ready() -> void:
 	available_strategies.append(StrategyDLA.new())
 	available_strategies.append(StrategyCA.new())
 	available_strategies.append(StrategyPolar.new()) 
-	available_strategies.append(StrategyAnalyze.new())
+	available_strategies.append(StrategyBiomeFiller.new())
 	available_strategies.append(StrategyGrammar.new())
 	available_strategies.append(StrategyDAG.new())
 	

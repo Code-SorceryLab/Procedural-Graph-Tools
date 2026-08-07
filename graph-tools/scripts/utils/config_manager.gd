@@ -177,3 +177,33 @@ static func load_semantic_data(categories_ref: Dictionary, properties_ref: Dicti
 				if properties_ref[target].has(key) and properties_ref[target][key].get("is_core", false):
 					continue
 				properties_ref[target][key] = saved_props[key]
+
+# ==============================================================================
+# BIOME OVERRIDES
+# ==============================================================================
+
+static func save_biome_overrides(biomes: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("BiomeOverrides"):
+		config.erase_section("BiomeOverrides")
+		
+	# Save the nested dictionaries
+	for key in biomes:
+		config.set_value("BiomeOverrides", key, biomes[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Biome Overrides.")
+
+static func load_biome_overrides() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_biomes = {}
+	
+	if err == OK and config.has_section("BiomeOverrides"):
+		for key in config.get_section_keys("BiomeOverrides"):
+			loaded_biomes[key] = config.get_value("BiomeOverrides", key)
+			
+	return loaded_biomes

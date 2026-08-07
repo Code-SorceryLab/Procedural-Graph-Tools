@@ -47,8 +47,10 @@ const PARAM_TOOLTIPS = {
 		"count": "Number of independent walkers simulating simultaneously.",
 		"paint_type": "The RoomType applied to NEW walkers. Use the Inspector to modify existing active walkers.",
 	},
-	"analyze": {
-		"auto": "If enabled, the algorithm runs a Breadth-First Search (BFS) to identify the network topology.\nIt marks the Start node (0,0), the furthest node (Boss), and dead ends (Treasure/Enemy)."
+	"biome_filler": {
+		"description": "Scatters random seeds across the graph and runs a Multi-Source Breadth-First Search (Graph Voronoi) to flood-fill semantic types.\nBiomes expand outward strictly along connected edges, colliding at natural chokepoints to create organic zones.",
+		"seed_count": "How many starting points to drop into the graph before expanding. More seeds result in smaller, more fractured zones.",
+		"allow_biome": "Includes this semantic type in the randomized palette. If multiple seeds roll the same type and collide, they seamlessly merge into a larger macro-biome."
 	},
 	"mst": {
 		"range": "Multiplier for the search radius (relative to Cell Size).\n2.0 connects immediate neighbors.\n5.0 jumps gaps to connect distant islands.",
