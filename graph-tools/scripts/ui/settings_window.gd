@@ -1,113 +1,156 @@
 extends PanelContainer
 
 # --- UI REFERENCES ---
-# We use standard variables, not @onready, to prevent crash-on-load
 var chk_atomic: CheckBox
 var spin_history: SpinBox
 var chk_grid: CheckBox
-var btn_close: Button
 var input_container: VBoxContainer
-var btn_reset: Button
+
+var btn_close: Button
+var btn_apply: Button
+var btn_defaults: Button
 
 signal closed
 
-# --- REBINDING STATE ---
+# --- STATE BUFFER (Staging Area) ---
+# Holds changes before they are committed
+var _temp_settings: Dictionary = {}
+var _temp_inputs: Dictionary = {} 
+
+# Rebinding State
 var _current_rebind_action: String = ""
 var _current_rebind_button: Button = null
 
 func _ready() -> void:
-	print("SettingsWindow: _ready started.")
-	
 	# 1. SAFE NODE LOOKUP
-	# recursive=true, owned=false (Finds nodes even if they are sub-scene children)
 	chk_atomic = find_child("ChkAtomic", true, false)
 	spin_history = find_child("SpinHistory", true, false)
 	chk_grid = find_child("ChkGrid", true, false)
+	
 	btn_close = find_child("BtnClose", true, false)
-	btn_reset = find_child("BtnResetInputs", true, false)
+	btn_apply = find_child("ApplyBtn", true, false)
+	btn_defaults = find_child("DefaultsBtn", true, false)
 	
-	# Find InputContainer (it is nested deep, finding parent first helps debugging)
 	var scroll = find_child("ScrollInputs", true, false)
-	if scroll:
-		input_container = scroll.get_node_or_null("InputContainer")
+	if scroll: input_container = scroll.get_node_or_null("InputContainer")
 	
-	# 2. DEBUG PRINTS (Check Output Console!)
-	if btn_close:
-		print("SettingsWindow: BtnClose FOUND.")
-		btn_close.pressed.connect(_on_close_pressed)
-		print("SettingsWindow: BtnClose connected.")
-	else:
-		push_error("SettingsWindow: CRITICAL ERROR - BtnClose node not found in tree!")
+	# 2. CONNECT BUTTONS
+	if btn_close: btn_close.pressed.connect(_on_close_pressed)
+	if btn_apply: btn_apply.pressed.connect(_on_apply_pressed)
+	if btn_defaults: btn_defaults.pressed.connect(_on_defaults_pressed)
 
-	if input_container:
-		print("SettingsWindow: InputContainer FOUND.")
-	else:
-		push_error("SettingsWindow: InputContainer not found.")
-
-	# 3. INITIALIZE VALUES
-	# We use 'if' checks so the script doesn't crash if a node is missing
-	if chk_atomic:
-		chk_atomic.button_pressed = GraphSettings.USE_ATOMIC_UNDO
-		chk_atomic.toggled.connect(_on_atomic_toggled)
-		
-	if spin_history:
-		spin_history.value = GraphSettings.MAX_HISTORY_STEPS
-		spin_history.value_changed.connect(_on_history_changed)
-		
-	if chk_grid:
-		# Check if GraphSettings has the variable to avoid crash
-		if "SHOW_GRID" in GraphSettings:
-			chk_grid.button_pressed = GraphSettings.SHOW_GRID
-		chk_grid.toggled.connect(_on_grid_toggled)
+	# 3. CONNECT UI CONTROLS
+	if chk_atomic: chk_atomic.toggled.connect(_on_setting_changed.bind("atomic"))
+	if spin_history: spin_history.value_changed.connect(_on_setting_changed.bind("history"))
+	if chk_grid: chk_grid.toggled.connect(_on_setting_changed.bind("grid"))
 	
-	# 4. Build Input List
-	_build_input_list()
-	
-	# Start hidden
 	hide()
 	set_process_input(false)
-	print("SettingsWindow: _ready complete.")
 
 func show_settings() -> void:
-	print("SettingsWindow: show_settings called.")
+	# 1. Load LIVE state into our STAGING buffer
+	_temp_settings["atomic"] = GraphSettings.USE_ATOMIC_UNDO
+	_temp_settings["history"] = GraphSettings.MAX_HISTORY_STEPS
+	if "SHOW_GRID" in GraphSettings:
+		_temp_settings["grid"] = GraphSettings.SHOW_GRID
+		
+	_temp_inputs.clear() # Clear any unapplied input changes from last time
 	
-	# Refresh values
-	if chk_atomic: chk_atomic.button_pressed = GraphSettings.USE_ATOMIC_UNDO
-	if spin_history: spin_history.value = GraphSettings.MAX_HISTORY_STEPS
-	if chk_grid and "SHOW_GRID" in GraphSettings:
-		chk_grid.button_pressed = GraphSettings.SHOW_GRID
-	
-	# Refresh inputs
-	_build_input_list()
+	# 2. Sync UI to the Staging buffer
+	_sync_ui_to_temp_state()
+	_evaluate_dirty()
 	
 	show()
-	move_to_front() # Ensure it pops over everything else
+	move_to_front()
 
 # ==============================================================================
-# 1. SETTINGS LOGIC
+# 1. STATE MANAGEMENT & DIRTY CHECKING
 # ==============================================================================
-func _on_atomic_toggled(toggled_on: bool) -> void:
-	GraphSettings.USE_ATOMIC_UNDO = toggled_on
 
-func _on_history_changed(value: float) -> void:
-	GraphSettings.MAX_HISTORY_STEPS = int(value)
+# Generic handler for the checkboxes and spinboxes
+func _on_setting_changed(value: Variant, key: String) -> void:
+	_temp_settings[key] = value
+	_evaluate_dirty()
 
-func _on_grid_toggled(toggled_on: bool) -> void:
+# Evaluates if ANY temporary setting differs from the LIVE setting
+func _evaluate_dirty() -> void:
+	var is_dirty = false
+	
+	if _temp_settings.get("atomic") != GraphSettings.USE_ATOMIC_UNDO: is_dirty = true
+	if _temp_settings.get("history") != GraphSettings.MAX_HISTORY_STEPS: is_dirty = true
+	if "SHOW_GRID" in GraphSettings and _temp_settings.get("grid") != GraphSettings.SHOW_GRID: is_dirty = true
+	
+	# If we have any pending keybind changes, we are dirty
+	if not _temp_inputs.is_empty(): is_dirty = true
+		
+	if btn_apply: 
+		btn_apply.disabled = not is_dirty
+
+# Silently updates the UI without triggering the "changed" signals again
+func _sync_ui_to_temp_state() -> void:
+	if chk_atomic: chk_atomic.set_pressed_no_signal(_temp_settings.get("atomic", false))
+	if spin_history: spin_history.set_value_no_signal(_temp_settings.get("history", 50))
+	if chk_grid: chk_grid.set_pressed_no_signal(_temp_settings.get("grid", true))
+	
+	_build_input_list()
+
+# ==============================================================================
+# 2. ACTION BUTTONS
+# ==============================================================================
+
+func _on_apply_pressed() -> void:
+	# 1. Commit Settings to Memory
+	GraphSettings.USE_ATOMIC_UNDO = _temp_settings.get("atomic", false)
+	GraphSettings.MAX_HISTORY_STEPS = _temp_settings.get("history", 50)
 	if "SHOW_GRID" in GraphSettings:
-		GraphSettings.SHOW_GRID = toggled_on
+		GraphSettings.SHOW_GRID = _temp_settings.get("grid", true)
+		
+	# 2. Commit Inputs to Memory
+	for action in _temp_inputs:
+		InputMap.action_erase_events(action)
+		InputMap.action_add_event(action, _temp_inputs[action])
+		
+	_temp_inputs.clear() # Clear the buffer now that it's live
+	
+	# 3. Save everything to Disk!
+	ConfigManager.save_config()
+	
+	# 4. Lock the apply button again
+	_evaluate_dirty()
+
+func _on_defaults_pressed() -> void:
+	# 1. Load hardcoded defaults into the staging buffer
+	_temp_settings["atomic"] = false
+	_temp_settings["history"] = 50
+	_temp_settings["grid"] = true
+	
+	# 2. Fetch default keybinds directly from Godot's ProjectSettings
+	for action in ConfigManager.INPUT_ACTIONS:
+		var prop_name = "input/" + action
+		if ProjectSettings.has_setting(prop_name):
+			var action_data = ProjectSettings.get_setting(prop_name)
+			if typeof(action_data) == TYPE_DICTIONARY and action_data.has("events"):
+				for e in action_data["events"]:
+					if e is InputEventKey:
+						_temp_inputs[action] = e
+						break # Just grab the first key event
+						
+	# 3. Update the visual UI to reflect the defaults (Without saving yet!)
+	_sync_ui_to_temp_state()
+	_evaluate_dirty()
 
 func _on_close_pressed() -> void:
-	print("SettingsWindow: Close button pressed!")
 	_cancel_rebind()
+	
+	# By NOT calling ConfigManager.save_config() or committing variables here, 
+	# any unapplied changes in _temp_settings naturally evaporate!
+	
 	hide()
 	closed.emit()
 
 # ==============================================================================
-# 2. INPUT REBINDING LOGIC
+# 3. INPUT REBINDING LOGIC
 # ==============================================================================
-func _on_reset_pressed() -> void:
-	InputMap.load_from_project_settings()
-	_build_input_list()
 
 func _build_input_list() -> void:
 	if not input_container: return
@@ -115,9 +158,7 @@ func _build_input_list() -> void:
 	for child in input_container.get_children():
 		child.queue_free()
 		
-	# Verify ConfigManager safely
 	if not ClassDB.class_exists("ConfigManager") and not get_tree().root.has_node("ConfigManager"):
-		# If ConfigManager is a static class script, we check if it has the constant
 		if not "INPUT_ACTIONS" in ConfigManager: return
 
 	for action in ConfigManager.INPUT_ACTIONS:
@@ -168,8 +209,11 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _apply_rebind(event: InputEventKey) -> void:
-	InputMap.action_erase_events(_current_rebind_action)
-	InputMap.action_add_event(_current_rebind_action, event)
+	# Store in our temporary buffer
+	_temp_inputs[_current_rebind_action] = event
+	
+	_evaluate_dirty()
+	_sync_ui_to_temp_state() # Will rebuild the list to show the new key text
 	_cancel_rebind()
 
 func _cancel_rebind() -> void:
@@ -181,6 +225,11 @@ func _cancel_rebind() -> void:
 	set_process_input(false)
 
 func _get_key_text(action: String) -> String:
+	# Check our temporary buffer FIRST
+	if _temp_inputs.has(action):
+		return _temp_inputs[action].as_text()
+		
+	# Fallback to the live InputMap
 	var events = InputMap.action_get_events(action)
 	if events.is_empty(): return "Unbound"
 	var event = events[0]

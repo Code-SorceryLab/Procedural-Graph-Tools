@@ -25,7 +25,7 @@
 
 -Tilemap editor for ease of creation of tiles for tilemap.
 
-
+-When DAG keys spawn on the same node, the visuals fuck up a bit.
 
 -Cancellable analysis (because tangles fucking suck)
 	

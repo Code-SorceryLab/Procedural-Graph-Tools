@@ -7,6 +7,9 @@ extends Node
 @export var tool_options_container: HBoxContainer 
 @export var file_controller: FileController
 
+# [NEW] Moved from FileController
+@export var settings_window: PanelContainer
+
 # --- MENUS ---
 @export_group("Menus")
 @export var menu_file: PopupMenu
@@ -27,7 +30,6 @@ var is_auto_crystallize_active: bool = false # Tracks crystallization state
 
 var is_edge_snapping_active: bool = false
 var is_node_fusing_active: bool = false
-
 
 # Playback State
 var is_playing: bool = false
@@ -74,6 +76,8 @@ func _setup_menus() -> void:
 		menu_edit.add_item("Redo", 202)
 		menu_edit.add_separator()
 		menu_edit.add_item("Clear Graph", 203)
+		menu_edit.add_separator() 
+		menu_edit.add_item("Settings", 204) # [NEW] Added Settings to Edit Menu
 		menu_edit.id_pressed.connect(_on_edit_menu_pressed)
 		
 		# Hook into the popup event to dynamically update labels!
@@ -87,8 +91,8 @@ func _setup_menus() -> void:
 		menu_graph.add_separator() 
 		menu_graph.add_check_item("Enable Buoyancy Mode", 301)
 		menu_graph.add_check_item("Auto-Crystallize (Snap & Freeze)", 303)
-		menu_graph.add_check_item("Enable Edge Tension Snapping", 304) # [NEW]
-		menu_graph.add_check_item("Enable Node Collision Fusing", 305) # [NEW]
+		menu_graph.add_check_item("Enable Edge Tension Snapping", 304)
+		menu_graph.add_check_item("Enable Node Collision Fusing", 305)
 		menu_graph.add_item("Force Directed Layout (1 Step)", 302)
 		menu_graph.add_separator() 
 		
@@ -132,13 +136,12 @@ func _on_file_menu_pressed(id: int) -> void:
 		103: # Load (Guarded by FileController's discard check)
 			file_controller._on_load_button_pressed()
 
-
-
 func _on_edit_menu_pressed(id: int) -> void:
 	match id:
 		201: if graph_editor: graph_editor.undo()
 		202: if graph_editor: graph_editor.redo()
 		203: if graph_editor: graph_editor.clear_graph()
+		204: if settings_window: settings_window.show_settings() # [NEW] Shows the settings panel
 
 func _on_graph_menu_pressed(id: int) -> void:
 	match id:

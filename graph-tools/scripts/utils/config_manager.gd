@@ -15,9 +15,17 @@ const INPUT_ACTIONS = [
 static func save_config() -> void:
 	var config = ConfigFile.new()
 	
+	# [CRITICAL FIX] Load the file first so we don't accidentally wipe out 
+	# Biomes, Rasterizer Mappings, and Semantic Data when saving inputs!
+	config.load(SETTINGS_PATH) 
+	
 	# 1. Store Values from GraphSettings
 	config.set_value("History", "max_steps", GraphSettings.MAX_HISTORY_STEPS)
 	config.set_value("History", "atomic_undo", GraphSettings.USE_ATOMIC_UNDO)
+	
+	# [NEW] Save the Grid Toggle
+	if "SHOW_GRID" in GraphSettings:
+		config.set_value("View", "show_grid", GraphSettings.SHOW_GRID)
 	
 	# 2. Store Input Map
 	_save_inputs(config)
@@ -40,6 +48,10 @@ static func load_config() -> void:
 	# 1. Load Values into GraphSettings
 	GraphSettings.MAX_HISTORY_STEPS = config.get_value("History", "max_steps", 50)
 	GraphSettings.USE_ATOMIC_UNDO = config.get_value("History", "atomic_undo", false)
+	
+	# Load the Grid Toggle
+	if "SHOW_GRID" in GraphSettings:
+		GraphSettings.SHOW_GRID = config.get_value("View", "show_grid", true)
 	
 	# 2. Load Input Map
 	_load_inputs(config)
