@@ -10,24 +10,44 @@ func _init() -> void:
 func get_settings() -> Array[Dictionary]:
 	var settings: Array[Dictionary] = super.get_settings()
 	
+	# The Spatial Toggle (placed directly in the sidebar for easy access)
 	settings.append({ 
-		"name": "seed_count", "label": "Number of Biomes", "type": TYPE_INT, "default": 5, "min": 1, "max": 100,
-		"hint": "How many starting seeds to drop into the graph before expanding."
+		"name": "use_spatial_fill", 
+		"label": "Use Spatial Fill (XY)", 
+		"type": TYPE_BOOL, 
+		"default": false,
+		"hint": "If enabled, biomes ignore corridors and fill based purely on physical distance (Standard Voronoi). If disabled, biomes respect graph topology (BFS)."
 	})
 	
-	settings.append({ "name": "sep_biomes", "type": TYPE_NIL, "hint": "separator" })
+	settings.append({ 
+		"name": "btn_biome_palette", "label": "Configure Biome Palette...", 
+		"type": TYPE_NIL, "hint": "button" 
+	})
 	
-	# Dynamically generate a toggle for EVERY semantic node type!
+	return settings
+
+# Function to serve the schema specifically to the popup
+func get_palette_schema() -> Array[Dictionary]:
+	var schema: Array[Dictionary] = []
+	
+	schema.append({ 
+		"name": "seed_count", "label": "Number of Biome Seeds", "type": TYPE_INT, 
+		"default": 5, "min": 1, "max": 100 
+	})
+	schema.append({ "name": "sep_biomes", "type": TYPE_NIL, "hint": "separator" })
+	
+	# Dynamically generate a toggle for EVERY semantic node type, WITH its color!
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
 	for key in node_cats:
-		settings.append({
+		schema.append({
 			"name": "use_biome_" + key,
-			"label": "Allow: " + node_cats[key]["name"],
+			"label": node_cats[key]["name"],
 			"type": TYPE_BOOL,
-			"default": false # Default to false so the user actively curates the palette
+			"default": false,
+			"color": node_cats[key]["color"] # Pass the color to the popup engine!
 		})
 		
-	return settings
+	return schema
 
 func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	var raw_seed = params.get("strategy_seed", "")
@@ -53,12 +73,12 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		return
 
 	var seed_count = params.get("seed_count", 5)
+	var use_spatial = params.get("use_spatial_fill", false) # [NEW] Read the toggle
 
 	# 2. Pick Starting Seeds (Deterministically)
 	var all_nodes = recorder.nodes.keys()
-	all_nodes.sort() # Must sort first! Godot Dictionary key order is NOT deterministic.
+	all_nodes.sort() 
 	
-	# Custom deterministic shuffle
 	var pool = all_nodes.duplicate()
 	for i in range(pool.size() - 1, 0, -1):
 		var j = rng.randi() % (i + 1)
@@ -73,7 +93,6 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	var assigned_types = {}
 	var queue = []
 	
-	# Deterministically shuffle the biome palette so it varies per run
 	var biome_pool = allowed_biomes.duplicate()
 	for i in range(biome_pool.size() - 1, 0, -1):
 		var j = rng.randi() % (i + 1)
@@ -83,32 +102,52 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 
 	for i in range(seeds.size()):
 		var s_id = seeds[i]
-		# Cycle through the randomized palette (allows 10 seeds using 3 biomes)
 		var b_type = biome_pool[i % biome_pool.size()] 
 		assigned_types[s_id] = b_type
 		queue.append(s_id)
 
-	# 4. Multi-Source Breadth-First Search (Graph Voronoi Expansion)
-	while not queue.is_empty():
-		var current = queue.pop_front()
-		var current_type = assigned_types[current]
-
-		# Get neighbors and sort them for deterministic behavior
-		var neighbors = recorder.get_neighbors(current)
-		neighbors.sort()
-		
-		# Shuffle neighbor processing order so the biome borders look organic 
-		# instead of expanding in perfect geometric diamonds!
-		for i in range(neighbors.size() - 1, 0, -1):
-			var j = rng.randi() % (i + 1)
-			var temp = neighbors[i]
-			neighbors[i] = neighbors[j]
-			neighbors[j] = temp
-
-		for neighbor in neighbors:
-			if not assigned_types.has(neighbor):
-				assigned_types[neighbor] = current_type
-				queue.append(neighbor)
+	# --- 4. THE FILLING ALGORITHMS ---
+	
+	if not use_spatial:
+		# Mode A: Topological (Graph Voronoi / BFS)
+		while not queue.is_empty():
+			var current = queue.pop_front()
+			var current_type = assigned_types[current]
+	
+			var neighbors = recorder.get_neighbors(current)
+			neighbors.sort()
+			
+			for i in range(neighbors.size() - 1, 0, -1):
+				var j = rng.randi() % (i + 1)
+				var temp = neighbors[i]
+				neighbors[i] = neighbors[j]
+				neighbors[j] = temp
+	
+			for neighbor in neighbors:
+				if not assigned_types.has(neighbor):
+					assigned_types[neighbor] = current_type
+					queue.append(neighbor)
+	else:
+		# Mode B: Spatial (Euclidean Voronoi)
+		for id in recorder.nodes:
+			# Skip the seeds themselves, they are already assigned
+			if assigned_types.has(id): continue 
+			
+			var node = recorder.nodes[id] as NodeData
+			var min_dist = INF
+			var closest_seed = ""
+			
+			# Find the physically closest seed in 2D space
+			for s_id in seeds:
+				var s_node = recorder.nodes[s_id] as NodeData
+				var dist = node.position.distance_squared_to(s_node.position)
+				
+				if dist < min_dist:
+					min_dist = dist
+					closest_seed = s_id
+					
+			if closest_seed != "":
+				assigned_types[id] = assigned_types[closest_seed]
 
 	# 5. Commit Changes to the Graph
 	for id in assigned_types:

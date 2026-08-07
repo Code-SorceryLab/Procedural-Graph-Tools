@@ -30,6 +30,7 @@ var strategies: Array[GraphStrategy] = []
 var current_strategy: GraphStrategy
 var _active_inputs: Dictionary = {} 
 var _current_schema: Array[Dictionary] = [] 
+var _hidden_params: Dictionary = {} # Stores popup data
 
 # Popup State for Biome Filler
 var _biome_palette_popup: AlgorithmSettingsPopup
@@ -55,6 +56,11 @@ func _ready() -> void:
 		algo_select.add_item(strategies[i].strategy_name, i)
 	
 	algo_select.item_selected.connect(_on_algo_selected)
+	
+	# Setup the popup
+	_biome_palette_popup = AlgorithmSettingsPopup.new()
+	add_child(_biome_palette_popup)
+	_biome_palette_popup.settings_confirmed.connect(_on_biome_palette_confirmed)
 	
 	# Connect Button Actions
 	grow_btn.pressed.connect(_on_extend_pressed)       # Button 1
@@ -85,6 +91,7 @@ func switch_to_strategy_type(target_type_script) -> bool:
 
 func _on_algo_selected(index: int) -> void:
 	current_strategy = strategies[index]
+	_hidden_params.clear() # Reset hidden parameters when changing tools
 	_build_ui_for_strategy()
 	_update_button_states()
 
@@ -150,6 +157,15 @@ func _on_live_setting_changed(key: String, value: Variant) -> void:
 	# 1. Update Buttons if Behavior Mode changes (Grow vs Paint)
 	if key == "global_behavior":
 		_update_button_states()
+		
+	# Intercept the Biome Palette Button
+	elif key == "btn_biome_palette":
+		if current_strategy and current_strategy.has_method("get_palette_schema"):
+			var schema = current_strategy.call("get_palette_schema")
+			# We pass the currently active inputs as the default values
+			var current_params = _collect_params()
+			_biome_palette_popup.open_settings("Flood Fill Palette", schema, current_params)
+		return
 
 	# --- START NODE PICKER ---
 	if key == "action_pick_node":
@@ -181,9 +197,20 @@ func _on_target_node_picked(node_id: String) -> void:
 		_on_live_setting_changed("target_node", node_id)
 		print("StrategyController: Set Target Node -> ", node_id)
 
+# Popup Data Handler
+func _on_biome_palette_confirmed(new_settings: Dictionary) -> void:
+	# Store popup settings safely in our hidden dictionary
+	_hidden_params.merge(new_settings, true)
+	
+	# Optional: Automatically trigger the generation when they hit OK!
+	# _on_create_new_pressed()
+
 # --- HELPER WRAPPER ---
 func _collect_params() -> Dictionary:
-	return SettingsUIBuilder.collect_params(_active_inputs)
+	var params = SettingsUIBuilder.collect_params(_active_inputs)
+	# Merge the hidden params (from popups) into the final dictionary
+	params.merge(_hidden_params, true)
+	return params
 
 # --- EVENT HANDLERS ---
 
