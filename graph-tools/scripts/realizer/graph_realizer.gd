@@ -47,7 +47,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	# --- PIPELINE EXECUTION ---
 	RoomAllocator.allocate(graph, self, floor_id, params)
 	EdgeRouter.route(graph, self, floor_id, params)
-	CellularSmoother.smooth(grid, floor_id, params)
+	CellularSmoother.smooth(self, floor_id, params)
 	
 	# Pass the mapping to the generator so we get themed walls!
 	WallGenerator.generate(grid, wall_id, semantic_wall_map) 

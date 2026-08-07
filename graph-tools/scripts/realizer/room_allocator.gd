@@ -4,24 +4,32 @@ extends RefCounted
 static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: int, params: Dictionary) -> void:
 	var grid = realizer.grid
 	
-	var min_r = params.get("room_radius_min", 2)
-	var max_r = params.get("room_radius_max", 3)
-	
-	# [NEW] Fetch the weighted ratios
-	var w_sq = params.get("ratio_square", 1)
-	var w_circ = params.get("ratio_circle", 0)
-	var w_tri = params.get("ratio_triangle", 0)
-	var total_weight = w_sq + w_circ + w_tri
-	
 	var master_seed_input = params.get("realizer_seed", "default_realizer")
 	var master_seed_hash = SeedUtils.hash_seed(master_seed_input)
-	
 	var rng = RandomNumberGenerator.new()
+	
+	var biome_overrides = params.get("biomes", {})
 	
 	for node_id in graph.nodes:
 		var node = graph.nodes[node_id] as NodeData
 		var world_pos = graph.get_node_pos(node_id)
 		var grid_pos = realizer.world_to_grid(world_pos)
+		
+		# --- BIOME RESOLUTION ---
+		var effective_params = params
+		
+		if biome_overrides.has(node.type):
+			if biome_overrides[node.type].get("override_enabled", false):
+				effective_params = params.duplicate()
+				effective_params.merge(biome_overrides[node.type], true)
+		
+		# Fetch the values specifically for THIS room's active biome
+		var min_r = effective_params.get("room_radius_min", 2)
+		var max_r = effective_params.get("room_radius_max", 3)
+		var w_sq = effective_params.get("ratio_square", 1)
+		var w_circ = effective_params.get("ratio_circle", 0)
+		var w_tri = effective_params.get("ratio_triangle", 0)
+		var total_weight = w_sq + w_circ + w_tri
 		
 		# 1. Order-Independent Deterministic Sizing
 		rng.seed = SeedUtils.hash_seed(str(master_seed_hash) + "_" + str(node_id))

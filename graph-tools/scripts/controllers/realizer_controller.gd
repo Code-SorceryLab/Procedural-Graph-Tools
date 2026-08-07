@@ -21,6 +21,12 @@ var _atlas_mappings: Dictionary = {
 var _mapping_popup: TileMappingPopup
 var _shape_popup: AlgorithmSettingsPopup
 
+# Biome State
+var _biome_selector: ConfirmationDialog
+var _biome_dropdown: OptionButton
+var _current_editing_biome: String = ""
+var _biome_params: Dictionary = {}
+
 func _ready() -> void:
 	_build_ui()
 	
@@ -33,6 +39,26 @@ func _ready() -> void:
 	_shape_popup = AlgorithmSettingsPopup.new()
 	add_child(_shape_popup)
 	_shape_popup.settings_confirmed.connect(_on_shape_settings_confirmed)
+	
+	# Clear the internal state if the user cancels out of the popup!
+	_shape_popup.canceled.connect(func(): _current_editing_biome = "")
+	
+	
+	# Setup the tiny Biome Selector Dialog
+	_biome_selector = ConfirmationDialog.new()
+	_biome_selector.title = "Select Biome to Override"
+	var vb = VBoxContainer.new()
+	var lbl = Label.new()
+	lbl.text = "Select Semantic Category:"
+	vb.add_child(lbl)
+	_biome_dropdown = OptionButton.new()
+	vb.add_child(_biome_dropdown)
+	_biome_selector.add_child(vb)
+	add_child(_biome_selector)
+	_biome_selector.confirmed.connect(_on_biome_selected)
+	
+	# Update the button visuals on startup
+	_update_biome_button_text()
 	
 	# Load saved mappings from disk on startup
 	var saved_mappings = ConfigManager.load_rasterizer_mappings()
@@ -61,14 +87,19 @@ func _build_ui() -> void:
 		
 		{ "name": "realizer_seed", "label": "Generator Seed", "type": TYPE_STRING, "default": "research_01", 
 		  "hint_text": "Determines the random sizing of rooms. The same seed produces identical room sizes for a given graph topology." },
-		{ "name": "grid_scale", "label": "Grid Scale", "type": TYPE_FLOAT, "default": 50.0, "step": 1.0, "min": 10.0, "max": 200.0, 
-		  "hint_text": "How many abstract graph pixels map to 1 physical TileMap cell. (e.g. 50 Graph Units = 1 Tile)" },
-		{ "name": "padding", "label": "Map Padding", "type": TYPE_INT, "default": 5, "min": 0, "max": 20, 
+		{ "name": "grid_scale", "label": "Grid Scale", "type": TYPE_FLOAT, "default": 25.0, "step": 1.0, "min": 10.0, "max": 200.0, 
+		  "hint_text": "How many abstract graph pixels map to 1 physical TileMap cell. (e.g. 25 Graph Units = 1 Tile)" },
+		{ "name": "padding", "label": "Map Padding", "type": TYPE_INT, "default": 15, "min": 0, "max": 20, 
 		  "hint_text": "Extra tiles added around the outermost boundaries of the map to prevent rooms on the edges from being clipped." },
 		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
 		
-		{ "name": "btn_shape_ratios", "label": "Configure Shape Ratios...", "type": TYPE_NIL, "hint": "button" },
-		{ "name": "room_radius_min", "label": "Min Room Radius", "type": TYPE_INT, "default": 2, "min": 1, "max": 20, 
+		# Master Switch
+		{ "name": "btn_shape_ratios", "label": "Global Shape Ratios...", "type": TYPE_NIL, "hint": "button" },
+		{ "name": "use_biome_overrides", "label": "Use Biome Overrides", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "If disabled, all rooms will use the global rasterization settings regardless of their type." },
+		{ "name": "btn_biome_config", "label": "Override Biome Rules...", "type": TYPE_NIL, "hint": "button" },
+		
+		{ "name": "room_radius_min", "label": "Min Room Radius", "type": TYPE_INT, "default": 2, "min": 1, "max": 20,
 		  "hint_text": "Minimum size of a room. A radius of 2 generates a 5x5 tile footprint." },
 		{ "name": "room_radius_max", "label": "Max Room Radius", "type": TYPE_INT, "default": 4, "min": 1, "max": 20, 
 		  "hint_text": "Maximum size of a room. A radius of 4 generates a 9x9 tile footprint." },
@@ -102,6 +133,7 @@ func _build_ui() -> void:
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
 
 func _on_ui_interaction(key: String, value: Variant) -> void:
+	
 	if key == "btn_rasterize":
 		_on_rasterize_pressed()
 	elif key == "btn_clear":
@@ -111,14 +143,54 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 			_mapping_popup.open(tile_map_layer.tile_set, _atlas_mappings)
 		else:
 			push_warning("Cannot open Tile Mapper: No TileSet assigned to the TileMapLayer.")
+			
 	elif key == "btn_shape_ratios":
-		# Explicitly type the array as Array[Dictionary]
+		_current_editing_biome = "" # Explicitly tell the system we are editing GLOBAL rules
+		
 		var shape_schema: Array[Dictionary] = [
-			{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": 1, "min": 0 },
-			{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
-			{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": 0, "min": 0 }
+			{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": _params.get("ratio_square", 1), "min": 0 },
+			{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": _params.get("ratio_circle", 0), "min": 0 },
+			{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": _params.get("ratio_triangle", 0), "min": 0 }
 		]
-		_shape_popup.open_settings("Room Shape Distribution", shape_schema, _params)
+		_shape_popup.open_settings("Global Shape Distribution", shape_schema, _params)
+		
+	elif key == "btn_biome_config":
+		print("[UI_DEBUG] Opening Biome Selector")
+		_biome_dropdown.clear()
+		
+		# Fetch the raw category dictionary so we have access to the colors!
+		var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
+		var keys = []
+		
+		for cat_key in node_cats:
+			keys.append(cat_key)
+			var cat = node_cats[cat_key]
+			var display_name = cat["name"]
+			
+			# 1. Visual Feedback for Active States
+			if _biome_params.has(cat_key) and _biome_params[cat_key].get("override_enabled", false):
+				display_name += "  [ ACTIVE ]"
+				
+			# 2. Dynamic Color Icon
+			var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
+			img.fill(cat["color"])
+			
+			# Add a subtle dark border around the color square so light colors (like empty) don't vanish into the UI
+			var border_color = cat["color"].darkened(0.5)
+			for x in range(16):
+				img.set_pixel(x, 0, border_color)
+				img.set_pixel(x, 15, border_color)
+			for y in range(16):
+				img.set_pixel(0, y, border_color)
+				img.set_pixel(15, y, border_color)
+				
+			var tex = ImageTexture.create_from_image(img)
+			
+			# Add it to the dropdown with the newly generated icon!
+			_biome_dropdown.add_icon_item(tex, display_name)
+			
+		_biome_dropdown.set_meta("keys", keys)
+		_biome_selector.popup_centered(Vector2(320, 100)) # Made slightly wider to fit the [ACTIVE] text
 	else:
 		_params[key] = value
 
@@ -130,8 +202,62 @@ func _on_mapping_confirmed() -> void:
 	ConfigManager.save_rasterizer_mappings(_atlas_mappings)
 
 func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
-	# Merge the popup's output directly into the Realizer's parameters
-	_params.merge(new_settings, true)
+	if _current_editing_biome != "":
+		# We were editing a specific Biome! Save it to the internal dictionary
+		_biome_params[_current_editing_biome] = new_settings
+		_current_editing_biome = "" # Reset state
+		_update_biome_button_text() # Update the sidebar UI instantly!
+	else:
+		# We were editing Global Settings!
+		_params.merge(new_settings, true)
+
+func _on_biome_selected() -> void:
+	var idx = _biome_dropdown.selected
+	if idx < 0: return
+	var keys = _biome_dropdown.get_meta("keys")
+	_current_editing_biome = keys[idx]
+	var biome_name = _biome_dropdown.get_item_text(idx)
+	
+	# Fetch existing overrides, pulling from Global defaults as a baseline
+	var current_vals = _biome_params.get(_current_editing_biome, {
+		"override_enabled": false,
+		"room_radius_min": _params.get("room_radius_min", 2),
+		"room_radius_max": _params.get("room_radius_max", 4),
+		"ratio_square": _params.get("ratio_square", 1),
+		"ratio_circle": _params.get("ratio_circle", 0),
+		"ratio_triangle": _params.get("ratio_triangle", 0),
+		"ca_iterations": _params.get("ca_iterations", 0),
+		"ca_survive_min": _params.get("ca_survive_min", 4),
+		"ca_birth_min": _params.get("ca_birth_min", 5),
+		# [NEW] Corridor fallbacks
+		"allow_diagonal_corridors": _params.get("allow_diagonal_corridors", false),
+		"corridor_radius": _params.get("corridor_radius", 0)
+	})
+	
+	# Build a superset schema controlling sizes, shapes, corridors, AND cellular smoothing!
+	var schema: Array[Dictionary] = [
+		{ "name": "override_enabled", "label": "Enable Biome Overrides", "type": TYPE_BOOL, "default": false },
+		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "room_radius_min", "label": "Min Radius", "type": TYPE_INT, "default": 2, "min": 1 },
+		{ "name": "room_radius_max", "label": "Max Radius", "type": TYPE_INT, "default": 4, "min": 1 },
+		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": 1, "min": 0 },
+		{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
+		{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
+		# Corridor Settings
+		{ "name": "sep_3", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false },
+		{ "name": "corridor_radius", "label": "Corridor Thickness", "type": TYPE_INT, "default": 0, "min": 0, "max": 5 },
+		# CA Settings
+		{ "name": "sep_4", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": 0, "min": 0, "max": 10 },
+		{ "name": "ca_survive_min", "label": "CA Survive Min", "type": TYPE_INT, "default": 4, "min": 0, "max": 8 },
+		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 }
+	]
+	
+	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
+
+
 
 # ==============================================================================
 # PIPELINE EXECUTION
@@ -142,6 +268,12 @@ func _on_rasterize_pressed() -> void:
 	if graph == null or graph.nodes.is_empty(): return
 	if not tile_map_layer: return
 
+	# [DEBUG] Check the Master Switch before passing the overrides!
+	if _params.get("use_biome_overrides", true):
+		_params["biomes"] = _biome_params
+	else:
+		_params["biomes"] = {} # Force the allocator to ignore biomes
+		
 	_realizer = GraphRealizer.new()
 	var grid = _realizer.realize(graph, _params)
 	
@@ -203,3 +335,22 @@ func _on_rasterize_pressed() -> void:
 func _on_clear_pressed() -> void:
 	if tile_map_layer:
 		tile_map_layer.clear()
+
+# ==============================================================================
+# VISUAL FEEDBACK HELPER
+# ==============================================================================
+func _update_biome_button_text() -> void:
+	if not _active_inputs.has("btn_biome_config"): return
+	
+	var active_count = 0
+	for b_key in _biome_params:
+		if _biome_params[b_key].get("override_enabled", false):
+			active_count += 1
+			
+	var btn = _active_inputs["btn_biome_config"] as Button
+	if active_count > 0:
+		btn.text = "Override Biome Rules (%d Active)..." % active_count
+		btn.modulate = Color(0.6, 1.0, 0.6) # Tint green to show it's active!
+	else:
+		btn.text = "Override Biome Rules..."
+		btn.modulate = Color.WHITE

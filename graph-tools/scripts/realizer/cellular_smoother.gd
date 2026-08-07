@@ -1,21 +1,50 @@
 class_name CellularSmoother
 extends RefCounted
 
-static func smooth(grid: GridData, default_floor_id: int, params: Dictionary) -> void:
-	var iterations = params.get("ca_iterations", 0)
-	if iterations <= 0: return
+static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dictionary) -> void:
+	var grid = realizer.grid
+	var biomes = params.get("biomes", {})
 	
-	var survive_min = params.get("ca_survive_min", 4)
-	var birth_min = params.get("ca_birth_min", 5)
+	# 1. Build a fast lookup table for CA rules per Semantic Floor ID
+	var rule_map = {}
+	var max_global_iterations = params.get("ca_iterations", 0)
 	
-	# 1. Pre-cache all valid floor IDs (anything marked as walkable)
-	# This allows the CA to seamlessly recognize SCP semantic rooms!
+	# Base rule (Default Floor)
+	rule_map[default_floor_id] = {
+		"iter": max_global_iterations,
+		"survive": params.get("ca_survive_min", 4),
+		"birth": params.get("ca_birth_min", 5)
+	}
+	
+	# Biome rules (Semantic Floors)
+	for type_key in realizer.semantic_floor_ids:
+		var f_id = realizer.semantic_floor_ids[type_key]
+		if biomes.has(type_key) and biomes[type_key].get("override_enabled", false):
+			var b = biomes[type_key]
+			var b_iter = b.get("ca_iterations", params.get("ca_iterations", 0))
+			
+			rule_map[f_id] = {
+				"iter": b_iter,
+				"survive": b.get("ca_survive_min", 4),
+				"birth": b.get("ca_birth_min", 5)
+			}
+			# Elevate the global loop count if this biome needs more passes!
+			if b_iter > max_global_iterations:
+				max_global_iterations = b_iter
+		else:
+			# Fallback to global rules if no override is enabled
+			rule_map[f_id] = rule_map[default_floor_id]
+			
+	if max_global_iterations <= 0: return
+	
+	# Pre-cache all valid floor IDs (anything marked as walkable)
 	var valid_floors = {}
 	for id in grid.palette._definitions:
 		if grid.palette.get_data(id).get("walkable", false):
 			valid_floors[id] = true
 	
-	for i in range(iterations):
+	# 2. Run the Masked CA Loop
+	for i in range(max_global_iterations):
 		var new_cells = grid.cells.duplicate()
 		
 		for y in range(grid.height):
@@ -40,13 +69,18 @@ static func smooth(grid: GridData, default_floor_id: int, params: Dictionary) ->
 				var current_id = grid.cells[idx]
 				var was_floor = valid_floors.has(current_id)
 				
-				# Apply the CA Rules
 				if was_floor:
-					if neighbors < survive_min:
-						new_cells[idx] = TilePalette.VOID_ID # Erode
+					# --- EROSION ---
+					# Fetch the specific rules for THIS tile's semantic type
+					var rules = rule_map.get(current_id, rule_map[default_floor_id])
+					
+					# Only evaluate if this biome hasn't finished its requested passes
+					if i < rules["iter"]:
+						if neighbors < rules["survive"]:
+							new_cells[idx] = TilePalette.VOID_ID
 				else:
-					if neighbors >= birth_min:
-						# 2. SEMANTIC INHERITANCE (Majority Vote)
+					# --- BIRTH ---
+					if neighbors > 0:
 						# Find the most common floor ID among the neighbors
 						var best_id = default_floor_id
 						var counts = {}
@@ -58,8 +92,13 @@ static func smooth(grid: GridData, default_floor_id: int, params: Dictionary) ->
 								max_count = counts[f_id]
 								best_id = f_id
 								
-						# Dilate/Birth using the dominant semantic type!
-						new_cells[idx] = best_id
+						# Fetch the rules of the DOMINANT neighbor attempting to expand
+						var rules = rule_map.get(best_id, rule_map[default_floor_id])
 						
+						# Only allow birth if the invading biome is still actively simulating
+						if i < rules["iter"]:
+							if neighbors >= rules["birth"]:
+								new_cells[idx] = best_id # Inherit semantic type!
+								
 		# Apply the simulated step back to the master grid
 		grid.cells = new_cells
