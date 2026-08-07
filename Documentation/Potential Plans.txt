@@ -46,17 +46,6 @@ GRAPH GRAMMAR UPGRADES:
 
 
 
-1. Parameter‑Sweep & Batch Experiment Runner
-
-Leverages: StrategyController, GraphMetrics, GraphSerializer
-
-    What it does – let the user select a strategy, define ranges for its parameters (seed, branch probability, step limit, etc.), and automatically execute dozens/hundreds of runs, collecting metrics each time. Results are displayed in a sortable table and can be exported as CSV/JSON for external analysis (R, Python).
-
-    Why it matters – this single feature turns the tool from an interactive editor into a research laboratory. It answers questions like “How does branching probability affect dead‑end count?” or “Which walker algorithm produces the most loops?” without manual clicking.
-
-
-
-
 
 
 

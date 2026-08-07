@@ -17,7 +17,7 @@ enum RoomShape {
 
 # --- VISUAL / CORE DATA (First-Class Citizens) ---
 # We keep these as strict variables because the Renderer/Generator uses them constantly.
-var type: String = "empty"
+@export var type: String = "empty"
 @export var shape: RoomShape = RoomShape.AUTO
 
 

@@ -39,7 +39,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			radius = int(node.custom_data["room_radius"])
 			
 		var floor_id = default_floor_id
-		if node.type != "" and node.type != "default":
+		if node.type != "" and node.type != "empty":
 			if realizer.semantic_floor_ids.has(node.type):
 				floor_id = realizer.semantic_floor_ids[node.type]
 		

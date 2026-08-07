@@ -93,7 +93,6 @@ func create_agent_for_node(node_id: String, graph: Graph) -> AgentWalker:
 	var pos = graph.get_node_pos(node_id)
 	var ids = _generate_identity(graph)
 	
-	# [FIXED] Removed the hardcoded "empty" parameter
 	var agent = AgentWalker.new(ids.uuid, ids.display_id, pos, node_id, 50)
 	agent.apply_template_defaults()
 	
