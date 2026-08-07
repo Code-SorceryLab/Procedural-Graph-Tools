@@ -153,7 +153,14 @@ static var USE_ATOMIC_UNDO: bool = false
 static var MAX_ANALYSIS_COUNT: int = 200 # Max items before we skip deep analysis
 
 # ==============================================================================
-# 7. HELPER FUNCTIONS
+# 7. UI DEFINITIONS
+# ==============================================================================
+static var UI_SHOW_LEFT_BAR: bool = true
+static var UI_SHOW_RIGHT_BAR: bool = true
+static var UI_SHOW_TOP_BAR: bool = true
+
+# ==============================================================================
+# 8. HELPER FUNCTIONS
 # ==============================================================================
 
 static func get_tool_icon(tool_id: int) -> Texture2D:
@@ -210,7 +217,7 @@ static func print_custom_method_names(object_instance: Object) -> void:
 	print(get_custom_method_names(object_instance))
 
 # ==============================================================================
-# 8. GRAPH GRAMMAR PRESETS
+# 9. GRAPH GRAMMAR PRESETS
 # ==============================================================================
 
 # Centralized dictionary for graph rewriting rules.

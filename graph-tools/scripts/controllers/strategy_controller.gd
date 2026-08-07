@@ -32,6 +32,11 @@ var _active_inputs: Dictionary = {}
 var _current_schema: Array[Dictionary] = [] 
 var _hidden_params: Dictionary = {} # Stores popup data
 
+# Preset State
+var preset_dialog: FileDialog
+var _preset_save_mode: bool = false
+var _loaded_preset: Dictionary = {}
+
 # Popup State for Biome Filler
 var _biome_palette_popup: AlgorithmSettingsPopup
 
@@ -61,6 +66,13 @@ func _ready() -> void:
 	_biome_palette_popup = AlgorithmSettingsPopup.new()
 	add_child(_biome_palette_popup)
 	_biome_palette_popup.settings_confirmed.connect(_on_biome_palette_confirmed)
+	
+	# Setup the Preset File Dialog
+	preset_dialog = FileDialog.new()
+	preset_dialog.access = FileDialog.ACCESS_FILESYSTEM # Allows saving anywhere on the computer
+	preset_dialog.add_filter("*.json", "Strategy Preset")
+	preset_dialog.file_selected.connect(_on_preset_file_selected)
+	add_child(preset_dialog)
 	
 	# Connect Button Actions
 	grow_btn.pressed.connect(_on_extend_pressed)       # Button 1
@@ -92,28 +104,66 @@ func switch_to_strategy_type(target_type_script) -> bool:
 func _on_algo_selected(index: int) -> void:
 	current_strategy = strategies[index]
 	_hidden_params.clear() # Reset hidden parameters when changing tools
+	_loaded_preset.clear() # Wipe preset memory when swapping tools
 	_build_ui_for_strategy()
 	_update_button_states()
 
 func _build_ui_for_strategy() -> void:
-	# 1. Build Inputs FIRST
+	# 1. Grab base schema
 	_current_schema = current_strategy.get_settings()
+	
+	# --- [NEW] INJECT PRESET OVERRIDES ---
+	if not _loaded_preset.is_empty():
+		for setting in _current_schema:
+			if _loaded_preset.has(setting["name"]):
+				setting["default"] = _loaded_preset[setting["name"]]
+		
+		# Transfer hidden parameters (like biome palettes) directly to the staging buffer
+		_hidden_params = _loaded_preset.duplicate()
+		_hidden_params.erase("strategy_type") # Don't pass the metadata to the generator!
+
+	# 2. Build Inputs
 	_active_inputs = SettingsUIBuilder.build_ui(_current_schema, settings_container)
 	
-	# 2. Add "Advanced Settings" Toggle AFTER
-	if current_strategy is StrategyWalker:
+	# --- [NEW] ADD PRESET BUTTONS ---
+	var preset_hbox = HBoxContainer.new()
+	var btn_load = Button.new()
+	var btn_save = Button.new()
+	
+	btn_load.text = "Load Preset"
+	btn_save.text = "Save Preset"
+	btn_load.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	btn_load.pressed.connect(_on_load_preset_pressed)
+	btn_save.pressed.connect(_on_save_preset_pressed)
+	
+	preset_hbox.add_child(btn_load)
+	preset_hbox.add_child(btn_save)
+	
+	settings_container.add_child(preset_hbox)
+	settings_container.move_child(preset_hbox, 0) # Force to top!
+
+	# 3. Add "Advanced Settings" Toggle AFTER
+	var has_advanced_settings = false
+	for setting in _current_schema:
+		if setting.get("advanced", false):
+			has_advanced_settings = true
+			break
+			
+	if has_advanced_settings:
 		_advanced_toggle_btn = CheckButton.new()
 		_advanced_toggle_btn.text = "Advanced Settings"
 		_advanced_toggle_btn.button_pressed = _show_advanced
 		_advanced_toggle_btn.toggled.connect(_on_advanced_toggled)
 		settings_container.add_child(_advanced_toggle_btn)
-		settings_container.move_child(_advanced_toggle_btn, 0)
+		# Move to index 1 (Right beneath the Preset buttons)
+		settings_container.move_child(_advanced_toggle_btn, 1) 
 	else:
 		_advanced_toggle_btn = null
 
-	# 3. Connect Signals
+	# 4. Connect Signals
 	SettingsUIBuilder.connect_live_updates(_active_inputs, _on_live_setting_changed)
-
 	_refresh_visibility()
 
 func _update_button_states() -> void:
@@ -286,3 +336,74 @@ func _refresh_visibility() -> void:
 
 func _on_debug_depth_toggled(toggled: bool) -> void:
 	graph_editor.set_debug_depth(toggled)
+
+
+# ==============================================================================
+# PRESET FILE I/O LOGIC
+# ==============================================================================
+
+func _on_save_preset_pressed() -> void:
+	_preset_save_mode = true
+	preset_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	preset_dialog.title = "Save Strategy Preset"
+	preset_dialog.popup_centered_ratio(0.5)
+
+func _on_load_preset_pressed() -> void:
+	_preset_save_mode = false
+	preset_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	preset_dialog.title = "Load Strategy Preset"
+	preset_dialog.popup_centered_ratio(0.5)
+
+func _on_preset_file_selected(path: String) -> void:
+	if _preset_save_mode:
+		# Save Mode: Collect everything and tag it with the strategy type
+		var params = _collect_params()
+		params["strategy_type"] = current_strategy.strategy_name
+		
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if file:
+			file.store_string(JSON.stringify(params, "\t"))
+			file.close()
+			
+			if SignalManager.has_signal("status_message_changed"):
+				SignalManager.status_message_changed.emit("Preset saved: " + path.get_file())
+	else:
+		# Load Mode: Read JSON and rebuild the UI
+		var file = FileAccess.open(path, FileAccess.READ)
+		if file:
+			var json = JSON.new()
+			if json.parse(file.get_as_text()) == OK:
+				var data = json.data
+				var target_type = data.get("strategy_type", "Unknown")
+				
+				if target_type == current_strategy.strategy_name:
+					_loaded_preset = data
+					_build_ui_for_strategy() # Rebuilds the UI with the injected defaults!
+					
+					if SignalManager.has_signal("status_message_changed"):
+						SignalManager.status_message_changed.emit("Preset loaded: " + path.get_file())
+				else:
+					# Attempt to find the correct strategy and switch to it automatically
+					var found_idx = -1
+					for i in range(strategies.size()):
+						if strategies[i].strategy_name == target_type:
+							found_idx = i
+							break
+							
+					if found_idx != -1:
+						# Manually switch state to bypass _on_algo_selected's preset wipe
+						algo_select.selected = found_idx
+						current_strategy = strategies[found_idx]
+						_hidden_params.clear()
+						
+						# Inject the preset and build!
+						_loaded_preset = data 
+						_build_ui_for_strategy()
+						_update_button_states()
+						
+						if SignalManager.has_signal("status_message_changed"):
+							SignalManager.status_message_changed.emit("Switched to '%s' and loaded preset." % target_type)
+					else:
+						# The strategy was renamed or deleted from the codebase
+						push_error("Cannot load preset: The strategy '%s' no longer exists." % target_type)
+			file.close()

@@ -1,0 +1,10 @@
+{
+	"height": 5.0,
+	"spacing_x": 60.0,
+	"spacing_y": 60.0,
+	"strategy_seed": "",
+	"strategy_type": "Grid Layout",
+	"sync_global": true,
+	"use_zones": false,
+	"width": 5.0
+}

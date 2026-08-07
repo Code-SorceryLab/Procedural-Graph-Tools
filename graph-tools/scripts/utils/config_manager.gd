@@ -23,9 +23,14 @@ static func save_config() -> void:
 	config.set_value("History", "max_steps", GraphSettings.MAX_HISTORY_STEPS)
 	config.set_value("History", "atomic_undo", GraphSettings.USE_ATOMIC_UNDO)
 	
-	# [NEW] Save the Grid Toggle
+	
+	
+	# Save the Grid and Layout Toggles
 	if "SHOW_GRID" in GraphSettings:
 		config.set_value("View", "show_grid", GraphSettings.SHOW_GRID)
+	config.set_value("View", "show_left_bar", GraphSettings.UI_SHOW_LEFT_BAR)
+	config.set_value("View", "show_right_bar", GraphSettings.UI_SHOW_RIGHT_BAR)
+	config.set_value("View", "show_top_bar", GraphSettings.UI_SHOW_TOP_BAR)
 	
 	# 2. Store Input Map
 	_save_inputs(config)
@@ -49,9 +54,12 @@ static func load_config() -> void:
 	GraphSettings.MAX_HISTORY_STEPS = config.get_value("History", "max_steps", 50)
 	GraphSettings.USE_ATOMIC_UNDO = config.get_value("History", "atomic_undo", false)
 	
-	# Load the Grid Toggle
+	# Load the Grid and Layout Toggles
 	if "SHOW_GRID" in GraphSettings:
 		GraphSettings.SHOW_GRID = config.get_value("View", "show_grid", true)
+	GraphSettings.UI_SHOW_LEFT_BAR = config.get_value("View", "show_left_bar", true)
+	GraphSettings.UI_SHOW_RIGHT_BAR = config.get_value("View", "show_right_bar", true)
+	GraphSettings.UI_SHOW_TOP_BAR = config.get_value("View", "show_top_bar", true)
 	
 	# 2. Load Input Map
 	_load_inputs(config)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=21 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://dl1dsntsyxwf1" path="res://scripts/controllers/topbar_controller.gd" id="7_el7nm"]
 [ext_resource type="Script" uid="uid://bww3ug35oq5p" path="res://scripts/controllers/realizer_controller.gd" id="8_i30wh"]
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
+[ext_resource type="Script" uid="uid://ry2ytfwa282e" path="res://scripts/controllers/ui_layout_controller.gd" id="13_jdcg6"]
 [ext_resource type="Texture2D" uid="uid://cq2y7wtdi43cp" path="res://assets/Tilemap.png" id="13_xxfec"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jdcg6"]
@@ -137,6 +138,15 @@ btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/Conte
 btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
 btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
 sb_speed = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/SbSpeed")
+
+[node name="UILayoutController" type="Node" parent="." node_paths=PackedStringArray("left_panel", "right_panel", "top_panel", "btn_toggle_left", "btn_toggle_right", "btn_toggle_top")]
+script = ExtResource("13_jdcg6")
+left_panel = NodePath("../UI/MainLayout/Workspace/Toolbar")
+right_panel = NodePath("../UI/MainLayout/Workspace/Sidebar")
+top_panel = NodePath("../UI/MainLayout/TopBar")
+btn_toggle_left = NodePath("../UI/MainLayout/Workspace/GraphViewportSpacer/ToolbarCollapsePanel/ToolbarCollapseButton")
+btn_toggle_right = NodePath("../UI/MainLayout/Workspace/SidebarCollapsePanel/SidebarCollapseButton")
+btn_toggle_top = NodePath("../UI/MainLayout/Workspace/TopbarCollapsePanel/TopbarCollapseButton")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="."]
 texture_filter = 1
@@ -262,10 +272,55 @@ size_flags_vertical = 3
 [node name="Toolbar" parent="UI/MainLayout/Workspace" instance=ExtResource("3_it57u")]
 layout_mode = 2
 
+[node name="TopbarCollapsePanel" type="Panel" parent="UI/MainLayout/Workspace"]
+layout_mode = 2
+
+[node name="TopbarCollapseButton" type="Button" parent="UI/MainLayout/Workspace/TopbarCollapsePanel"]
+layout_mode = 1
+offset_right = 18.0
+offset_bottom = 31.0
+text = "^"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace"]
+layout_mode = 2
+
 [node name="GraphViewportSpacer" type="Control" parent="UI/MainLayout/Workspace"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
+
+[node name="ToolbarCollapsePanel" type="Panel" parent="UI/MainLayout/Workspace/GraphViewportSpacer"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+grow_vertical = 0
+
+[node name="ToolbarCollapseButton" type="Button" parent="UI/MainLayout/Workspace/GraphViewportSpacer/ToolbarCollapsePanel"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -31.0
+offset_right = 18.0
+grow_vertical = 0
+text = "<"
+
+[node name="SidebarCollapsePanel" type="Panel" parent="UI/MainLayout/Workspace"]
+layout_mode = 2
+
+[node name="SidebarCollapseButton" type="Button" parent="UI/MainLayout/Workspace/SidebarCollapsePanel"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -18.0
+offset_top = -31.0
+grow_horizontal = 0
+grow_vertical = 0
+text = ">"
 
 [node name="Sidebar" type="PanelContainer" parent="UI/MainLayout/Workspace"]
 custom_minimum_size = Vector2(200, 0)
@@ -281,12 +336,11 @@ theme_override_constants/margin_bottom = 15
 [node name="TabContainer" type="TabContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin"]
 layout_mode = 2
 tab_alignment = 1
-current_tab = 1
+current_tab = 0
 drag_to_rearrange_enabled = true
 use_hidden_tabs_for_min_size = true
 
 [node name="Generation" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
-visible = false
 layout_mode = 2
 metadata/_tab_index = 0
 
@@ -351,6 +405,7 @@ button_pressed = true
 text = "Merge Overlaps"
 
 [node name="File" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
+visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
