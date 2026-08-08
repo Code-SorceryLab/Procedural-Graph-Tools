@@ -543,65 +543,40 @@ func get_agent_settings() -> Array[Dictionary]:
 	return settings
 
 func apply_setting(key: String, value: Variant) -> void:
-	# --- DEBUG INJECTION ---
-	print("[AGENT_%d] Inspector Updated -> Key: %s | Value: %s" % [display_id, key, str(value)])
-	
 	var brain_dirty = false
 	match key:
 		"agent_seed":
 			if str(value) != "": set_seed(SeedUtils.hash_seed(str(value)))
+			
 		"global_behavior": 
-			behavior_mode = value
+			behavior_mode = int(value)
 			brain_dirty = true
 			is_finished = false
 		"movement_algo": 
-			movement_algo = value
+			movement_algo = int(value)
 			brain_dirty = true
 		"target_node": 
-			target_node_id = value
+			target_node_id = str(value)
 			is_finished = false
-		"active": active = value
-		"snap_to_grid": snap_to_grid = value
+		"active": active = bool(value)
+		"snap_to_grid": snap_to_grid = bool(value)
 		"steps": 
-			steps = value
+			steps = int(value)
 			if steps == -1 or step_count < steps: is_finished = false
 			
-		"auto_paint": auto_paint = value
-		"paint_target":
-			paint_target = ["NODE", "EDGE"][int(value)]
-			paint_field = "type" 
-			var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
-			paint_value = keys[0] if not keys.is_empty() else "empty"
-			
-		"paint_field":
-			var avail_fields = ["type"]
-			if paint_target == "EDGE": avail_fields.append("weight")
-			for k in SemanticRegistry.properties.get(paint_target, {}): avail_fields.append(k)
-			
-			if int(value) >= 0 and int(value) < avail_fields.size():
-				var new_field = avail_fields[int(value)]
-				if new_field != paint_field:
-					paint_field = new_field
-					if paint_field == "type":
-						var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
-						paint_value = keys[0] if not keys.is_empty() else "empty"
-					elif paint_field == "weight":
-						paint_value = 1.0
-					else:
-						var props = SemanticRegistry.properties.get(paint_target, {})
-						paint_value = props[paint_field]["default"]
-		"paint_value":
-			if paint_field == "type":
-				var keys = SemanticRegistry.get_category_ui_schema(paint_target)["keys"]
-				if int(value) >= 0 and int(value) < keys.size():
-					paint_value = keys[int(value)]
-			else:
-				paint_value = value
-				
-		"use_geometric_fc": use_geometric_fc = value
-		"use_zone_constraints": use_zone_constraints = value
-		"branching_prob": branching_probability = value
-		"destructive_backtrack": destructive_backtrack = value
+		"auto_paint": auto_paint = bool(value)
+		
+		# --- [FIXED] DUMB ASSIGNMENTS ---
+		# InspectorAgent already handles the translation and cascade logic!
+		"paint_target": paint_target = str(value)
+		"paint_field": paint_field = str(value)
+		"paint_value": paint_value = value
+		# --------------------------------
+		
+		"use_geometric_fc": use_geometric_fc = bool(value)
+		"use_zone_constraints": use_zone_constraints = bool(value)
+		"branching_prob": branching_probability = float(value)
+		"destructive_backtrack": destructive_backtrack = bool(value)
 		"pos": warp(value)
 		_:
 			custom_data[key] = value

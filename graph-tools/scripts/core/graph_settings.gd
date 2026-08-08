@@ -137,11 +137,11 @@ static var TOOL_DATA: Dictionary = {
 	Tool.CONNECT:    { "name": "Connect",    "action": "tool_connect", "icon_path": "res://assets/icons/tool_connect.png" },
 	Tool.CUT:        { "name": "Knife Cut",  "action": "tool_cut",     "icon_path": "res://assets/icons/tool_cut.png" },
 	Tool.PAINT:      { "name": "Paint",      "action": "tool_paint",   "icon_path": "res://assets/icons/tool_paint.png" },
-	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type.png" },
-	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": ""},
-	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": ""},
-	Tool.CONTROL:      { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": ""},
-	Tool.STAMP:      { "name": "Stamp", "action": "tool_stamp", "icon_path": ""}
+	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type_paint.png" },
+	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": "res://assets/icons/tool_agent.png"},
+	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": "res://assets/icons/tool_zone_brush.png"},
+	Tool.CONTROL:      { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": "res://assets/icons/tool_control.png"},
+	Tool.STAMP:      { "name": "Stamp", "action": "tool_stamp", "icon_path": "res://assets/icons/tool_stamp.png"}
 }
 
 

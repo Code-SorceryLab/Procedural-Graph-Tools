@@ -203,14 +203,32 @@ func _build_header_item(count: int) -> Dictionary:
 	}
 
 func _get_agent_value(agent, key: String):
-	# Map special properties that aren't direct variables
 	match key:
 		"global_behavior": return agent.behavior_mode
 		"movement_algo": return agent.movement_algo
 		"target_node": return agent.target_node_id
-		"paint_target": return agent.paint_target
-		"paint_field": return agent.paint_field
-		"paint_value": return agent.paint_value
+		"branching_prob": return agent.branching_probability
+		"agent_seed": return agent.my_seed
+		
+		# --- DYNAMIC ENUM MAPPINGS ---
+		"paint_target":
+			return ["NODE", "EDGE"].find(agent.paint_target)
+			
+		"paint_field":
+			var avail_fields = ["type"]
+			if agent.paint_target == "EDGE": avail_fields.append("weight")
+			for k in SemanticRegistry.properties.get(agent.paint_target, {}): avail_fields.append(k)
+			
+			var idx = avail_fields.find(agent.paint_field)
+			return max(0, idx)
+			
+		"paint_value":
+			if agent.paint_field == "type":
+				var keys = SemanticRegistry.get_category_ui_schema(agent.paint_target)["keys"]
+				var idx = keys.find(str(agent.paint_value))
+				return max(0, idx)
+			else:
+				return agent.paint_value
 	
 	if key in agent: return agent.get(key)
 	if "custom_data" in agent and agent.custom_data.has(key): return agent.custom_data.get(key)
@@ -244,13 +262,64 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		graph_editor.start_undo_transaction("Bulk Edit Agents")
 		
 	for agent in _tracked_agents:
-		# Map UI property names back to actual Agent variable names
+		
+		# --- DYNAMIC PAINT CASCADES ---
+		if key == "paint_target":
+			var new_target = ["NODE", "EDGE"][int(value)]
+			graph_editor.set_agent_property(agent, "paint_target", new_target)
+			
+			# Cascade Defaults
+			graph_editor.set_agent_property(agent, "paint_field", "type")
+			var keys = SemanticRegistry.get_category_ui_schema(new_target)["keys"]
+			var new_val = keys[0] if not keys.is_empty() else "empty"
+			graph_editor.set_agent_property(agent, "paint_value", new_val)
+			continue
+			
+		elif key == "paint_field":
+			var avail_fields = ["type"]
+			if agent.paint_target == "EDGE": avail_fields.append("weight")
+			for k in SemanticRegistry.properties.get(agent.paint_target, {}): avail_fields.append(k)
+			
+			var int_val = int(value)
+			if int_val >= 0 and int_val < avail_fields.size():
+				var new_field = avail_fields[int_val]
+				graph_editor.set_agent_property(agent, "paint_field", new_field)
+				
+				# Cascade Defaults
+				if new_field == "type":
+					var keys = SemanticRegistry.get_category_ui_schema(agent.paint_target)["keys"]
+					var new_val = keys[0] if not keys.is_empty() else "empty"
+					graph_editor.set_agent_property(agent, "paint_value", new_val)
+				elif new_field == "weight":
+					graph_editor.set_agent_property(agent, "paint_value", 1.0)
+				else:
+					var props = SemanticRegistry.properties.get(agent.paint_target, {})
+					graph_editor.set_agent_property(agent, "paint_value", props[new_field]["default"])
+			continue
+			
+		elif key == "paint_value":
+			if agent.paint_field == "type":
+				var keys = SemanticRegistry.get_category_ui_schema(agent.paint_target)["keys"]
+				var int_val = int(value)
+				if int_val >= 0 and int_val < keys.size():
+					graph_editor.set_agent_property(agent, "paint_value", keys[int_val])
+			else:
+				graph_editor.set_agent_property(agent, "paint_value", value)
+			continue
+
+		# --- STANDARD MAPPING ---
 		var actual_key = key
 		match key:
 			"global_behavior": actual_key = "behavior_mode"
 			"target_node": actual_key = "target_node_id"
+			"branching_prob": actual_key = "branching_probability"
+			"agent_seed": actual_key = "my_seed"
 			
 		graph_editor.set_agent_property(agent, actual_key, value)
+		
+		# Ensure brains refresh safely outside the pure variable assignment
+		if key in ["global_behavior", "movement_algo"]:
+			agent.call_deferred("_refresh_brain")
 			
 	if is_bulk:
 		graph_editor.commit_undo_transaction()

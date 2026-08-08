@@ -15,15 +15,13 @@
 -lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
 -bezier curves for custom edges.
 
--Agent branching option bugged out for some reason and won't be set to anything other than 0.0
+
 
 
 
 -Tilemap editor for ease of creation of tiles for tilemap.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
-
--Cancellable analysis (because tangles fucking suck)
 	
 -Custom room shapes
 

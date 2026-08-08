@@ -168,10 +168,18 @@ static func _create_action_button(setting: Dictionary, parent: Control) -> Butto
 
 static func _create_number(setting: Dictionary) -> SpinBox:
 	var spin = SpinBox.new()
-	spin.min_value = setting.get("min", -99999)
-	spin.max_value = setting.get("max", 99999)
-	spin.step = setting.get("step", 1.0 if setting["type"] == TYPE_INT else 0.1)
-	spin.value = setting.get("default", 0)
+	spin.min_value = float(setting.get("min", -99999))
+	spin.max_value = float(setting.get("max", 99999))
+	spin.step = float(setting.get("step", 1.0 if setting["type"] == TYPE_INT else 0.1))
+	
+	# Safely cast the default value to a float to prevent type-mismatch crashes
+	var def_val = setting.get("default", 0)
+	if typeof(def_val) == TYPE_STRING and def_val.is_valid_float():
+		spin.value = float(def_val)
+	elif typeof(def_val) in [TYPE_INT, TYPE_FLOAT]:
+		spin.value = float(def_val)
+	else:
+		spin.value = 0.0
 	
 	if setting.get("mixed", false):
 		spin.suffix = "(Mixed)"

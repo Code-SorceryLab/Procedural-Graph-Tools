@@ -39,10 +39,8 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	var expansion_source_id = ""
 	var is_branching_randomly = false
 	
-	# [SEED FIX] Replaced global randf() with local rng.randf()
 	if agent.branching_probability > 0.0 and agent.rng.randf() < agent.branching_probability:
 		# Prim's Style
-		# [SEED FIX] Replaced array.pick_random()
 		expansion_source_id = SeedUtils.pick_random(_stack, agent.rng)
 		is_branching_randomly = true
 	else:
@@ -50,6 +48,7 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 		expansion_source_id = _stack.back()
 
 	if agent.current_node_id != expansion_source_id:
+		# Use move_to_node so the backtrack is logged sequentially!
 		motor.move_to_node(expansion_source_id, graph)
 
 	# 2. SCAN FOR EXPANSION
@@ -58,14 +57,14 @@ func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
 	if not candidates.is_empty():
 		# --- CASE A: ADVANCE ---
 		_backtracking = false
-		# [SEED FIX] Replaced array.pick_random()
 		var target_pos = SeedUtils.pick_random(candidates, agent.rng)
 		
 		var new_id = builder.build_and_link(graph, target_pos, false)
 		_my_creations[new_id] = true
 		
+		# [FIXED] Use the modern modular painting system
 		if painter:
-			painter.set_paint_type(agent.my_paint_type)
+			painter.configure(agent.paint_target, agent.paint_field, agent.paint_value)
 			painter.paint(graph, new_id)
 		
 		motor.move_to_node(new_id, graph)
@@ -113,8 +112,10 @@ func _ensure_anchored(agent: AgentWalker, graph: Graph) -> void:
 		
 		if builder:
 			var seed_id = builder.build_and_link(graph, agent.pos, false)
+			
+			# [FIXED] Use the modern modular painting system
 			if painter:
-				painter.set_paint_type(agent.my_paint_type)
+				painter.configure(agent.paint_target, agent.paint_field, agent.paint_value)
 				painter.paint(graph, seed_id)
 				
 			agent.current_node_id = seed_id

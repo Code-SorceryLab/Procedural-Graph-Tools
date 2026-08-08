@@ -22,23 +22,13 @@ class Wander extends AgentBehavior:
 			_session_path.append(agent.current_node_id)
 
 	func step(agent: AgentWalker, graph: Graph, _context: Dictionary = {}) -> void:
-		var current_id = agent.current_node_id
-		var neighbors = graph.get_neighbors(current_id)
-		
-		# --- DEBUG EXPOSURE ---
-		#print("[WANDER DEBUG] At '%s' | Found %d outgoing neighbors." % [current_id, neighbors.size()])
-		
-		if neighbors.is_empty():
-			#print("[WANDER DEBUG] Dead End! I am trapped.")
-			return
-
-		# Bypass external utilities to guarantee safe selection
-		var target_id = neighbors[agent.rng.randi() % neighbors.size()]
-		#print("[WANDER DEBUG] Picked target: '%s'" % target_id)
+		var target_id = _pick_next_node(agent, graph)
+		if target_id == "": return
 
 		if AgentNavigator.can_enter_node(graph, target_id):
-			#print("[WANDER DEBUG] Move approved! Walking...")
 			var motor = agent.get_capability("Motor") as CapMotor
+			
+			# [FIX] Always use move_to_node so the jump is logged in the timeline!
 			if motor:
 				motor.move_to_node(target_id, graph)
 			else:
@@ -46,12 +36,9 @@ class Wander extends AgentBehavior:
 				
 			_session_path.append(target_id)
 		else:
-			#print("[WANDER DEBUG] Move REJECTED by Zone/Geometry constraints!")
 			agent.last_bump_pos = graph.get_node_pos(target_id)
 
-	# --- Internal Logic ---
 	func _pick_next_node(agent: AgentWalker, graph: Graph) -> String:
-		# [SEED FIX]
 		if agent.branching_probability > 0.0 and agent.rng.randf() < agent.branching_probability and not _session_path.is_empty():
 			var candidate = SeedUtils.pick_random(_session_path, agent.rng)
 			if not graph.get_neighbors(candidate).is_empty():

@@ -12,7 +12,7 @@ const TOOL_BUTTON_SCENE = preload("res://scenes/tool_button.tscn")
 var current_tool: int = GraphSettings.Tool.SELECT
 var tool_buttons: Array[ToolButton] = []
 
-@onready var tool_container: VBoxContainer = $ToolContainer
+@onready var tool_container: VBoxContainer = $MarginContainer/ToolContainer
 
 func _ready() -> void:
 	_generate_buttons()
