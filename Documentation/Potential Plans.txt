@@ -37,8 +37,18 @@ GRAPH GRAMMAR UPGRADES:
 
 
 
+RASTERIZER UPGRADES
+Auto-Tiling / Marching Squares:
+Right now, walls are single flat colors. We could implement a "Bitmasking" step in the Realizer. By checking a wall tile's 8 neighbors, the algorithm calculates a 0-255 integer, which corresponds to specific corner, edge, and inner wall tiles. This allows the tool to draw beautiful, seamless room borders automatically.
 
+Multi-Tile Entity Stamping:
+Instead of just 1x1 points for scatter entities, we can introduce a "Structure" system. If the graph generates a "Boss Room" node, the rasterizer finds a valid 3x3 footprint inside that room and stamps a predefined blueprint (like a boss altar or a fountain).
 
+Erosion / Degradation Passes:
+We currently use Cellular Automata to smooth the rooms. We could add an "Erosion" pass that specifically targets the critical_path_cells. By applying noise-based degradation just to the corridors, we can make the perfect A* paths look like natural, ruined, or organic tunnels.
+
+Graph-Driven Zone Portals:
+When an edge connects a "Fire Biome" node to an "Ice Biome" node, the rasterizer could explicitly spawn a unique "Portal" or "Transition Door" entity on the exact boundary line between the two floor types.
 
 
 

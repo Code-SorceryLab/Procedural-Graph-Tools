@@ -1,47 +1,62 @@
 class_name TileMappingPopup
 extends AcceptDialog
 
-# Data
-var tile_set: TileSet # Legacy, kept for fallback if needed
-var atlas_texture: Texture2D
+# --- DATA ---
+var atlas_texture: ImageTexture
 var atlas_texture_path: String = "" 
 var tile_size: Vector2i = Vector2i(16, 16)
 var mappings: Dictionary = {} # Maps category_key (String) -> Atlas Coords (Vector2i)
 
-# State
-var selected_category: String = ""
-var semantic_keys: Array[String] = []
+# --- IN-MEMORY PAINTING STATE ---
+var _active_image: Image
+var _current_mode: int = 0 # 0 = Map, 1 = Paint
 
-# UI Refs
+# --- UI REFS ---
 var item_list: ItemList
 var texture_rect: TextureRect
 var overlay: Control
 var file_dialog: FileDialog 
+var save_dialog: FileDialog
 var spin_w: SpinBox 
 var spin_h: SpinBox 
 
+var paint_toolbar: HBoxContainer
+var opt_color_source: OptionButton
+var color_picker: ColorPickerButton
+
+# --- STATE ---
+var selected_category: String = ""
+var semantic_keys: Array[String] = []
+
 func _init() -> void:
-	title = "Visual Tile Mapper"
-	size = Vector2i(800, 550)
+	title = "Visual Tile Mapper & Painter"
+	size = Vector2i(850, 600)
 	
 	var vbox_main = VBoxContainer.new()
 	vbox_main.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox_main.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(vbox_main)
 	
-	# --- TOP BAR: SETTINGS ---
+	# ==========================================================================
+	# TOP BAR: FILE & CONFIG
+	# ==========================================================================
 	var top_bar = HBoxContainer.new()
 	vbox_main.add_child(top_bar)
 	
 	var btn_load = Button.new()
-	btn_load.text = "Load Tilemap Image..."
+	btn_load.text = "Load Image..."
 	btn_load.pressed.connect(_on_load_image_pressed)
 	top_bar.add_child(btn_load)
+	
+	var btn_new = Button.new()
+	btn_new.text = "New Blank Image"
+	btn_new.pressed.connect(_on_new_blank_pressed)
+	top_bar.add_child(btn_new)
 	
 	top_bar.add_child(VSeparator.new())
 	
 	var lbl_w = Label.new()
-	lbl_w.text = "Tile Width:"
+	lbl_w.text = "Tile W:"
 	top_bar.add_child(lbl_w)
 	
 	spin_w = SpinBox.new()
@@ -52,7 +67,7 @@ func _init() -> void:
 	top_bar.add_child(spin_w)
 	
 	var lbl_h = Label.new()
-	lbl_h.text = "Tile Height:"
+	lbl_h.text = "H:"
 	top_bar.add_child(lbl_h)
 	
 	spin_h = SpinBox.new()
@@ -62,9 +77,19 @@ func _init() -> void:
 	spin_h.value_changed.connect(func(v): tile_size.y = int(v); overlay.queue_redraw())
 	top_bar.add_child(spin_h)
 	
-	top_bar.add_child(HSeparator.new())
+	top_bar.add_child(VSeparator.new())
 	
-	# --- MAIN SPLIT VIEW ---
+	var opt_mode = OptionButton.new()
+	opt_mode.add_item("Mode: Map Semantics", 0)
+	opt_mode.add_item("Mode: Paint Tiles", 1)
+	opt_mode.item_selected.connect(_on_mode_changed)
+	top_bar.add_child(opt_mode)
+
+	vbox_main.add_child(HSeparator.new())
+	
+	# ==========================================================================
+	# MAIN SPLIT VIEW
+	# ==========================================================================
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -72,7 +97,7 @@ func _init() -> void:
 	
 	# --- LEFT: CATEGORY LIST ---
 	var left_panel = VBoxContainer.new()
-	left_panel.custom_minimum_size.x = 200
+	left_panel.custom_minimum_size.x = 220
 	hbox.add_child(left_panel)
 	
 	var lbl = Label.new()
@@ -85,11 +110,52 @@ func _init() -> void:
 	item_list.item_selected.connect(_on_category_selected)
 	left_panel.add_child(item_list)
 	
-	# --- RIGHT: ATLAS VIEWER ---
+	# --- RIGHT: ATLAS VIEWER & PAINT TOOLS ---
 	var right_panel = VBoxContainer.new()
 	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(right_panel)
 	
+	# Paint Toolbar (Hidden by default)
+	paint_toolbar = HBoxContainer.new()
+	paint_toolbar.visible = false
+	right_panel.add_child(paint_toolbar)
+	
+	opt_color_source = OptionButton.new()
+	opt_color_source.add_item("Use Semantic Color")
+	opt_color_source.add_item("Use Custom Color")
+	opt_color_source.item_selected.connect(func(idx): color_picker.visible = (idx == 1))
+	paint_toolbar.add_child(opt_color_source)
+	
+	color_picker = ColorPickerButton.new()
+	color_picker.custom_minimum_size.x = 40
+	color_picker.color = Color.WHITE
+	color_picker.visible = false
+	paint_toolbar.add_child(color_picker)
+	
+	paint_toolbar.add_child(VSeparator.new())
+	
+	var btn_exp_x = Button.new()
+	btn_exp_x.text = "Add Col [+]"
+	btn_exp_x.pressed.connect(func(): _expand_image(1, 0))
+	paint_toolbar.add_child(btn_exp_x)
+	
+	var btn_exp_y = Button.new()
+	btn_exp_y.text = "Add Row [+]"
+	btn_exp_y.pressed.connect(func(): _expand_image(0, 1))
+	paint_toolbar.add_child(btn_exp_y)
+	
+	# Spacer to push Save to the right
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	paint_toolbar.add_child(spacer)
+	
+	var btn_save = Button.new()
+	btn_save.text = "💾 Save PNG"
+	btn_save.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+	btn_save.pressed.connect(_on_save_image_pressed)
+	paint_toolbar.add_child(btn_save)
+	
+	# Image Scroller
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_panel.add_child(scroll)
@@ -99,7 +165,6 @@ func _init() -> void:
 	texture_rect.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(texture_rect)
 	
-	# Overlay for drawing the grid and highlights
 	overlay = Control.new()
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -108,49 +173,54 @@ func _init() -> void:
 	overlay.draw.connect(_on_overlay_draw)
 	texture_rect.gui_input.connect(_on_texture_gui_input)
 	
-	# --- FILE DIALOG ---
+	# --- DIALOGS ---
 	file_dialog = FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
 	file_dialog.filters = ["*.png, *.jpg, *.jpeg ; Image Files"]
 	file_dialog.file_selected.connect(_on_file_selected)
 	add_child(file_dialog)
+	
+	save_dialog = FileDialog.new()
+	save_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	save_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	save_dialog.filters = ["*.png ; PNG Image"]
+	save_dialog.file_selected.connect(_on_save_file_confirmed)
+	add_child(save_dialog)
 
-# [FIXED] Updated signature to accept dynamic data
+# ==============================================================================
+# DATA LIFECYCLE
+# ==============================================================================
+
 func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) -> void:
 	mappings = default_mappings.duplicate()
 	tile_size = t_size
 	atlas_texture_path = texture_path
 	
-	# Update top bar UI
 	spin_w.set_value_no_signal(tile_size.x)
 	spin_h.set_value_no_signal(tile_size.y)
 	
-	# 1. Dynamically Load Texture from File!
+	# 1. Load the file into VOLATILE MEMORY
 	if atlas_texture_path != "" and FileAccess.file_exists(atlas_texture_path):
-		var img = Image.load_from_file(atlas_texture_path)
-		if img:
-			atlas_texture = ImageTexture.create_from_image(img)
+		_active_image = Image.load_from_file(atlas_texture_path)
+		if _active_image:
+			if _active_image.get_format() != Image.FORMAT_RGBA8:
+				_active_image.convert(Image.FORMAT_RGBA8)
+			atlas_texture = ImageTexture.create_from_image(_active_image)
 			texture_rect.texture = atlas_texture
 			
-	# 2. Populate Semantic Categories (Floors AND Walls!)
+	# 2. Populate Semantic Categories
 	item_list.clear()
 	semantic_keys.clear()
 	
-	# Always include default Floor and Wall
 	_add_category_item("default_floor", "Default Floor", Color.LIGHT_GRAY)
 	_add_category_item("default_wall", "Default Wall", Color.DARK_GRAY)
 	
-	# Fetch all custom node types from the registry
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
 	for key in node_cats:
 		var cat_name = node_cats[key]["name"]
 		var base_color = node_cats[key]["color"]
-		
-		# Add a Floor entry (Uses base color)
 		_add_category_item(key + "_floor", cat_name + " (Floor)", base_color)
-		
-		# Add a Wall entry (Darkens the color slightly so it looks like a wall in the UI)
 		_add_category_item(key + "_wall", cat_name + " (Wall)", base_color.darkened(0.3))
 		
 	if item_list.item_count > 0:
@@ -159,56 +229,155 @@ func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) 
 		
 	popup_centered()
 
-# --- IMAGE LOADING LOGIC ---
+func _on_mode_changed(idx: int) -> void:
+	_current_mode = idx
+	paint_toolbar.visible = (idx == 1)
+	overlay.queue_redraw()
+
+# ==============================================================================
+# FILE MANAGEMENT
+# ==============================================================================
+
 func _on_load_image_pressed() -> void:
 	file_dialog.popup_centered_ratio(0.7)
 
 func _on_file_selected(path: String) -> void:
-	var img = Image.load_from_file(path)
-	if img:
+	_active_image = Image.load_from_file(path)
+	if _active_image:
+		if _active_image.get_format() != Image.FORMAT_RGBA8:
+			_active_image.convert(Image.FORMAT_RGBA8)
+			
 		atlas_texture_path = path
-		atlas_texture = ImageTexture.create_from_image(img)
+		atlas_texture = ImageTexture.create_from_image(_active_image)
 		texture_rect.texture = atlas_texture
 		overlay.queue_redraw()
 
-func _add_category_item(key: String, display_name: String, color: Color) -> void:
-	semantic_keys.append(key)
+func _on_new_blank_pressed() -> void:
+	# Create a tiny 1x1 grid image to start
+	_active_image = Image.create(tile_size.x, tile_size.y, false, Image.FORMAT_RGBA8)
+	atlas_texture = ImageTexture.create_from_image(_active_image)
+	texture_rect.texture = atlas_texture
+	atlas_texture_path = "" 
+	overlay.queue_redraw()
+
+func _on_save_image_pressed() -> void:
+	if not _active_image: return
+	if atlas_texture_path == "":
+		save_dialog.popup_centered_ratio(0.7)
+	else:
+		_on_save_file_confirmed(atlas_texture_path)
+
+func _on_save_file_confirmed(path: String) -> void:
+	if _active_image:
+		var err = _active_image.save_png(path)
+		if err == OK:
+			atlas_texture_path = path
+			print("Tilemap Image Saved to: ", path)
+		else:
+			push_error("Failed to save Image to path: " + path)
+
+func _expand_image(add_x: int, add_y: int) -> void:
+	if not _active_image: 
+		_on_new_blank_pressed()
+		return
+		
+	var new_w = _active_image.get_width() + (add_x * tile_size.x)
+	var new_h = _active_image.get_height() + (add_y * tile_size.y)
 	
-	# Create a tiny color square for the icon
-	var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	img.fill(color)
-	var tex = ImageTexture.create_from_image(img)
+	var new_img = Image.create(new_w, new_h, false, Image.FORMAT_RGBA8)
 	
-	item_list.add_item(display_name, tex)
+	# Stamp the old image into the top left corner of the new larger image
+	var src_rect = Rect2i(0, 0, _active_image.get_width(), _active_image.get_height())
+	new_img.blit_rect(_active_image, src_rect, Vector2i.ZERO)
+	
+	_active_image = new_img
+	atlas_texture = ImageTexture.create_from_image(_active_image)
+	texture_rect.texture = atlas_texture
+	overlay.queue_redraw()
+
+# ==============================================================================
+# INPUT & PAINTING
+# ==============================================================================
 
 func _on_category_selected(index: int) -> void:
 	selected_category = semantic_keys[index]
 	overlay.queue_redraw()
 
+func _get_grid_coord(pos: Vector2) -> Vector2i:
+	return Vector2i(int(pos.x / tile_size.x), int(pos.y / tile_size.y))
+
 func _on_texture_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if selected_category == "" or not atlas_texture: return
-		
-		# Convert mouse pixel position to grid coordinates
-		var grid_x = int(event.position.x / tile_size.x)
-		var grid_y = int(event.position.y / tile_size.y)
-		var clicked_coord = Vector2i(grid_x, grid_y)
+	if not _active_image: return
+	
+	var is_click = event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+	var is_drag = event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0
+	
+	if is_click or is_drag:
+		if selected_category == "": return
 		
 		# Bounds check
-		var tex_size = atlas_texture.get_size()
+		var tex_size = _active_image.get_size()
 		if event.position.x > tex_size.x or event.position.y > tex_size.y: return
 		
-		mappings[selected_category] = clicked_coord
-		overlay.queue_redraw()
+		var coord = _get_grid_coord(event.position)
 		
-		# Auto-advance to the next item to make mapping very fast!
-		var next_idx = (item_list.get_selected_items()[0] + 1) % item_list.item_count
-		item_list.select(next_idx)
-		_on_category_selected(next_idx)
+		if _current_mode == 0:
+			# MAP MODE (Click only)
+			if is_click:
+				mappings[selected_category] = coord
+				overlay.queue_redraw()
+				
+				# Auto-advance
+				var next_idx = (item_list.get_selected_items()[0] + 1) % item_list.item_count
+				item_list.select(next_idx)
+				_on_category_selected(next_idx)
+				
+		elif _current_mode == 1:
+			# PAINT MODE (Click + Drag)
+			_paint_cell(coord)
+
+func _paint_cell(coord: Vector2i) -> void:
+	var rect = Rect2i(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
+	
+	var fill_color = Color.WHITE
+	if opt_color_source.selected == 1:
+		fill_color = color_picker.color
+	else:
+		fill_color = _get_semantic_color(selected_category)
+		
+	_active_image.fill_rect(rect, fill_color)
+	
+	# Extremely fast visual update! Does not recreate the texture resource!
+	atlas_texture.update(_active_image)
+
+func _get_semantic_color(key: String) -> Color:
+	if key == "default_floor": return Color.LIGHT_GRAY
+	if key == "default_wall": return Color.DARK_GRAY
+	
+	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
+	var base_key = key.replace("_floor", "").replace("_wall", "")
+	
+	if node_cats.has(base_key):
+		var c = node_cats[base_key]["color"]
+		if key.ends_with("_wall"): return c.darkened(0.3)
+		return c
+		
+	return Color.WHITE
+
+# ==============================================================================
+# RENDERING
+# ==============================================================================
+
+func _add_category_item(key: String, display_name: String, color: Color) -> void:
+	semantic_keys.append(key)
+	var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	img.fill(color)
+	var tex = ImageTexture.create_from_image(img)
+	item_list.add_item(display_name, tex)
 
 func _on_overlay_draw() -> void:
-	if not atlas_texture: return
-	var tex_size = atlas_texture.get_size()
+	if not _active_image: return
+	var tex_size = _active_image.get_size()
 	
 	# 1. Draw Grid
 	var grid_color = Color(1, 1, 1, 0.2)
@@ -217,26 +386,16 @@ func _on_overlay_draw() -> void:
 	for y in range(0, int(tex_size.y) + 1, tile_size.y):
 		overlay.draw_line(Vector2(0, y), Vector2(tex_size.x, y), grid_color, 1.0)
 		
-	# 2. Draw Assigned Highlights
-	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
-	
-	for key in mappings:
-		var coord = mappings[key]
-		var rect = Rect2(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
-		
-		var outline_color = Color.WHITE
-		if key == "default_floor": outline_color = Color.LIGHT_GRAY
-		elif key == "default_wall": outline_color = Color.DARK_GRAY
-		else:
-			# Extract the base category key (e.g. "scp_heavy" from "scp_heavy_wall")
-			var base_key = key.replace("_floor", "").replace("_wall", "")
-			if node_cats.has(base_key):
-				outline_color = node_cats[base_key]["color"]
-				if key.ends_with("_wall"): outline_color = outline_color.darkened(0.3)
-		
-		# Thick border for the currently selected category, thin for others
-		var thickness = 3.0 if key == selected_category else 1.0
-		if key == selected_category:
-			overlay.draw_rect(rect, Color(outline_color, 0.4), true)
+	# 2. Draw Assigned Highlights (ONLY IN MAP MODE)
+	if _current_mode == 0:
+		for key in mappings:
+			var coord = mappings[key]
+			var rect = Rect2(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
 			
-		overlay.draw_rect(rect, outline_color, false, thickness)
+			var outline_color = _get_semantic_color(key)
+			
+			var thickness = 3.0 if key == selected_category else 1.0
+			if key == selected_category:
+				overlay.draw_rect(rect, Color(outline_color, 0.4), true)
+				
+			overlay.draw_rect(rect, outline_color, false, thickness)
