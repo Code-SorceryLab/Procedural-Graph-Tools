@@ -12,9 +12,13 @@ var _padding: int = 10
 # Stashed IDs for external reference
 var floor_id: int
 var wall_id: int
+var debug_path_id: int
 
-var semantic_floor_ids: Dictionary = {} # Maps node_type string -> Tile ID
-var semantic_wall_map: Dictionary = {} # Maps Floor ID -> Wall ID
+var semantic_floor_ids: Dictionary = {} 
+var semantic_wall_map: Dictionary = {} 
+
+#  The exact mathematical footprint of all corridors!
+var critical_path_cells: Dictionary = {} 
 
 func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	_scale_factor = params.get("grid_scale", 50.0) 
@@ -23,6 +27,9 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	palette = TilePalette.new()
 	floor_id = palette.register_tile("Floor", { "walkable": true })
 	wall_id = palette.register_tile("Wall", { "walkable": false })
+	debug_path_id = palette.register_tile("DebugPath", { "walkable": true })
+	
+	critical_path_cells.clear() # [NEW] Reset the collision mask
 	
 	# Register Floors AND Walls for Semantic Types
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
@@ -31,7 +38,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 		var s_wall = palette.register_tile("Wall_" + cat_key, { "walkable": false })
 		
 		semantic_floor_ids[cat_key] = s_floor
-		semantic_wall_map[s_floor] = s_wall # Link them together!
+		semantic_wall_map[s_floor] = s_wall 
 
 	var stats = graph.get_spatial_stats()
 	var bounds: Rect2 = stats.get("bounds", Rect2(0, 0, 100, 100))
@@ -48,8 +55,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	RoomAllocator.allocate(graph, self, floor_id, params)
 	EdgeRouter.route(graph, self, floor_id, params)
 	CellularSmoother.smooth(self, floor_id, params)
-	
-	# Pass the mapping to the generator so we get themed walls!
+	EntityScatterer.scatter(graph, self, params)
 	WallGenerator.generate(grid, wall_id, semantic_wall_map) 
 	
 	return grid

@@ -122,7 +122,7 @@ static func _apply_input_bind(action: String, data: Dictionary) -> void:
 # RASTERIZER MAPPINGS
 # ==============================================================================
 
-static func save_rasterizer_mappings(mappings: Dictionary) -> void:
+static func save_rasterizer_mappings(mappings: Dictionary, texture_path: String = "", tile_size: Vector2i = Vector2i(16, 16)) -> void:
 	var config = ConfigFile.new()
 	# Load existing file first to preserve Input and History settings!
 	config.load(SETTINGS_PATH) 
@@ -135,20 +135,35 @@ static func save_rasterizer_mappings(mappings: Dictionary) -> void:
 	for key in mappings:
 		config.set_value("RasterizerMappings", key, mappings[key])
 		
+	# [NEW] Save dynamic TileSet config
+	config.set_value("TileSetSettings", "texture_path", texture_path)
+	config.set_value("TileSetSettings", "tile_size", tile_size)
+		
 	var err = config.save(SETTINGS_PATH)
 	if err != OK:
 		push_error("ConfigManager: Failed to save Rasterizer Mappings.")
 
+# [FIXED] Now returns a nested dictionary containing the mappings, path, and size
 static func load_rasterizer_mappings() -> Dictionary:
 	var config = ConfigFile.new()
 	var err = config.load(SETTINGS_PATH)
-	var loaded_mappings = {}
 	
-	if err == OK and config.has_section("RasterizerMappings"):
-		for key in config.get_section_keys("RasterizerMappings"):
-			loaded_mappings[key] = config.get_value("RasterizerMappings", key)
+	var data = {
+		"mappings": {},
+		"texture_path": "",
+		"tile_size": Vector2i(16, 16)
+	}
+	
+	if err == OK:
+		if config.has_section("RasterizerMappings"):
+			for key in config.get_section_keys("RasterizerMappings"):
+				data["mappings"][key] = config.get_value("RasterizerMappings", key)
+				
+		if config.has_section("TileSetSettings"):
+			data["texture_path"] = config.get_value("TileSetSettings", "texture_path", "")
+			data["tile_size"] = config.get_value("TileSetSettings", "tile_size", Vector2i(16, 16))
 			
-	return loaded_mappings
+	return data
 
 # ==============================================================================
 # SEMANTIC DATA MAPPINGS

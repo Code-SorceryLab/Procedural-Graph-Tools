@@ -6,6 +6,8 @@ var height: int
 var cells: PackedInt32Array
 var palette: TilePalette
 
+var entities: Dictionary = {} # Maps Vector2i(x, y) -> Dictionary (Entity Data)
+
 func _init(w: int, h: int, p_palette: TilePalette = null) -> void:
 	width = max(1, w)
 	height = max(1, h)

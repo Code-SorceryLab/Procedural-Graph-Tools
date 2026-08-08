@@ -37,6 +37,9 @@ var current_file_path: String = "" # Tracks the active save file!
 var is_buoyancy_active: bool = false
 var _buoyancy_snapshot: Dictionary = {} # Stores starting positions to build Undo batch
 var _buoyancy_transaction_open: bool = false
+var _physics_accumulator: float = 0.0
+
+const PHYSICS_TICK_RATE: float = 1.0 / 45.0 # 45 FPS target
 
 # Editor State (Public)
 var selected_nodes: Array[String] = []
@@ -126,15 +129,19 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not is_buoyancy_active or not buoyancy_engine: return
 	
-	# The engine moves the nodes and reports any structural damage back to us
-	var destruction_report = buoyancy_engine.step(graph, delta)
+	# --- [NEW] TICK DECOUPLING ---
+	_physics_accumulator += delta
+	if _physics_accumulator < PHYSICS_TICK_RATE:
+		return # Skip the math and the heavy redraw this frame!
+		
+	# Pass the accumulated time to the engine so the physics math stays mathematically accurate
+	var destruction_report = buoyancy_engine.step(graph, _physics_accumulator)
+	_physics_accumulator = 0.0 # Reset
 	
-	# The buoyancy engine modified the node positions directly in the graph.
+	# Only queue a massive screen redraw when physics actually stepped!
 	if renderer: renderer.queue_redraw()
 	
 	# --- PROCESS DESTRUCTIVE PHYSICS SAFELY ---
-	# We process the dictionary here using the Editor's native delete/disconnect methods
-	# so that Undo/Redo, Agents, and visual selection states are safely handled!
 	var has_damage = destruction_report["snapped_edges"].size() > 0 or destruction_report["fused_nodes"].size() > 0
 	
 	if has_damage:
@@ -144,10 +151,9 @@ func _process(delta: float) -> void:
 			disconnect_nodes(pair[0], pair[1])
 			
 		for pair in destruction_report["fused_nodes"]:
-			var scrap_id = pair[1] # Keep the first one, delete the second one
+			var scrap_id = pair[1]
 			delete_node(scrap_id)
 			
-			# CRITICAL: Remove deleted nodes from physics caches to prevent crashing when toggling Buoyancy!
 			if _buoyancy_snapshot.has(scrap_id):
 				_buoyancy_snapshot.erase(scrap_id)
 			if buoyancy_engine._velocities.has(scrap_id):

@@ -2,8 +2,9 @@ class_name TileMappingPopup
 extends AcceptDialog
 
 # Data
-var tile_set: TileSet
+var tile_set: TileSet # Legacy, kept for fallback if needed
 var atlas_texture: Texture2D
+var atlas_texture_path: String = "" 
 var tile_size: Vector2i = Vector2i(16, 16)
 var mappings: Dictionary = {} # Maps category_key (String) -> Atlas Coords (Vector2i)
 
@@ -15,15 +16,59 @@ var semantic_keys: Array[String] = []
 var item_list: ItemList
 var texture_rect: TextureRect
 var overlay: Control
+var file_dialog: FileDialog 
+var spin_w: SpinBox 
+var spin_h: SpinBox 
 
 func _init() -> void:
 	title = "Visual Tile Mapper"
-	size = Vector2i(700, 500)
+	size = Vector2i(800, 550)
 	
+	var vbox_main = VBoxContainer.new()
+	vbox_main.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox_main.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(vbox_main)
+	
+	# --- TOP BAR: SETTINGS ---
+	var top_bar = HBoxContainer.new()
+	vbox_main.add_child(top_bar)
+	
+	var btn_load = Button.new()
+	btn_load.text = "Load Tilemap Image..."
+	btn_load.pressed.connect(_on_load_image_pressed)
+	top_bar.add_child(btn_load)
+	
+	top_bar.add_child(VSeparator.new())
+	
+	var lbl_w = Label.new()
+	lbl_w.text = "Tile Width:"
+	top_bar.add_child(lbl_w)
+	
+	spin_w = SpinBox.new()
+	spin_w.min_value = 4
+	spin_w.max_value = 256
+	spin_w.value = 16
+	spin_w.value_changed.connect(func(v): tile_size.x = int(v); overlay.queue_redraw())
+	top_bar.add_child(spin_w)
+	
+	var lbl_h = Label.new()
+	lbl_h.text = "Tile Height:"
+	top_bar.add_child(lbl_h)
+	
+	spin_h = SpinBox.new()
+	spin_h.min_value = 4
+	spin_h.max_value = 256
+	spin_h.value = 16
+	spin_h.value_changed.connect(func(v): tile_size.y = int(v); overlay.queue_redraw())
+	top_bar.add_child(spin_h)
+	
+	top_bar.add_child(HSeparator.new())
+	
+	# --- MAIN SPLIT VIEW ---
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(hbox)
+	vbox_main.add_child(hbox)
 	
 	# --- LEFT: CATEGORY LIST ---
 	var left_panel = VBoxContainer.new()
@@ -62,17 +107,30 @@ func _init() -> void:
 	
 	overlay.draw.connect(_on_overlay_draw)
 	texture_rect.gui_input.connect(_on_texture_gui_input)
-
-func open(p_tile_set: TileSet, default_mappings: Dictionary) -> void:
-	tile_set = p_tile_set
-	mappings = default_mappings.duplicate()
 	
-	# 1. Extract Texture and Size from the Godot TileSet
-	if tile_set and tile_set.get_source_count() > 0:
-		tile_size = tile_set.tile_size
-		var source = tile_set.get_source(tile_set.get_source_id(0))
-		if source is TileSetAtlasSource:
-			atlas_texture = source.texture
+	# --- FILE DIALOG ---
+	file_dialog = FileDialog.new()
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	file_dialog.filters = ["*.png, *.jpg, *.jpeg ; Image Files"]
+	file_dialog.file_selected.connect(_on_file_selected)
+	add_child(file_dialog)
+
+# [FIXED] Updated signature to accept dynamic data
+func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) -> void:
+	mappings = default_mappings.duplicate()
+	tile_size = t_size
+	atlas_texture_path = texture_path
+	
+	# Update top bar UI
+	spin_w.set_value_no_signal(tile_size.x)
+	spin_h.set_value_no_signal(tile_size.y)
+	
+	# 1. Dynamically Load Texture from File!
+	if atlas_texture_path != "" and FileAccess.file_exists(atlas_texture_path):
+		var img = Image.load_from_file(atlas_texture_path)
+		if img:
+			atlas_texture = ImageTexture.create_from_image(img)
 			texture_rect.texture = atlas_texture
 			
 	# 2. Populate Semantic Categories (Floors AND Walls!)
@@ -100,6 +158,18 @@ func open(p_tile_set: TileSet, default_mappings: Dictionary) -> void:
 		_on_category_selected(0)
 		
 	popup_centered()
+
+# --- IMAGE LOADING LOGIC ---
+func _on_load_image_pressed() -> void:
+	file_dialog.popup_centered_ratio(0.7)
+
+func _on_file_selected(path: String) -> void:
+	var img = Image.load_from_file(path)
+	if img:
+		atlas_texture_path = path
+		atlas_texture = ImageTexture.create_from_image(img)
+		texture_rect.texture = atlas_texture
+		overlay.queue_redraw()
 
 func _add_category_item(key: String, display_name: String, color: Color) -> void:
 	semantic_keys.append(key)

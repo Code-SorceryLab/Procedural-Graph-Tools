@@ -13,11 +13,17 @@ var _realizer: GraphRealizer
 var _active_inputs: Dictionary = {}
 var _params: Dictionary = {}
 
+
 # Stores the visual mapping results
 var _atlas_mappings: Dictionary = {
 	"default_floor": Vector2i(0, 0),
-	"default_wall": Vector2i(1, 0)
+	"default_wall": Vector2i(1, 0),
 }
+
+# Store dynamic Image settings
+var _tileset_image_path: String = ""
+var _tileset_tile_size: Vector2i = Vector2i(16, 16)
+
 var _mapping_popup: TileMappingPopup
 var _shape_popup: AlgorithmSettingsPopup
 
@@ -63,12 +69,13 @@ func _ready() -> void:
 	# Update the button visuals on startup
 	_update_biome_button_text()
 	
-	# Load saved mappings from disk on startup
-	var saved_mappings = ConfigManager.load_rasterizer_mappings()
-	if not saved_mappings.is_empty():
-		# Merge overrides defaults with saved values, while keeping defaults 
-		# intact if they were missing from the file!
-		_atlas_mappings.merge(saved_mappings, true)
+	# Extract the nested dict from ConfigManager
+	var saved_data = ConfigManager.load_rasterizer_mappings()
+	if saved_data.has("mappings") and not saved_data["mappings"].is_empty():
+		_atlas_mappings.merge(saved_data["mappings"], true)
+		
+	_tileset_image_path = saved_data.get("texture_path", "")
+	_tileset_tile_size = saved_data.get("tile_size", Vector2i(16, 16))
 
 
 
@@ -121,7 +128,14 @@ func _build_ui() -> void:
 		{ "name": "ca_survive_min", "label": "CA Survive Min", "type": TYPE_INT, "default": 4, "min": 0, "max": 8, 
 		  "hint_text": "Floor tiles with fewer than this many floor neighbors will erode into walls." },
 		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8, 
-		  "hint_text": "Wall tiles with this many floor neighbors will turn into floor tiles." }
+		  "hint_text": "Wall tiles with this many floor neighbors will turn into floor tiles." },
+		
+		# --- SCATTER SETTING ---
+		{ "name": "sep_scatter", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "scatter_density", "label": "Entity Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01, 
+		  "hint_text": "Chance to spawn an entity on any valid non-critical floor tile." },
+		{ "name": "show_entities", "label": "Show Scattered Entities", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "Draws gold markers over the map to visualize where entities have been scattered." }
 	]
 	
 	for item in schema:
@@ -136,16 +150,13 @@ func _build_ui() -> void:
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
 
 func _on_ui_interaction(key: String, value: Variant) -> void:
-	
 	if key == "btn_rasterize":
 		_on_rasterize_pressed()
 	elif key == "btn_clear":
 		_on_clear_pressed()
 	elif key == "btn_open_mapper":
-		if tile_map_layer and tile_map_layer.tile_set:
-			_mapping_popup.open(tile_map_layer.tile_set, _atlas_mappings)
-		else:
-			push_warning("Cannot open Tile Mapper: No TileSet assigned to the TileMapLayer.")
+		# [FIXED] No longer requires a hard-coded TileSet! Pass dynamic data.
+		_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings)
 			
 	elif key == "btn_shape_ratios":
 		_current_editing_biome = "" # Explicitly tell the system we are editing GLOBAL rules
@@ -193,15 +204,35 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 			
 		_biome_dropdown.set_meta("keys", keys)
 		_biome_selector.popup_centered(Vector2(320, 100)) # Made slightly wider to fit the [ACTIVE] text
+	
+	# --- INSTANT VISIBILITY TOGGLES ---
+	elif key == "show_entities":
+		_params[key] = value
+		if tile_map_layer:
+			for child in tile_map_layer.get_children():
+				if child.is_in_group("realizer_entity"):
+					child.visible = value
+					
+	elif key == "debug_routing":
+		_params[key] = value
+		if tile_map_layer:
+			for child in tile_map_layer.get_children():
+				if child.is_in_group("realizer_critical_path"):
+					child.visible = value
+	# ---------------------------------------
+	
 	else:
 		_params[key] = value
 
+
 func _on_mapping_confirmed() -> void:
-	# Save the data from the popup back into the controller when the user hits 'OK'
+	# Save the data from the popup back into the controller
 	_atlas_mappings = _mapping_popup.mappings.duplicate()
+	_tileset_image_path = _mapping_popup.atlas_texture_path
+	_tileset_tile_size = _mapping_popup.tile_size
 	
-	# Persist the new mappings to disk instantly
-	ConfigManager.save_rasterizer_mappings(_atlas_mappings)
+	# Persist the new mappings, path, and size to disk
+	ConfigManager.save_rasterizer_mappings(_atlas_mappings, _tileset_image_path, _tileset_tile_size)
 
 func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
 	if _current_editing_biome != "":
@@ -237,9 +268,9 @@ func _on_biome_selected() -> void:
 		"ca_iterations": _params.get("ca_iterations", 0),
 		"ca_survive_min": _params.get("ca_survive_min", 4),
 		"ca_birth_min": _params.get("ca_birth_min", 5),
-		# Corridor fallbacks
 		"allow_diagonal_corridors": _params.get("allow_diagonal_corridors", false),
-		"corridor_radius": _params.get("corridor_radius", 0)
+		"corridor_radius": _params.get("corridor_radius", 0),
+		"scatter_density": _params.get("scatter_density", 0.05)
 	})
 	
 	# Build a superset schema controlling sizes, shapes, corridors, AND cellular smoothing!
@@ -260,7 +291,11 @@ func _on_biome_selected() -> void:
 		{ "name": "sep_4", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": 0, "min": 0, "max": 10 },
 		{ "name": "ca_survive_min", "label": "CA Survive Min", "type": TYPE_INT, "default": 4, "min": 0, "max": 8 },
-		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 }
+		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 },
+		# Scatter Settings
+		{ "name": "sep_5", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 }
+		
 	]
 	
 	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
@@ -285,36 +320,50 @@ func _on_rasterize_pressed() -> void:
 	_realizer = GraphRealizer.new()
 	var grid = _realizer.realize(graph, _params)
 	
+	# --- [NEW] PROGRAMMATIC TILESET GENERATION ---
+	# We dynamically construct the TileSet resource in memory so the user NEVER 
+	# has to manually configure the Godot TileMapLayer!
+	var dynamic_tileset = TileSet.new()
+	dynamic_tileset.tile_size = _tileset_tile_size
+	
+	if _tileset_image_path != "" and FileAccess.file_exists(_tileset_image_path):
+		var img = Image.load_from_file(_tileset_image_path)
+		if img:
+			var source = TileSetAtlasSource.new()
+			source.texture = ImageTexture.create_from_image(img)
+			source.texture_region_size = _tileset_tile_size
+			
+			# Carve out the tiles based on what we actually mapped
+			for mapping_key in _atlas_mappings:
+				var coord = _atlas_mappings[mapping_key]
+				if not source.has_tile(coord):
+					source.create_tile(coord)
+					
+			dynamic_tileset.add_source(source, floor_source_id)
+	
+	# Assign our newly baked resource to the layer!
+	tile_map_layer.tile_set = dynamic_tileset
+	
 	# 1. Grab base defaults
 	var def_floor_atlas = _atlas_mappings.get("default_floor", Vector2i(0,0))
 	var def_wall_atlas = _atlas_mappings.get("default_wall", Vector2i(1,0))
+	var debug_path_atlas = _atlas_mappings.get("debug_path", Vector2i(2,0)) 
 	
 	# 2. Base mapping dict
 	var mapping = {
 		_realizer.floor_id: { "source_id": floor_source_id, "atlas_coords": def_floor_atlas },
-		_realizer.wall_id: { "source_id": floor_source_id, "atlas_coords": def_wall_atlas }
+		_realizer.wall_id: { "source_id": floor_source_id, "atlas_coords": def_wall_atlas },
+		_realizer.debug_path_id: { "source_id": floor_source_id, "atlas_coords": debug_path_atlas }
 	}
 	
-	# Helper function to auto-detect terrain data from an atlas coordinate
+	# Helper function (Because we are programmatically generating, Autotiling is bypassed for now)
 	var get_mapping_data = func(atlas_coord: Vector2i) -> Dictionary:
-		var source = tile_map_layer.tile_set.get_source(floor_source_id)
-		if source is TileSetAtlasSource:
-			# Get the Godot TileData resource for the clicked tile
-			var tile_data = source.get_tile_data(atlas_coord, 0)
-			# If the terrain_set is valid (>= 0), the user set up Autotiling for this tile!
-			if tile_data and tile_data.terrain_set >= 0:
-				return { 
-					"is_terrain": true, 
-					"terrain_set": tile_data.terrain_set, 
-					"terrain": tile_data.terrain 
-				}
-		# Fallback to standard static tile
 		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord }
 
 	# 3. Inject Semantic Types & Auto-Detect Terrains
-	# Update the default floor/wall with terrain detection
 	mapping[_realizer.floor_id] = get_mapping_data.call(def_floor_atlas)
 	mapping[_realizer.wall_id] = get_mapping_data.call(def_wall_atlas)
+	mapping[_realizer.debug_path_id] = get_mapping_data.call(debug_path_atlas)
 	
 	for cat_key in _realizer.semantic_floor_ids:
 		var s_floor_id = _realizer.semantic_floor_ids[cat_key]
@@ -323,7 +372,6 @@ func _on_rasterize_pressed() -> void:
 		var custom_floor = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
 		var custom_wall = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
 		
-		# Auto-detect terrain status for both semantic floors and walls
 		mapping[s_floor_id] = get_mapping_data.call(custom_floor)
 		mapping[s_wall_id] = get_mapping_data.call(custom_wall)
 		
@@ -339,10 +387,52 @@ func _on_rasterize_pressed() -> void:
 		var offset_x = _realizer._world_offset.x - (_params["padding"] * _params["grid_scale"])
 		var offset_y = _realizer._world_offset.y - (_params["padding"] * _params["grid_scale"])
 		tile_map_layer.position = Vector2(offset_x, offset_y)
+		
+	# --- OVERLAY RENDERING (Entities & Debug Paths) ---
+	# First, clear all old overlays
+	for child in tile_map_layer.get_children():
+		if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path"):
+			child.queue_free()
+			
+	if tile_map_layer.tile_set:
+		var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+		
+		# A. Render Critical Path Overlays
+		var show_path = _params.get("debug_routing", false)
+		for pos in _realizer.critical_path_cells:
+			var rect = ColorRect.new()
+			rect.color = Color(1.0, 0.0, 1.0, 0.4) # Semi-transparent magenta
+			rect.size = Vector2(cell_size, cell_size) # Cover the full tile
+			
+			var local_x = pos.x * cell_size
+			var local_y = pos.y * cell_size
+			rect.position = Vector2(local_x, local_y)
+			
+			rect.visible = show_path
+			rect.add_to_group("realizer_critical_path")
+			tile_map_layer.add_child(rect)
+
+		# B. Render Entity Overlays
+		var show_entities = _params.get("show_entities", true)
+		for pos in grid.entities:
+			var rect = ColorRect.new()
+			rect.color = Color(1.0, 0.8, 0.0, 0.8) # Solid Gold
+			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) # Smaller center square
+			
+			var local_x = pos.x * cell_size + (cell_size * 0.25)
+			var local_y = pos.y * cell_size + (cell_size * 0.25)
+			rect.position = Vector2(local_x, local_y)
+			
+			rect.visible = show_entities
+			rect.add_to_group("realizer_entity")
+			tile_map_layer.add_child(rect)
 
 func _on_clear_pressed() -> void:
 	if tile_map_layer:
 		tile_map_layer.clear()
+		for child in tile_map_layer.get_children():
+			if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path"):
+				child.queue_free()
 
 # ==============================================================================
 # VISUAL FEEDBACK HELPER

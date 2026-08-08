@@ -3948,13 +3948,13 @@
 	},
 	"meta": {
 		"next_ticket": 1,
-		"timestamp": "2026-08-06T18:50:39",
+		"timestamp": "2026-08-08T15:52:04",
 		"version": "1.6"
 	},
 	"nodes": [
 		{
 			"custom_data": {
-				"_grid_center": "(102, 94)",
+				"_grid_center": "(78, 80)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -3966,7 +3966,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(108, 97)",
+				"_grid_center": "(85, 83)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -3978,7 +3978,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(95, 94)",
+				"_grid_center": "(71, 80)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -3990,7 +3990,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(102, 88)",
+				"_grid_center": "(78, 73)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4002,7 +4002,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(95, 86)",
+				"_grid_center": "(71, 72)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4014,7 +4014,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(107, 104)",
+				"_grid_center": "(83, 90)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4026,7 +4026,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(95, 101)",
+				"_grid_center": "(71, 86)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4038,7 +4038,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(88, 102)",
+				"_grid_center": "(64, 88)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4050,7 +4050,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(114, 103)",
+				"_grid_center": "(90, 88)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4062,7 +4062,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(101, 81)",
+				"_grid_center": "(77, 67)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4074,7 +4074,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(96, 107)",
+				"_grid_center": "(73, 93)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4086,7 +4086,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(88, 95)",
+				"_grid_center": "(64, 81)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4098,7 +4098,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(109, 111)",
+				"_grid_center": "(85, 96)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4110,7 +4110,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(88, 87)",
+				"_grid_center": "(64, 73)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4122,7 +4122,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(120, 101)",
+				"_grid_center": "(97, 87)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4134,7 +4134,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(93, 113)",
+				"_grid_center": "(70, 99)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4146,7 +4146,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(89, 80)",
+				"_grid_center": "(65, 66)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4158,7 +4158,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(81, 101)",
+				"_grid_center": "(57, 87)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4170,7 +4170,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(119, 108)",
+				"_grid_center": "(96, 93)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4182,7 +4182,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(83, 107)",
+				"_grid_center": "(59, 93)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4194,7 +4194,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(81, 91)",
+				"_grid_center": "(57, 76)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4206,7 +4206,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(100, 74)",
+				"_grid_center": "(76, 60)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4218,7 +4218,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(82, 83)",
+				"_grid_center": "(59, 68)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4230,7 +4230,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(126, 98)",
+				"_grid_center": "(102, 83)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4242,7 +4242,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(100, 112)",
+				"_grid_center": "(76, 98)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4254,7 +4254,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(118, 114)",
+				"_grid_center": "(94, 100)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4266,7 +4266,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(74, 102)",
+				"_grid_center": "(50, 88)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4278,7 +4278,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(99, 67)",
+				"_grid_center": "(75, 53)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4290,7 +4290,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(83, 114)",
+				"_grid_center": "(60, 100)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4302,7 +4302,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(97, 119)",
+				"_grid_center": "(73, 104)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4314,7 +4314,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(67, 101)",
+				"_grid_center": "(43, 87)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4326,7 +4326,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(76, 113)",
+				"_grid_center": "(53, 98)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4338,7 +4338,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(69, 113)",
+				"_grid_center": "(45, 98)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4350,7 +4350,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(104, 119)",
+				"_grid_center": "(80, 104)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4362,7 +4362,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(69, 96)",
+				"_grid_center": "(46, 81)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4374,7 +4374,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(90, 73)",
+				"_grid_center": "(67, 59)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4386,7 +4386,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(84, 75)",
+				"_grid_center": "(60, 60)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4398,7 +4398,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(77, 77)",
+				"_grid_center": "(53, 62)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4410,7 +4410,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(114, 92)",
+				"_grid_center": "(90, 78)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4422,7 +4422,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(113, 86)",
+				"_grid_center": "(90, 71)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4434,7 +4434,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(71, 89)",
+				"_grid_center": "(47, 75)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4446,7 +4446,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(125, 113)",
+				"_grid_center": "(101, 98)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4458,7 +4458,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(131, 111)",
+				"_grid_center": "(107, 96)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4470,7 +4470,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(104, 125)",
+				"_grid_center": "(80, 111)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4482,7 +4482,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(124, 91)",
+				"_grid_center": "(100, 77)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4494,7 +4494,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(106, 78)",
+				"_grid_center": "(82, 63)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4506,7 +4506,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(97, 126)",
+				"_grid_center": "(73, 112)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4518,7 +4518,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(133, 117)",
+				"_grid_center": "(109, 103)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4530,7 +4530,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(63, 90)",
+				"_grid_center": "(40, 75)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4542,7 +4542,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(106, 69)",
+				"_grid_center": "(82, 55)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4554,7 +4554,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(112, 72)",
+				"_grid_center": "(88, 58)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4566,7 +4566,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(56, 91)",
+				"_grid_center": "(33, 76)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4578,7 +4578,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(127, 122)",
+				"_grid_center": "(104, 107)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4590,7 +4590,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(120, 122)",
+				"_grid_center": "(96, 108)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4602,7 +4602,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(102, 132)",
+				"_grid_center": "(78, 117)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4614,7 +4614,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(114, 126)",
+				"_grid_center": "(90, 111)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4626,7 +4626,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(70, 80)",
+				"_grid_center": "(46, 66)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4638,7 +4638,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(79, 69)",
+				"_grid_center": "(55, 55)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4650,7 +4650,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(111, 65)",
+				"_grid_center": "(88, 51)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4662,7 +4662,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(107, 60)",
+				"_grid_center": "(83, 45)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4674,7 +4674,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(90, 126)",
+				"_grid_center": "(66, 112)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4686,7 +4686,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(131, 90)",
+				"_grid_center": "(107, 76)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4698,7 +4698,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(73, 72)",
+				"_grid_center": "(49, 57)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4710,7 +4710,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(89, 133)",
+				"_grid_center": "(65, 118)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4722,7 +4722,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(56, 98)",
+				"_grid_center": "(33, 83)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4734,7 +4734,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(63, 109)",
+				"_grid_center": "(39, 95)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4746,7 +4746,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(105, 52)",
+				"_grid_center": "(82, 38)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4758,7 +4758,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(100, 138)",
+				"_grid_center": "(76, 124)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4770,7 +4770,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(137, 92)",
+				"_grid_center": "(113, 78)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4782,7 +4782,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(57, 109)",
+				"_grid_center": "(33, 94)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4794,7 +4794,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(58, 115)",
+				"_grid_center": "(34, 101)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4806,7 +4806,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(119, 83)",
+				"_grid_center": "(96, 68)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4818,7 +4818,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(66, 73)",
+				"_grid_center": "(42, 59)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4830,7 +4830,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(119, 72)",
+				"_grid_center": "(95, 58)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4842,7 +4842,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(126, 75)",
+				"_grid_center": "(102, 60)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4854,7 +4854,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(134, 76)",
+				"_grid_center": "(110, 61)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4866,7 +4866,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(89, 140)",
+				"_grid_center": "(65, 125)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4878,7 +4878,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(98, 145)",
+				"_grid_center": "(74, 130)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4890,7 +4890,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(133, 104)",
+				"_grid_center": "(109, 90)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4902,7 +4902,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(141, 98)",
+				"_grid_center": "(117, 83)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4914,7 +4914,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(68, 67)",
+				"_grid_center": "(44, 53)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4926,7 +4926,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(49, 90)",
+				"_grid_center": "(25, 76)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4938,7 +4938,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(50, 99)",
+				"_grid_center": "(26, 84)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4950,7 +4950,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(82, 62)",
+				"_grid_center": "(58, 48)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4962,7 +4962,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(112, 133)",
+				"_grid_center": "(88, 118)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4974,7 +4974,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(118, 131)",
+				"_grid_center": "(94, 116)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4986,7 +4986,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(51, 115)",
+				"_grid_center": "(27, 100)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -4998,7 +4998,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(63, 81)",
+				"_grid_center": "(39, 67)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5010,7 +5010,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(133, 81)",
+				"_grid_center": "(109, 66)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5022,7 +5022,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(99, 54)",
+				"_grid_center": "(75, 39)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5034,7 +5034,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(124, 68)",
+				"_grid_center": "(100, 54)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5046,7 +5046,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(79, 119)",
+				"_grid_center": "(55, 105)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5058,7 +5058,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(70, 61)",
+				"_grid_center": "(46, 47)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5070,7 +5070,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(79, 126)",
+				"_grid_center": "(55, 111)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5082,7 +5082,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(45, 112)",
+				"_grid_center": "(21, 97)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5094,7 +5094,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(133, 71)",
+				"_grid_center": "(109, 57)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5106,7 +5106,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(140, 83)",
+				"_grid_center": "(116, 68)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5118,7 +5118,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(93, 55)",
+				"_grid_center": "(69, 41)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5130,7 +5130,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(139, 69)",
+				"_grid_center": "(116, 55)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5142,7 +5142,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(122, 135)",
+				"_grid_center": "(98, 121)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5154,19 +5154,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(63, 60)",
+				"_grid_center": "(39, 46)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-7:-6",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -891.808715820313,
 			"y": -876.517761230469
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(128, 131)",
+				"_grid_center": "(104, 116)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5178,7 +5178,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(134, 126)",
+				"_grid_center": "(110, 112)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5190,7 +5190,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(72, 123)",
+				"_grid_center": "(49, 109)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5202,7 +5202,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(130, 64)",
+				"_grid_center": "(106, 49)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5214,7 +5214,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(105, 144)",
+				"_grid_center": "(81, 129)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5226,7 +5226,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(129, 57)",
+				"_grid_center": "(105, 42)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5238,7 +5238,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(128, 137)",
+				"_grid_center": "(104, 123)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5250,7 +5250,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(48, 84)",
+				"_grid_center": "(25, 69)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5262,7 +5262,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(65, 123)",
+				"_grid_center": "(42, 108)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5274,7 +5274,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(134, 136)",
+				"_grid_center": "(110, 122)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5286,7 +5286,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(79, 133)",
+				"_grid_center": "(55, 118)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5298,7 +5298,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(112, 51)",
+				"_grid_center": "(88, 37)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5310,7 +5310,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(82, 55)",
+				"_grid_center": "(59, 41)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5322,31 +5322,31 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(57, 65)",
+				"_grid_center": "(33, 51)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-8:-6",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1035.85656738281,
 			"y": -757.798522949219
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(66, 54)",
+				"_grid_center": "(42, 40)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-7:-7",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -813.264404296875,
 			"y": -1032.34155273438
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(127, 144)",
+				"_grid_center": "(104, 129)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5358,7 +5358,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(68, 129)",
+				"_grid_center": "(44, 115)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5370,7 +5370,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(116, 57)",
+				"_grid_center": "(92, 42)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5382,19 +5382,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(69, 136)",
+				"_grid_center": "(45, 122)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:7",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -742.705322265625,
 			"y": 1023.19183349609
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(127, 50)",
+				"_grid_center": "(103, 35)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5406,7 +5406,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(136, 58)",
+				"_grid_center": "(112, 43)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5418,19 +5418,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(53, 72)",
+				"_grid_center": "(29, 57)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-9:-6",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1128.28735351563,
 			"y": -594.9736328125
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(142, 60)",
+				"_grid_center": "(118, 46)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5442,7 +5442,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(135, 143)",
+				"_grid_center": "(111, 129)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5454,7 +5454,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(42, 85)",
+				"_grid_center": "(18, 71)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5466,7 +5466,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(145, 78)",
+				"_grid_center": "(122, 64)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5478,7 +5478,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(142, 141)",
+				"_grid_center": "(119, 126)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5490,7 +5490,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(88, 50)",
+				"_grid_center": "(64, 36)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5502,7 +5502,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(141, 130)",
+				"_grid_center": "(117, 115)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5514,7 +5514,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(120, 46)",
+				"_grid_center": "(97, 32)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5526,7 +5526,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(139, 108)",
+				"_grid_center": "(115, 94)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5538,7 +5538,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(94, 48)",
+				"_grid_center": "(70, 34)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5550,7 +5550,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(151, 74)",
+				"_grid_center": "(127, 60)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5562,7 +5562,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(83, 143)",
+				"_grid_center": "(59, 129)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5574,19 +5574,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(73, 54)",
+				"_grid_center": "(49, 40)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:-7",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -636.756591796875,
 			"y": -1029.57983398438
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(141, 148)",
+				"_grid_center": "(117, 133)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5598,7 +5598,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(145, 123)",
+				"_grid_center": "(121, 109)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5610,7 +5610,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(38, 112)",
+				"_grid_center": "(15, 98)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5622,19 +5622,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(73, 48)",
+				"_grid_center": "(49, 33)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:-8",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -631.183227539063,
 			"y": -1193.06323242188
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(146, 54)",
+				"_grid_center": "(122, 40)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5646,7 +5646,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(147, 99)",
+				"_grid_center": "(124, 84)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5658,7 +5658,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(120, 148)",
+				"_grid_center": "(96, 134)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5670,7 +5670,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(119, 39)",
+				"_grid_center": "(96, 25)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5682,19 +5682,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(68, 143)",
+				"_grid_center": "(44, 129)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:8",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -771.294921875,
 			"y": 1196.56848144531
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(148, 106)",
+				"_grid_center": "(124, 91)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5706,7 +5706,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(74, 146)",
+				"_grid_center": "(50, 131)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5718,7 +5718,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(104, 45)",
+				"_grid_center": "(80, 31)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5730,31 +5730,31 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(46, 72)",
+				"_grid_center": "(22, 58)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-10:-6",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1313.35473632813,
 			"y": -583.893127441406
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(62, 134)",
+				"_grid_center": "(39, 120)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-7:7",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -901.796875,
 			"y": 965.631042480469
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(96, 152)",
+				"_grid_center": "(72, 137)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5766,19 +5766,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(39, 74)",
+				"_grid_center": "(15, 60)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-11:-6",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1487.8408203125,
 			"y": -528.025939941406
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(154, 81)",
+				"_grid_center": "(130, 66)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5790,7 +5790,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(154, 106)",
+				"_grid_center": "(131, 92)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5802,7 +5802,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(116, 155)",
+				"_grid_center": "(92, 141)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5814,19 +5814,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(56, 132)",
+				"_grid_center": "(32, 117)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-8:7",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -1060.35913085938,
 			"y": 905.531860351563
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(73, 152)",
+				"_grid_center": "(50, 138)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5838,19 +5838,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(47, 65)",
+				"_grid_center": "(23, 51)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-10:-7",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1284.9833984375,
 			"y": -757.780151367188
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(127, 39)",
+				"_grid_center": "(103, 25)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5862,7 +5862,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(133, 42)",
+				"_grid_center": "(109, 28)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5874,7 +5874,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(45, 119)",
+				"_grid_center": "(21, 105)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5886,7 +5886,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(153, 88)",
+				"_grid_center": "(129, 73)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5898,19 +5898,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(78, 43)",
+				"_grid_center": "(54, 28)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:-9",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -518.106079101563,
 			"y": -1325.00134277344
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(149, 135)",
+				"_grid_center": "(125, 121)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5922,19 +5922,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(71, 41)",
+				"_grid_center": "(47, 26)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-7:-9",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "empty",
 			"x": -683.803955078125,
 			"y": -1373.56640625
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(158, 100)",
+				"_grid_center": "(134, 86)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5946,19 +5946,19 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(55, 139)",
+				"_grid_center": "(31, 124)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-8:8",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -1094.833984375,
 			"y": 1075.70739746094
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(154, 129)",
+				"_grid_center": "(130, 115)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -5970,31 +5970,31 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(79, 36)",
+				"_grid_center": "(56, 17)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-6:-10",
 			"shape": 0,
-			"type": "scp_light",
-			"x": -494.334106445313,
-			"y": -1494.11108398438
+			"type": "empty",
+			"x": -472.663208007813,
+			"y": -1593.6435546875
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(51, 59)",
+				"_grid_center": "(27, 45)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-10:-8",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1196.46838378906,
 			"y": -909.073547363281
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(103, 153)",
+				"_grid_center": "(79, 138)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -6006,7 +6006,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(80, 155)",
+				"_grid_center": "(56, 140)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -6018,7 +6018,7 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(39, 118)",
+				"_grid_center": "(15, 104)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -6030,31 +6030,31 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(45, 55)",
+				"_grid_center": "(21, 41)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-11:-8",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1328.18225097656,
 			"y": -1014.51318359375
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(48, 136)",
+				"_grid_center": "(24, 122)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-9:8",
 			"shape": 0,
-			"type": "empty",
+			"type": "enemy",
 			"x": -1256.291015625,
 			"y": 1024.27258300781
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(135, 153)",
+				"_grid_center": "(111, 138)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
@@ -6066,13 +6066,13 @@
 		},
 		{
 			"custom_data": {
-				"_grid_center": "(49, 49)",
+				"_grid_center": "(25, 35)",
 				"physics_fusable": true,
 				"physics_repulsion": 100.0
 			},
 			"id": "dla:-11:-9",
 			"shape": 0,
-			"type": "scp_light",
+			"type": "boss",
 			"x": -1232.89929199219,
 			"y": -1156.66711425781
 		}

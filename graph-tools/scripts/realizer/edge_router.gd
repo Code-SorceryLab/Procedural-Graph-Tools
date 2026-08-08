@@ -26,7 +26,6 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 				astar.set_point_weight_scale(pos, 3.0) 
 				
 	var processed_edges = {}
-	var debug_routing = params.get("debug_routing", false)
 	
 	for key in graph.edge_store:
 		var edge = graph.edge_store[key]
@@ -84,7 +83,9 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			var active_floor_id = floor_id_u if i < path_midpoint else floor_id_v
 			
 			if corridor_radius == 0:
-				if grid.get_cell(point.x, point.y) == TilePalette.VOID_ID or debug_routing:
+				realizer.critical_path_cells[point] = true # Log for entities/debug!
+				
+				if grid.get_cell(point.x, point.y) == TilePalette.VOID_ID:
 					grid.set_cell(point.x, point.y, active_floor_id)
 				astar.set_point_weight_scale(point, 1.0) 
 			else:
@@ -93,6 +94,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 					for dx in range(rect.size.x):
 						var p = Vector2i(rect.position.x + dx, rect.position.y + dy)
 						if grid.in_bounds_vec(p):
-							if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID or debug_routing:
+							realizer.critical_path_cells[p] = true # Log for entities/debug!
+							
+							if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:
 								grid.set_cell(p.x, p.y, active_floor_id)
 							astar.set_point_weight_scale(p, 1.0)
