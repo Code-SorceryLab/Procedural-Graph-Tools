@@ -45,7 +45,7 @@ func execute(graph: GraphRecorder, params: Dictionary) -> void:
 	var spacing = Vector2(sp_x, sp_y)
 	
 	var sync = params.get("sync_global", _cache_sync)
-	var use_zones = bool(params.get("use_zones", false)) # [NEW]
+	var use_zones = bool(params.get("use_zones", false))
 	
 	# 2. Update Cache
 	_cache_width = width

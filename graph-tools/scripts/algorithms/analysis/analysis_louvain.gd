@@ -2,17 +2,33 @@ class_name AnalysisLouvain
 extends RefCounted
 
 signal calculation_finished(result: Dictionary)
-
 var _worker_thread: Thread
 
-# Main Entry Point
-func calculate_async(graph: Graph, params: Dictionary) -> void:
+# ==============================================================================
+# 1. ASYNC ENDPOINT (Used by the UI / GraphMetrics)
+# ==============================================================================
+func calculate_async(graph: Graph, params: Dictionary = {}) -> void:
+	_worker_thread = Thread.new()
+	_worker_thread.start(_thread_runner.bind(graph, params))
+
+func _thread_runner(graph: Graph, params: Dictionary) -> void:
+	var result = calculate(graph, params)
+	call_deferred("_on_finished", result)
+
+func _on_finished(result: Dictionary) -> void:
+	if _worker_thread and _worker_thread.is_started():
+		_worker_thread.wait_to_finish()
+	calculation_finished.emit(result)
+
+# ==============================================================================
+# 2. SYNC ENDPOINT (Used directly by ExperimentRunner)
+# ==============================================================================
+func calculate(graph: Graph, params: Dictionary = {}) -> Dictionary:
 	var nodes = graph.nodes.keys()
 	var n = nodes.size()
 
 	if n == 0:
-		call_deferred("_on_finished", { "communities": 0, "modularity": 0.0, "communities_map": {} })
-		return
+		return { "communities": 0, "modularity": 0.0, "communities_map": {} }
 
 	var adj = {}
 	var m2 = 0 # 2 * m (sum of all degrees in the graph)
@@ -23,16 +39,8 @@ func calculate_async(graph: Graph, params: Dictionary) -> void:
 		m2 += neighbors.size()
 
 	if m2 == 0:
-		call_deferred("_on_finished", { "communities": n, "modularity": 0.0, "communities_map": {} })
-		return
+		return { "communities": n, "modularity": 0.0, "communities_map": {} }
 
-	# Boot the Background Thread
-	_worker_thread = Thread.new()
-	_worker_thread.start(_run_louvain.bind(nodes, adj, m2))
-
-# --- BACKGROUND WORKER FUNCS ---
-
-func _run_louvain(nodes: Array, adj: Dictionary, m2: int) -> void:
 	# 1. Initialize: Every node starts in its own isolated community
 	var com = {}
 	var tot = {} # sum of degrees of nodes in community C
@@ -50,6 +58,10 @@ func _run_louvain(nodes: Array, adj: Dictionary, m2: int) -> void:
 
 	# 2. Local Optimization Phase
 	while improvement and iters < max_iters:
+		# Catch global abort and break out of optimization instantly
+		if GraphMetrics._cancel_flag: 
+			return {"_was_cancelled": true}
+			
 		improvement = false
 		iters += 1
 
@@ -108,17 +120,8 @@ func _run_louvain(nodes: Array, adj: Dictionary, m2: int) -> void:
 				q += 1.0 - float(deg[i] * deg[j]) / float(m2)
 	q /= float(m2)
 
-	var result = {
+	return {
 		"communities": com_id_counter,
 		"modularity": snapped(q, 0.001),
 		"communities_map": final_map
 	}
-
-	call_deferred("_on_finished", result)
-
-# --- MAIN THREAD RESOLUTION ---
-
-func _on_finished(result: Dictionary) -> void:
-	if _worker_thread and _worker_thread.is_alive():
-		_worker_thread.wait_to_finish()
-	calculation_finished.emit(result)

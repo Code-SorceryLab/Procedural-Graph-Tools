@@ -18,6 +18,7 @@ extends Node
 var _latest_report: Dictionary = {}
 var _analysis_params: Dictionary = {} # Stores live settings
 var _settings_popup: AlgorithmSettingsPopup # The dynamic popup instance
+var _is_calculating: bool = false # Tracks calculation state
 
 # analysis_controller.gd (Tooltips Update)
 const METRIC_TOOLTIPS: Dictionary = {
@@ -143,8 +144,23 @@ func _on_settings_confirmed(new_settings: Dictionary) -> void:
 func _on_calculate_pressed() -> void:
 	if not graph_editor or not graph_editor.graph: return
 		
-	# Lock UI and show processing state
-	btn_calculate.disabled = true
+	# --- CANCELLATION LOGIC ---
+	if _is_calculating:
+		results_label.text = "[center][color=#ff4444]Cancelling... (Waiting for active threads to abort)[/color][/center]"
+		btn_calculate.disabled = true 
+		
+
+		GraphMetrics.cancel_analysis()
+		
+		return
+		
+	# --- START CALCULATION ---
+	_is_calculating = true
+	
+	# Transform the calculate button into a Cancel button
+	btn_calculate.text = "Cancel Analysis"
+	btn_calculate.modulate = Color(1.0, 0.4, 0.4) # Danger Red
+	
 	if btn_settings: btn_settings.disabled = true
 	if btn_export: btn_export.disabled = true
 	if btn_copy: btn_copy.disabled = true
@@ -152,15 +168,27 @@ func _on_calculate_pressed() -> void:
 	if results_label:
 		results_label.text = "[center][color=#f5d142]Calculating... (Background Threads Active)[/color][/center]"
 		
-	# Pass the fully populated dynamic settings dictionary!
-	_latest_report = await GraphMetrics.generate_report(graph_editor.graph, _analysis_params) 
+	# Await the heavy threading...
+	var report = await GraphMetrics.generate_report(graph_editor.graph, _analysis_params) 
 	
-	_populate_results_ui(_latest_report)
-	
+	# --- FINISH / RESTORE UI ---
+	_is_calculating = false
+	btn_calculate.text = "Run Analysis"
+	btn_calculate.modulate = Color.WHITE
 	btn_calculate.disabled = false
+	
 	if btn_settings: btn_settings.disabled = false
-	if btn_export: btn_export.disabled = false
-	if btn_copy: btn_copy.disabled = false
+	
+	# If the report is null or marked as cancelled, show aborted state
+	if report == null or report.get("_was_cancelled", false) == true:
+		results_label.text = "[center][color=#ff4444]Analysis Aborted by User.[/color][/center]"
+		if btn_export: btn_export.disabled = true
+		if btn_copy: btn_copy.disabled = true
+	else:
+		_latest_report = report
+		_populate_results_ui(_latest_report)
+		if btn_export: btn_export.disabled = false
+		if btn_copy: btn_copy.disabled = false
 
 
 func _populate_results_ui(report: Dictionary) -> void:
@@ -219,7 +247,7 @@ func _build_category_bbcode(title: String, data: Dictionary) -> String:
 				if METRIC_TOOLTIPS.has(sub_key):
 					sub_key_formatted = "[hint=\"%s\"]%s[/hint]" % [METRIC_TOOLTIPS[sub_key], sub_key_formatted]
 					
-				# [NEW] Inject Select buttons for nested properties
+				# Inject Select buttons for nested properties
 				var val_str = "[b]" + str(val[sub_key]) + "[/b]"
 				if sel_data.has(sub_key) and (not sel_data[sub_key].get("nodes", []).is_empty() or not sel_data[sub_key].get("edges", []).is_empty()):
 					val_str += " [url=%s][color=#f5d142](Select)[/color][/url]" % sub_key
@@ -230,7 +258,7 @@ func _build_category_bbcode(title: String, data: Dictionary) -> String:
 			if METRIC_TOOLTIPS.has(key):
 				key_formatted = "[hint=\"%s\"]%s[/hint]" % [METRIC_TOOLTIPS[key], key_formatted]
 				
-			# [NEW] Inject Select buttons for root properties
+			# Inject Select buttons for root properties
 			var val_str = "[b]" + str(val) + "[/b]"
 			
 			# Special case for string-based IDs (like hub_node_id)
@@ -244,7 +272,7 @@ func _build_category_bbcode(title: String, data: Dictionary) -> String:
 			
 	return text + "\n"
 
-# [NEW] The Magic Click Handler!
+# The Magic Click Handler!
 func _on_meta_clicked(meta: Variant) -> void:
 	var key = str(meta)
 	var sel_data = _latest_report.get("_selection_data", {})
@@ -270,10 +298,11 @@ func _on_meta_clicked(meta: Variant) -> void:
 # 2. EXPORT LOGIC
 # ==============================================================================
 
-# [NEW] Helper to strip the hidden arrays so JSON remains clean
+# Helper to strip the hidden arrays so JSON remains clean
 func _get_clean_report() -> Dictionary:
 	var clean = _latest_report.duplicate(true)
 	clean.erase("_selection_data")
+	clean.erase("_was_cancelled")
 	return clean
 
 func _on_export_pressed() -> void:

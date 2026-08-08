@@ -97,14 +97,14 @@ func _rebuild_edge_ui() -> void:
 		"default": stiff_val, "step": 0.1, "mixed": mixed.custom_keys.has("physics_stiffness")
 	})
 	
-	# [NEW] Add Snappable Toggle
+	# Add Snappable Toggle
 	var snap_val = ref_data.custom.get("physics_snappable", false)
 	schema.append({
 		"name": "physics_snappable", "label": "Can Snap (Tension)", "type": TYPE_BOOL,
 		"default": snap_val, "mixed": mixed.custom_keys.has("physics_snappable")
 	})
 	
-	# [NEW] Add Snap Threshold
+	# Add Snap Threshold
 	var thresh_val = ref_data.custom.get("physics_snap_threshold", 400.0)
 	schema.append({
 		"name": "physics_snap_threshold", "label": "Snap Threshold", "type": TYPE_FLOAT,

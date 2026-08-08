@@ -5,7 +5,7 @@ extends RefCounted
 # 1. PUBLIC API - BUILDERS
 # ==============================================================================
 
-# [NEW] Helper to create a unified Collapsible Header + Container
+# Helper to create a unified Collapsible Header + Container
 # [CHANGED] Helper to create a unified Collapsible Header + Container
 # Now uses a distinct blue style to differentiate it from action buttons.
 static func create_collapsible_section(parent: Control, title: String, start_expanded: bool = true) -> VBoxContainer:

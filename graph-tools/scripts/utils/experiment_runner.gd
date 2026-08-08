@@ -20,6 +20,9 @@ func run_batch(strategy_script: Script, combinations: Array[Dictionary]) -> void
 	_cancel_flag = false
 	is_running = true
 	
+	# Reset the global metrics abort flag so we don't instantly cancel!
+	GraphMetrics._cancel_flag = false
+	
 	if _total_tasks == 0:
 		push_error("ExperimentRunner: combinations array is empty!")
 		_monitor_progress.call_deferred()
@@ -40,6 +43,9 @@ func cancel() -> void:
 	_mutex.lock()
 	_cancel_flag = true
 	_mutex.unlock()
+	
+	# Instantly kill all heavy math executing across ALL worker threads!
+	GraphMetrics.cancel_analysis()
 
 # ==============================================================================
 # THE THREADED WORKER (Runs concurrently on multiple CPU cores)
@@ -49,7 +55,8 @@ func _process_single_run(idx: int, strategy_script: Script, combinations: Array)
 	var cancelled = _cancel_flag
 	_mutex.unlock()
 	
-	if cancelled:
+	# Also check the global metrics abort flag
+	if cancelled or GraphMetrics._cancel_flag:
 		_mutex.lock()
 		_completed_tasks += 1 
 		_mutex.unlock()
@@ -122,9 +129,7 @@ func _monitor_progress() -> void:
 	progress_updated.emit(_completed_tasks, _total_tasks)
 	experiment_finished.emit(valid_results)
 
-# A synchronous metric extractor that flattens the GraphMetrics output for CSV export
 func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
-	# Pre-allocate the dictionary keys so GraphMetrics doesn't crash!
 	var report = {
 		"_selection_data": {},
 		"topological": {},
@@ -134,13 +139,33 @@ func _extract_core_metrics(g: Graph, params: Dictionary) -> Dictionary:
 		"zones": {}
 	}
 	
-	# 1. Run the massive synchronous suite (If Enabled!)
+	# 1. Run the basic synchronous suite
 	if params.get("do_basic_metrics", true):
 		GraphMetrics._calculate_topology(g, report)
 		GraphMetrics._calculate_spatial(g, report)
 		GraphMetrics._calculate_agents(g, report)
-		GraphMetrics._calculate_markov(g, report)
 		GraphMetrics._calculate_zones(g, report)
+		
+		# --- Call the extracted basic metrics synchronously ---
+		var planarity = AnalysisPlanarity.new()
+		if planarity.has_method("calculate"):
+			var p_data = planarity.calculate(g, params)
+			report["topological"]["is_planar"] = "Yes" if p_data.get("is_planar", false) else "No"
+			report["topological"]["planarity_reason"] = p_data.get("reason", "Unknown")
+			
+		var markov = AnalysisMarkov.new()
+		if markov.has_method("calculate"):
+			report["markov_flow"] = markov.calculate(g, params)
+			
+		var entropy = AnalysisEntropy.new()
+		if entropy.has_method("calculate"):
+			var e_data = entropy.calculate(g, params)
+			report["topological"]["structural_entropy"] = e_data.get("shannon_entropy", 0.0)
+			
+		var spectral = AnalysisSpectral.new()
+		if spectral.has_method("calculate"):
+			var s_data = spectral.calculate(g, params)
+			report["topological"]["algebraic_connectivity"] = s_data.get("fiedler_value", 0.0)
 	
 	# ==========================================================================
 	# 2. HEAVY METRICS (Synchronous Thread-Safe Execution)

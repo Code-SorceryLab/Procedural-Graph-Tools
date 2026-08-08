@@ -2,7 +2,7 @@ class_name GraphHistory
 extends RefCounted
 
 # --- SIGNALS ---
-# [NEW] Notifies observers (like Simulation) that the world state has changed via Undo/Redo
+# Notifies observers (like Simulation) that the world state has changed via Undo/Redo
 signal history_changed 
 
 # --- DATA ---
@@ -84,7 +84,7 @@ func undo() -> GraphCommand:
 	cmd.undo()
 	_redo_stack.append(cmd)
 	
-	# [NEW] Notify listeners (Simulation) that state has rolled back
+	# Notify listeners (Simulation) that state has rolled back
 	history_changed.emit()
 	
 	return cmd

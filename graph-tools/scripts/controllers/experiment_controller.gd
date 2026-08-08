@@ -301,7 +301,7 @@ func _on_run_pressed() -> void:
 		
 	var combinations = ExperimentBuilder.generate_combinations(sweep_def)
 	
-	# [NEW] Inject the confirmed Metrics Configuration into EVERY combination dictionary
+	# Inject the confirmed Metrics Configuration into EVERY combination dictionary
 	for comb in combinations:
 		comb.merge(_metrics_config, true)
 	

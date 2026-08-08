@@ -75,10 +75,10 @@ static func get_sweep_schema(raw_settings: Array) -> Dictionary:
 		if s_name == "" or s_name.begins_with("sep_"): continue
 		
 		var s_type = s.get("type")
-		var is_enum = (s.get("hint", "") == "enum") # [NEW] Detect dropdowns
+		var is_enum = (s.get("hint", "") == "enum") # Detect dropdowns
 		
 		if is_enum:
-			# [NEW] Pre-format the Enum for the checklist UI
+			# Pre-format the Enum for the checklist UI
 			sweep_schema[s_name] = {
 				"label": s.get("label", s_name.capitalize()),
 				"type": s_type,
@@ -88,7 +88,6 @@ static func get_sweep_schema(raw_settings: Array) -> Dictionary:
 				"value": s.get("default", 0)
 			}
 		elif s_type == TYPE_INT or s_type == TYPE_FLOAT:
-			# (Keep your existing int/float dictionary logic here)
 			sweep_schema[s_name] = {
 				"label": s.get("label", s_name.capitalize()),
 				"type": s_type,

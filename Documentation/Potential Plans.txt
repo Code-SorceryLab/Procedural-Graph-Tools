@@ -10,16 +10,12 @@
 **Implementation:** Introduce cross-agent interactions and semantic-reading brains. Agents standing on the same node can trade data, merge nodes, sever edges, or spawn new branches based on the semantic properties of the zone they are currently occupying.
 
 
-
+-Edges that connect to the same node
 
 -lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
-
+-bezier curves for custom edges.
 
 -Agent branching option bugged out for some reason and won't be set to anything other than 0.0
-
-
-(Likely most important to do before anything else)
--Upgrade semantic data editor to label certain data fields as undeletable, to prevent certain fields like buoyancy from being deleted since core functionality depends on them.
 
 
 

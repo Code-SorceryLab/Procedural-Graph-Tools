@@ -3,7 +3,7 @@ extends RefCounted
 
 signal calculation_finished(result: Dictionary)
 
-# Thread-safe instance state
+# Instance state variables
 var _best_colors := 0
 var _iters := 0
 var _timeout := false
@@ -11,8 +11,26 @@ var _current_max_iters := 100000
 var _force_exact := false
 var _worker_thread: Thread
 
-# Main Entry Point
-func calculate_async(graph: Graph, params: Dictionary) -> void:
+# ==============================================================================
+# 1. ASYNC ENDPOINT (Used by UI / GraphMetrics)
+# ==============================================================================
+func calculate_async(graph: Graph, params: Dictionary = {}) -> void:
+	_worker_thread = Thread.new()
+	_worker_thread.start(_thread_runner.bind(graph, params))
+
+func _thread_runner(graph: Graph, params: Dictionary) -> void:
+	var result = calculate(graph, params)
+	call_deferred("_on_finished", result)
+
+func _on_finished(result: Dictionary) -> void:
+	if _worker_thread and _worker_thread.is_started():
+		_worker_thread.wait_to_finish()
+	calculation_finished.emit(result)
+
+# ==============================================================================
+# 2. SYNC ENDPOINT (Used by ExperimentRunner)
+# ==============================================================================
+func calculate(graph: Graph, params: Dictionary = {}) -> Dictionary:
 	_current_max_iters = params.get("chromatic_max_iters", 100000)
 	_force_exact = params.get("chromatic_force_exact", false)
 	
@@ -20,14 +38,11 @@ func calculate_async(graph: Graph, params: Dictionary) -> void:
 	var n = nodes.size()
 	
 	if n == 0:
-		call_deferred("_on_finished", { "chromatic_number": 0, "is_exact": true, "method": "Trivial" })
-		return
+		return { "chromatic_number": 0, "is_exact": true, "method": "Trivial" }
 	if n == 1:
-		call_deferred("_on_finished", { "chromatic_number": 1, "is_exact": true, "method": "Trivial" })
-		return
+		return { "chromatic_number": 1, "is_exact": true, "method": "Trivial" }
 
 	# 1. Sort nodes by degree descending (Welsh-Powell heuristic)
-	# This drastically speeds up the exact solver by forcing early conflicts and maximizing pruning.
 	var node_degrees = []
 	for id in nodes:
 		node_degrees.append({"id": id, "deg": graph.get_neighbors(id).size()})
@@ -49,41 +64,38 @@ func calculate_async(graph: Graph, params: Dictionary) -> void:
 
 	# 2. Fast Upper Bound (Greedy Coloring)
 	var upper_bound = _greedy_coloring(adj, n)
+	if GraphMetrics._cancel_flag: return {"_was_cancelled": true}
 	
 	# If the greedy algorithm colored it in 1 or 2 colors, it's mathematically optimal.
 	if upper_bound <= 2:
-		call_deferred("_on_finished", { "chromatic_number": upper_bound, "is_exact": true, "method": "Greedy (Mathematically Optimal)" })
-		return
+		return { "chromatic_number": upper_bound, "is_exact": true, "method": "Greedy (Mathematically Optimal)" }
 		
 	_best_colors = upper_bound
 	_iters = 0
 	_timeout = false
 	
-	# 3. Boot the Background Thread for NP-Hard Exact Search
-	_worker_thread = Thread.new()
-	_worker_thread.start(_run_exact_search.bind(adj, n, upper_bound))
-
-# --- BACKGROUND WORKER FUNCS ---
-
-func _run_exact_search(adj: Array, n: int, upper_bound: int) -> void:
+	# 3. Exact Search
 	var colors = []
 	colors.resize(n)
 	for i in range(n): colors[i] = -1
 	
 	_backtrack(0, 0, adj, colors, n)
 	
-	var result = {}
+	if GraphMetrics._cancel_flag: return {"_was_cancelled": true}
+	
 	if _timeout:
-		result = { "chromatic_number": upper_bound, "is_exact": false, "method": "Greedy (Exact search timed out at %d iters)" % _iters }
+		return { "chromatic_number": upper_bound, "is_exact": false, "method": "Greedy (Exact search timed out at %d iters)" % _iters }
 	else:
-		result = { "chromatic_number": _best_colors, "is_exact": true, "method": "Exact (Backtracking B&B in %d iters)" % _iters }
-		
-	call_deferred("_on_finished", result)
+		return { "chromatic_number": _best_colors, "is_exact": true, "method": "Exact (Backtracking B&B in %d iters)" % _iters }
+
+
+# --- BACKGROUND WORKER FUNCS ---
 
 func _backtrack(node_idx: int, max_color_used: int, adj: Array, colors: Array, n: int) -> void:
+	# Catch global abort and trigger the timeout collapse
+	if GraphMetrics._cancel_flag: _timeout = true 
+	
 	# Pruning Conditions:
-	# 1. If we hit timeout.
-	# 2. If our best known bound is 2 (minimum for graphs with edges), we can't do better.
 	if _timeout or _best_colors <= 2: return
 		
 	# If we successfully colored all nodes!
@@ -97,8 +109,7 @@ func _backtrack(node_idx: int, max_color_used: int, adj: Array, colors: Array, n
 		_timeout = true
 		return
 		
-	# We try assigning a color from 0 up to max_color_used (testing existing colors + 1 new color).
-	# PRUNING: We never test a color index >= _best_colors - 1.
+	# We try assigning a color from 0 up to max_color_used.
 	var color_limit = min(max_color_used, _best_colors - 2)
 	
 	for c in range(color_limit + 1):
@@ -115,13 +126,6 @@ func _backtrack(node_idx: int, max_color_used: int, adj: Array, colors: Array, n
 			
 			if _timeout: return
 
-# --- MAIN THREAD RESOLUTION ---
-
-func _on_finished(result: Dictionary) -> void:
-	if _worker_thread and _worker_thread.is_alive():
-		_worker_thread.wait_to_finish()
-	calculation_finished.emit(result)
-
 func _greedy_coloring(adj: Array, n: int) -> int:
 	var result = []
 	result.resize(n)
@@ -134,6 +138,8 @@ func _greedy_coloring(adj: Array, n: int) -> int:
 		
 	var max_color = 0
 	for u in range(1, n):
+		if GraphMetrics._cancel_flag: break # Fast abort for greedy
+		
 		for i in range(n): available[i] = true
 			
 		for i in adj[u]:

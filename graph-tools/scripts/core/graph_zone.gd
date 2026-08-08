@@ -11,7 +11,7 @@ enum ZoneType {
 var zone_name: String = "Zone"
 var zone_color: Color = Color(0.2, 0.2, 0.2, 0.3) 
 
-# [NEW] The properties for the new system
+# The properties for the new system
 @export var zone_type: ZoneType = ZoneType.GEOGRAPHICAL
 @export var is_grouped: bool = false # "Lock" behavior
 
@@ -38,7 +38,7 @@ var custom_data: Dictionary = {}
 # List of Node IDs that act as "Ports" (Entrances/Exits)
 var ports: Array[String] = [] 
 
-# [NEW] The "Live Roster"
+# The "Live Roster"
 # A list of node IDs currently considered "inside" or "belonging to" this zone.
 # We verify this list does not save duplicates.
 var registered_nodes: Array[String] = []
@@ -207,7 +207,7 @@ static func deserialize(data: Dictionary) -> GraphZone:
 	var zone = GraphZone.new(name, color)
 	zone.zone_type = int(data.get("type", ZoneType.GEOGRAPHICAL))
 	
-	# [NEW] Restore Lock Status
+	# Restore Lock Status
 	zone.is_grouped = data.get("is_grouped", false)
 	
 	# Restore Logic

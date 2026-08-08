@@ -3,7 +3,7 @@ extends RefCounted
 
 signal calculation_finished(result: Dictionary)
 
-# Thread-safe instance state
+# Instance state
 var _max_path_len := 0
 var _best_path_indices := []
 var _iters := 0
@@ -13,8 +13,26 @@ var _force_exact := false
 var _total_nodes := 0
 var _worker_thread: Thread
 
-# Main Entry Point
-func calculate_async(graph: Graph, params: Dictionary) -> void:
+# ==============================================================================
+# 1. ASYNC ENDPOINT (Used by UI / GraphMetrics)
+# ==============================================================================
+func calculate_async(graph: Graph, params: Dictionary = {}) -> void:
+	_worker_thread = Thread.new()
+	_worker_thread.start(_thread_runner.bind(graph, params))
+
+func _thread_runner(graph: Graph, params: Dictionary) -> void:
+	var result = calculate(graph, params)
+	call_deferred("_on_finished", result)
+
+func _on_finished(result: Dictionary) -> void:
+	if _worker_thread and _worker_thread.is_started():
+		_worker_thread.wait_to_finish()
+	calculation_finished.emit(result)
+
+# ==============================================================================
+# 2. SYNC ENDPOINT (Used by ExperimentRunner)
+# ==============================================================================
+func calculate(graph: Graph, params: Dictionary = {}) -> Dictionary:
 	_current_max_iters = params.get("longest_path_max_iters", 100000)
 	_force_exact = params.get("longest_path_force_exact", false)
 	
@@ -22,8 +40,7 @@ func calculate_async(graph: Graph, params: Dictionary) -> void:
 	_total_nodes = nodes.size()
 	
 	if _total_nodes == 0:
-		call_deferred("_on_finished", { "max_path_length": 0, "is_hamiltonian": "No", "method": "Trivial", "path_nodes": [] })
-		return
+		return { "max_path_length": 0, "is_hamiltonian": "No", "method": "Trivial", "path_nodes": [] }
 		
 	# Map String IDs to fast integer indices
 	var id_to_idx = {}
@@ -45,25 +62,19 @@ func calculate_async(graph: Graph, params: Dictionary) -> void:
 	_iters = 0
 	_timeout = false
 	
-	# Boot the Background Thread
-	_worker_thread = Thread.new()
-	_worker_thread.start(_run_exact_search.bind(adj, idx_to_id))
-
-
-# --- BACKGROUND WORKER FUNCS ---
-
-func _run_exact_search(adj: Array, idx_to_id: Array) -> void:
+	# 3. Exact Search Loop
 	var visited = []
 	visited.resize(_total_nodes)
 	for i in range(_total_nodes): visited[i] = false
 	
 	var current_path = []
 	
-	# We attempt to start the path from every single node in the graph
 	for i in range(_total_nodes):
-		# Pruning: If we already found a path that touches every node, we can stop!
+		if GraphMetrics._cancel_flag: _timeout = true 
 		if _timeout or _max_path_len == _total_nodes: break
 		_backtrack(i, adj, visited, current_path)
+		
+	if GraphMetrics._cancel_flag: return {"_was_cancelled": true}
 		
 	var final_path_ids: Array[String] = []
 	for idx in _best_path_indices:
@@ -71,15 +82,16 @@ func _run_exact_search(adj: Array, idx_to_id: Array) -> void:
 		
 	var is_hamil = "Yes" if _max_path_len == _total_nodes else "No"
 	
-	var result = {}
 	if _timeout:
-		result = { "max_path_length": _max_path_len, "is_hamiltonian": is_hamil, "method": "Approximation (Exact search timed out at %d iters)" % _iters, "path_nodes": final_path_ids }
+		return { "max_path_length": _max_path_len, "is_hamiltonian": is_hamil, "method": "Approximation (Exact search timed out at %d iters)" % _iters, "path_nodes": final_path_ids }
 	else:
-		result = { "max_path_length": _max_path_len, "is_hamiltonian": is_hamil, "method": "Exact (Backtracking DFS in %d iters)" % _iters, "path_nodes": final_path_ids }
-		
-	call_deferred("_on_finished", result)
+		return { "max_path_length": _max_path_len, "is_hamiltonian": is_hamil, "method": "Exact (Backtracking DFS in %d iters)" % _iters, "path_nodes": final_path_ids }
+
+# --- BACKGROUND WORKER FUNCS ---
 
 func _backtrack(u: int, adj: Array, visited: Array, current_path: Array) -> void:
+	if GraphMetrics._cancel_flag: _timeout = true 
+
 	if _timeout or _max_path_len == _total_nodes: return
 	
 	visited[u] = true
@@ -105,11 +117,3 @@ func _backtrack(u: int, adj: Array, visited: Array, current_path: Array) -> void
 	# Backtrack
 	visited[u] = false
 	current_path.pop_back()
-
-
-# --- MAIN THREAD RESOLUTION ---
-
-func _on_finished(result: Dictionary) -> void:
-	if _worker_thread and _worker_thread.is_alive():
-		_worker_thread.wait_to_finish()
-	calculation_finished.emit(result)

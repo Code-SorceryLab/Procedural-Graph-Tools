@@ -123,7 +123,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 	var evenly_space = params.get("evenly_space_seeds", true)
 	var max_depth = params.get("max_expansion_depth", 0)
 	var clear_previous = params.get("clear_previous_types", true)
-	var protect_existing = params.get("protect_existing", false) # [NEW] Read mask toggle
+	var protect_existing = params.get("protect_existing", false) # Read mask toggle
 	
 	# --- PHASE 1: Masking & Initial State ---
 	var final_types = {}
@@ -196,7 +196,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 						best_candidate = candidate_id
 				seeds.append(best_candidate)
 
-	# --- [NEW] PRE-COMPUTE BIOME SPEEDS ---
+	# --- PRE-COMPUTE BIOME SPEEDS ---
 	var biome_speeds = {}
 	var max_speed = 1
 	for b in allowed_biomes:
@@ -206,7 +206,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 
 	# 3. Assign Initial Types to Seeds
 	var depths = {}
-	var frontiers = {} # [NEW] Instead of one queue, every biome gets its own frontier!
+	var frontiers = {} # Instead of one queue, every biome gets its own frontier!
 	for b in allowed_biomes:
 		frontiers[b] = []
 	
@@ -223,7 +223,7 @@ func execute(recorder: GraphRecorder, params: Dictionary) -> void:
 		assigned_types[s_id] = b_type
 		final_types[s_id] = b_type
 		depths[s_id] = 0
-		frontiers[b_type].append(s_id) # [NEW] Add to this biome's specific queue
+		frontiers[b_type].append(s_id) # Add to this biome's specific queue
 
 	# --- 4. THE FILLING ALGORITHMS ---
 	if not use_spatial:

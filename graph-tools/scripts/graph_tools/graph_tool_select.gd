@@ -215,7 +215,7 @@ func _handle_edge_click(edge_pair: Array) -> void:
 		_editor.clear_selection()
 		_editor.set_edge_selection(edge_pair)
 
-# [NEW] Handle clicking a Zone directly
+# Handle clicking a Zone directly
 func _handle_zone_click(zone) -> void:
 	if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL):
 		var current = _editor.selected_zones.duplicate()

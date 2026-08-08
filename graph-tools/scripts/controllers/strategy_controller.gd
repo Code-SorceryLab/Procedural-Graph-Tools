@@ -110,7 +110,7 @@ func _build_ui_for_strategy() -> void:
 	# 1. Grab base schema
 	_current_schema = current_strategy.get_settings()
 	
-	# --- [NEW] INJECT PRESET OVERRIDES ---
+	# --- INJECT PRESET OVERRIDES ---
 	if not _loaded_preset.is_empty():
 		for setting in _current_schema:
 			if _loaded_preset.has(setting["name"]):
@@ -123,7 +123,7 @@ func _build_ui_for_strategy() -> void:
 	# 2. Build Inputs
 	_active_inputs = SettingsUIBuilder.build_ui(_current_schema, settings_container)
 	
-	# --- [NEW] ADD PRESET BUTTONS ---
+	# --- ADD PRESET BUTTONS ---
 	var preset_hbox = HBoxContainer.new()
 	var btn_load = Button.new()
 	var btn_save = Button.new()

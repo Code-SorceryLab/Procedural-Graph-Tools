@@ -142,7 +142,7 @@ func _on_edit_menu_pressed(id: int) -> void:
 		201: if graph_editor: graph_editor.undo()
 		202: if graph_editor: graph_editor.redo()
 		203: if graph_editor: graph_editor.clear_graph()
-		204: if settings_window: settings_window.show_settings() # [NEW] Shows the settings panel
+		204: if settings_window: settings_window.show_settings() # Shows the settings panel
 
 func _on_graph_menu_pressed(id: int) -> void:
 	match id:

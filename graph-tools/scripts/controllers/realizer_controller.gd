@@ -84,7 +84,7 @@ func _build_ui() -> void:
 		{ "name": "btn_clear", "label": "Clear TileMap", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
 		
-		# [NEW] The single entry point for visual mapping
+		# The single entry point for visual mapping
 		{ "name": "btn_open_mapper", "label": "Open Visual Tile Mapper", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "sep_mapper", "type": TYPE_NIL, "hint": "separator" },
 		
@@ -210,7 +210,7 @@ func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
 		_current_editing_biome = "" # Reset state
 		_update_biome_button_text() # Update the sidebar UI instantly!
 		
-		# [NEW] Save to disk immediately!
+		# Save to disk immediately!
 		ConfigManager.save_biome_overrides(_biome_params)
 	else:
 		# We were editing Global Settings!
@@ -237,7 +237,7 @@ func _on_biome_selected() -> void:
 		"ca_iterations": _params.get("ca_iterations", 0),
 		"ca_survive_min": _params.get("ca_survive_min", 4),
 		"ca_birth_min": _params.get("ca_birth_min", 5),
-		# [NEW] Corridor fallbacks
+		# Corridor fallbacks
 		"allow_diagonal_corridors": _params.get("allow_diagonal_corridors", false),
 		"corridor_radius": _params.get("corridor_radius", 0)
 	})

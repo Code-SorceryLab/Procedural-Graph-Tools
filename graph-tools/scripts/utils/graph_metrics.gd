@@ -1,6 +1,9 @@
 class_name GraphMetrics
 extends RefCounted
 
+# Global Cancellation State
+static var _cancel_flag: bool = false
+
 # --- MODULAR ANALYSIS SCHEMA ---
 static func get_analysis_options_schema() -> Array[Dictionary]:
 	return [
@@ -43,8 +46,13 @@ static func get_analysis_options_schema() -> Array[Dictionary]:
 	]
 
 
+static func cancel_analysis() -> void:
+	_cancel_flag = true
+
 # The 'await' keyword inside this function automatically turns it into a Coroutine!
 static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary:
+	_cancel_flag = false # [NEW] Reset the flag at the start of a new run
+	
 	var report = {
 		"timestamp": Time.get_datetime_string_from_system(),
 		"_selection_data": {},
@@ -58,31 +66,44 @@ static func generate_report(graph: Graph, params: Dictionary = {}) -> Dictionary
 	_calculate_topology(graph, report)
 	_calculate_spatial(graph, report)
 	_calculate_agents(graph, report)
-	_calculate_markov(graph, report)
 	_calculate_zones(graph, report)
 	
-	# Pause execution here if we are threading the Tangles
+	# --- [NEW] ASYNC PIPELINE ---
+	if params.get("do_basic_metrics", true):
+		await _calculate_entropy_async(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
+		
+		await _calculate_spectral_async(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
+		
+		await _calculate_markov_async(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
+		
+		await _calculate_planarity(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
+		
+	# Check for cancellation after every heavy thread returns!
 	if params.get("do_tangles", false):
 		await _calculate_tangles(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
 	
-	# Pause for the Chromatic thread
 	if params.get("do_chromatic", false):
 		await _calculate_chromatic(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
 	
-	# Pause for the Longest Path thread!
 	if params.get("do_longest_path", false):
 		await _calculate_longest_path(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
 	
-	# Pause for Eulerian Thread
 	if params.get("do_eulerian", false):
 		await _calculate_eulerian(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
 	
-	# Pause for Louvain Thread
 	if params.get("do_louvain", false):
 		await _calculate_louvain(graph, report, params)
+		if _cancel_flag: return { "_was_cancelled": true }
 	
 	return report
-	
 
 
 
@@ -96,33 +117,13 @@ static func _calculate_topology(graph: Graph, report: Dictionary) -> void:
 	# Cyclomatic Complexity: Edges - Nodes + Connected Components
 	topo_data["cyclomatic_complexity"] = topo_data["edge_count"] - topo_data["node_count"] + topo_data["connected_components"]
 	
-	# Mathematical Planarity Check
-	var planarity_data = AnalysisPlanarity.check_planarity(graph)
-	topo_data["is_planar"] = "Yes" if planarity_data["is_planar"] else "No"
-	topo_data["planarity_reason"] = planarity_data["reason"]
-	
 	topo_data.merge(_get_articulation_metrics(graph, report))
 	topo_data.merge(_get_betweenness_centrality(graph))
 	topo_data.merge(_get_k_core_metrics(graph, report))
 	
-	# --- Spectral Graph Theory (Bottlenecks) ---
-	var spectral_data = AnalysisSpectral.analyze_bottlenecks(graph)
-	topo_data["algebraic_connectivity"] = spectral_data["fiedler_value"]
-	topo_data["bisection_side_a"] = spectral_data["side_a"].size()
-	topo_data["bisection_side_b"] = spectral_data["side_b"].size()
-	topo_data["bisection_cut_edges"] = spectral_data["cut_edges"].size()
 	
-	# --- Information Theory ---
-	var entropy_data = AnalysisEntropy.calculate(graph)
-	topo_data["structural_entropy"] = entropy_data["shannon_entropy"]
-	
-	# Stash them for the interactive UI links!
-	if not report.has("_selection_data"): report["_selection_data"] = {}
-	report["_selection_data"]["bisection_side_a"] = { "nodes": spectral_data["side_a"], "edges": [] }
-	report["_selection_data"]["bisection_side_b"] = { "nodes": spectral_data["side_b"], "edges": [] }
-	report["_selection_data"]["bisection_cut_edges"] = { "nodes": [], "edges": spectral_data["cut_edges"] }
-	
-	report["topological"] = topo_data
+	if not report.has("topological"): report["topological"] = {}
+	report["topological"].merge(topo_data, true)
 
 # --- TOPOLOGY SUB-ROUTINES ---
 static func _get_basic_counts(graph: Graph, report: Dictionary) -> Dictionary:
@@ -253,7 +254,7 @@ static func _get_articulation_metrics(graph: Graph, report: Dictionary) -> Dicti
 		if root_children > 1:
 			ap_dict[start_node] = true
 			
-	# --- [NEW] CYCLE DETECTION ---
+	# --- CYCLE DETECTION ---
 	# Any edge that is NOT a bridge is part of a cycle!
 	var cycle_edges = []
 	var cycle_nodes_dict = {}
@@ -489,20 +490,8 @@ static func _calculate_agents(graph: Graph, report: Dictionary) -> void:
 		"total_aggregate_steps": total_steps
 	}
 
-# --- 4. MARKOV CHAIN FLOW ANALYSIS ---
-static func _calculate_markov(graph: Graph, report: Dictionary) -> void:
-	var flow_data = AnalysisMarkov.analyze_flow(graph)
-	
-	if flow_data.get("status") == "Success":
-		# Wire up the bottleneck ID to the interactive UI selection system!
-		var flow_id = flow_data.get("flow_bottleneck_id", "None")
-		if flow_id != "None":
-			if not report.has("_selection_data"): report["_selection_data"] = {}
-			report["_selection_data"]["flow_bottleneck_id"] = { "nodes": [flow_id], "edges": [] }
-			
-	report["markov_flow"] = flow_data
 
-# --- 5. ZONE METRICS ---
+# --- 4. ZONE METRICS ---
 static func _calculate_zones(graph: Graph, report: Dictionary) -> void:
 	var total_zones = 0
 	var total_area = 0
@@ -520,112 +509,145 @@ static func _calculate_zones(graph: Graph, report: Dictionary) -> void:
 		"aggregate_area_size": total_area
 	}
 
-# --- 6. HEAVY METRICS ---
-# Changed to an async coroutine
+# --- 5. HEAVY METRICS ---
+# Coroutine Callers
+
+static func _calculate_planarity(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var planarity_solver = AnalysisPlanarity.new()
+	planarity_solver.calculate_async(graph, params)
+	var p_data = await planarity_solver.calculation_finished
+	
+	if not _cancel_flag and not p_data.has("_was_cancelled"):
+		# Inject it into the existing topology block
+		if not report.has("topological"): report["topological"] = {}
+		report["topological"]["is_planar"] = "Yes" if p_data.get("is_planar", false) else "No"
+		report["topological"]["planarity_reason"] = p_data.get("reason", "Unknown")
+
+static func _calculate_markov_async(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var markov_solver = AnalysisMarkov.new()
+	markov_solver.calculate_async(graph, params)
+	var m_data = await markov_solver.calculation_finished
+	
+	if not _cancel_flag and not m_data.has("_was_cancelled"):
+		report["markov_flow"] = m_data
+		var flow_id = m_data.get("flow_bottleneck_id", "None")
+		if flow_id != "None":
+			if not report.has("_selection_data"): report["_selection_data"] = {}
+			report["_selection_data"]["flow_bottleneck_id"] = { "nodes": [flow_id], "edges": [] }
+
+static func _calculate_entropy_async(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var entropy_solver = AnalysisEntropy.new()
+	entropy_solver.calculate_async(graph, params)
+	var e_data = await entropy_solver.calculation_finished
+	
+	if not _cancel_flag and not e_data.has("_was_cancelled"):
+		if not report.has("topological"): report["topological"] = {}
+		report["topological"]["structural_entropy"] = e_data.get("shannon_entropy", 0.0)
+
+static func _calculate_spectral_async(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var spectral_solver = AnalysisSpectral.new()
+	spectral_solver.calculate_async(graph, params)
+	var s_data = await spectral_solver.calculation_finished
+	
+	if not _cancel_flag and not s_data.has("_was_cancelled"):
+		if not report.has("topological"): report["topological"] = {}
+		report["topological"]["algebraic_connectivity"] = s_data.get("fiedler_value", 0.0)
+		report["topological"]["bisection_side_a"] = s_data.get("side_a", []).size()
+		report["topological"]["bisection_side_b"] = s_data.get("side_b", []).size()
+		report["topological"]["bisection_cut_edges"] = s_data.get("cut_edges", []).size()
+		
+		if not report.has("_selection_data"): report["_selection_data"] = {}
+		report["_selection_data"]["bisection_side_a"] = { "nodes": s_data.get("side_a", []), "edges": [] }
+		report["_selection_data"]["bisection_side_b"] = { "nodes": s_data.get("side_b", []), "edges": [] }
+		report["_selection_data"]["bisection_cut_edges"] = { "nodes": [], "edges": s_data.get("cut_edges", []) }
+
 static func _calculate_tangles(graph: Graph, report: Dictionary, params: Dictionary) -> void:
 	var tangle_solver = AnalysisTangle.new()
 	tangle_solver.calculate_async(graph, params)
-	
-	# Suspend execution until the background thread fires this signal
 	var tangle_data = await tangle_solver.calculation_finished
 	
-	report["robertson_seymour_tangles"] = {
-		"tangle_treewidth": tangle_data["treewidth"],
-		"tangle_calculation_method": tangle_data["method"]
-	}
+	# Only append if not cancelled
+	if not _cancel_flag:
+		report["robertson_seymour_tangles"] = {
+			"tangle_treewidth": tangle_data["treewidth"],
+			"tangle_calculation_method": tangle_data["method"]
+		}
 	
-# Coroutine Caller
 static func _calculate_chromatic(graph: Graph, report: Dictionary, params: Dictionary) -> void:
 	var chromatic_solver = AnalysisChromatic.new()
 	chromatic_solver.calculate_async(graph, params)
-	
 	var c_data = await chromatic_solver.calculation_finished
 	
-	report["chromatic_coloring"] = {
-		"chromatic_number": c_data["chromatic_number"],
-		"chromatic_calculation_method": c_data["method"]
-	}
+	if not _cancel_flag:
+		report["chromatic_coloring"] = {
+			"chromatic_number": c_data["chromatic_number"],
+			"chromatic_calculation_method": c_data["method"]
+		}
 
-# Coroutine Caller
 static func _calculate_longest_path(graph: Graph, report: Dictionary, params: Dictionary) -> void:
 	var path_solver = AnalysisLongestPath.new()
 	path_solver.calculate_async(graph, params)
-	
 	var path_data = await path_solver.calculation_finished
 	
-	report["max_exploration_path"] = {
-		"max_path_length": path_data["max_path_length"],
-		"is_hamiltonian": path_data["is_hamiltonian"],
-		"longest_path_calculation_method": path_data["method"]
-	}
-	
-	# Convert the ordered path array into edge pairs for interactive highlighting!
-	var ordered_nodes = path_data["path_nodes"]
-	var path_edges = []
-	for i in range(ordered_nodes.size() - 1):
-		var pair = [ordered_nodes[i], ordered_nodes[i+1]]
-		pair.sort()
-		path_edges.append(pair)
-		
-	if not report.has("_selection_data"): report["_selection_data"] = {}
-	report["_selection_data"]["max_path_length"] = { "nodes": ordered_nodes, "edges": path_edges }
-
-# Coroutine Caller
-static func _calculate_eulerian(graph: Graph, report: Dictionary, params: Dictionary) -> void:
-	var eulerian_solver = AnalysisEulerian.new()
-	eulerian_solver.calculate_async(graph, params)
-	
-	var e_data = await eulerian_solver.calculation_finished
-	
-	report["eulerian_edge_traversal"] = {
-		"has_eulerian_circuit": e_data["has_circuit"],
-		"has_eulerian_path": e_data["has_path"],
-		"odd_degree_nodes": e_data["odd_nodes"]
-	}
-	
-	# Interactive Highlighting setup
-	var ordered_nodes = e_data["path_nodes"]
-	if not ordered_nodes.is_empty():
+	if not _cancel_flag:
+		report["max_exploration_path"] = {
+			"max_path_length": path_data["max_path_length"],
+			"is_hamiltonian": path_data["is_hamiltonian"],
+			"longest_path_calculation_method": path_data["method"]
+		}
+		var ordered_nodes = path_data["path_nodes"]
 		var path_edges = []
 		for i in range(ordered_nodes.size() - 1):
 			var pair = [ordered_nodes[i], ordered_nodes[i+1]]
 			pair.sort()
 			path_edges.append(pair)
 			
-		# Show the exact count of the path (which equals Edge Count) so we have a clickable UI element
-		report["eulerian_edge_traversal"]["full_traversal_route_length"] = ordered_nodes.size()
-		
 		if not report.has("_selection_data"): report["_selection_data"] = {}
-		report["_selection_data"]["full_traversal_route_length"] = { "nodes": ordered_nodes, "edges": path_edges }
+		report["_selection_data"]["max_path_length"] = { "nodes": ordered_nodes, "edges": path_edges }
 
-# Coroutine Caller
+static func _calculate_eulerian(graph: Graph, report: Dictionary, params: Dictionary) -> void:
+	var eulerian_solver = AnalysisEulerian.new()
+	eulerian_solver.calculate_async(graph, params)
+	var e_data = await eulerian_solver.calculation_finished
+	
+	if not _cancel_flag:
+		report["eulerian_edge_traversal"] = {
+			"has_eulerian_circuit": e_data["has_circuit"],
+			"has_eulerian_path": e_data["has_path"],
+			"odd_degree_nodes": e_data["odd_nodes"]
+		}
+		var ordered_nodes = e_data["path_nodes"]
+		if not ordered_nodes.is_empty():
+			var path_edges = []
+			for i in range(ordered_nodes.size() - 1):
+				var pair = [ordered_nodes[i], ordered_nodes[i+1]]
+				pair.sort()
+				path_edges.append(pair)
+			report["eulerian_edge_traversal"]["full_traversal_route_length"] = ordered_nodes.size()
+			if not report.has("_selection_data"): report["_selection_data"] = {}
+			report["_selection_data"]["full_traversal_route_length"] = { "nodes": ordered_nodes, "edges": path_edges }
+
 static func _calculate_louvain(graph: Graph, report: Dictionary, params: Dictionary) -> void:
 	var louvain_solver = AnalysisLouvain.new()
 	louvain_solver.calculate_async(graph, params)
-	
 	var c_data = await louvain_solver.calculation_finished
 	
-	report["community_detection"] = {
-		"modularity_score": c_data["modularity"],
-		"detected_communities": c_data["communities"],
-		"districts": {} # We will list them as nested clickables!
-	}
-	
-	# Group the nodes by their detected Community ID
-	var districts = {}
-	var c_map = c_data["communities_map"]
-	
-	for node_id in c_map:
-		var c_id = c_map[node_id]
-		if not districts.has(c_id): districts[c_id] = []
-		districts[c_id].append(node_id)
-		
-	if not report.has("_selection_data"): report["_selection_data"] = {}
-	
-	# Create a clickable UI link for every single biome detected!
-	for c_id in districts.keys():
-		var dist_name = "district_%d" % c_id
-		var count = districts[c_id].size()
-		
-		report["community_detection"]["districts"][dist_name] = count
-		report["_selection_data"][dist_name] = { "nodes": districts[c_id], "edges": [] }
+	if not _cancel_flag:
+		report["community_detection"] = {
+			"modularity_score": c_data["modularity"],
+			"detected_communities": c_data["communities"],
+			"districts": {}
+		}
+		var districts = {}
+		var c_map = c_data["communities_map"]
+		for node_id in c_map:
+			var c_id = c_map[node_id]
+			if not districts.has(c_id): districts[c_id] = []
+			districts[c_id].append(node_id)
+			
+		if not report.has("_selection_data"): report["_selection_data"] = {}
+		for c_id in districts.keys():
+			var dist_name = "district_%d" % c_id
+			var count = districts[c_id].size()
+			report["community_detection"]["districts"][dist_name] = count
+			report["_selection_data"][dist_name] = { "nodes": districts[c_id], "edges": [] }

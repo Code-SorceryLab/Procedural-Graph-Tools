@@ -208,7 +208,7 @@ func _delete_zone(zone: GraphZone) -> void:
 # 2. FEEDBACK & EVENTS
 # ==============================================================================
 
-# [NEW] Signal Handler
+# Signal Handler
 func _on_zone_list_empty_clicked(_pos: Vector2, _mouse_btn_index: int) -> void:
 	# Clear the selection in the Editor (which will callback to update this UI)
 	graph_editor.set_zone_selection([])

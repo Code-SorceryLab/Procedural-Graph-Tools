@@ -8,7 +8,7 @@ var supports_grow: bool = false
 var supports_agents: bool = false
 var supports_zones: bool = false
 
-# [NEW] Universal RNG State for ALL strategies
+# Universal RNG State for ALL strategies
 var my_seed: int = 0
 var rng: RandomNumberGenerator
 
