@@ -217,7 +217,7 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 			for structure_key in _custom_structures:
 				var s_name = _custom_structures[structure_key].get("name", "Unnamed")
 				struct_schema.append({
-					"name": "weight_" + key,
+					"name": "weight_" + structure_key,
 					"label": s_name + " Weight",
 					"type": TYPE_INT,
 					"default": _params.get("weight_" + structure_key, 0),
