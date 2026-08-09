@@ -16,15 +16,17 @@
 -bezier curves for custom edges.
 
 
+-make rasterizer critical pathway's size of 1 actually 1 tile wide rather than 3 tiles wide.
 
-
+-Mkae the popup menu support "sep" as a separator rather than a display of that literal text of "sep".
+-Make GraphCamera not always zoom in/out of graph when mouse is hovering over the UI Sidebar.
 
 -Tilemap editor for ease of creation of tiles for tilemap.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 	
 -Custom room shapes
-
+-Structures only show up in biome overridden biomes, not the global ones.
 -Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
 
 
@@ -38,11 +40,7 @@ GRAPH GRAMMAR UPGRADES:
 
 
 RASTERIZER UPGRADES
-Auto-Tiling / Marching Squares:
-Right now, walls are single flat colors. We could implement a "Bitmasking" step in the Realizer. By checking a wall tile's 8 neighbors, the algorithm calculates a 0-255 integer, which corresponds to specific corner, edge, and inner wall tiles. This allows the tool to draw beautiful, seamless room borders automatically.
 
-Multi-Tile Entity Stamping:
-Instead of just 1x1 points for scatter entities, we can introduce a "Structure" system. If the graph generates a "Boss Room" node, the rasterizer finds a valid 3x3 footprint inside that room and stamps a predefined blueprint (like a boss altar or a fountain).
 
 Erosion / Degradation Passes:
 We currently use Cellular Automata to smooth the rooms. We could add an "Erosion" pass that specifically targets the critical_path_cells. By applying noise-based degradation just to the corridors, we can make the perfect A* paths look like natural, ruined, or organic tunnels.
@@ -51,6 +49,12 @@ Graph-Driven Zone Portals:
 When an edge connects a "Fire Biome" node to an "Ice Biome" node, the rasterizer could explicitly spawn a unique "Portal" or "Transition Door" entity on the exact boundary line between the two floor types.
 
 
+
+Drunkard's Walk / Jittered Corridors: Right now, the A* algorithm carves perfectly straight lines (diagonal or orthogonal). By running a noise-based "jitter" pass or a constrained Drunkard's Walk algorithm over the critical_path_cells, hallways can be made to snake and curve organically, which is vital for natural cave biomes.
+
+Distance Field (SDF) Spawning: A system that calculates a Signed Distance Field for the grid, assigning each floor tile a value based on how far away it is from a wall. This allows us to spawn specific entities strictly hugging the walls (like torches or bookshelves) or perfectly in the center of the largest open areas (like massive statues or pits).
+
+Boundary Fringing (Decorators): When a "Grass" biome room borders a "Dirt" biome corridor, a specialized pass that detects the biome seams and stamps decorative entities (like tall grass tufts, pebbles, or transitional vines) directly onto the border.
 
 
 

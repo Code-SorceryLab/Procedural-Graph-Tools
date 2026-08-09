@@ -104,7 +104,7 @@ export_dialog = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer
 script = ExtResource("8_i30wh")
 graph_editor = NodePath("../GraphEditor")
 tile_map_layer = NodePath("../TileMapLayer")
-ui_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/UIContainer")
+ui_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/ScrollContainer/UIContainer")
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
 script = ExtResource("5_5u163")
@@ -578,8 +578,13 @@ visible = false
 layout_mode = 2
 metadata/_tab_index = 6
 
-[node name="UIContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer"]
 layout_mode = 2
+size_flags_vertical = 3
+
+[node name="UIContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false

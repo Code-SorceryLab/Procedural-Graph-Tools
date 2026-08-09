@@ -49,6 +49,14 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 		
 		for y in range(grid.height):
 			for x in range(grid.width):
+				var pos = Vector2i(x, y)
+				
+				# --- [NEW] IMMUNITY CHECK ---
+				# Lock the A* corridors and doorways in place. They cannot be eroded, 
+				# nor can they be overwritten by invading biomes during Birth!
+				if realizer.critical_path_cells.has(pos):
+					continue
+					
 				var neighbor_floors: Array[int] = []
 				
 				# 8-Way Neighbor Count
@@ -71,17 +79,14 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 				
 				if was_floor:
 					# --- EROSION ---
-					# Fetch the specific rules for THIS tile's semantic type
 					var rules = rule_map.get(current_id, rule_map[default_floor_id])
 					
-					# Only evaluate if this biome hasn't finished its requested passes
 					if i < rules["iter"]:
 						if neighbors < rules["survive"]:
 							new_cells[idx] = TilePalette.VOID_ID
 				else:
 					# --- BIRTH ---
 					if neighbors > 0:
-						# Find the most common floor ID among the neighbors
 						var best_id = default_floor_id
 						var counts = {}
 						var max_count = 0
@@ -92,10 +97,8 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 								max_count = counts[f_id]
 								best_id = f_id
 								
-						# Fetch the rules of the DOMINANT neighbor attempting to expand
 						var rules = rule_map.get(best_id, rule_map[default_floor_id])
 						
-						# Only allow birth if the invading biome is still actively simulating
 						if i < rules["iter"]:
 							if neighbors >= rules["birth"]:
 								new_cells[idx] = best_id # Inherit semantic type!

@@ -46,8 +46,9 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 				
 				if not grid.in_bounds_vec(pos): continue
 				
-				# 1. CRITICAL PATH CHECK: Do not block doorways or hallways!
-				if realizer.critical_path_cells.has(pos): continue
+				# 1. CRITICAL PATH & STRUCTURE CHECK: Do not block doorways or large structures!
+				if realizer.critical_path_cells.has(pos) or realizer.reserved_cells.has(pos): 
+					continue
 				
 				# 2. TERRAIN CHECK: Must be on a walkable floor tile
 				var cell_id = grid.get_cell(x, y)

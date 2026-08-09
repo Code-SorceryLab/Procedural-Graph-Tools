@@ -26,6 +26,10 @@ var _tileset_tile_size: Vector2i = Vector2i(16, 16)
 
 var _mapping_popup: TileMappingPopup
 var _shape_popup: AlgorithmSettingsPopup
+var _structure_popup: StructureDesignerPopup
+var _interaction_popup: BiomeInteractionPopup
+
+var _custom_structures: Dictionary = {} # Caches the structures for the UI
 
 # Biome State
 var _biome_selector: ConfirmationDialog
@@ -34,6 +38,7 @@ var _current_editing_biome: String = ""
 var _biome_params: Dictionary = {}
 
 func _ready() -> void:
+	_custom_structures = ConfigManager.load_structures() # Load before building UI!
 	_build_ui()
 	
 	# Instantiate the popup in memory
@@ -49,6 +54,15 @@ func _ready() -> void:
 	# Clear the internal state if the user cancels out of the popup!
 	_shape_popup.canceled.connect(func(): _current_editing_biome = "")
 	
+	# Setup the Structure Designer Popup
+	_structure_popup = StructureDesignerPopup.new()
+	add_child(_structure_popup)
+	_structure_popup.confirmed.connect(_on_structure_designer_saved)
+	
+	# Setup Biome Interaction Popup
+	_interaction_popup = BiomeInteractionPopup.new()
+	add_child(_interaction_popup)
+	_interaction_popup.confirmed.connect(_on_interaction_popup_saved)
 	
 	# Setup the tiny Biome Selector Dialog
 	_biome_selector = ConfirmationDialog.new()
@@ -93,6 +107,7 @@ func _build_ui() -> void:
 		
 		# The single entry point for visual mapping
 		{ "name": "btn_open_mapper", "label": "Open Visual Tile Mapper", "type": TYPE_NIL, "hint": "action" },
+		{ "name": "btn_open_structure_designer", "label": "Open Structure Designer", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "sep_mapper", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "realizer_seed", "label": "Generator Seed", "type": TYPE_STRING, "default": "research_01", 
@@ -105,9 +120,11 @@ func _build_ui() -> void:
 		
 		# Master Switch
 		{ "name": "btn_shape_ratios", "label": "Global Shape Ratios...", "type": TYPE_NIL, "hint": "button" },
+		{ "name": "btn_global_structures", "label": "Global Structure Rules...", "type": TYPE_NIL, "hint": "button" },
 		{ "name": "use_biome_overrides", "label": "Use Biome Overrides", "type": TYPE_BOOL, "default": true, 
 		  "hint_text": "If disabled, all rooms will use the global rasterization settings regardless of their type." },
 		{ "name": "btn_biome_config", "label": "Override Biome Rules...", "type": TYPE_NIL, "hint": "button" },
+		{ "name": "btn_biome_interactions", "label": "Biome Edge Matrix...", "type": TYPE_NIL, "hint": "button" },
 		
 		{ "name": "room_radius_min", "label": "Min Room Radius", "type": TYPE_INT, "default": 2, "min": 1, "max": 20,
 		  "hint_text": "Minimum size of a room. A radius of 2 generates a 5x5 tile footprint." },
@@ -117,8 +134,15 @@ func _build_ui() -> void:
 		
 		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false, 
 		  "hint_text": "If true, the A* pathfinder can carve diagonal hallways, making paths look less rigid and blocky." },
-		{ "name": "corridor_radius", "label": "Corridor Thickness", "type": TYPE_INT, "default": 0, "min": 0, "max": 5, 
-		  "hint_text": "Thickness of connecting hallways. 0 = 1 tile wide, 1 = 3 tiles wide, 2 = 5 tiles wide." },
+		{ "name": "corridor_thickness", "label": "Corridor Thickness", "type": TYPE_INT, "default": 1, "min": 1, "max": 10, 
+		  "hint_text": "Exact tile width of connecting hallways. 1 = 1 tile wide, 3 = 3 tiles wide." },
+		
+		# --- EROSION SETTINGS ---
+		{ "name": "corridor_erosion", "label": "Corridor Erosion", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 0.9, "step": 0.05, 
+		  "hint_text": "Degrades the edges of thick corridors using noise to make them look like natural caves. (Does not affect 1-tile paths)." },
+		{ "name": "corridor_erosion_scale", "label": "Erosion Chunk Size", "type": TYPE_FLOAT, "default": 0.1, "min": 0.01, "max": 0.5, "step": 0.01, 
+		  "hint_text": "Lower values create massive chunks of missing wall, higher values create noisy gravel-like edges." },
+		
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false,
 		  "hint_text": "Draws the raw corridor pathways directly over the room interiors. Useful for debugging topological connections." },
 		{ "name": "sep_4", "type": TYPE_NIL, "hint": "separator" },
@@ -145,6 +169,13 @@ func _build_ui() -> void:
 	_params["ratio_square"] = 1
 	_params["ratio_circle"] = 0
 	_params["ratio_triangle"] = 0
+	
+	# Inject the hidden global structure defaults!
+	_params["spawn_structure"] = false
+	
+	# Dynamically register all custom structures to 0 weight by default
+	for key in _custom_structures:
+		_params["weight_" + key] = 0
 			
 	var section = SettingsUIBuilder.create_collapsible_section(ui_container, "TileMap Realizer", true)
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
@@ -157,7 +188,10 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_open_mapper":
 		# [FIXED] No longer requires a hard-coded TileSet! Pass dynamic data.
 		_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings)
-			
+	
+	elif key == "btn_open_structure_designer":
+		_structure_popup.open()
+	
 	elif key == "btn_shape_ratios":
 		_current_editing_biome = "" # Explicitly tell the system we are editing GLOBAL rules
 		
@@ -168,6 +202,34 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 		]
 		_shape_popup.open_settings("Global Shape Distribution", shape_schema, _params)
 		
+	# --- GLOBAL STRUCTURE INTERCEPT ---
+	elif key == "btn_global_structures":
+		_current_editing_biome = "" # Explicitly edit GLOBAL rules
+		
+		var struct_schema: Array[Dictionary] = [
+			{ "name": "spawn_structure", "label": "Spawn Central Structure", "type": TYPE_BOOL, "default": _params.get("spawn_structure", false), 
+			  "hint_text": "Attempts to find a safe footprint in this room to spawn one of your custom blueprints." }
+		]
+		
+		# Dynamically build sliders for every saved structure!
+		if _custom_structures.size() > 0:
+			struct_schema.append({ "name": "sep_str_weights", "type": TYPE_NIL, "hint": "separator" })
+			for structure_key in _custom_structures:
+				var s_name = _custom_structures[structure_key].get("name", "Unnamed")
+				struct_schema.append({
+					"name": "weight_" + key,
+					"label": s_name + " Weight",
+					"type": TYPE_INT,
+					"default": _params.get("weight_" + structure_key, 0),
+					"min": 0,
+					"max": 100
+				})
+				
+		_shape_popup.open_settings("Global Structure Rules", struct_schema, _params)
+	
+	elif key == "btn_biome_interactions":
+		_interaction_popup.open()
+	
 	elif key == "btn_biome_config":
 		_biome_dropdown.clear()
 		
@@ -250,6 +312,20 @@ func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
 		# [OPTIONAL ENHANCEMENT] If you want Global shapes to persist, 
 		# we will need a save function for _params later!
 
+func _on_structure_designer_saved() -> void:
+	# Save the structures to disk when the user clicks 'OK' on the popup
+	ConfigManager.save_structures(_structure_popup.structures)
+	
+	# Refresh the cache and inject any brand-new structures into the global defaults!
+	_custom_structures = _structure_popup.structures.duplicate()
+	for key in _custom_structures:
+		var weight_key = "weight_" + key
+		if not _params.has(weight_key):
+			_params[weight_key] = 0
+
+func _on_interaction_popup_saved() -> void:
+	ConfigManager.save_biome_interactions(_interaction_popup.interactions)
+
 func _on_biome_selected() -> void:
 	var idx = _biome_dropdown.selected
 	if idx < 0: return
@@ -269,9 +345,18 @@ func _on_biome_selected() -> void:
 		"ca_survive_min": _params.get("ca_survive_min", 4),
 		"ca_birth_min": _params.get("ca_birth_min", 5),
 		"allow_diagonal_corridors": _params.get("allow_diagonal_corridors", false),
-		"corridor_radius": _params.get("corridor_radius", 0),
-		"scatter_density": _params.get("scatter_density", 0.05)
+		"corridor_thickness": _params.get("corridor_thickness", 1),
+		"corridor_erosion": _params.get("corridor_erosion", 0.0),
+		"corridor_erosion_scale": _params.get("corridor_erosion_scale", 0.1),
+		"scatter_density": _params.get("scatter_density", 0.05),
+		"spawn_structure": _params.get("spawn_structure", false)
 	})
+	
+	# Dynamically pull existing biome weights, or fallback to global defaults
+	for key in _custom_structures:
+		var p_name = "weight_" + key
+		if not current_vals.has(p_name):
+			current_vals[p_name] = _params.get(p_name, 0)
 	
 	# Build a superset schema controlling sizes, shapes, corridors, AND cellular smoothing!
 	var schema: Array[Dictionary] = [
@@ -286,7 +371,15 @@ func _on_biome_selected() -> void:
 		# Corridor Settings
 		{ "name": "sep_3", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false },
-		{ "name": "corridor_radius", "label": "Corridor Thickness", "type": TYPE_INT, "default": 0, "min": 0, "max": 5 },
+		{ "name": "corridor_thickness", "label": "Corridor Thickness", "type": TYPE_INT, "default": 1, "min": 1, "max": 10, 
+		  "hint_text": "Exact tile width of connecting hallways. 1 = 1 tile wide, 3 = 3 tiles wide." },
+		  
+		# Erosion Settings
+		{ "name": "corridor_erosion", "label": "Corridor Erosion", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 0.9, "step": 0.05, 
+		  "hint_text": "Degrades the edges of thick corridors using noise to make them look like natural caves. (Does not affect 1-tile paths)." },
+		{ "name": "corridor_erosion_scale", "label": "Erosion Chunk Size", "type": TYPE_FLOAT, "default": 0.1, "min": 0.01, "max": 0.5, "step": 0.01, 
+		  "hint_text": "Lower values create massive chunks of missing wall, higher values create noisy gravel-like edges." },
+		
 		# CA Settings
 		{ "name": "sep_4", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": 0, "min": 0, "max": 10 },
@@ -294,9 +387,27 @@ func _on_biome_selected() -> void:
 		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 },
 		# Scatter Settings
 		{ "name": "sep_5", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 }
+		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 },
 		
+		# --- WEIGHTED BLUEPRINTS SCHEMA ---
+		{ "name": "sep_6", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "spawn_structure", "label": "Spawn Central Structure", "type": TYPE_BOOL, "default": false, 
+		  "hint_text": "Attempts to find a safe footprint in this room to spawn one of your custom blueprints." }
 	]
+	
+	# Dynamically build sliders for every saved structure!
+	if _custom_structures.size() > 0:
+		schema.append({ "name": "sep_7", "type": TYPE_NIL, "hint": "separator" })
+		for key in _custom_structures:
+			var s_name = _custom_structures[key].get("name", "Unnamed")
+			schema.append({
+				"name": "weight_" + key,
+				"label": s_name + " Weight",
+				"type": TYPE_INT,
+				"default": 0,
+				"min": 0,
+				"max": 100
+			})
 	
 	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
 
@@ -320,7 +431,7 @@ func _on_rasterize_pressed() -> void:
 	_realizer = GraphRealizer.new()
 	var grid = _realizer.realize(graph, _params)
 	
-	# --- [NEW] PROGRAMMATIC TILESET GENERATION ---
+	# --- PROGRAMMATIC TILESET GENERATION ---
 	# We dynamically construct the TileSet resource in memory so the user NEVER 
 	# has to manually configure the Godot TileMapLayer!
 	var dynamic_tileset = TileSet.new()
@@ -415,13 +526,43 @@ func _on_rasterize_pressed() -> void:
 		# B. Render Entity Overlays
 		var show_entities = _params.get("show_entities", true)
 		for pos in grid.entities:
-			var rect = ColorRect.new()
-			rect.color = Color(1.0, 0.8, 0.0, 0.8) # Solid Gold
-			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) # Smaller center square
+			var entity_data = grid.entities[pos]
+			var e_type = entity_data.get("type", "generic_entity")
 			
-			var local_x = pos.x * cell_size + (cell_size * 0.25)
-			var local_y = pos.y * cell_size + (cell_size * 0.25)
-			rect.position = Vector2(local_x, local_y)
+			var rect = ColorRect.new()
+			
+			if e_type == "structure":
+				# --- CUSTOM STRUCTURE FOOTPRINT ---
+				var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
+				var footprint_world = entity_data.get("footprint_world", [])
+				
+				for pt in footprint_world:
+					var pt_rect = ColorRect.new()
+					pt_rect.color = struct_color
+					pt_rect.size = Vector2(cell_size, cell_size)
+					pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
+					pt_rect.visible = show_entities
+					pt_rect.add_to_group("realizer_entity")
+					tile_map_layer.add_child(pt_rect)
+				continue # Skip the base rect addition below
+				
+			elif e_type == "door":
+				# --- [NEW] DOOR / PORTAL ---
+				rect.color = Color(0.8, 0.5, 0.2, 0.9) # Distinct Orange-Brown
+				rect.size = Vector2(cell_size, cell_size) # Fills the whole tile
+				rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
+				
+			elif e_type == "fringe":
+				# --- [NEW] BOUNDARY FRINGE ---
+				rect.color = Color(0.2, 0.9, 0.2, 0.8) # Bright Green Decor
+				rect.size = Vector2(cell_size * 0.4, cell_size * 0.4) 
+				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
+				
+			else:
+				# --- STANDARD 1x1 SCATTER ---
+				rect.color = Color(1.0, 0.8, 0.0, 0.8) # Solid Gold
+				rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
+				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
 			
 			rect.visible = show_entities
 			rect.add_to_group("realizer_entity")

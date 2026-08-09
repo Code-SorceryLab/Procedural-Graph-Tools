@@ -48,7 +48,7 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			effective_params = params.duplicate()
 			effective_params.merge(biome_overrides[node_u.type], true)
 			
-		var corridor_radius = effective_params.get("corridor_radius", 0)
+		var corridor_thickness = effective_params.get("corridor_thickness", 1) # [FIXED]
 		var allow_diagonals = effective_params.get("allow_diagonal_corridors", false)
 		
 		# Dynamically reconfigure the A* Pathfinder for THIS specific edge
@@ -76,26 +76,38 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var path_midpoint = path.size() / 2.0
 		
 		# --- 3. STAMP THE PATH ---
+		var prev_point = path[0] if path.size() > 0 else Vector2i.ZERO # [NEW]
+		
 		for i in range(path.size()):
 			var point = path[i]
-			
-			# Seamlessly swap the floor color halfway down the hallway!
 			var active_floor_id = floor_id_u if i < path_midpoint else floor_id_v
 			
-			if corridor_radius == 0:
-				realizer.critical_path_cells[point] = true # Log for entities/debug!
-				
-				if grid.get_cell(point.x, point.y) == TilePalette.VOID_ID:
-					grid.set_cell(point.x, point.y, active_floor_id)
-				astar.set_point_weight_scale(point, 1.0) 
-			else:
-				var rect = Rect2i(point.x - corridor_radius, point.y - corridor_radius, corridor_radius * 2 + 1, corridor_radius * 2 + 1)
-				for dy in range(rect.size.y):
-					for dx in range(rect.size.x):
-						var p = Vector2i(rect.position.x + dx, rect.position.y + dy)
-						if grid.in_bounds_vec(p):
-							realizer.critical_path_cells[p] = true # Log for entities/debug!
-							
-							if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:
-								grid.set_cell(p.x, p.y, active_floor_id)
-							astar.set_point_weight_scale(p, 1.0)
+			realizer.core_path_cells[point] = true 
+			
+			# --- DIAGONAL PINCH FIX ---
+			# If the path jumps diagonally, tilemap walls will pinch the corners and block the player.
+			# We force an "L" shape connection to guarantee a 1-tile wide walkable gap!
+			if allow_diagonals and corridor_thickness == 1 and i > 0:
+				var dx = abs(point.x - prev_point.x)
+				var dy = abs(point.y - prev_point.y)
+				if dx == 1 and dy == 1:
+					var corner_p = Vector2i(point.x, prev_point.y)
+					realizer.critical_path_cells[corner_p] = true 
+					if grid.get_cell(corner_p.x, corner_p.y) == TilePalette.VOID_ID:
+						grid.set_cell(corner_p.x, corner_p.y, active_floor_id)
+			# --------------------------------
+			
+			var offset_start = -int((corridor_thickness - 1) / 2.0)
+			var offset_end = offset_start + corridor_thickness
+			
+			for dy in range(offset_start, offset_end):
+				for dx in range(offset_start, offset_end):
+					var p = Vector2i(point.x + dx, point.y + dy)
+					if grid.in_bounds_vec(p):
+						realizer.critical_path_cells[p] = true 
+						
+						if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:
+							grid.set_cell(p.x, p.y, active_floor_id)
+						astar.set_point_weight_scale(p, 1.0)
+						
+			prev_point = point

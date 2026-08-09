@@ -19,6 +19,11 @@ var semantic_wall_map: Dictionary = {}
 
 #  The exact mathematical footprint of all corridors!
 var critical_path_cells: Dictionary = {} 
+var reserved_cells: Dictionary = {} # Tracks multi-tile structures!
+
+var room_cells: Dictionary = {} # Protects room interiors from being eroded
+var core_path_cells: Dictionary = {} # Protects the absolute center of the hallway
+var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
 
 func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	_scale_factor = params.get("grid_scale", 50.0) 
@@ -29,7 +34,11 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	wall_id = palette.register_tile("Wall", { "walkable": false })
 	debug_path_id = palette.register_tile("DebugPath", { "walkable": true })
 	
-	critical_path_cells.clear() # [NEW] Reset the collision mask
+	critical_path_cells.clear() #  Reset the collision mask
+	reserved_cells.clear()
+	room_cells.clear()
+	core_path_cells.clear()
+	floor_to_semantic.clear()
 	
 	# Register Floors AND Walls for Semantic Types
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
@@ -39,7 +48,8 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 		
 		semantic_floor_ids[cat_key] = s_floor
 		semantic_wall_map[s_floor] = s_wall 
-
+		floor_to_semantic[s_floor] = cat_key # Store reverse lookup
+		
 	var stats = graph.get_spatial_stats()
 	var bounds: Rect2 = stats.get("bounds", Rect2(0, 0, 100, 100))
 	_world_offset = bounds.position
@@ -55,8 +65,11 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	RoomAllocator.allocate(graph, self, floor_id, params)
 	EdgeRouter.route(graph, self, floor_id, params)
 	CellularSmoother.smooth(self, floor_id, params)
+	PathEroder.erode(self, params)
+	ZoneDecorator.decorate(self, params) # Applies the Biome Matrix Rules
+	StructurePlacer.place(graph, self, params)
 	EntityScatterer.scatter(graph, self, params)
-	WallGenerator.generate(grid, wall_id, semantic_wall_map) 
+	WallGenerator.generate(self, wall_id, semantic_wall_map) 
 	
 	return grid
 

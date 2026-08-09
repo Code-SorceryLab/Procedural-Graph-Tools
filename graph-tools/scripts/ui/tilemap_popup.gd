@@ -19,7 +19,7 @@ var file_dialog: FileDialog
 var save_dialog: FileDialog
 var spin_w: SpinBox 
 var spin_h: SpinBox 
-
+var zoom_label: Label
 var paint_toolbar: HBoxContainer
 var opt_color_source: OptionButton
 var color_picker: ColorPickerButton
@@ -27,6 +27,7 @@ var color_picker: ColorPickerButton
 # --- STATE ---
 var selected_category: String = ""
 var semantic_keys: Array[String] = []
+var zoom_level: float = 1.0
 
 func _init() -> void:
 	title = "Visual Tile Mapper & Painter"
@@ -76,6 +77,24 @@ func _init() -> void:
 	spin_h.value = 16
 	spin_h.value_changed.connect(func(v): tile_size.y = int(v); overlay.queue_redraw())
 	top_bar.add_child(spin_h)
+	
+	top_bar.add_child(VSeparator.new())
+	
+	var btn_zoom_out = Button.new()
+	btn_zoom_out.text = " - "
+	btn_zoom_out.pressed.connect(func(): _set_zoom(zoom_level - 0.25))
+	top_bar.add_child(btn_zoom_out)
+	
+	zoom_label = Label.new()
+	zoom_label.text = "100%"
+	zoom_label.custom_minimum_size.x = 45
+	zoom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top_bar.add_child(zoom_label)
+	
+	var btn_zoom_in = Button.new()
+	btn_zoom_in.text = " + "
+	btn_zoom_in.pressed.connect(func(): _set_zoom(zoom_level + 0.25))
+	top_bar.add_child(btn_zoom_in)
 	
 	top_bar.add_child(VSeparator.new())
 	
@@ -161,7 +180,9 @@ func _init() -> void:
 	right_panel.add_child(scroll)
 	
 	texture_rect = TextureRect.new()
-	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE # Allows us to override the size
+	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED # Keeps proportions
+	texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # Keeps pixel art crisp!
 	texture_rect.mouse_filter = Control.MOUSE_FILTER_PASS
 	scroll.add_child(texture_rect)
 	
@@ -226,12 +247,23 @@ func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) 
 	if item_list.item_count > 0:
 		item_list.select(0)
 		_on_category_selected(0)
-		
+	
+	_set_zoom(zoom_level)
 	popup_centered()
 
 func _on_mode_changed(idx: int) -> void:
 	_current_mode = idx
 	paint_toolbar.visible = (idx == 1)
+	overlay.queue_redraw()
+
+func _set_zoom(new_zoom: float) -> void:
+	zoom_level = clamp(new_zoom, 0.5, 5.0) # Restrict from 50% to 500%
+	zoom_label.text = str(int(zoom_level * 100)) + "%"
+	
+	if atlas_texture:
+		var new_size = atlas_texture.get_size() * zoom_level
+		texture_rect.custom_minimum_size = new_size
+		
 	overlay.queue_redraw()
 
 # ==============================================================================
@@ -250,6 +282,7 @@ func _on_file_selected(path: String) -> void:
 		atlas_texture_path = path
 		atlas_texture = ImageTexture.create_from_image(_active_image)
 		texture_rect.texture = atlas_texture
+		_set_zoom(zoom_level)
 		overlay.queue_redraw()
 
 func _on_new_blank_pressed() -> void:
@@ -258,6 +291,7 @@ func _on_new_blank_pressed() -> void:
 	atlas_texture = ImageTexture.create_from_image(_active_image)
 	texture_rect.texture = atlas_texture
 	atlas_texture_path = "" 
+	_set_zoom(zoom_level)
 	overlay.queue_redraw()
 
 func _on_save_image_pressed() -> void:
@@ -293,6 +327,7 @@ func _expand_image(add_x: int, add_y: int) -> void:
 	_active_image = new_img
 	atlas_texture = ImageTexture.create_from_image(_active_image)
 	texture_rect.texture = atlas_texture
+	_set_zoom(zoom_level)
 	overlay.queue_redraw()
 
 # ==============================================================================
@@ -315,11 +350,14 @@ func _on_texture_gui_input(event: InputEvent) -> void:
 	if is_click or is_drag:
 		if selected_category == "": return
 		
-		# Bounds check
-		var tex_size = _active_image.get_size()
-		if event.position.x > tex_size.x or event.position.y > tex_size.y: return
+		# Divide the mouse position by the zoom scale!
+		var raw_pos = event.position / zoom_level 
 		
-		var coord = _get_grid_coord(event.position)
+		# Bounds check using the scaled coordinate
+		var tex_size = _active_image.get_size()
+		if raw_pos.x > tex_size.x or raw_pos.y > tex_size.y: return
+		
+		var coord = _get_grid_coord(raw_pos)
 		
 		if _current_mode == 0:
 			# MAP MODE (Click only)
@@ -379,18 +417,21 @@ func _on_overlay_draw() -> void:
 	if not _active_image: return
 	var tex_size = _active_image.get_size()
 	
-	# 1. Draw Grid
+	# 1. Draw Grid (Scaled)
 	var grid_color = Color(1, 1, 1, 0.2)
 	for x in range(0, int(tex_size.x) + 1, tile_size.x):
-		overlay.draw_line(Vector2(x, 0), Vector2(x, tex_size.y), grid_color, 1.0)
+		var px = x * zoom_level
+		overlay.draw_line(Vector2(px, 0), Vector2(px, tex_size.y * zoom_level), grid_color, 1.0)
 	for y in range(0, int(tex_size.y) + 1, tile_size.y):
-		overlay.draw_line(Vector2(0, y), Vector2(tex_size.x, y), grid_color, 1.0)
+		var py = y * zoom_level
+		overlay.draw_line(Vector2(0, py), Vector2(tex_size.x * zoom_level, py), grid_color, 1.0)
 		
 	# 2. Draw Assigned Highlights (ONLY IN MAP MODE)
 	if _current_mode == 0:
 		for key in mappings:
 			var coord = mappings[key]
-			var rect = Rect2(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
+			# Multiply position and size by zoom_level
+			var rect = Rect2(coord.x * tile_size.x * zoom_level, coord.y * tile_size.y * zoom_level, tile_size.x * zoom_level, tile_size.y * zoom_level)
 			
 			var outline_color = _get_semantic_color(key)
 			

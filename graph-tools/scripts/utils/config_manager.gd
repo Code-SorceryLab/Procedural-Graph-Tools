@@ -246,3 +246,61 @@ static func load_biome_overrides() -> Dictionary:
 			loaded_biomes[key] = config.get_value("BiomeOverrides", key)
 			
 	return loaded_biomes
+
+# ==============================================================================
+# CUSTOM STRUCTURES
+# ==============================================================================
+
+static func save_structures(structures: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("CustomStructures"):
+		config.erase_section("CustomStructures")
+		
+	for key in structures:
+		config.set_value("CustomStructures", key, structures[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Custom Structures.")
+
+static func load_structures() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_structures = {}
+	
+	if err == OK and config.has_section("CustomStructures"):
+		for key in config.get_section_keys("CustomStructures"):
+			loaded_structures[key] = config.get_value("CustomStructures", key)
+			
+	return loaded_structures
+
+# ==============================================================================
+# BIOME INTERACTIONS
+# ==============================================================================
+
+static func save_biome_interactions(interactions: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("BiomeInteractions"):
+		config.erase_section("BiomeInteractions")
+		
+	for key in interactions:
+		config.set_value("BiomeInteractions", key, interactions[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Biome Interactions.")
+
+static func load_biome_interactions() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_interactions = {}
+	
+	if err == OK and config.has_section("BiomeInteractions"):
+		for key in config.get_section_keys("BiomeInteractions"):
+			loaded_interactions[key] = config.get_value("BiomeInteractions", key)
+			
+	return loaded_interactions

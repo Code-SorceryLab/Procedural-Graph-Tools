@@ -70,3 +70,9 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			grid.fill_rect(rect, floor_id)
 		
 		node.custom_data["_grid_center"] = grid_pos
+
+# Log every single tile placed so far as a protected Room cell!
+	for y in range(grid.height):
+		for x in range(grid.width):
+			if grid.get_cell(x, y) != TilePalette.VOID_ID:
+				realizer.room_cells[Vector2i(x, y)] = true

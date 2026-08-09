@@ -74,6 +74,15 @@ func open_settings(p_title: String, schema: Array[Dictionary], current_values: D
 # --- INTERNAL BUILDER ---
 
 func _create_control_row(def: Dictionary) -> void:
+	# --- [NEW] SEPARATOR INTERCEPT ---
+	if def.type == TYPE_NIL and def.get("hint") == "separator":
+		var sep_margin = MarginContainer.new()
+		sep_margin.add_theme_constant_override("margin_top", 4)
+		sep_margin.add_theme_constant_override("margin_bottom", 4)
+		sep_margin.add_child(HSeparator.new())
+		_content_container.add_child(sep_margin)
+		return # Stop here, do not build a label or input!
+		
 	var row = HBoxContainer.new()
 	_content_container.add_child(row)
 	
