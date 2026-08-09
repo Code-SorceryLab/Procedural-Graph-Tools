@@ -14,7 +14,9 @@
 
 -lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
 -bezier curves for custom edges.
+-Procedural colour generation to generate palettes for the rasterizer's tilemaps, and then assign those colours to the raster.
 
+-Tilemap validation via bfs algorithms that can validate several test: if every entity spawn can be reached, if the end point can be reached (not implemented yet), if "keys" scattered across the map can be reached (not implemented yet), etc.
 
 -make rasterizer critical pathway's size of 1 actually 1 tile wide rather than 3 tiles wide.
 

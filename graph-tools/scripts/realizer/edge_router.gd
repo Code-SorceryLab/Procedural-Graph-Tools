@@ -48,7 +48,7 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			effective_params = params.duplicate()
 			effective_params.merge(biome_overrides[node_u.type], true)
 			
-		var corridor_thickness = effective_params.get("corridor_thickness", 1) # [FIXED]
+		var corridor_thickness = effective_params.get("corridor_thickness", 1)
 		var allow_diagonals = effective_params.get("allow_diagonal_corridors", false)
 		
 		# Dynamically reconfigure the A* Pathfinder for THIS specific edge
@@ -76,7 +76,21 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var path_midpoint = path.size() / 2.0
 		
 		# --- 3. STAMP THE PATH ---
-		var prev_point = path[0] if path.size() > 0 else Vector2i.ZERO # [NEW]
+		var prev_point = path[0] if path.size() > 0 else Vector2i.ZERO 
+		
+		# [NEW] Helper to steal the biome of adjacent rooms so corridors seamlessly blend when touching them!
+		var get_smart_floor_id = func(p: Vector2i, default_id: int) -> int:
+			for dy in [-1, 0, 1]:
+				for dx in [-1, 0, 1]:
+					if dx == 0 and dy == 0: continue
+					var n_pos = Vector2i(p.x + dx, p.y + dy)
+					
+					# Only inherit from actual Rooms to prevent a corridor from dragging one biome forever
+					if grid.in_bounds_vec(n_pos) and realizer.room_cells.has(n_pos):
+						var nid = grid.get_cell(n_pos.x, n_pos.y)
+						if valid_floors.has(nid):
+							return nid
+			return default_id
 		
 		for i in range(path.size()):
 			var point = path[i]
@@ -85,8 +99,6 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			realizer.core_path_cells[point] = true 
 			
 			# --- DIAGONAL PINCH FIX ---
-			# If the path jumps diagonally, tilemap walls will pinch the corners and block the player.
-			# We force an "L" shape connection to guarantee a 1-tile wide walkable gap!
 			if allow_diagonals and corridor_thickness == 1 and i > 0:
 				var dx = abs(point.x - prev_point.x)
 				var dy = abs(point.y - prev_point.y)
@@ -94,7 +106,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 					var corner_p = Vector2i(point.x, prev_point.y)
 					realizer.critical_path_cells[corner_p] = true 
 					if grid.get_cell(corner_p.x, corner_p.y) == TilePalette.VOID_ID:
-						grid.set_cell(corner_p.x, corner_p.y, active_floor_id)
+						var smart_id = get_smart_floor_id.call(corner_p, active_floor_id)
+						grid.set_cell(corner_p.x, corner_p.y, smart_id)
 			# --------------------------------
 			
 			var offset_start = -int((corridor_thickness - 1) / 2.0)
@@ -107,7 +120,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 						realizer.critical_path_cells[p] = true 
 						
 						if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:
-							grid.set_cell(p.x, p.y, active_floor_id)
+							var smart_id = get_smart_floor_id.call(p, active_floor_id)
+							grid.set_cell(p.x, p.y, smart_id)
 						astar.set_point_weight_scale(p, 1.0)
 						
 			prev_point = point
