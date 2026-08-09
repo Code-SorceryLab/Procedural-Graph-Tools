@@ -122,20 +122,23 @@ static func _apply_input_bind(action: String, data: Dictionary) -> void:
 # RASTERIZER MAPPINGS
 # ==============================================================================
 
-static func save_rasterizer_mappings(mappings: Dictionary, texture_path: String = "", tile_size: Vector2i = Vector2i(16, 16)) -> void:
+static func save_rasterizer_mappings(mappings: Dictionary, texture_path: String = "", tile_size: Vector2i = Vector2i(16, 16), procedural_flags: Dictionary = {}, palette_params: Dictionary = {}) -> void:
 	var config = ConfigFile.new()
-	# Load existing file first to preserve Input and History settings!
 	config.load(SETTINGS_PATH) 
 	
-	# Clear the old section entirely to prevent orphaned keys if you deleted a semantic type
-	if config.has_section("RasterizerMappings"):
-		config.erase_section("RasterizerMappings")
+	if config.has_section("RasterizerMappings"): config.erase_section("RasterizerMappings")
+	if config.has_section("ProceduralFlags"): config.erase_section("ProceduralFlags")
+	if config.has_section("PaletteParams"): config.erase_section("PaletteParams")
 		
-	# Save the new mapping Dictionary
 	for key in mappings:
 		config.set_value("RasterizerMappings", key, mappings[key])
 		
-	# [NEW] Save dynamic TileSet config
+	for key in procedural_flags:
+		config.set_value("ProceduralFlags", key, procedural_flags[key])
+		
+	for key in palette_params:
+		config.set_value("PaletteParams", key, palette_params[key])
+		
 	config.set_value("TileSetSettings", "texture_path", texture_path)
 	config.set_value("TileSetSettings", "tile_size", tile_size)
 		
@@ -143,13 +146,14 @@ static func save_rasterizer_mappings(mappings: Dictionary, texture_path: String 
 	if err != OK:
 		push_error("ConfigManager: Failed to save Rasterizer Mappings.")
 
-# [FIXED] Now returns a nested dictionary containing the mappings, path, and size
 static func load_rasterizer_mappings() -> Dictionary:
 	var config = ConfigFile.new()
 	var err = config.load(SETTINGS_PATH)
 	
 	var data = {
 		"mappings": {},
+		"procedural_flags": {},
+		"palette_params": {},
 		"texture_path": "",
 		"tile_size": Vector2i(16, 16)
 	}
@@ -158,6 +162,14 @@ static func load_rasterizer_mappings() -> Dictionary:
 		if config.has_section("RasterizerMappings"):
 			for key in config.get_section_keys("RasterizerMappings"):
 				data["mappings"][key] = config.get_value("RasterizerMappings", key)
+				
+		if config.has_section("ProceduralFlags"):
+			for key in config.get_section_keys("ProceduralFlags"):
+				data["procedural_flags"][key] = config.get_value("ProceduralFlags", key)
+				
+		if config.has_section("PaletteParams"):
+			for key in config.get_section_keys("PaletteParams"):
+				data["palette_params"][key] = config.get_value("PaletteParams", key)
 				
 		if config.has_section("TileSetSettings"):
 			data["texture_path"] = config.get_value("TileSetSettings", "texture_path", "")

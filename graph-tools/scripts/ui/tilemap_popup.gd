@@ -23,11 +23,21 @@ var zoom_label: Label
 var paint_toolbar: HBoxContainer
 var opt_color_source: OptionButton
 var color_picker: ColorPickerButton
+var chk_procedural: CheckBox
+var palette_editor: CosinePaletteEditor
+var scroll_atlas: ScrollContainer # Wrap texture_rect's parent so we can hide it
+
+var procedural_flags: Dictionary = {} # Maps base biome key -> bool
+var palette_params: Dictionary = {} 
+
+
 
 # --- STATE ---
 var selected_category: String = ""
 var semantic_keys: Array[String] = []
 var zoom_level: float = 1.0
+
+
 
 func _init() -> void:
 	title = "Visual Tile Mapper & Painter"
@@ -101,8 +111,11 @@ func _init() -> void:
 	var opt_mode = OptionButton.new()
 	opt_mode.add_item("Mode: Map Semantics", 0)
 	opt_mode.add_item("Mode: Paint Tiles", 1)
+	opt_mode.add_item("Mode: Procedural Palette", 2) 
 	opt_mode.item_selected.connect(_on_mode_changed)
 	top_bar.add_child(opt_mode)
+	
+	
 
 	vbox_main.add_child(HSeparator.new())
 	
@@ -128,6 +141,12 @@ func _init() -> void:
 	item_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	item_list.item_selected.connect(_on_category_selected)
 	left_panel.add_child(item_list)
+	
+	chk_procedural = CheckBox.new()
+	chk_procedural.text = "Use Procedural Color"
+	chk_procedural.tooltip_text = "Overrides this biome's tile colors with the mathematical Cosine palette."
+	chk_procedural.toggled.connect(_on_procedural_toggled)
+	left_panel.add_child(chk_procedural)
 	
 	# --- RIGHT: ATLAS VIEWER & PAINT TOOLS ---
 	var right_panel = VBoxContainer.new()
@@ -194,6 +213,17 @@ func _init() -> void:
 	overlay.draw.connect(_on_overlay_draw)
 	texture_rect.gui_input.connect(_on_texture_gui_input)
 	
+	scroll_atlas = ScrollContainer.new() # [NEW] Name the scroll container!
+	scroll_atlas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_panel.add_child(scroll_atlas)
+	
+	palette_editor = CosinePaletteEditor.new()
+	palette_editor.visible = false
+	right_panel.add_child(palette_editor)
+	
+	# Change texture_rect's parent from `scroll` to `scroll_atlas`:
+	# scroll_atlas.add_child(texture_rect)
+	
 	# --- DIALOGS ---
 	file_dialog = FileDialog.new()
 	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -213,7 +243,7 @@ func _init() -> void:
 # DATA LIFECYCLE
 # ==============================================================================
 
-func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) -> void:
+func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary, default_flags: Dictionary, default_palette: Dictionary) -> void:
 	mappings = default_mappings.duplicate()
 	tile_size = t_size
 	atlas_texture_path = texture_path
@@ -248,12 +278,19 @@ func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary) 
 		item_list.select(0)
 		_on_category_selected(0)
 	
+	procedural_flags = default_flags.duplicate()
+	if not default_palette.is_empty():
+		palette_editor.params = default_palette.duplicate()
+		palette_editor._sync_ui_to_params()
+	
 	_set_zoom(zoom_level)
 	popup_centered()
 
 func _on_mode_changed(idx: int) -> void:
 	_current_mode = idx
 	paint_toolbar.visible = (idx == 1)
+	scroll_atlas.visible = (idx == 0 or idx == 1)
+	palette_editor.visible = (idx == 2)
 	overlay.queue_redraw()
 
 func _set_zoom(new_zoom: float) -> void:
@@ -336,7 +373,15 @@ func _expand_image(add_x: int, add_y: int) -> void:
 
 func _on_category_selected(index: int) -> void:
 	selected_category = semantic_keys[index]
+	var base_key = selected_category.replace("_floor", "").replace("_wall", "")
+	
+	# Update checkbox based on the biome's saved flag
+	chk_procedural.set_pressed_no_signal(procedural_flags.get(base_key, false))
 	overlay.queue_redraw()
+
+func _on_procedural_toggled(toggled: bool) -> void:
+	var base_key = selected_category.replace("_floor", "").replace("_wall", "")
+	procedural_flags[base_key] = toggled
 
 func _get_grid_coord(pos: Vector2) -> Vector2i:
 	return Vector2i(int(pos.x / tile_size.x), int(pos.y / tile_size.y))

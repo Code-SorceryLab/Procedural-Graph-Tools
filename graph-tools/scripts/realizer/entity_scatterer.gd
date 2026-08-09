@@ -28,6 +28,10 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 
 		var density = float(effective_params.get("scatter_density", 0.0))
 		if density <= 0.001: continue
+		
+		# [NEW] Distance Field Constraints
+		var min_dist = int(effective_params.get("scatter_min_dist", 0))
+		var max_dist = int(effective_params.get("scatter_max_dist", 99))
 
 		# Calculate a bounding box that safely encompasses the room's footprint
 		var max_r = int(effective_params.get("room_radius_max", 4)) + 2 
@@ -53,8 +57,13 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 				# 2. TERRAIN CHECK: Must be on a walkable floor tile
 				var cell_id = grid.get_cell(x, y)
 				if not valid_floors.has(cell_id): continue
+				
+				# --- [NEW] 3. DISTANCE FIELD CHECK ---
+				var tile_dist = realizer.distance_field.get(pos, 0)
+				if tile_dist < min_dist or tile_dist > max_dist:
+					continue
 
-				# 3. ROLL THE DICE
+				# 4. ROLL THE DICE
 				if rng.randf() < density:
 					if not grid.entities.has(pos):
 						grid.entities[pos] = {

@@ -38,7 +38,10 @@ static func apply_to_layer(grid: GridData, layer: TileMapLayer, tile_mapping: Di
 				# --- STATIC TILE MODE ---
 				var source_id = mapping.get("source_id", 0)
 				var atlas_coords = mapping.get("atlas_coords", Vector2i.ZERO)
+				var alt_tile = mapping.get("alternative_tile", 0) # [NEW] Extract the alternative tile ID
+				
 				for pos in typed_coords:
-					layer.set_cell(pos, source_id, atlas_coords)
+					# [FIXED] Pass the alt_tile as the 4th argument!
+					layer.set_cell(pos, source_id, atlas_coords, alt_tile) 
 		else:
 			push_warning("TileMapAdapter: Missing visual mapping for Tile ID %d" % cell_id)

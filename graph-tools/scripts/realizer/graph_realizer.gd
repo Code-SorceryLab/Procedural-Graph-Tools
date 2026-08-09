@@ -24,6 +24,7 @@ var reserved_cells: Dictionary = {} # Tracks multi-tile structures!
 var room_cells: Dictionary = {} # Protects room interiors from being eroded
 var core_path_cells: Dictionary = {} # Protects the absolute center of the hallway
 var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
+var distance_field: Dictionary = {} # Stores Vector2i -> Int
 
 func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	_scale_factor = params.get("grid_scale", 50.0) 
@@ -39,6 +40,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	room_cells.clear()
 	core_path_cells.clear()
 	floor_to_semantic.clear()
+	distance_field.clear()
 	
 	# Register Floors AND Walls for Semantic Types
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
@@ -67,6 +69,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	CellularSmoother.smooth(self, floor_id, params)
 	PathEroder.erode(self, params)
 	ZoneDecorator.decorate(self, params) # Applies the Biome Matrix Rules
+	DistanceMapper.map(self) # Map distances before placing objects
 	StructurePlacer.place(graph, self, params)
 	EntityScatterer.scatter(graph, self, params)
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 

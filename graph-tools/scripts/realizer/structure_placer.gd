@@ -58,6 +58,10 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 		var face_path = struct_data.get("face_path", true)
 		var front_dir = struct_data.get("front_dir", Vector2i.UP)
 		
+		# Fetch SDF Constraints (Fallback to 0-99 for pure random default)
+		var min_dist = struct_data.get("min_dist", 0)
+		var max_dist = struct_data.get("max_dist", 99)
+		
 		# --- 2. SCAN FOR VALID PLACEMENTS ---
 		var max_r = int(node.custom_data.get("room_radius", effective_params.get("room_radius_max", 4))) + 2
 		var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
@@ -72,6 +76,7 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 					var is_valid = true
 					for pt in raw_footprint:
 						var abs_pt = test_center + _rotate_point(pt, r)
+						
 						# Collision Checks
 						if realizer.critical_path_cells.has(abs_pt) or realizer.reserved_cells.has(abs_pt):
 							is_valid = false
@@ -79,6 +84,14 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 						if not valid_floors.has(grid.get_cell(abs_pt.x, abs_pt.y)):
 							is_valid = false
 							break
+							
+						# [NEW] Signed Distance Field Check
+						# Every tile in the footprint must satisfy the distance constraints!
+						var tile_dist = realizer.distance_field.get(abs_pt, 0)
+						if tile_dist < min_dist or tile_dist > max_dist:
+							is_valid = false
+							break
+							
 					if is_valid:
 						valid_placements.append({ "pos": test_center, "rot": r })
 						

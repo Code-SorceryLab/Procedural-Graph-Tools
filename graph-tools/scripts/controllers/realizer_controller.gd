@@ -30,6 +30,8 @@ var _structure_popup: StructureDesignerPopup
 var _interaction_popup: BiomeInteractionPopup
 
 var _custom_structures: Dictionary = {} # Caches the structures for the UI
+var _procedural_flags: Dictionary = {}
+var _palette_params: Dictionary = {}
 
 # Biome State
 var _biome_selector: ConfirmationDialog
@@ -87,7 +89,10 @@ func _ready() -> void:
 	var saved_data = ConfigManager.load_rasterizer_mappings()
 	if saved_data.has("mappings") and not saved_data["mappings"].is_empty():
 		_atlas_mappings.merge(saved_data["mappings"], true)
-		
+	if saved_data.has("procedural_flags"):
+		_procedural_flags.merge(saved_data["procedural_flags"], true)
+	if saved_data.has("palette_params"):
+		_palette_params.merge(saved_data["palette_params"], true)
 	_tileset_image_path = saved_data.get("texture_path", "")
 	_tileset_tile_size = saved_data.get("tile_size", Vector2i(16, 16))
 
@@ -158,6 +163,10 @@ func _build_ui() -> void:
 		{ "name": "sep_scatter", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "scatter_density", "label": "Entity Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01, 
 		  "hint_text": "Chance to spawn an entity on any valid non-critical floor tile." },
+		{ "name": "scatter_min_dist", "label": "Scatter Min Wall Dist", "type": TYPE_INT, "default": 0, "min": 0, "max": 20, 
+		  "hint_text": "0 = Can spawn against walls. Higher values push entities to the center of rooms." },
+		{ "name": "scatter_max_dist", "label": "Scatter Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99, 
+		  "hint_text": "99 = No max limit. 1 = Forces entities to strictly hug walls." },
 		{ "name": "show_entities", "label": "Show Scattered Entities", "type": TYPE_BOOL, "default": true, 
 		  "hint_text": "Draws gold markers over the map to visualize where entities have been scattered." }
 	]
@@ -186,8 +195,7 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_clear":
 		_on_clear_pressed()
 	elif key == "btn_open_mapper":
-		# [FIXED] No longer requires a hard-coded TileSet! Pass dynamic data.
-		_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings)
+		_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings, _procedural_flags, _palette_params)
 	
 	elif key == "btn_open_structure_designer":
 		_structure_popup.open()
@@ -288,13 +296,13 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 
 
 func _on_mapping_confirmed() -> void:
-	# Save the data from the popup back into the controller
 	_atlas_mappings = _mapping_popup.mappings.duplicate()
+	_procedural_flags = _mapping_popup.procedural_flags.duplicate()
+	_palette_params = _mapping_popup.palette_editor.params.duplicate()
 	_tileset_image_path = _mapping_popup.atlas_texture_path
 	_tileset_tile_size = _mapping_popup.tile_size
 	
-	# Persist the new mappings, path, and size to disk
-	ConfigManager.save_rasterizer_mappings(_atlas_mappings, _tileset_image_path, _tileset_tile_size)
+	ConfigManager.save_rasterizer_mappings(_atlas_mappings, _tileset_image_path, _tileset_tile_size, _procedural_flags, _palette_params)
 
 func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
 	if _current_editing_biome != "":
@@ -349,6 +357,8 @@ func _on_biome_selected() -> void:
 		"corridor_erosion": _params.get("corridor_erosion", 0.0),
 		"corridor_erosion_scale": _params.get("corridor_erosion_scale", 0.1),
 		"scatter_density": _params.get("scatter_density", 0.05),
+		"scatter_min_dist": _params.get("scatter_min_dist", 0),
+		"scatter_max_dist": _params.get("scatter_max_dist", 99),
 		"spawn_structure": _params.get("spawn_structure", false)
 	})
 	
@@ -388,6 +398,8 @@ func _on_biome_selected() -> void:
 		# Scatter Settings
 		{ "name": "sep_5", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 },
+		{ "name": "scatter_min_dist", "label": "Min Wall Dist", "type": TYPE_INT, "default": 0, "min": 0, "max": 20 },
+		{ "name": "scatter_max_dist", "label": "Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99 },
 		
 		# --- WEIGHTED BLUEPRINTS SCHEMA ---
 		{ "name": "sep_6", "type": TYPE_NIL, "hint": "separator" },
@@ -432,10 +444,32 @@ func _on_rasterize_pressed() -> void:
 	var grid = _realizer.realize(graph, _params)
 	
 	# --- PROGRAMMATIC TILESET GENERATION ---
-	# We dynamically construct the TileSet resource in memory so the user NEVER 
-	# has to manually configure the Godot TileMapLayer!
 	var dynamic_tileset = TileSet.new()
 	dynamic_tileset.tile_size = _tileset_tile_size
+	
+	# 1. Calculate Procedural Colors
+	var active_proc_keys = []
+	for key in _realizer.semantic_floor_ids:
+		if _procedural_flags.get(key, false):
+			active_proc_keys.append(key)
+	active_proc_keys.sort() 
+	
+	var biome_colors = {}
+	var wall_shift = _palette_params.get("wall_shift", 0.1)
+	
+	for i in range(active_proc_keys.size()):
+		var key = active_proc_keys[i]
+		var t = float(i) / max(1.0, float(active_proc_keys.size() - 1))
+		
+		biome_colors[key + "_floor"] = CosinePaletteEditor.get_iq_color(t, _palette_params)
+		biome_colors[key + "_wall"] = CosinePaletteEditor.get_iq_color(t + wall_shift, _palette_params)
+
+	# 2. Setup the Mapping Data structures
+	var def_floor_atlas = _atlas_mappings.get("default_floor", Vector2i(0,0))
+	var def_wall_atlas = _atlas_mappings.get("default_wall", Vector2i(1,0))
+	var debug_path_atlas = _atlas_mappings.get("debug_path", Vector2i(2,0)) 
+	
+	var biome_alt_ids = {} # Stores { cat_key + "_floor": alt_id }
 	
 	if _tileset_image_path != "" and FileAccess.file_exists(_tileset_image_path):
 		var img = Image.load_from_file(_tileset_image_path)
@@ -444,37 +478,54 @@ func _on_rasterize_pressed() -> void:
 			source.texture = ImageTexture.create_from_image(img)
 			source.texture_region_size = _tileset_tile_size
 			
-			# Carve out the tiles based on what we actually mapped
-			for mapping_key in _atlas_mappings:
-				var coord = _atlas_mappings[mapping_key]
+			# Helper to ensure a base tile exists
+			var ensure_base_tile = func(coord: Vector2i):
 				if not source.has_tile(coord):
 					source.create_tile(coord)
+			
+			# Ensure defaults and explicit mappings exist as base tiles (alt_id = 0)
+			ensure_base_tile.call(def_floor_atlas)
+			ensure_base_tile.call(def_wall_atlas)
+			ensure_base_tile.call(debug_path_atlas)
+			for mapping_key in _atlas_mappings:
+				ensure_base_tile.call(_atlas_mappings[mapping_key])
+				
+			# Generate Alternative Tiles for Procedural Biomes!
+			var next_alt_id = {} # Tracks the next available alt_id per coordinate
+			
+			for cat_key in _realizer.semantic_floor_ids:
+				if _procedural_flags.get(cat_key, false):
+					var f_coord = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
+					var w_coord = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
+					
+					# Floor Alt
+					var f_alt = next_alt_id.get(f_coord, 1)
+					next_alt_id[f_coord] = f_alt + 1
+					source.create_alternative_tile(f_coord, f_alt)
+					source.get_tile_data(f_coord, f_alt).modulate = biome_colors[cat_key + "_floor"]
+					biome_alt_ids[cat_key + "_floor"] = f_alt
+					
+					# Wall Alt
+					var w_alt = next_alt_id.get(w_coord, 1)
+					next_alt_id[w_coord] = w_alt + 1
+					source.create_alternative_tile(w_coord, w_alt)
+					source.get_tile_data(w_coord, w_alt).modulate = biome_colors[cat_key + "_wall"]
+					biome_alt_ids[cat_key + "_wall"] = w_alt
 					
 			dynamic_tileset.add_source(source, floor_source_id)
-	
-	# Assign our newly baked resource to the layer!
+			
 	tile_map_layer.tile_set = dynamic_tileset
 	
-	# 1. Grab base defaults
-	var def_floor_atlas = _atlas_mappings.get("default_floor", Vector2i(0,0))
-	var def_wall_atlas = _atlas_mappings.get("default_wall", Vector2i(1,0))
-	var debug_path_atlas = _atlas_mappings.get("debug_path", Vector2i(2,0)) 
-	
-	# 2. Base mapping dict
-	var mapping = {
-		_realizer.floor_id: { "source_id": floor_source_id, "atlas_coords": def_floor_atlas },
-		_realizer.wall_id: { "source_id": floor_source_id, "atlas_coords": def_wall_atlas },
-		_realizer.debug_path_id: { "source_id": floor_source_id, "atlas_coords": debug_path_atlas }
-	}
-	
-	# Helper function (Because we are programmatically generating, Autotiling is bypassed for now)
-	var get_mapping_data = func(atlas_coord: Vector2i) -> Dictionary:
-		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord }
+	# 3. Apply mappings
+	# [FIXED] Pass the alternative_tile ID to the mapping dictionary
+	var get_mapping_data = func(atlas_coord: Vector2i, alt_id: int = 0) -> Dictionary:
+		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord, "alternative_tile": alt_id }
 
-	# 3. Inject Semantic Types & Auto-Detect Terrains
-	mapping[_realizer.floor_id] = get_mapping_data.call(def_floor_atlas)
-	mapping[_realizer.wall_id] = get_mapping_data.call(def_wall_atlas)
-	mapping[_realizer.debug_path_id] = get_mapping_data.call(debug_path_atlas)
+	var mapping = {
+		_realizer.floor_id: get_mapping_data.call(def_floor_atlas),
+		_realizer.wall_id: get_mapping_data.call(def_wall_atlas),
+		_realizer.debug_path_id: get_mapping_data.call(debug_path_atlas)
+	}
 	
 	for cat_key in _realizer.semantic_floor_ids:
 		var s_floor_id = _realizer.semantic_floor_ids[cat_key]
@@ -483,8 +534,11 @@ func _on_rasterize_pressed() -> void:
 		var custom_floor = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
 		var custom_wall = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
 		
-		mapping[s_floor_id] = get_mapping_data.call(custom_floor)
-		mapping[s_wall_id] = get_mapping_data.call(custom_wall)
+		var floor_alt = biome_alt_ids.get(cat_key + "_floor", 0)
+		var wall_alt = biome_alt_ids.get(cat_key + "_wall", 0)
+		
+		mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt)
+		mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt)
 		
 	# 4. Paint to Screen
 	TileMapAdapter.apply_to_layer(grid, tile_map_layer, mapping)
