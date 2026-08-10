@@ -71,6 +71,7 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	ZoneDecorator.decorate(self, params) # Applies the Biome Matrix Rules
 	DistanceMapper.map(self) # Map distances before placing objects
 	StructurePlacer.place(graph, self, params)
+	ProgressionSolver.analyze(self, params) # Extract physical Regions and Doors
 	EntityScatterer.scatter(graph, self, params)
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 
 	

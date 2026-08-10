@@ -13,6 +13,10 @@ var _realizer: GraphRealizer
 var _active_inputs: Dictionary = {}
 var _params: Dictionary = {}
 
+# --- TOOLTIP REFS ---
+var _tooltip_layer: CanvasLayer
+var _tooltip_panel: PanelContainer
+var _tooltip_label: Label
 
 # Stores the visual mapping results
 var _atlas_mappings: Dictionary = {
@@ -40,6 +44,35 @@ var _current_editing_biome: String = ""
 var _biome_params: Dictionary = {}
 
 func _ready() -> void:
+	# --- SETUP HOVER TOOLTIP ---
+	_tooltip_layer = CanvasLayer.new()
+	_tooltip_layer.layer = 100 # Ensure it draws over EVERYTHING
+	add_child(_tooltip_layer)
+	
+	_tooltip_panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.15, 0.9)
+	style.border_width_left = 2; style.border_width_top = 2
+	style.border_width_right = 2; style.border_width_bottom = 2
+	style.border_color = Color(0.4, 0.4, 0.5, 1.0)
+	style.corner_radius_top_left = 4; style.corner_radius_bottom_right = 4
+	style.corner_radius_top_right = 4; style.corner_radius_bottom_left = 4
+	_tooltip_panel.add_theme_stylebox_override("panel", style)
+	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip_panel.visible = false
+	_tooltip_layer.add_child(_tooltip_panel)
+	
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_tooltip_panel.add_child(margin)
+	
+	_tooltip_label = Label.new()
+	_tooltip_label.add_theme_font_size_override("font_size", 12)
+	margin.add_child(_tooltip_label)
+	
 	_custom_structures = ConfigManager.load_structures() # Load before building UI!
 	_build_ui()
 	
@@ -97,7 +130,87 @@ func _ready() -> void:
 	_tileset_tile_size = saved_data.get("tile_size", Vector2i(16, 16))
 
 
-
+func _input(event: InputEvent) -> void:
+	if not event is InputEventMouseMotion: return
+	if not _realizer or not _realizer.grid or not tile_map_layer: return
+	
+	# Translate screen mouse position to TileMap coordinates
+	var local_pos = tile_map_layer.get_local_mouse_position()
+	var map_pos = tile_map_layer.local_to_map(local_pos)
+	
+	# Hide if off-grid
+	if not _realizer.grid.in_bounds_vec(map_pos):
+		_tooltip_panel.visible = false
+		return
+		
+	var cell_id = _realizer.grid.get_cell(map_pos.x, map_pos.y)
+	if cell_id == TilePalette.VOID_ID:
+		_tooltip_panel.visible = false
+		return
+		
+	# --- 1. DETERMINE BIOME & TERRAIN ---
+	var biome_name = "Default Global"
+	var terrain_type = "Floor"
+	
+	# Is it a standard floor?
+	if _realizer.floor_to_semantic.has(cell_id):
+		var cat_key = _realizer.floor_to_semantic[cell_id]
+		if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(cat_key):
+			biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][cat_key].name
+			
+	# Is it a wall? (Reverse lookup the wall map)
+	else:
+		terrain_type = "Wall"
+		var found = false
+		for floor_key in _realizer.semantic_wall_map:
+			if _realizer.semantic_wall_map[floor_key] == cell_id:
+				if _realizer.floor_to_semantic.has(floor_key):
+					var cat_key = _realizer.floor_to_semantic[floor_key]
+					if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(cat_key):
+						biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][cat_key].name
+						found = true
+						break
+		if not found:
+			biome_name = "Default Global"
+			
+	# --- 2. DETERMINE ENTITIES & LOCKS ---
+	var entity_str = ""
+	if _realizer.grid.entities.has(map_pos):
+		var ent = _realizer.grid.entities[map_pos]
+		var e_type = ent.get("type", "Unknown")
+		
+		if e_type == "structure":
+			entity_str = "\n[Structure] : " + ent.get("name", "Custom")
+		elif e_type == "door":
+			var p_id = ent.get("portal_id", -1)
+			var l_type = ent.get("lock_type", "Unlocked")
+			entity_str = "\n[Portal ID: %d]\nLock: %s" % [p_id, l_type]
+		else:
+			var req = ent.get("key_type", "")
+			if req != "":
+				entity_str = "\n[Item] : Key (" + req + ")"
+			else:
+				entity_str = "\n[Entity] : Scatter Prop"
+				
+	# --- 3. BUILD TEXT & POSITION UI ---
+	var text = "[ %d, %d ]\n" % [map_pos.x, map_pos.y]
+	
+	# Fetch and display the Area Depth if it exists
+	if _realizer.has_meta("cell_to_area"):
+		var c2a = _realizer.get_meta("cell_to_area")
+		if c2a.has(map_pos):
+			text += "Area Depth: %d\n" % c2a[map_pos]
+			
+	text += "Biome: %s\n" % biome_name
+	text += "Terrain: %s" % terrain_type
+	if entity_str != "":
+		text += entity_str
+		
+	_tooltip_label.text = text
+	_tooltip_panel.visible = true
+	
+	# Offset the tooltip so it doesn't trap the mouse
+	_tooltip_panel.position = event.position + Vector2(15, 15)
 
 # ==============================================================================
 # UI GENERATION
@@ -167,8 +280,21 @@ func _build_ui() -> void:
 		  "hint_text": "0 = Can spawn against walls. Higher values push entities to the center of rooms." },
 		{ "name": "scatter_max_dist", "label": "Scatter Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99, 
 		  "hint_text": "99 = No max limit. 1 = Forces entities to strictly hug walls." },
+		
 		{ "name": "show_entities", "label": "Show Scattered Entities", "type": TYPE_BOOL, "default": true, 
-		  "hint_text": "Draws gold markers over the map to visualize where entities have been scattered." }
+		  "hint_text": "Draws gold markers over the map to visualize where entities have been scattered." },
+		
+		# --- PROGRESSION SETTINGS ---
+		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "progression_enabled", "label": "Generate Locks & Keys", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "Algorithmic generation of locked doors and physically accessible keys." },
+		{ "name": "progression_lock_chance", "label": "Door Lock Chance", "type": TYPE_FLOAT, "default": 0.4, "min": 0.0, "max": 1.0, "step": 0.05 },
+		{ "name": "progression_max_locks", "label": "Max Locked Doors (0 = Unlimited)", "type": TYPE_INT, "default": 0, "min": 0, "max": 99,
+		  "hint_text": "Maximum number of locked doors. Set to 0 to allow infinite locks based purely on lock chance." },
+		{ "name": "progression_key_copies_min", "label": "Min Key Copies", "type": TYPE_INT, "default": 1, "min": 1, "max": 5,
+		  "hint_text": "Minimum number of duplicate keys that will spawn for a single lock." },
+		{ "name": "progression_key_copies_max", "label": "Max Key Copies", "type": TYPE_INT, "default": 2, "min": 1, "max": 5,
+		  "hint_text": "Maximum number of duplicate keys that will spawn for a single lock." },
 	]
 	
 	for item in schema:
@@ -180,11 +306,13 @@ func _build_ui() -> void:
 	_params["ratio_triangle"] = 0
 	
 	# Inject the hidden global structure defaults!
+	_params["structure_use_density"] = false
 	_params["spawn_structure"] = false
 	
 	# Dynamically register all custom structures to 0 weight by default
 	for key in _custom_structures:
 		_params["weight_" + key] = 0
+		_params["density_" + key] = 0.0
 			
 	var section = SettingsUIBuilder.create_collapsible_section(ui_container, "TileMap Realizer", true)
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
@@ -212,25 +340,36 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 		
 	# --- GLOBAL STRUCTURE INTERCEPT ---
 	elif key == "btn_global_structures":
-		_current_editing_biome = "" # Explicitly edit GLOBAL rules
+		_current_editing_biome = "" 
 		
 		var struct_schema: Array[Dictionary] = [
-			{ "name": "spawn_structure", "label": "Spawn Central Structure", "type": TYPE_BOOL, "default": _params.get("spawn_structure", false), 
-			  "hint_text": "Attempts to find a safe footprint in this room to spawn one of your custom blueprints." }
+			{ "name": "structure_use_density", "label": "Use Density Scatter Mode", "type": TYPE_BOOL, "default": _params.get("structure_use_density", false), 
+			  "hint_text": "If true, multiple structures can spawn per room based on probability. If false, exactly 1 structure is chosen via weighted lottery." },
+			{ "name": "sep_str_1", "type": TYPE_NIL, "hint": "separator" },
+			{ "name": "spawn_structure", "label": "[Ratio] Spawn Any Structure", "type": TYPE_BOOL, "default": _params.get("spawn_structure", false), 
+			  "hint_text": "Required for Ratio Mode. Unused in Density Mode." }
 		]
 		
-		# Dynamically build sliders for every saved structure!
 		if _custom_structures.size() > 0:
 			struct_schema.append({ "name": "sep_str_weights", "type": TYPE_NIL, "hint": "separator" })
 			for structure_key in _custom_structures:
 				var s_name = _custom_structures[structure_key].get("name", "Unnamed")
+				
+				# The Ratio Slider
 				struct_schema.append({
 					"name": "weight_" + structure_key,
-					"label": s_name + " Weight",
+					"label": "[Ratio] " + s_name + " Weight",
 					"type": TYPE_INT,
 					"default": _params.get("weight_" + structure_key, 0),
-					"min": 0,
-					"max": 100
+					"min": 0, "max": 100
+				})
+				# The Density Slider
+				struct_schema.append({
+					"name": "density_" + structure_key,
+					"label": "[Density] " + s_name + " Chance",
+					"type": TYPE_FLOAT,
+					"default": _params.get("density_" + structure_key, 0.0),
+					"min": 0.0, "max": 1.0, "step": 0.01
 				})
 				
 		_shape_popup.open_settings("Global Structure Rules", struct_schema, _params)
@@ -359,14 +498,16 @@ func _on_biome_selected() -> void:
 		"scatter_density": _params.get("scatter_density", 0.05),
 		"scatter_min_dist": _params.get("scatter_min_dist", 0),
 		"scatter_max_dist": _params.get("scatter_max_dist", 99),
+		"structure_use_density": _params.get("structure_use_density", false),
 		"spawn_structure": _params.get("spawn_structure", false)
 	})
 	
-	# Dynamically pull existing biome weights, or fallback to global defaults
 	for key in _custom_structures:
-		var p_name = "weight_" + key
-		if not current_vals.has(p_name):
-			current_vals[p_name] = _params.get(p_name, 0)
+		var w_name = "weight_" + key
+		if not current_vals.has(w_name): current_vals[w_name] = _params.get(w_name, 0)
+		
+		var d_name = "density_" + key
+		if not current_vals.has(d_name): current_vals[d_name] = _params.get(d_name, 0.0)
 	
 	# Build a superset schema controlling sizes, shapes, corridors, AND cellular smoothing!
 	var schema: Array[Dictionary] = [
@@ -403,22 +544,23 @@ func _on_biome_selected() -> void:
 		
 		# --- WEIGHTED BLUEPRINTS SCHEMA ---
 		{ "name": "sep_6", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "spawn_structure", "label": "Spawn Central Structure", "type": TYPE_BOOL, "default": false, 
-		  "hint_text": "Attempts to find a safe footprint in this room to spawn one of your custom blueprints." }
+		{ "name": "structure_use_density", "label": "Use Density Scatter Mode", "type": TYPE_BOOL, "default": false },
+		{ "name": "spawn_structure", "label": "[Ratio] Spawn Any Structure", "type": TYPE_BOOL, "default": false }
 	]
 	
-	# Dynamically build sliders for every saved structure!
 	if _custom_structures.size() > 0:
 		schema.append({ "name": "sep_7", "type": TYPE_NIL, "hint": "separator" })
 		for key in _custom_structures:
 			var s_name = _custom_structures[key].get("name", "Unnamed")
 			schema.append({
 				"name": "weight_" + key,
-				"label": s_name + " Weight",
-				"type": TYPE_INT,
-				"default": 0,
-				"min": 0,
-				"max": 100
+				"label": "[Ratio] " + s_name + " Weight",
+				"type": TYPE_INT, "default": 0, "min": 0, "max": 100
+			})
+			schema.append({
+				"name": "density_" + key,
+				"label": "[Density] " + s_name + " Chance",
+				"type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01
 			})
 	
 	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
@@ -601,20 +743,50 @@ func _on_rasterize_pressed() -> void:
 				continue # Skip the base rect addition below
 				
 			elif e_type == "door":
-				# --- [NEW] DOOR / PORTAL ---
-				rect.color = Color(0.8, 0.5, 0.2, 0.9) # Distinct Orange-Brown
+				# --- DOOR / PORTAL ---
+				var l_type = entity_data.get("lock_type", "Unlocked")
+				
+				# If you want the door to match the key color, uncomment this!
+				var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+				rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
+				
+				#rect.color = Color(0.8, 0.5, 0.2, 0.9) # Distinct Orange-Brown (Default)
 				rect.size = Vector2(cell_size, cell_size) # Fills the whole tile
 				rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
 				
+			elif e_type == "start_point":
+				rect.color = Color(0.2, 1.0, 0.2, 0.9) # Bright Green
+				rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
+				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
+				
+			elif e_type == "end_point":
+				rect.color = Color(1.0, 0.2, 0.2, 0.9) # Bright Red
+				rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
+				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
+				
+			elif e_type == "key":
+				var k_col = entity_data.get("key_type", "Red")
+				
+				# Distinguish between Categorical (Colors) and Tiered (White)
+				if k_col.begins_with("Tier"):
+					rect.color = Color.WHITE
+				else:
+					var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+					rect.color = c_map.get(k_col, Color.WHITE)
+				
+				# Draw keys as smaller internal squares
+				rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
+				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
+				
 			elif e_type == "fringe":
-				# --- [NEW] BOUNDARY FRINGE ---
+				# --- BOUNDARY FRINGE ---
 				rect.color = Color(0.2, 0.9, 0.2, 0.8) # Bright Green Decor
 				rect.size = Vector2(cell_size * 0.4, cell_size * 0.4) 
 				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
 				
 			else:
 				# --- STANDARD 1x1 SCATTER ---
-				rect.color = Color(1.0, 0.8, 0.0, 0.8) # Solid Gold
+				rect.color = Color(1.0, 0.8, 0.0, 0.4) # Solid Gold
 				rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
 				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
 			
@@ -628,6 +800,11 @@ func _on_clear_pressed() -> void:
 		for child in tile_map_layer.get_children():
 			if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path"):
 				child.queue_free()
+				
+	# [FIXED] Destroy the in-memory grid data and force the tooltip to hide!
+	_realizer = null
+	if _tooltip_panel:
+		_tooltip_panel.visible = false
 
 # ==============================================================================
 # VISUAL FEEDBACK HELPER

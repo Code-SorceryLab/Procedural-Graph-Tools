@@ -786,11 +786,12 @@ func new_graph() -> void:
 	# 2. Reinitialize the engines tied to the graph
 	history = GraphHistory.new(graph)
 	simulation = Simulation.new(graph)
-	if buoyancy_engine: buoyancy_engine.clear_velocities()
+	buoyancy_engine = BuoyancyEngine.new() # [FIXED] Fully recreate to match load behavior
 	
 	# 3. Sever the file binding and reset editor state
 	current_file_path = ""
 	_reset_local_state()
+	_reconstruct_state_from_ids() # [FIXED] Reset counters
 	
 	# 4. Sync the Renderer
 	renderer.graph_ref = graph
@@ -798,6 +799,10 @@ func new_graph() -> void:
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
 	renderer.selected_agent_ids_ref = selected_agent_ids
+	
+	# [CRITICAL FIX] Force the active tool to _exit() and _enter() so it fetches the NEW graph reference!
+	if tool_manager:
+		tool_manager.set_active_tool(tool_manager.active_tool_id)
 	
 	# 5. Emit signals to update the rest of the UI
 	graph_loaded.emit(graph)
@@ -860,11 +865,14 @@ func load_new_graph(new_graph: Graph) -> void:
 	_reconstruct_state_from_ids()
 	
 	graph_loaded.emit(graph)
+	# [CRITICAL FIX] Re-connect history observer! (Otherwise agents wouldn't validate on Undo after loading a file)
+	history.history_changed.connect(simulation.validate_all_agents)
 	
 	renderer.graph_ref = graph
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
 	renderer.new_nodes_ref = new_nodes
+	renderer.selected_agent_ids_ref = selected_agent_ids # [FIXED] Keep in sync
 	
 	if tool_manager:
 		tool_manager.set_active_tool(tool_manager.active_tool_id)
@@ -1021,10 +1029,18 @@ func _reset_local_state() -> void:
 	path_end_ids.clear()
 	selected_agent_ids.clear()
 	selected_edges.clear()
+	selected_zones.clear()
 	
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
 	renderer.selected_edges_ref = selected_edges
 	renderer.selected_agent_ids_ref = selected_agent_ids
+	renderer.selected_zones_ref = selected_zones
 	renderer.path_start_ids = []
 	renderer.path_end_ids = []
+	
+	# [CRITICAL FIX] Force the UI Inspector to acknowledge nothing is selected anymore!
+	selection_changed.emit(selected_nodes)
+	edge_selection_changed.emit(selected_edges)
+	SignalManager.agent_selection_changed.emit(selected_agent_ids)
+	SignalManager.zone_selection_changed.emit(selected_zones)

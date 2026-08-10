@@ -15,10 +15,53 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 		if grid.palette.get_data(id).get("walkable", false):
 			valid_floors[id] = true
 
+	# ==========================================================================
+	# GLOBAL REACHABILITY MAP (Flood Fill)
+	# ==========================================================================
+	# We flood-fill exactly once from the critical paths to find all unblocked tiles.
+	# This completely prevents entities from spawning inside blocked-off rings of structures.
+	var reachable_cells = {}
+	var queue: Array[Vector2i] = []
+	
+	# 1. Seed the queue with the guaranteed safe zones (Critical Paths)
+	for cp in realizer.critical_path_cells:
+		queue.append(cp)
+		reachable_cells[cp] = true
+		
+	# (Failsafe) Also seed room centers in case a room has no paths connected to it
+	for node_id in graph.nodes:
+		var center = graph.nodes[node_id].custom_data.get("_grid_center", Vector2i.ZERO)
+		if center != Vector2i.ZERO and not realizer.reserved_cells.has(center) and valid_floors.has(grid.get_cell(center.x, center.y)):
+			if not reachable_cells.has(center):
+				queue.append(center)
+				reachable_cells[center] = true
+				
+	# 2. Expand outwards into any valid floor that isn't blocked by a structure
+	var head = 0
+	var dirs = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	
+	while head < queue.size():
+		var curr = queue[head]
+		head += 1
+		
+		for d in dirs:
+			var neighbor = curr + d
+			if not reachable_cells.has(neighbor) and grid.in_bounds_vec(neighbor):
+				if not realizer.reserved_cells.has(neighbor):
+					if valid_floors.has(grid.get_cell(neighbor.x, neighbor.y)):
+						reachable_cells[neighbor] = true
+						queue.append(neighbor)
+	# ==========================================================================
+
 	for node_id in graph.nodes:
 		var node = graph.nodes[node_id]
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
 		if center == Vector2i.ZERO: continue
+		
+		# --- [FIXED] ROBUST BIOME CONTAINMENT ---
+		var target_floor_id = grid.get_cell(center.x, center.y)
+		if not valid_floors.has(target_floor_id):
+			target_floor_id = realizer.floor_id 
 
 		# --- BIOME RESOLUTION ---
 		var effective_params = params
@@ -53,12 +96,17 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 				# 1. CRITICAL PATH & STRUCTURE CHECK: Do not block doorways or large structures!
 				if realizer.critical_path_cells.has(pos) or realizer.reserved_cells.has(pos): 
 					continue
+					
+				# --- [NEW] REACHABILITY CHECK ---
+				# If the global BFS didn't reach this tile, it is trapped behind structures.
+				if not reachable_cells.has(pos):
+					continue
 				
-				# 2. TERRAIN CHECK: Must be on a walkable floor tile
+				# [FIXED] 2. TERRAIN CHECK: Must strictly be THIS biome's floor tile!
 				var cell_id = grid.get_cell(x, y)
-				if not valid_floors.has(cell_id): continue
+				if cell_id != target_floor_id: continue
 				
-				# --- [NEW] 3. DISTANCE FIELD CHECK ---
+				# 3. DISTANCE FIELD CHECK
 				var tile_dist = realizer.distance_field.get(pos, 0)
 				if tile_dist < min_dist or tile_dist > max_dist:
 					continue
