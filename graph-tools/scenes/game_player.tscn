@@ -167,6 +167,7 @@ initial_position = 2
 size = Vector2i(600, 400)
 access = 2
 filters = PackedStringArray("*.tres,Graph Resources")
+use_native_dialog = true
 
 [node name="SettingsWindow" parent="UI" instance=ExtResource("10_v0keg")]
 visible = false
@@ -592,6 +593,8 @@ text = "View Results"
 [node name="ExportDialog" type="FileDialog" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Experiment"]
 oversampling_override = 1.0
 initial_position = 1
+access = 2
+use_native_dialog = true
 
 [node name="Realizer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false
