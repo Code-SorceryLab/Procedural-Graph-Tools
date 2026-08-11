@@ -1,10 +1,20 @@
 {
-	"height": 5.0,
-	"spacing_x": 60.0,
-	"spacing_y": 60.0,
-	"strategy_seed": "",
-	"strategy_type": "Grid Layout",
-	"sync_global": true,
-	"use_zones": false,
-	"width": 5.0
+	"meta": {
+		"timestamp": "2026-08-11T17:06:35",
+		"type": "PipelinePreset",
+		"version": "1.0"
+	},
+	"pipeline": [
+		{
+			"name": "Generate Grid",
+			"settings": {
+				"height": 3.0,
+				"modifier_seed": "",
+				"spacing_x": 60,
+				"spacing_y": 60,
+				"use_zones": true,
+				"width": 3.0
+			}
+		}
+	]
 }

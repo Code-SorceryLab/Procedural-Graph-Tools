@@ -628,3 +628,61 @@ static func export_experiment_csv(results: Array[Dictionary]) -> String:
 		csv += ",".join(line) + "\n"
 
 	return csv
+
+# ==============================================================================
+# PIPELINE PRESET SERIALIZATION
+# ==============================================================================
+
+static func serialize_pipeline(stack: Array[GraphModifier]) -> String:
+	var data = {
+		"meta": {
+			"version": "1.0",
+			"timestamp": Time.get_datetime_string_from_system(),
+			"type": "PipelinePreset"
+		},
+		"pipeline": []
+	}
+	
+	for mod in stack:
+		var mod_data = {
+			"name": mod.modifier_name,
+			"settings": mod.local_settings.duplicate(true)
+		}
+		data["pipeline"].append(mod_data)
+		
+	return JSON.stringify(data, "\t")
+
+static func deserialize_pipeline(json_string: String, available_modifiers: Array[Script]) -> Array[GraphModifier]:
+	var json = JSON.new()
+	if json.parse(json_string) != OK:
+		push_error("GraphSerializer: Failed to parse pipeline JSON. Error: %s" % json.get_error_message())
+		return []
+		
+	var data = json.data
+	if typeof(data) != TYPE_DICTIONARY or not data.has("pipeline"):
+		push_error("GraphSerializer: Invalid pipeline JSON format.")
+		return []
+		
+	var new_stack: Array[GraphModifier] = []
+	
+	for mod_data in data["pipeline"]:
+		var mod_name = mod_data.get("name", "")
+		var settings = mod_data.get("settings", {})
+		
+		# Find the matching script from the active catalog
+		var matched_script: Script = null
+		for script in available_modifiers:
+			var temp = script.new()
+			if temp.modifier_name == mod_name:
+				matched_script = script
+				break
+				
+		if matched_script:
+			var new_mod = matched_script.new() as GraphModifier
+			new_mod.apply_defaults()
+			new_mod.local_settings.merge(settings, true)
+			new_stack.append(new_mod)
+		else:
+			push_warning("GraphSerializer: Could not find matching modifier script for '%s'. Skipping." % mod_name)
+			
+	return new_stack

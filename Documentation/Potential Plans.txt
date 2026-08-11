@@ -3,46 +3,8 @@
 
 ## Future Development Paths
 
-MASTER PIPELINE BLUEPRINTSave this list. It is the definitive guide to every transformation we will build in this new architecture.
 
-Group A: GENERATORS (Wipes graph, creates new geometry)
-
-GenerateGrid: Creates an orthogonal matrix of nodes.
-GeneratePolar: Creates concentric circular wedges/rings.
-GenerateDAG: (Former Architect) Creates directed, layered graphs.
-GenerateDLA: (Diffusion Aggregation) Shoots particles to grow organic structures.
-
-Group B: TOPOLOGY (Adds/Removes nodes and edges)
-
-MutateMST: Strips edges down to a Minimum Spanning Tree (Kruskal/Prim).
-MutateBraid: Analyzes dead ends/proximity and randomly reconnects edges.
-MutateCA: (Cellular Automata) Deletes/creates nodes based on neighbor density.
-MutateWalker: Simulates an agent that carves paths or adds nodes.
-MutateGrammar: Subgraph isomorphism; finds shapes (like a triangle) and rewrites them.
-MutateFlowDirect: (Former Assessor) Picks a root, calculates depth, and deletes backward-flowing edges.
-
-Group C: GEOMETRY (Moves nodes physically, keeps topology)
-
-GeoJitter: Randomly offsets node Vector2 positions to make rigid shapes organic.
-GeoRelaxBuoyancy: Instantly runs $X$ iterations of the physics engine to untangle messy graphs.
-
-Group D: SEMANTICS (Mutates data, metadata, and tags)
-
-SemanticBiomeFill: Flood-fills nodes with specific structural/biome types.
-SemanticAutoZone: Groups a selection of nodes into a GraphZone for the editor.
-SemanticDAGLocks: Evaluates topological depth and distributes Lock/Key tags.
-SemanticLogicGates: Evaluates edge convergence and assigns AND/OR gate tags.
-
-
-
-
-
-
-
-
-
-
-
+-maybe a randomize rasterizer button to one click generate random nonsense.
 
 
 ### 3. Advanced Agent Graph Rewriting
@@ -80,23 +42,7 @@ GRAPH GRAMMAR UPGRADES:
 
 RASTERIZER UPGRADES
 
-
-Erosion / Degradation Passes:
-We currently use Cellular Automata to smooth the rooms. We could add an "Erosion" pass that specifically targets the critical_path_cells. By applying noise-based degradation just to the corridors, we can make the perfect A* paths look like natural, ruined, or organic tunnels.
-
-Graph-Driven Zone Portals:
-When an edge connects a "Fire Biome" node to an "Ice Biome" node, the rasterizer could explicitly spawn a unique "Portal" or "Transition Door" entity on the exact boundary line between the two floor types.
-
-
-
 Drunkard's Walk / Jittered Corridors: Right now, the A* algorithm carves perfectly straight lines (diagonal or orthogonal). By running a noise-based "jitter" pass or a constrained Drunkard's Walk algorithm over the critical_path_cells, hallways can be made to snake and curve organically, which is vital for natural cave biomes.
-
-Distance Field (SDF) Spawning: A system that calculates a Signed Distance Field for the grid, assigning each floor tile a value based on how far away it is from a wall. This allows us to spawn specific entities strictly hugging the walls (like torches or bookshelves) or perfectly in the center of the largest open areas (like massive statues or pits).
-
-Boundary Fringing (Decorators): When a "Grass" biome room borders a "Dirt" biome corridor, a specialized pass that detects the biome seams and stamps decorative entities (like tall grass tufts, pebbles, or transitional vines) directly onto the border.
-
-
-
 
 
 2. Strategy Pipeline / Multi‑Pass Generation
