@@ -3,6 +3,46 @@
 
 ## Future Development Paths
 
+MASTER PIPELINE BLUEPRINTSave this list. It is the definitive guide to every transformation we will build in this new architecture.
+
+Group A: GENERATORS (Wipes graph, creates new geometry)
+
+GenerateGrid: Creates an orthogonal matrix of nodes.
+GeneratePolar: Creates concentric circular wedges/rings.
+GenerateDAG: (Former Architect) Creates directed, layered graphs.
+GenerateDLA: (Diffusion Aggregation) Shoots particles to grow organic structures.
+
+Group B: TOPOLOGY (Adds/Removes nodes and edges)
+
+MutateMST: Strips edges down to a Minimum Spanning Tree (Kruskal/Prim).
+MutateBraid: Analyzes dead ends/proximity and randomly reconnects edges.
+MutateCA: (Cellular Automata) Deletes/creates nodes based on neighbor density.
+MutateWalker: Simulates an agent that carves paths or adds nodes.
+MutateGrammar: Subgraph isomorphism; finds shapes (like a triangle) and rewrites them.
+MutateFlowDirect: (Former Assessor) Picks a root, calculates depth, and deletes backward-flowing edges.
+
+Group C: GEOMETRY (Moves nodes physically, keeps topology)
+
+GeoJitter: Randomly offsets node Vector2 positions to make rigid shapes organic.
+GeoRelaxBuoyancy: Instantly runs $X$ iterations of the physics engine to untangle messy graphs.
+
+Group D: SEMANTICS (Mutates data, metadata, and tags)
+
+SemanticBiomeFill: Flood-fills nodes with specific structural/biome types.
+SemanticAutoZone: Groups a selection of nodes into a GraphZone for the editor.
+SemanticDAGLocks: Evaluates topological depth and distributes Lock/Key tags.
+SemanticLogicGates: Evaluates edge convergence and assigns AND/OR gate tags.
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### 3. Advanced Agent Graph Rewriting
@@ -14,16 +54,13 @@
 
 -lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
 -bezier curves for custom edges.
--Procedural colour generation to generate palettes for the rasterizer's tilemaps, and then assign those colours to the raster.
 
 -Tilemap validation via bfs algorithms that can validate several test: if every entity spawn can be reached, if the end point can be reached (not implemented yet), if "keys" scattered across the map can be reached (not implemented yet), etc.
 
--make rasterizer critical pathway's size of 1 actually 1 tile wide rather than 3 tiles wide.
 
--Mkae the popup menu support "sep" as a separator rather than a display of that literal text of "sep".
 -Make GraphCamera not always zoom in/out of graph when mouse is hovering over the UI Sidebar.
 
--Tilemap editor for ease of creation of tiles for tilemap.
+
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 	

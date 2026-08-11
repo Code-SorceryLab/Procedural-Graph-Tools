@@ -820,7 +820,7 @@ func _update_biome_button_text() -> void:
 	var btn = _active_inputs["btn_biome_config"] as Button
 	if active_count > 0:
 		btn.text = "Override Biome Rules (%d Active)..." % active_count
-		btn.modulate = Color(0.6, 1.0, 0.6) # Tint green to show it's active!
+		btn.modulate = Color(0.6, 1.0, 0.6) # Tint green to show it's active
 	else:
 		btn.text = "Override Biome Rules..."
 		btn.modulate = Color.WHITE

@@ -5,6 +5,16 @@ extends RefCounted
 const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve Questline,Player Controlled"
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
+# Strictly typed behavior modes
+enum BehaviorMode {
+	HOLD = 0,
+	WANDER = 1,
+	GROW = 2,
+	SEEK = 3,
+	MAZE = 4,
+	SOLVER = 5,
+	MANUAL = 6
+}
 # ==============================================================================
 # 1. NEW ARCHITECTURE: CAPABILITIES
 # ==============================================================================
@@ -45,7 +55,7 @@ var last_bump_pos: Vector2 = Vector2.INF
 # ==============================================================================
 # 3. CONFIGURATION
 # ==============================================================================
-var behavior_mode: int = 0  
+var behavior_mode: int = BehaviorMode.GROW
 var movement_algo: int = 0  
 var _current_path_cache: Array[String] = []
 var _path_target_id: String = ""
@@ -62,7 +72,8 @@ var steps: int = 15
 
 # --- STATIC TEMPLATES ---
 static var spawn_template: Dictionary = {
-	"global_behavior": 0, "movement_algo": 0, "target_node_id": "",
+	"global_behavior": BehaviorMode.GROW, # [FIXED]
+	"movement_algo": 0, "target_node_id": "",
 	"steps": 15, "snap_to_grid": false, 
 	"use_geometric_fc": false, "use_zone_constraints": false,
 	"branching_prob": 0.0, "destructive_backtrack": true,
@@ -289,13 +300,13 @@ func step(graph: Graph, _context: Dictionary = {}) -> void:
 
 func _refresh_brain() -> void:
 	match behavior_mode:
-		0: set_behavior(BehaviorsStandard.Hold.new())
-		1: set_behavior(BehaviorsStandard.Wander.new()) 
-		2: set_behavior(BehaviorGrow.new()) 
-		3: set_behavior(BehaviorsStandard.Seek.new(movement_algo))
-		4: set_behavior(BehaviorMazeGen.new()) 
-		5: set_behavior(BehaviorSolver.new())
-		6: set_behavior(BehaviorManual.new())
+		BehaviorMode.HOLD: set_behavior(BehaviorsStandard.Hold.new())
+		BehaviorMode.WANDER: set_behavior(BehaviorsStandard.Wander.new()) 
+		BehaviorMode.GROW: set_behavior(BehaviorGrow.new()) 
+		BehaviorMode.SEEK: set_behavior(BehaviorsStandard.Seek.new(movement_algo))
+		BehaviorMode.MAZE: set_behavior(BehaviorMazeGen.new()) 
+		BehaviorMode.SOLVER: set_behavior(BehaviorSolver.new())
+		BehaviorMode.MANUAL: set_behavior(BehaviorManual.new())
 		_: set_behavior(BehaviorsStandard.Hold.new())
 
 func set_behavior(new_brain: AgentBehavior, graph: Graph = null) -> void:
@@ -431,7 +442,7 @@ static func get_template_settings() -> Array[Dictionary]:
 	return [
 		{ "name": "agent_seed", "label": "Agent Seed", "type": TYPE_STRING, "default": "", 
 		  "hint_text": "Force a specific seed for this individual agent. Overrides the strategy seed." },
-		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": 0, "options": OPTIONS_BEHAVIOR, 
+		{ "name": "global_behavior", "label": "Goal", "type": TYPE_INT, "default": BehaviorMode.GROW, "options": OPTIONS_BEHAVIOR, 
 		  "hint_text": "Determines the agent's primary brain logic and how it interacts with the world.\n- Hold Position: Remains stationary\n- Wander: Randomly traverses edges\n- Grow (Expansion): Builds new nodes into empty space\n- Seek Target: Navigates toward a specific node\n- Maze Generator: Uses DFS to carve structured paths" },
 		  
 		{ "name": "movement_algo", "label": "Pathfinding", "type": TYPE_INT, "default": 0, "options": OPTIONS_ALGO, 

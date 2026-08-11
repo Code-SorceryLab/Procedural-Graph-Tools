@@ -82,6 +82,21 @@ func create_zone_from_nodes(zone_name: String, color: Color, node_ids: Array[Str
 # 2. MUTATOR OVERRIDES (With Hooks)
 # ==============================================================================
 
+func set_node_position(id: String, new_pos: Vector2) -> void:
+	if not nodes.has(id): return
+	
+	# Fetch the old position depending on how your recorder stores nodes internally
+	var old_pos = nodes[id].position if typeof(nodes[id]) == TYPE_OBJECT else nodes[id]["position"]
+	
+	# Apply to the sandbox
+	if typeof(nodes[id]) == TYPE_OBJECT:
+		nodes[id].position = new_pos
+	else:
+		nodes[id]["position"] = new_pos
+		
+	# Queue the command
+	recorded_commands.append(CmdMoveNode.new(_target_graph, id, old_pos, new_pos))
+
 func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 	var already_exists = nodes.has(id)
 	

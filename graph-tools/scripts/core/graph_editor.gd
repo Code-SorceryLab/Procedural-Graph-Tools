@@ -20,7 +20,7 @@ signal request_agent_tab_view(filter_node_id: String)
 # --- DATA MODEL ---
 var graph: Graph = Graph.new()
 
-# --- PHYSICS/LOGIC ENGINE ---
+# --- PHYSICS & LOGIC ENGINE ---
 var simulation: Simulation
 var buoyancy_engine: BuoyancyEngine
 
