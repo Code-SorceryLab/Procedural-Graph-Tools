@@ -21,27 +21,38 @@ func get_settings() -> Array[Dictionary]:
 	var s = super.get_settings()
 	s.append_array([
 		{ "name": "algorithm", "label": "Use Kruskal (Fast)", "type": TYPE_BOOL, "default": true, "hint_text": "True = Kruskal (Global shortest path). False = Prim (Radial outward growth)." },
-		{ "name": "search_range", "label": "Spatial Range Multiplier", "type": TYPE_FLOAT, "default": 2.5, "min": 1.5, "max": 10.0, "step": 0.5 }
+		{ "name": "search_range", "label": "Spatial Range Multiplier", "type": TYPE_FLOAT, "default": 2.5, "min": 1.5, "max": 10.0, "step": 0.5 },
+		{ "name": "target_mask", "label": "Target Nodes", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "All Nodes,Affected by Previous Step" }
 	])
 	return s
 
 func execute(recorder: GraphRecorder) -> void:
 	setup_rng()
 	
+	var target_mask = local_settings.get("target_mask", 0)
 	var nodes_list = recorder.nodes.keys()
+	
+	if target_mask == 1:
+		nodes_list = []
+		var context_nodes = get_context_nodes(false)
+		for id in context_nodes:
+			if recorder.nodes.has(id): nodes_list.append(id)
+			
 	if nodes_list.is_empty(): return 
 	
 	var use_kruskal = local_settings.get("algorithm", true)
 	var range_mult = float(local_settings.get("search_range", 2.5))
-	
 	var spacing = GraphSettings.GRID_SPACING
 	var radius_vec = spacing * range_mult
 	
-	# 1. UNDO-SAFE EDGE CLEARING
+	var node_set = {}
+	for id in nodes_list: node_set[id] = true
+	
 	var original_edges: Dictionary = {}
 	var edges_to_remove: Array = []
-	for u_id in recorder.nodes:
+	for u_id in nodes_list:
 		for v_id in recorder.get_neighbors(u_id):
+			if not node_set.has(v_id): continue 
 			var pair = [u_id, v_id]
 			pair.sort()
 			if not original_edges.has(pair):
@@ -51,15 +62,12 @@ func execute(recorder: GraphRecorder) -> void:
 	for pair in edges_to_remove:
 		recorder.remove_edge(pair[0], pair[1])
 		
-	# 2. ROUTE TO ALGORITHM
 	if use_kruskal:
-		_execute_kruskal(recorder, nodes_list, radius_vec, original_edges)
+		_execute_kruskal(recorder, nodes_list, radius_vec, original_edges, node_set)
 	else:
-		_execute_prim(recorder, nodes_list, radius_vec, original_edges)
+		_execute_prim(recorder, nodes_list, radius_vec, original_edges, node_set)
 
-
-# --- ALGORITHM A: KRUSKAL (Global) ---
-func _execute_kruskal(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2, original_edges: Dictionary) -> void:
+func _execute_kruskal(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2, original_edges: Dictionary, node_set: Dictionary) -> void:
 	var potential_edges = []
 	var added_pairs = {}
 	var max_radius = max(rad_vec.x, rad_vec.y)
@@ -74,6 +82,7 @@ func _execute_kruskal(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vecto
 		var u_pos = recorder.get_node_pos(u_id)
 		var nearby = recorder.get_nodes_near_position(u_pos, max_radius)
 		for v_id in nearby:
+			if not node_set.has(v_id): continue # <--- CRITICAL FIX: Ignore unmasked nodes
 			if u_id >= v_id: continue 
 			var pair = [u_id, v_id]
 			if added_pairs.has(pair): continue
@@ -103,9 +112,7 @@ func _execute_kruskal(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vecto
 			recorder.add_edge(edge.u, edge.v)
 			edges_count += 1
 
-
-# --- ALGORITHM B: PRIM (Radial Outward) ---
-func _execute_prim(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2, original_edges: Dictionary) -> void:
+func _execute_prim(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2, original_edges: Dictionary, node_set: Dictionary) -> void:
 	var visited = {}
 	var start_node = nodes_list[0]
 	visited[start_node] = true
@@ -130,6 +137,7 @@ func _execute_prim(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2,
 					
 		var nearby = recorder.get_nodes_near_position(u_pos, max_radius)
 		for v_id in nearby:
+			if not node_set.has(v_id): continue # <--- CRITICAL FIX
 			if u_id == v_id: continue
 			if visited.has(v_id): continue 
 			
@@ -153,7 +161,6 @@ func _execute_prim(recorder: GraphRecorder, nodes_list: Array, rad_vec: Vector2,
 		iter += 1
 		if iter > max_iterations: break
 		
-		# Sort reversed so pop_back() gets the SMALLEST distance (and prioritizes existing edges)
 		edges_candidates.sort_custom(func(a, b): 
 			if a.existed != b.existed: return not a.existed
 			return a.dist > b.dist

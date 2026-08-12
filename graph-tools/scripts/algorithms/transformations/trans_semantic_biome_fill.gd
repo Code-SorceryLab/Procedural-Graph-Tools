@@ -13,6 +13,7 @@ func get_settings() -> Array[Dictionary]:
 		{ "name": "protect_existing", "label": "Protect Painted Rooms", "type": TYPE_BOOL, "default": false },
 		{ "name": "max_depth", "label": "Max Expansion Steps", "type": TYPE_INT, "default": 0, "min": 0, "max": 50, "hint_text": "0 = Infinite. Limits how far a biome can grow." },
 		{ "name": "evenly_space", "label": "Evenly Space Seeds", "type": TYPE_BOOL, "default": true },
+		{ "name": "target_mask", "label": "Target Nodes", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "All Nodes,Affected by Previous Step" },
 		{ "name": "sep_biomes", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "btn_biome_palette", "label": "Configure Biome Palette...", "type": TYPE_NIL, "hint": "button" }
 	])
@@ -35,7 +36,6 @@ func execute(recorder: GraphRecorder) -> void:
 	setup_rng()
 	if recorder.nodes.is_empty(): return
 	
-	# Gather allowed biomes from local settings
 	var allowed_biomes: Array[String] = []
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
 	for key in node_cats:
@@ -50,10 +50,23 @@ func execute(recorder: GraphRecorder) -> void:
 	var clear_previous = local_settings.get("clear_previous", true)
 	var protect_existing = local_settings.get("protect_existing", false)
 	
+	# [NEW] Establish our restricted processing pool!
+	var target_mask = local_settings.get("target_mask", 0)
+	var nodes_to_process = recorder.nodes.keys()
+	
+	if target_mask == 1:
+		nodes_to_process = []
+		var context_nodes = get_context_nodes(false)
+		for id in context_nodes:
+			if recorder.nodes.has(id): nodes_to_process.append(id)
+			
+	if nodes_to_process.is_empty(): return
+	
 	# --- 1. MASKING & INITIAL STATE ---
 	var assigned_types = {} 
 	
-	for id in recorder.nodes:
+	# [CRITICAL FIX] Use nodes_to_process, NOT recorder.nodes!
+	for id in nodes_to_process:
 		var t = recorder.nodes[id].type
 		if protect_existing and t != "empty":
 			assigned_types[id] = t
@@ -62,7 +75,8 @@ func execute(recorder: GraphRecorder) -> void:
 			
 	# --- 2. PICK SEEDS ---
 	var valid_seed_nodes = []
-	var all_nodes = recorder.nodes.keys()
+	# [CRITICAL FIX] Use nodes_to_process, NOT recorder.nodes.keys()
+	var all_nodes = nodes_to_process.duplicate() 
 	all_nodes.sort() 
 	
 	for id in all_nodes:
@@ -109,7 +123,6 @@ func execute(recorder: GraphRecorder) -> void:
 
 	# --- 4. FLOOD FILL ---
 	if not use_spatial:
-		# Topological BFS
 		var max_speed = 1
 		for b in allowed_biomes:
 			if local_settings.get("speed_" + b, 1) > max_speed:
@@ -134,7 +147,8 @@ func execute(recorder: GraphRecorder) -> void:
 						var neighbors = recorder.get_neighbors(current)
 						SeedUtils.shuffle(neighbors, rng)
 						for neighbor in neighbors:
-							if not assigned_types.has(neighbor):
+							# [CRITICAL FIX] Ensure neighbor is in our mask!
+							if not assigned_types.has(neighbor) and nodes_to_process.has(neighbor):
 								assigned_types[neighbor] = b
 								recorder.set_node_type(neighbor, b)
 								depths[neighbor] = current_depth + 1
@@ -142,11 +156,11 @@ func execute(recorder: GraphRecorder) -> void:
 								any_progress = true
 				frontiers = next_frontiers 
 	else:
-		# Spatial Voronoi
 		var max_dist_sq = INF
 		if max_depth > 0: max_dist_sq = pow(max_depth * 150.0, 2)
 			
-		for id in recorder.nodes:
+		# [CRITICAL FIX] Use nodes_to_process!
+		for id in nodes_to_process:
 			if assigned_types.has(id): continue 
 			var min_eff_dist = INF
 			var closest_seed = ""

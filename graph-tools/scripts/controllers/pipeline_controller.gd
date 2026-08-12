@@ -12,7 +12,7 @@ func _exit_tree() -> void: if instance == self: instance = null
 @export var ui_container: VBoxContainer
 
 # --- PIPELINE STATE ---
-var available_modifiers: Array[Script] = [] 
+var available_modifiers: Array[Script] = GraphSettings.available_modifiers
 var modifier_stack: Array[GraphModifier] = [] 
 var selected_stack_index: int = -1
 
@@ -24,6 +24,10 @@ var _active_recorder: GraphRecorder
 var _step_start_time: int
 var _total_start_time: int
 var _profiling_log: String = ""
+
+# --- THREADING STATE ---
+var _pipeline_context: Dictionary = {}
+var _live_context: Dictionary = {} # Memory for Live Apply actions!
 
 # --- UI REFERENCES ---
 var _add_dropdown: OptionButton
@@ -42,24 +46,6 @@ var _file_dialog: FileDialog
 var _dialog_mode: String = ""
 
 func _ready() -> void:
-	available_modifiers.append(GenerateGrid) 
-	available_modifiers.append(GeneratePolar)
-	available_modifiers.append(GenerateDAG)
-	
-	available_modifiers.append(MutateDLA)
-	available_modifiers.append(MutateMST)
-	available_modifiers.append(MutateBraid)
-	available_modifiers.append(MutateCA)
-	available_modifiers.append(MutateFlowDirect)
-	available_modifiers.append(MutateWalker)
-	available_modifiers.append(MutateGrammar)
-
-	available_modifiers.append(GeoJitter)
-	available_modifiers.append(GeoRelaxBuoyancy)
-	
-	available_modifiers.append(SemanticBiomeFill)
-	available_modifiers.append(SemanticDAGLocks)
-	available_modifiers.append(SemanticLogicGates)
 	
 	_palette_popup = AlgorithmSettingsPopup.new()
 	add_child(_palette_popup)
@@ -327,12 +313,19 @@ func _on_run_pipeline_pressed() -> void:
 	_profiling_log = ""
 	_total_start_time = Time.get_ticks_msec()
 	
-	# HIDE GRAPH TO PREVENT CRASHES AND FLICKERING DURING CALCULATION
 	if graph_editor.renderer:
 		graph_editor.renderer.visible = false
 		
 	print("\n========== PIPELINE START ==========")
 	graph_editor.start_undo_transaction("Run Pipeline")
+	
+	_pipeline_context = {
+		"touched_nodes": [],
+		"touched_edges": []
+	}
+	
+	# Wipe the stale Live memory so ghost nodes don't persist!
+	_live_context.clear() 
 	
 	_current_mod_index = 0
 	_start_next_modifier()
@@ -347,7 +340,6 @@ func _start_next_modifier() -> void:
 	
 	var graph = graph_editor.graph
 	
-	# 1. FAST SYNCHRONOUS WIPE (Generators only)
 	if mod.category == GraphModifier.Category.GENERATOR:
 		var clear_batch = CmdBatch.new(graph, "Clear Graph", false)
 		for id in graph.nodes.keys():
@@ -357,11 +349,12 @@ func _start_next_modifier() -> void:
 		if clear_batch.get_command_count() > 0:
 			graph_editor._commit_command(clear_batch)
 			
-	# 2. SETUP SANDBOX
 	_active_recorder = GraphRecorder.new(graph)
 	_step_start_time = Time.get_ticks_msec()
 	
-	# 3. DISPATCH HEAVY MATH TO BACKGROUND THREAD
+	# [CRITICAL FIX] Inject the global _pipeline_context!
+	mod.pipeline_context = _pipeline_context.duplicate(true)
+	
 	_current_task_id = WorkerThreadPool.add_task(_thread_execute_modifier.bind(mod, _active_recorder), true, "Pipeline Mod")
 
 # This function runs isolated on a background CPU core!
@@ -380,14 +373,17 @@ func _process(_delta: float) -> void:
 		var mod = modifier_stack[_current_mod_index]
 		var elapsed = Time.get_ticks_msec() - _step_start_time
 		_profiling_log += "%s: %d ms\n" % [mod.modifier_name, elapsed]
-		print("[%d/%d] %s (%d ms)" % [_current_mod_index + 1, modifier_stack.size(), mod.modifier_name, elapsed])
 		
-		# FAST SYNCHRONOUS COMMIT: Push changes to Undo Stack & Live Graph Memory
+		# FAST SYNCHRONOUS COMMIT
 		var mod_batch = CmdBatch.new(graph_editor.graph, mod.modifier_name, false)
 		for cmd in _active_recorder.recorded_commands:
 			mod_batch.add_command(cmd)
 		if mod_batch.get_command_count() > 0:
 			graph_editor._commit_command(mod_batch)
+			
+		# [FIX] Capture the footprint securely on the main thread!
+		_pipeline_context["touched_nodes"] = _active_recorder.touched_nodes.duplicate()
+		_pipeline_context["touched_edges"] = _active_recorder.touched_edges.duplicate()
 			
 		_current_mod_index += 1
 		_progress_bar.value = _current_mod_index
@@ -431,7 +427,14 @@ func _on_live_apply_pressed() -> void:
 	var graph = graph_editor.graph
 	
 	var recorder = GraphRecorder.new(graph)
+	
+	# [FIX] Inject memory from the previous Live Apply!
+	mod.pipeline_context = _live_context.duplicate(true)
 	mod.execute(recorder)
+	
+	# [FIX] Save memory for the NEXT Live Apply!
+	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
+	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
 	
 	var mod_batch = CmdBatch.new(graph, mod.modifier_name, false)
 	for cmd in recorder.recorded_commands:
@@ -463,7 +466,15 @@ func _on_live_generate_pressed() -> void:
 		
 	# 2. Additive Apply
 	var recorder = GraphRecorder.new(graph)
+	
+	# [FIX] Wipe the memory clean since we just destroyed the graph!
+	_live_context.clear()
+	mod.pipeline_context = _live_context.duplicate(true)
 	mod.execute(recorder)
+	
+	# [FIX] Save memory for the NEXT Live action!
+	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
+	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
 	
 	var mod_batch = CmdBatch.new(graph, mod.modifier_name, false)
 	for cmd in recorder.recorded_commands:

@@ -15,6 +15,9 @@ var category: Category = Category.GENERATOR
 var local_settings: Dictionary = {}
 var rng: RandomNumberGenerator
 
+# Stores the footprint passed down from the previous modifier in the pipeline
+var pipeline_context: Dictionary = {} 
+
 func _init() -> void:
 	rng = RandomNumberGenerator.new()
 
@@ -47,3 +50,31 @@ func setup_rng() -> void:
 # Virtual Function: All subclasses must override this.
 func execute(_recorder: GraphRecorder) -> void:
 	push_error("GraphModifier: execute() method not implemented.")
+
+# ==============================================================================
+# PIPELINE CONTEXT UTILITIES
+# ==============================================================================
+
+# Safely extracts all node IDs touched by the previous step.
+# If include_edge_endpoints is true, it also returns the nodes attached to any touched edges.
+func get_context_nodes(include_edge_endpoints: bool = false) -> Array[String]:
+	var result_set = {}
+	
+	if pipeline_context.has("touched_nodes"):
+		for id in pipeline_context["touched_nodes"]:
+			result_set[id] = true
+			
+	if include_edge_endpoints and pipeline_context.has("touched_edges"):
+		for pair in pipeline_context["touched_edges"]:
+			result_set[pair[0]] = true
+			result_set[pair[1]] = true
+			
+	var final_array: Array[String] = []
+	final_array.assign(result_set.keys())
+	return final_array
+
+# Safely extracts all edges touched by the previous step.
+func get_context_edges() -> Array:
+	if pipeline_context.has("touched_edges"):
+		return pipeline_context["touched_edges"]
+	return []

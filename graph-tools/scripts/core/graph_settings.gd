@@ -17,6 +17,28 @@ static func set_global_grid_spacing(new_spacing: Vector2) -> void:
 # 2. ALGORITHM & PARAMETER DEFINITIONS
 # ==============================================================================
 
+static var available_modifiers: Array[Script] = [
+	GenerateGrid, 
+	GeneratePolar, 
+	GenerateDAG, 
+	
+	MutateDLA, 
+	MutateMST, 
+	MutateBraid, 
+	MutateCA, 
+	MutateFlowDirect, 
+	MutateWalker, 
+	MutateGrammar, 
+	MutateEdgeSubdivide, 
+	
+	GeoJitter, 
+	GeoRelaxBuoyancy, 
+	
+	SemanticBiomeFill, 
+	SemanticDAGLocks, 
+	SemanticLogicGates
+]
+
 # Centralized definitions for UI Tooltips
 const PARAM_TOOLTIPS = {
 	"common": {

@@ -10,7 +10,7 @@ func get_settings() -> Array[Dictionary]:
 	s.append_array([
 		{ "name": "wedges", "type": TYPE_INT, "default": 6, "min": 3, "max": 32 },
 		{ "name": "radius", "type": TYPE_INT, "default": 8, "min": 2, "max": 50 },
-		{ "name": "use_zones", "label": "Group into Zone", "type": TYPE_BOOL, "default": true }
+		{ "name": "use_zones", "label": "Group into Zone", "type": TYPE_BOOL, "default": false }
 	])
 	return s
 
@@ -19,7 +19,7 @@ func execute(recorder: GraphRecorder) -> void:
 	
 	var wedges = local_settings.get("wedges", 6)
 	var rad_steps = local_settings.get("radius", 8)
-	var use_zones = local_settings.get("use_zones", true)
+	var use_zones = local_settings.get("use_zones", false)
 	var spacing = GraphSettings.GRID_SPACING
 
 	if use_zones:

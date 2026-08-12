@@ -59,14 +59,18 @@ func _process_single_run(idx: int, pipeline_stack: Array[GraphModifier], combina
 	var params = combinations[idx]
 	var dummy_graph = Graph.new()
 	
+	# Initialize isolated context for this exact thread
+	var current_context = { "touched_nodes": [], "touched_edges": [] }
+	
 	# Execute the full pipeline on this thread
 	for i in range(pipeline_stack.size()):
 		var template = pipeline_stack[i]
 		
-		# Because we are on a background thread, we must instantiate a fresh copy 
-		# so we don't cause race conditions modifying the base local_settings!
 		var mod = template.get_script().new() as GraphModifier
 		mod.local_settings = template.local_settings.duplicate(true)
+		
+		# Inject Context
+		mod.pipeline_context = current_context.duplicate(true)
 		
 		# Inject the swept parameters for this specific modifier
 		for k in params.keys():
@@ -77,6 +81,10 @@ func _process_single_run(idx: int, pipeline_stack: Array[GraphModifier], combina
 				
 		var recorder = GraphRecorder.new(dummy_graph)
 		mod.execute(recorder)
+		
+		# Update Context for the NEXT iteration in this loop
+		current_context["touched_nodes"] = recorder.touched_nodes.duplicate()
+		current_context["touched_edges"] = recorder.touched_edges.duplicate()
 		
 		# Synchronously commit the commands to the dummy graph so the NEXT modifier sees them!
 		for cmd in recorder.recorded_commands:

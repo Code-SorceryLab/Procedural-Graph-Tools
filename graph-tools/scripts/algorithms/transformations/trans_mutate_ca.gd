@@ -8,6 +8,7 @@ func _init() -> void:
 func get_settings() -> Array[Dictionary]:
 	var s = super.get_settings()
 	s.append_array([
+		{ "name": "target_mask", "label": "Target Nodes", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "All Nodes,Affected by Previous Step" },
 		{ "name": "fill_percent", "label": "Initial Fill (%)", "type": TYPE_INT, "default": 55, "min": 10, "max": 100, "hint_text": "Randomly deletes nodes before simulating. (100% = solid block)" },
 		{ "name": "iterations", "label": "Smoothing Passes", "type": TYPE_INT, "default": 4, "min": 0, "max": 10 },
 		{ "name": "carve_only", "label": "Carve Only (No Births)", "type": TYPE_BOOL, "default": true, "hint_text": "If true, nodes can only be destroyed, never created. Keeps the outer silhouette of the graph intact." }
@@ -23,13 +24,26 @@ func execute(recorder: GraphRecorder) -> void:
 	var carve_only = local_settings.get("carve_only", true)
 	var spacing = GraphSettings.GRID_SPACING
 	
-	# 1. Map existing graph to a spatial grid
+	# [NEW] Establish restricted processing pool
+	var target_mask = local_settings.get("target_mask", 0)
+	var nodes_to_process = recorder.nodes.keys()
+	
+	if target_mask == 1:
+		nodes_to_process = []
+		var context_nodes = get_context_nodes(false)
+		for id in context_nodes:
+			if recorder.nodes.has(id): nodes_to_process.append(id)
+			
+	if nodes_to_process.is_empty(): return
+	
+	# 1. Map masked graph to a spatial grid
 	var grid = {}
 	var original_nodes = {}
 	var min_p = Vector2i(INF, INF)
 	var max_p = Vector2i(-INF, -INF)
 	
-	for id in recorder.nodes:
+	# [CRITICAL FIX] Use nodes_to_process instead of recorder.nodes!
+	for id in nodes_to_process:
 		var pos = recorder.get_node_pos(id)
 		var grid_pos = Vector2i(round(pos.x / spacing.x), round(pos.y / spacing.y))
 		

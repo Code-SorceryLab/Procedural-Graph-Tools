@@ -18,7 +18,7 @@ extends Node
 @export var export_dialog: FileDialog
 
 # --- INTERNAL STATE ---
-var available_modifiers: Array[Script] = []
+var available_modifiers: Array[Script] = GraphSettings.available_modifiers
 var _active_pipeline: Array[GraphModifier] = []
 
 var _latest_results: Array[Dictionary] = []
@@ -51,13 +51,6 @@ func _ready() -> void:
 	# Load default metrics
 	for def in GraphMetrics.get_analysis_options_schema():
 		_metrics_config[def.name] = def.get("default")
-		
-	# Populates the catalog so we can deserialize pipelines!
-	available_modifiers.append_array([
-		GenerateGrid, GeneratePolar, GenerateDAG, MutateDLA, MutateMST, MutateBraid, 
-		MutateCA, MutateFlowDirect, MutateWalker, MutateGrammar, GeoJitter, 
-		GeoRelaxBuoyancy, SemanticBiomeFill, SemanticDAGLocks, SemanticLogicGates
-	])
 	
 	_setup_popups()
 	_setup_pipeline_loader()
