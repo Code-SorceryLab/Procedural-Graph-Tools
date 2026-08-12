@@ -1,0 +1,54 @@
+{
+	"meta": {
+		"timestamp": "2026-08-11T18:27:24",
+		"type": "PipelinePreset",
+		"version": "1.0"
+	},
+	"pipeline": [
+		{
+			"name": "Generate Grid",
+			"settings": {
+				"height": 3.0,
+				"modifier_seed": "",
+				"spacing_x": 60.0,
+				"spacing_y": 60.0,
+				"use_zones": true,
+				"width": 3.0
+			}
+		},
+		{
+			"name": "Biome Flood Fill",
+			"settings": {
+				"clear_previous": true,
+				"evenly_space": true,
+				"max_depth": 0,
+				"modifier_seed": "",
+				"protect_existing": false,
+				"seed_count": 5,
+				"speed_boss": 1,
+				"speed_empty": 1,
+				"speed_enemy": 1,
+				"speed_lava": 1,
+				"speed_scp_breach": 1,
+				"speed_scp_heavy": 1,
+				"speed_scp_light": 1,
+				"speed_scp_office": 1,
+				"speed_shop": 1,
+				"speed_spawn": 1,
+				"speed_treasure": 1,
+				"use_biome_boss": true,
+				"use_biome_empty": false,
+				"use_biome_enemy": true,
+				"use_biome_lava": false,
+				"use_biome_scp_breach": false,
+				"use_biome_scp_heavy": false,
+				"use_biome_scp_light": false,
+				"use_biome_scp_office": false,
+				"use_biome_shop": true,
+				"use_biome_spawn": true,
+				"use_biome_treasure": true,
+				"use_spatial": false
+			}
+		}
+	]
+}

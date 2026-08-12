@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://b4kjmis7vpbxa"]
+[gd_scene load_steps=23 format=3 uid="uid://b4kjmis7vpbxa"]
 
 [ext_resource type="Script" uid="uid://b4wn2nbuyjl6b" path="res://scripts/core/game_player.gd" id="1_wv330"]
 [ext_resource type="Script" uid="uid://buyxwg20whig" path="res://scripts/controllers/strategy_controller.gd" id="2_hgyw2"]
@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://7e6g2rbnyccx" path="res://scenes/settings_window.tscn" id="10_v0keg"]
 [ext_resource type="Script" uid="uid://ry2ytfwa282e" path="res://scripts/controllers/ui_layout_controller.gd" id="13_jdcg6"]
 [ext_resource type="Texture2D" uid="uid://cq2y7wtdi43cp" path="res://assets/Tilemap.png" id="13_xxfec"]
+[ext_resource type="Script" uid="uid://dwkciwcjyop2l" path="res://scripts/ui/sidebar.gd" id="19_0l88c"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_jdcg6"]
 texture = ExtResource("13_xxfec")
@@ -331,9 +332,11 @@ text = ">"
 [node name="Sidebar" type="PanelContainer" parent="UI/MainLayout/Workspace"]
 custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
+script = ExtResource("19_0l88c")
 
 [node name="Margin" type="MarginContainer" parent="UI/MainLayout/Workspace/Sidebar"]
 layout_mode = 2
+mouse_filter = 0
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
@@ -341,6 +344,7 @@ theme_override_constants/margin_bottom = 15
 
 [node name="TabContainer" type="TabContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin"]
 layout_mode = 2
+mouse_filter = 0
 tab_alignment = 1
 current_tab = 1
 drag_to_rearrange_enabled = true

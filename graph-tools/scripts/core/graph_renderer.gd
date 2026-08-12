@@ -47,6 +47,7 @@ var hovered_agent_ref: Object = null
 var hovered_zone_ref: Object = null
 var snap_preview_pos: Vector2 = Vector2.INF
 var selection_rect: Rect2 = Rect2()
+var selection_lasso: PackedVector2Array = []
 var cut_preview_edges: Array = []
 var highlighted_action_edges_ref: Array = []
 var agent_breadcrumbs_ref: Array = []
@@ -741,9 +742,27 @@ func _draw_layer_interaction() -> void:
 		draw_line(tool_line_start, tool_line_end, Color.ORANGE_RED, 2.0)
 
 func _draw_layer_selection_box() -> void:
+	# 1. Standard Rectangle Selection
 	if selection_rect.has_area():
 		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_Fill, true)
 		draw_rect(selection_rect, GraphSettings.COLOR_SELECT_BOX_BORDER, false, 1.0)
+		
+	# 2. Freeform Lasso Selection
+	if selection_lasso.size() > 2:
+		# Godot's fill renderer crashes on self-intersecting (figure-8) polygons.
+		# We test triangulation first. If it's empty, we just skip the fill for this frame!
+		var indices = Geometry2D.triangulate_polygon(selection_lasso)
+		if not indices.is_empty():
+			draw_colored_polygon(selection_lasso, GraphSettings.COLOR_SELECT_BOX_Fill)
+		
+		# ALWAYS draw the boundary outline, even if the fill is temporarily invalid
+		var closed_path = selection_lasso.duplicate()
+		closed_path.append(selection_lasso[0])
+		draw_polyline(closed_path, GraphSettings.COLOR_SELECT_BOX_BORDER, 2.0, true)
+		
+	# Handle the first micro-movement of drawing a lasso (only 2 points exist)
+	elif selection_lasso.size() == 2:
+		draw_line(selection_lasso[0], selection_lasso[1], GraphSettings.COLOR_SELECT_BOX_BORDER, 2.0, true)
 
 func _draw_transform_box() -> void:
 	# 1. Draw the bounding box border (2px thick)

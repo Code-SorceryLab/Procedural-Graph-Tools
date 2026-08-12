@@ -114,3 +114,50 @@ func _get_zones_in_rect(rect: Rect2) -> Array:
 					if not result.has(z): result.append(z)
 					break 
 	return result
+
+# ==============================================================================
+# LASSO HIT DETECTION (For Freeform Selection)
+# ==============================================================================
+
+func _get_nodes_in_lasso(polygon: PackedVector2Array) -> Array[String]:
+	var result: Array[String] = []
+	if polygon.size() < 3: return result
+	for id in _graph.nodes:
+		if Geometry2D.is_point_in_polygon(_graph.nodes[id].position, polygon):
+			result.append(id)
+	return result
+
+func _get_edges_in_lasso(polygon: PackedVector2Array) -> Array:
+	var result = []
+	if polygon.size() < 3: return result
+	for key in _graph.edge_store:
+		var e = _graph.edge_store[key]
+		var u_pos = _graph.nodes[e.u].position
+		var v_pos = _graph.nodes[e.v].position
+		# If either end of the edge is caught in the lasso, select it
+		if Geometry2D.is_point_in_polygon(u_pos, polygon) or Geometry2D.is_point_in_polygon(v_pos, polygon):
+			result.append([e.u, e.v])
+	return result
+
+func _get_agents_in_lasso(polygon: PackedVector2Array) -> Array:
+	var result = []
+	if polygon.size() < 3: return result
+	if "agents" in _graph:
+		for agent in _graph.agents:
+			if Geometry2D.is_point_in_polygon(agent.pos, polygon):
+				result.append(agent)
+	return result
+
+func _get_zones_in_lasso(polygon: PackedVector2Array) -> Array:
+	var result = []
+	if polygon.size() < 3: return result
+	if "zones" in _graph:
+		var spacing = Vector2(64, 64)
+		if GraphSettings: spacing = GraphSettings.GRID_SPACING
+		for z in _graph.zones:
+			for cell in z.cells:
+				var cell_pos = Vector2(cell.x * spacing.x, cell.y * spacing.y)
+				if Geometry2D.is_point_in_polygon(cell_pos, polygon):
+					if not result.has(z): result.append(z)
+					break 
+	return result

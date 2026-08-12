@@ -8,8 +8,10 @@ var _drag_node_id: String = ""        # The "Anchor" node we clicked on
 var _group_offsets: Dictionary = {}   # Stores { "node_id": Vector2_offset_from_anchor }
 var _drag_start_positions: Dictionary = {}
 
-# State B: Box Selection
+# State B: Region Selection
 var _box_start_pos: Vector2 = Vector2.INF
+var _selection_mode: int = 0 # 0 = Rectangle, 1 = Lasso
+var _lasso_path: PackedVector2Array = []
 
 # --- TRANSFORM STATE ---
 const TRANSFORM_PAD: float = 20.0 # Padding around nodes
@@ -73,8 +75,8 @@ func handle_input(event: InputEvent) -> void:
 					_handle_zone_click(clicked_zone)
 					return
 						
-				# 5. Nothing Hit -> Start Box Select
-				_start_box_selection(mouse_pos)
+				# 5. Nothing Hit -> Start Box/Lasso Select
+				_start_region_selection(mouse_pos)
 
 			else:
 				# --- CLICK RELEASE ---
@@ -83,13 +85,14 @@ func handle_input(event: InputEvent) -> void:
 				elif not _drag_node_id.is_empty():
 					_finish_moving_node()
 				elif _box_start_pos != Vector2.INF:
-					_finish_box_selection(mouse_pos)
+					_finish_region_selection(mouse_pos)
 		
-		_renderer.queue_redraw()
+		_renderer.queue_redraw() 
 
 	# 2. MOUSE MOTION INPUT
 	elif event is InputEventMouseMotion:
 		var mouse_pos = _editor.get_global_mouse_position()
+		
 		# Update Transform State
 		if _transform_active:
 			var is_shift = Input.is_key_pressed(KEY_SHIFT)
@@ -112,14 +115,26 @@ func handle_input(event: InputEvent) -> void:
 				var new_group_pos = anchor_pos + _group_offsets[id]
 				_editor.set_node_position(id, new_group_pos, true)
 		
-		# Update Box State
+		# Update Region Selection State (Rectangle vs Lasso)
 		elif _box_start_pos != Vector2.INF:
-			var rect = _get_rect(_box_start_pos, mouse_pos)
-			_renderer.selection_rect = rect
-			
-			# Live Visual Feedback using base class helpers
-			var potential_nodes = _get_nodes_in_rect(rect)
-			_renderer.pre_selection_ref = potential_nodes
+			if _selection_mode == 0:
+				var rect = _get_rect(_box_start_pos, mouse_pos)
+				_renderer.selection_rect = rect
+				if "selection_lasso" in _renderer: _renderer.selection_lasso.clear()
+				
+				var potential_nodes = _get_nodes_in_rect(rect)
+				_renderer.pre_selection_ref = potential_nodes
+			else:
+				# Lasso Mode: Drop a breadcrumb every 5 pixels
+				if _lasso_path.is_empty() or _lasso_path[-1].distance_to(mouse_pos) > 5.0:
+					_lasso_path.append(mouse_pos)
+				
+				_renderer.selection_rect = Rect2()
+				if "selection_lasso" in _renderer: _renderer.selection_lasso = _lasso_path
+				
+				var potential_nodes = _get_nodes_in_lasso(_lasso_path)
+				_renderer.pre_selection_ref = potential_nodes
+				
 			_renderer.queue_redraw()
 		
 		# [UPDATED] Live Hover Feedback
@@ -305,13 +320,15 @@ func _finish_moving_node() -> void:
 	_reset_tool_state()
 
 # ==============================================================================
-# BOX SELECTION (OMNI-TARGETING)
+# REGION SELECTION (OMNI-TARGETING)
 # ==============================================================================
 
-func _start_box_selection(pos: Vector2) -> void:
+func _start_region_selection(pos: Vector2) -> void:
 	_box_start_pos = pos
+	_lasso_path.clear()
+	_lasso_path.append(pos)
 
-func _finish_box_selection(mouse_pos: Vector2) -> void:
+func _finish_region_selection(mouse_pos: Vector2) -> void:
 	var drag_dist = _box_start_pos.distance_to(mouse_pos)
 	
 	if drag_dist < DRAG_THRESHOLD:
@@ -319,56 +336,80 @@ func _finish_box_selection(mouse_pos: Vector2) -> void:
 			_perform_global_deselect()
 		_reset_tool_state()
 		return
+		
+	var nodes_in_region = []
+	var edges_in_region = []
+	var agents_in_region = []
+	var zones_in_region = []
 	
-	var rect = _get_rect(_box_start_pos, mouse_pos)
-	
-	# [UPDATED] Use Base Class Hit Detection to cleanly grab everything
-	var nodes_in_box = _get_nodes_in_rect(rect)
-	var edges_in_box = _get_edges_in_rect(rect) 
-	var agents_in_box = _get_agents_in_rect(rect)
-	var zones_in_box = _get_zones_in_rect(rect)
+	if _selection_mode == 0:
+		var rect = _get_rect(_box_start_pos, mouse_pos)
+		nodes_in_region = _get_nodes_in_rect(rect)
+		edges_in_region = _get_edges_in_rect(rect) 
+		agents_in_region = _get_agents_in_rect(rect)
+		zones_in_region = _get_zones_in_rect(rect)
+	else:
+		nodes_in_region = _get_nodes_in_lasso(_lasso_path)
+		edges_in_region = _get_edges_in_lasso(_lasso_path)
+		agents_in_region = _get_agents_in_lasso(_lasso_path)
+		zones_in_region = _get_zones_in_lasso(_lasso_path)
 	
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
 	
 	if not is_shift and not is_ctrl:
 		# REPLACE
-		_editor.set_selection_batch(nodes_in_box, edges_in_box, true)
-		if not agents_in_box.is_empty(): _editor.set_agent_selection(agents_in_box, false)
-		if not zones_in_box.is_empty(): _editor.set_zone_selection(zones_in_box, false)
+		_editor.set_selection_batch(nodes_in_region, edges_in_region, true)
+		if not agents_in_region.is_empty(): _editor.set_agent_selection(agents_in_region, false)
+		if not zones_in_region.is_empty(): _editor.set_zone_selection(zones_in_region, false)
 			
 	elif is_shift:
 		# ADD
 		var nodes_to_add: Array[String] = []
-		for id in nodes_in_box:
+		for id in nodes_in_region:
 			if not _editor.selected_nodes.has(id): nodes_to_add.append(id)
 				
 		var edges_to_add: Array = []
-		for pair in edges_in_box:
+		for pair in edges_in_region:
 			if not _editor.is_edge_selected(pair): edges_to_add.append(pair)
 		
 		if not nodes_to_add.is_empty() or not edges_to_add.is_empty():
 			_editor.set_selection_batch(nodes_to_add, edges_to_add, false)
 			
-		if not agents_in_box.is_empty(): _add_agents_to_selection(agents_in_box)
-		if not zones_in_box.is_empty(): _add_zones_to_selection(zones_in_box)
+		if not agents_in_region.is_empty(): _add_agents_to_selection(agents_in_region)
+		if not zones_in_region.is_empty(): _add_zones_to_selection(zones_in_region)
 
 	elif is_ctrl:
 		# SUBTRACT
 		var final_nodes = _editor.selected_nodes.duplicate()
-		for id in nodes_in_box:
+		for id in nodes_in_region:
 			if final_nodes.has(id): final_nodes.erase(id)
 		
 		var final_edges = _editor.selected_edges.duplicate()
-		for pair in edges_in_box:
+		for pair in edges_in_region:
 			if _editor.is_edge_selected(pair): final_edges.erase(pair)
 		
 		_editor.set_selection_batch(final_nodes, final_edges, true)
-		_remove_agents_from_selection(agents_in_box)
-		_remove_zones_from_selection(zones_in_box)
+		_remove_agents_from_selection(agents_in_region)
+		_remove_zones_from_selection(zones_in_region)
 			
 	_reset_tool_state()
 
+
+
+func get_options_schema() -> Array:
+	return [{
+		"name": "selection_mode",
+		"label": "Mode",
+		"type": TYPE_INT,
+		"default": _selection_mode,
+		"hint": "enum",
+		"hint_string": "Rectangle,Lasso"
+	}]
+
+func apply_option(param_name: String, value: Variant) -> void:
+	if param_name == "selection_mode":
+		_selection_mode = int(value)
 # ==============================================================================
 # TRANSFORM BOUNDING BOX MATH
 # ==============================================================================
@@ -546,6 +587,7 @@ func _reset_tool_state() -> void:
 	_renderer.selection_rect = Rect2()
 	_renderer.transform_rect = Rect2() # Hide the box
 	_renderer.pre_selection_ref = []
+	_renderer.selection_lasso.clear()
 	_renderer.drag_start_id = ""
 	_renderer.queue_redraw()
 

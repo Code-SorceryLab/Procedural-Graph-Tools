@@ -12,7 +12,7 @@ var _completed_tasks: int = 0
 var _mutex: Mutex
 var _cancel_flag: bool = false
 
-func run_batch(strategy_script: Script, combinations: Array[Dictionary]) -> void:
+func run_batch(pipeline_stack: Array[GraphModifier], combinations: Array[Dictionary]) -> void:
 	_total_tasks = combinations.size()
 	_completed_tasks = 0
 	_results.resize(_total_tasks)
@@ -20,18 +20,15 @@ func run_batch(strategy_script: Script, combinations: Array[Dictionary]) -> void
 	_cancel_flag = false
 	is_running = true
 	
-	# Reset the global metrics abort flag so we don't instantly cancel!
 	GraphMetrics._cancel_flag = false
-	
 	if _total_tasks == 0:
-		push_error("ExperimentRunner: combinations array is empty!")
 		_monitor_progress.call_deferred()
 		return
 	
 	var safe_threads = max(1, OS.get_processor_count() - 2) 
 
 	_group_task_id = WorkerThreadPool.add_group_task(
-		_process_single_run.bind(strategy_script, combinations), 
+		_process_single_run.bind(pipeline_stack, combinations), 
 		_total_tasks, 
 		safe_threads, 
 		true, 
@@ -43,19 +40,16 @@ func cancel() -> void:
 	_mutex.lock()
 	_cancel_flag = true
 	_mutex.unlock()
-	
-	# Instantly kill all heavy math executing across ALL worker threads!
 	GraphMetrics.cancel_analysis()
 
 # ==============================================================================
-# THE THREADED WORKER (Runs concurrently on multiple CPU cores)
+# THE THREADED WORKER
 # ==============================================================================
-func _process_single_run(idx: int, strategy_script: Script, combinations: Array) -> void:
+func _process_single_run(idx: int, pipeline_stack: Array[GraphModifier], combinations: Array) -> void:
 	_mutex.lock()
 	var cancelled = _cancel_flag
 	_mutex.unlock()
 	
-	# Also check the global metrics abort flag
 	if cancelled or GraphMetrics._cancel_flag:
 		_mutex.lock()
 		_completed_tasks += 1 
@@ -63,35 +57,32 @@ func _process_single_run(idx: int, strategy_script: Script, combinations: Array)
 		return
 		
 	var params = combinations[idx]
-	
-	# --- DIAGNOSTIC PRINTS ---
-	# If a thread crashes, the console will show the last successful print!
-	# print("[Task %d] Instantiating Strategy..." % idx)
-	var strategy: GraphStrategy = strategy_script.new()
 	var dummy_graph = Graph.new()
-	var recorder = GraphRecorder.new(dummy_graph)
 	
-	# print("[Task %d] Executing Strategy..." % idx)
-	strategy.execute(recorder, params)
-	
-	# print("[Task %d] Committing Commands..." % idx)
-	for cmd in recorder.recorded_commands: 
-		cmd.execute()
-	
-	# print("[Task %d] Checking Walkers..." % idx)
-	if strategy is StrategyWalker:
-		var active_agents = true
-		var ticks = 0
-		while active_agents and ticks < 5000:
-			active_agents = false
-			for agent in dummy_graph.agents:
-				if not agent.is_finished: active_agents = true; agent.step(dummy_graph)
-			ticks += 1
+	# Execute the full pipeline on this thread
+	for i in range(pipeline_stack.size()):
+		var template = pipeline_stack[i]
+		
+		# Because we are on a background thread, we must instantiate a fresh copy 
+		# so we don't cause race conditions modifying the base local_settings!
+		var mod = template.get_script().new() as GraphModifier
+		mod.local_settings = template.local_settings.duplicate(true)
+		
+		# Inject the swept parameters for this specific modifier
+		for k in params.keys():
+			var prefix = "mod_%d_" % i
+			if k.begins_with(prefix):
+				var real_key = k.substr(prefix.length())
+				mod.local_settings[real_key] = params[k]
+				
+		var recorder = GraphRecorder.new(dummy_graph)
+		mod.execute(recorder)
+		
+		# Synchronously commit the commands to the dummy graph so the NEXT modifier sees them!
+		for cmd in recorder.recorded_commands:
+			cmd.execute()
 			
-	# print("[Task %d] Validating Graph..." % idx)
 	GraphValidator.validate(dummy_graph, true)
-	
-	# Pass params so the flattener knows which heavy metrics were toggled on
 	var metrics = _extract_core_metrics(dummy_graph, params)
 	
 	_mutex.lock()

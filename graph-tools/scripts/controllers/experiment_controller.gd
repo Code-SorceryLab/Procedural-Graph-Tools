@@ -5,29 +5,26 @@ extends Node
 @export_group("Core Systems")
 @export var graph_editor: GraphEditor
 
-
-
 @export_group("UI Elements")
-@export var strategy_dropdown: OptionButton
+@export var strategy_dropdown: OptionButton # (Will be dynamically hidden)
 @export var settings_container: VBoxContainer
 @export var run_button: Button
 @export var progress_bar: ProgressBar
 @export var status_label: Label
 
 @export_group("Popup Triggers")
-@export var metrics_btn: Button      # Button to open Metrics Config
-@export var view_results_btn: Button # Button to open Results Table
+@export var metrics_btn: Button      
+@export var view_results_btn: Button 
 @export var export_dialog: FileDialog
 
-# Cache the results
-var _latest_results: Array[Dictionary] = []
-
 # --- INTERNAL STATE ---
-var available_strategies: Array[GraphStrategy] = []
+var available_modifiers: Array[Script] = []
+var _active_pipeline: Array[GraphModifier] = []
+
+var _latest_results: Array[Dictionary] = []
 var _current_schema: Dictionary = {}
 var _input_refs: Dictionary = {} 
 var _current_runner: ExperimentRunner
-var _last_executed_strategy_index: int = 0 
 
 var _warning_dialog: ConfirmationDialog
 var _metrics_popup: AlgorithmSettingsPopup
@@ -36,38 +33,122 @@ var _results_table: Tree
 var _metrics_config: Dictionary = {}
 var _pending_combinations: Array[Dictionary] = []
 
+# Dynamic UI
+var _btn_load_pipeline: Button
+var _pipeline_dialog: FileDialog
 
 func _ready() -> void:
 	if run_button: run_button.pressed.connect(_on_run_pressed)
-	if strategy_dropdown: strategy_dropdown.item_selected.connect(_on_strategy_selected)
-	
 	if progress_bar: progress_bar.value = 0
-	if status_label: status_label.text = "Ready to build experiment."
+	if status_label: status_label.text = "Load a Pipeline Recipe to build an experiment."
+	
 	if view_results_btn: 
 		view_results_btn.disabled = true
 		view_results_btn.pressed.connect(func(): _results_popup.popup_centered())
-	
-	if export_dialog:
-		export_dialog.file_selected.connect(_on_export_file_selected)
-	
-	# Load default metric settings so they exist even if the user never opens the popup
+		
+	if export_dialog: export_dialog.file_selected.connect(_on_export_file_selected)
+		
+	# Load default metrics
 	for def in GraphMetrics.get_analysis_options_schema():
 		_metrics_config[def.name] = def.get("default")
+		
+	# Populates the catalog so we can deserialize pipelines!
+	available_modifiers.append_array([
+		GenerateGrid, GeneratePolar, GenerateDAG, MutateDLA, MutateMST, MutateBraid, 
+		MutateCA, MutateFlowDirect, MutateWalker, MutateGrammar, GeoJitter, 
+		GeoRelaxBuoyancy, SemanticBiomeFill, SemanticDAGLocks, SemanticLogicGates
+	])
 	
 	_setup_popups()
+	_setup_pipeline_loader()
+
+func _setup_pipeline_loader() -> void:
+	# Hide the legacy dropdown
+	if strategy_dropdown: strategy_dropdown.visible = false
 	
-	# INITIALIZE IN CODE
-	available_strategies.append(StrategyGrid.new())
-	available_strategies.append(StrategyWalker.new()) 
-	available_strategies.append(StrategyMST.new())
-	available_strategies.append(StrategyDLA.new())
-	available_strategies.append(StrategyCA.new())
-	available_strategies.append(StrategyPolar.new()) 
-	available_strategies.append(StrategyBiomeFiller.new())
-	available_strategies.append(StrategyGrammar.new())
-	available_strategies.append(StrategyDAG.new())
+	_btn_load_pipeline = Button.new()
+	_btn_load_pipeline.text = "📂 Load Pipeline Recipe"
+	_btn_load_pipeline.pressed.connect(_on_load_pipeline_pressed)
 	
-	_populate_dropdown()
+	# Insert it where the dropdown used to be
+	if strategy_dropdown and strategy_dropdown.get_parent():
+		strategy_dropdown.get_parent().add_child(_btn_load_pipeline)
+		strategy_dropdown.get_parent().move_child(_btn_load_pipeline, strategy_dropdown.get_index())
+		
+	_pipeline_dialog = FileDialog.new()
+	_pipeline_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_pipeline_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_pipeline_dialog.add_filter("*.json", "Pipeline Preset")
+	_pipeline_dialog.file_selected.connect(_on_pipeline_file_selected)
+	_pipeline_dialog.set("use_native_dialog", true)
+	add_child(_pipeline_dialog)
+
+# ==============================================================================
+# PIPELINE LOADING & UI GENERATION
+# ==============================================================================
+
+func _on_load_pipeline_pressed() -> void:
+	if _current_runner != null and _current_runner.is_running: return
+	_pipeline_dialog.popup_centered_ratio(0.5)
+
+func _on_pipeline_file_selected(path: String) -> void:
+	var file = FileAccess.open(path, FileAccess.READ)
+	if not file: return
+	var json_str = file.get_as_text()
+	file.close()
+	
+	_active_pipeline = GraphSerializer.deserialize_pipeline(json_str, available_modifiers)
+	
+	if _active_pipeline.is_empty():
+		status_label.text = "Error: Invalid or empty pipeline preset."
+		return
+		
+	_btn_load_pipeline.text = "Pipeline: " + path.get_file()
+	status_label.text = "Loaded Pipeline with %d stages. Select sweep parameters." % _active_pipeline.size()
+	_build_ui_from_pipeline()
+
+func _build_ui_from_pipeline() -> void:
+	if not settings_container: return
+	for child in settings_container.get_children(): child.queue_free()
+	_input_refs.clear()
+	_current_schema.clear()
+	
+	for i in range(_active_pipeline.size()):
+		var mod = _active_pipeline[i]
+		
+		# Add a beautiful header for this modifier
+		var header = Label.new()
+		header.text = "▼ [%d] %s" % [i + 1, mod.modifier_name]
+		header.add_theme_color_override("font_color", Color(0.4, 0.8, 1.0))
+		settings_container.add_child(header)
+		settings_container.add_child(HSeparator.new())
+		
+		var raw_settings = mod.get_settings()
+		var namespaced_settings = []
+		
+		# Namespace the keys so multiple modifiers don't overwrite each other's parameters
+		for s in raw_settings:
+			var new_s = s.duplicate(true)
+			var original_name = new_s.get("name", "")
+			if original_name == "" or original_name.begins_with("sep_") or new_s.get("hint") == "action": 
+				continue
+				
+			var namespaced_key = "mod_%d_%s" % [i, original_name]
+			new_s["name"] = namespaced_key
+			
+			# Inject the preset's value as the default!
+			if mod.local_settings.has(original_name):
+				new_s["default"] = mod.local_settings[original_name]
+				
+			namespaced_settings.append(new_s)
+			
+		var mod_schema = ExperimentBuilder.get_sweep_schema(namespaced_settings)
+		_current_schema.merge(mod_schema, true)
+		
+		for key in mod_schema:
+			var config = mod_schema[key]
+			var row = _create_sweep_row(key, config)
+			settings_container.add_child(row)
 
 # ==============================================================================
 # POPUP CONSTRUCTION
@@ -120,36 +201,7 @@ func _setup_popups() -> void:
 # ==============================================================================
 # UI GENERATION
 # ==============================================================================
-func _populate_dropdown() -> void:
-	if not strategy_dropdown: return
-	strategy_dropdown.clear()
-	for i in range(available_strategies.size()):
-		strategy_dropdown.add_item(available_strategies[i].strategy_name, i)
-	if available_strategies.size() > 0:
-		_on_strategy_selected(0)
 
-func _on_strategy_selected(index: int) -> void:
-	if index < 0 or index >= available_strategies.size(): return
-	var selected_strategy = available_strategies[index]
-	
-	# [FIX] We call .get_settings() to pass the Array directly to the Builder!
-	_current_schema = ExperimentBuilder.get_sweep_schema(selected_strategy.get_settings())
-	
-	_build_ui_from_schema()
-
-func _build_ui_from_schema() -> void:
-	if not settings_container: return
-	
-	# Clear previous UI
-	for child in settings_container.get_children():
-		child.queue_free()
-		
-	_input_refs.clear()
-	
-	for key in _current_schema:
-		var config = _current_schema[key]
-		var row = _create_sweep_row(key, config)
-		settings_container.add_child(row)
 
 func _create_sweep_row(key: String, config: Dictionary) -> Control:
 	var row = HBoxContainer.new()
@@ -267,14 +319,13 @@ func _create_input_for_type(type: int, default_val: Variant) -> Control:
 # ==============================================================================
 
 func _on_run_pressed() -> void:
-	# CANCELLATION LOGIC
 	if _current_runner != null and _current_runner.is_running:
 		status_label.text = "Cancelling experiment... (Waiting for active threads to finish)"
 		run_button.disabled = true 
 		_current_runner.cancel()
 		return
 		
-	if strategy_dropdown.selected < 0: return
+	if _active_pipeline.is_empty(): return
 	
 	var sweep_def = {}
 	for key in _input_refs:
@@ -300,34 +351,27 @@ func _on_run_pressed() -> void:
 		sweep_def[key] = param_def
 		
 	var combinations = ExperimentBuilder.generate_combinations(sweep_def)
-	
-	# Inject the confirmed Metrics Configuration into EVERY combination dictionary
-	for comb in combinations:
-		comb.merge(_metrics_config, true)
-	
+	for comb in combinations: comb.merge(_metrics_config, true)
 	_pending_combinations = combinations
 	
 	if combinations.size() > 1000:
-		_warning_dialog.dialog_text = "Warning: You are about to execute %d procedural generations.\n\nThis will heavily utilize your CPU and may take significant time to complete.\n\nDo you want to proceed?" % combinations.size()
+		_warning_dialog.dialog_text = "Warning: Executing %d pipelines across multiple threads.\nDo you want to proceed?" % combinations.size()
 		_warning_dialog.popup_centered()
 	else:
 		_start_experiment()
 
 # Dedicated start function called normally OR by the warning dialog confirmation
 func _start_experiment() -> void:
-	var strategy_script = available_strategies[strategy_dropdown.selected].get_script()
-	
 	status_label.text = "Running %d experiments..." % _pending_combinations.size()
-	
-	# Transform the Run button into a Cancel button
 	run_button.text = "Cancel Experiment"
-	run_button.modulate = Color(1.0, 0.4, 0.4) # Make it red for danger
+	run_button.modulate = Color(1.0, 0.4, 0.4)
 	
 	_current_runner = ExperimentRunner.new()
 	_current_runner.progress_updated.connect(_on_progress_updated)
 	_current_runner.experiment_finished.connect(_on_experiment_finished)
-	_last_executed_strategy_index = strategy_dropdown.selected
-	_current_runner.run_batch(strategy_script, _pending_combinations)
+	
+	# Pass the active pipeline instead of a single script!
+	_current_runner.run_batch(_active_pipeline, _pending_combinations)
 
 func _on_progress_updated(completed: int, total: int) -> void:
 	if progress_bar:
@@ -432,17 +476,12 @@ func _on_export_file_selected(path: String) -> void:
 # VISUALIZATION MAPPING
 # ==============================================================================
 func _on_result_row_double_clicked() -> void:
-	if not graph_editor:
-		push_warning("ExperimentController: Cannot visualize - GraphEditor reference is missing!")
-		return
-		
+	if not graph_editor or _active_pipeline.is_empty(): return
 	var selected_item = _results_table.get_selected()
 	if not selected_item: return
 	
-	# The root item is hidden, so column 0 is always our Run ID
 	var run_id_str = selected_item.get_text(0)
 	if run_id_str == "": return
-	
 	var run_id = int(run_id_str)
 	var target_result = null
 	
@@ -452,18 +491,37 @@ func _on_result_row_double_clicked() -> void:
 			break
 			
 	if not target_result: return
-	
-	# Close the popup so the user can see the graph generate
 	_results_popup.hide()
 	
-	# Fetch the exact strategy and parameter blueprint used for this row
-	var strategy = available_strategies[_last_executed_strategy_index]
 	var params = target_result["params"].duplicate()
+	status_label.text = "Visualizing Run ID %d..." % run_id
 	
-	status_label.text = "Visualizing Run ID %d in the Graph Editor..." % run_id
+	# Re-create the pipeline explicitly for visualization
+	graph_editor.start_undo_transaction("Visualize Experiment")
+	graph_editor.clear_graph()
+	var graph = graph_editor.graph
 	
-	# Mimic the StrategyController's generation flow
-	if strategy is StrategyWalker or strategy.reset_on_generate:
-		graph_editor.clear_graph()
+	for i in range(_active_pipeline.size()):
+		var template = _active_pipeline[i]
+		var mod = template.get_script().new() as GraphModifier
+		mod.local_settings = template.local_settings.duplicate(true)
 		
-	graph_editor.apply_strategy(strategy, params)
+		# Inject the specific swept values
+		for k in params.keys():
+			var prefix = "mod_%d_" % i
+			if k.begins_with(prefix):
+				var real_key = k.substr(prefix.length())
+				mod.local_settings[real_key] = params[k]
+				
+		# Execute
+		var recorder = GraphRecorder.new(graph)
+		mod.execute(recorder)
+		var batch = CmdBatch.new(graph, mod.modifier_name, false)
+		for cmd in recorder.recorded_commands: batch.add_command(cmd)
+		if batch.get_command_count() > 0: graph_editor._commit_command(batch)
+		
+	graph_editor.commit_undo_transaction()
+	GraphValidator.validate(graph, true)
+	graph_editor.mark_modified()
+	graph_editor.request_redraw()
+	graph_editor._center_camera_on_graph()
