@@ -30,6 +30,7 @@ static var available_modifiers: Array[Script] = [
 	MutateWalker, 
 	MutateGrammar, 
 	MutateEdgeSubdivide, 
+	MutatePruneLeaves,
 	
 	GeoJitter, 
 	GeoRelaxBuoyancy, 

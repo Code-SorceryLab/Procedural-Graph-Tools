@@ -14,14 +14,14 @@
 
 -Edges that connect to the same node
 
--lasso tool (where it automatically highlights the insides until the mouse is released, forming that line)
 -bezier curves for custom edges.
 
 -Tilemap validation via bfs algorithms that can validate several test: if every entity spawn can be reached, if the end point can be reached (not implemented yet), if "keys" scattered across the map can be reached (not implemented yet), etc.
 
+Transformations worth adding masks to:
 
--Make GraphCamera not always zoom in/out of graph when mouse is hovering over the UI Sidebar.
-
+-Grammar (maybe?)
+-Walkers (Way too convoluted already, but perhaps they can spawn agents on the new nodes or something)
 
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
@@ -34,6 +34,96 @@
 GRAPH GRAMMAR UPGRADES:
 
 4. Spatial Resolution Hooks The Limitation: When is_new spawns a node, it places it at the exact mathematical midpoint (pos_a + pos_b) / 2.0. In a dense graph, rewriting a few edges will cause multiple nodes to visually pile up on the same coordinate.The Upgrade: We can hook the grammar engine directly into your physics system. When the grammar injects a new node, it triggers a localized spatial relaxation (a quick burst of repulsive forces just for the new node and its immediate neighbors) so the graph automatically untangles itself during the rewrite process.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Problem
+
+GenerateGrid creates nodes with fixed IDs like grid:0:0, grid:1:0, etc. When run as a generator in a full pipeline, the pipeline controller clears the graph first, so these IDs are safe.
+
+However, when run using Live Apply (additive mode) from the PipelineController, the graph is not cleared. If the graph already contains nodes from a previous run of GenerateGrid (or any other modifier that created grid: prefixed IDs), the new nodes will collide with existing IDs. In Godot, Graph.add_node checks if the ID already exists and silently does nothing, which means:
+
+    Nodes are not duplicated—they simply fail to appear.
+
+    Edges may be created to the old nodes instead of new ones, leading to incorrect topology.
+
+    The user sees no error, just a missing or corrupted result.
+
+This problem is not limited to GenerateGrid; any generator that uses deterministic, fixed IDs (e.g., GeneratePolar, GenerateDAG) will have the same issue if it can be executed in Live Apply mode.
+Why It Happens
+
+    GenerateGrid.execute assumes a clean slate.
+
+    The PipelineController’s Live Apply button does not perform the destructive wipe that the full pipeline run does for generators.
+
+    There is currently no mechanism for a generator to know whether the graph is empty or to generate unique IDs based on the current graph state.
+
+Potential Fixes
+1. Disable Live Apply for Generators
+
+Simplest and most robust: in PipelineController, if the selected modifier’s category is GENERATOR, hide or disable the “Apply (Additive)” button. Only allow “Generate (Wipe & Apply)” for generators. This matches the semantic expectation that generators always start fresh.
+
+Pros: No ID generation changes needed. Prevents the problem entirely.
+Cons: Removes the flexibility of adding multiple grids to the same graph additively. But that’s a rare use case.
+2. Generate Unique IDs Using a Batch Token
+
+Add a unique token to the pipeline_context for every Live Apply action. GenerateGrid (and other generators) can then incorporate this token into the node IDs, e.g., grid_live123:0:0.
+
+Pros: Allows additive generator use; no errors; deterministic if the token is seeded.
+Cons: IDs become longer and less human‑readable; need to ensure the token is passed correctly through the pipeline context; still leaves the possibility of duplicate edges if the same token is used twice (which is why tokens must be unique per action).
+3. Incrementing Internal Counter for IDs
+
+GenerateGrid could call recorder.get_next_display_id() (or a dedicated node counter) to generate a unique prefix each time it runs. For example, grid_1:0:0, grid_2:0:0, etc., where the number increments every time the graph is modified.
+
+Pros: Automatic uniqueness, no token management.
+Cons: Node IDs become non‑deterministic unless the counter itself is reset during a pipeline (which would break reproducibility); may cause issues with save/load if the counter is not saved.
+4. Detect Collisions and Re‑seed Automatically
+
+Before adding a node, GenerateGrid could check if grid:0:0 already exists. If it does, increment a suffix and re‑generate the whole grid with that suffix until it finds a free namespace.
+
+Pros: No external changes needed; works transparently.
+Cons: Potential performance hit for large grids; not fully deterministic if the existing graph state varies (but for Live Apply, that’s acceptable).
+Recommended Long‑Term Approach
+
+Combine #1 and #2:
+
+    Keep the full pipeline semantics unchanged (generators wipe first).
+
+    In PipelineController, disable Live Apply for generators to avoid the most common accidental misuse.
+
+    For advanced users who want additive generation, implement the batch token system so that any generator can safely run additively if the controller passes a unique token in pipeline_context. This gives both safety and flexibility.
+
+Until then, the simplest immediate fix is to disable Live Apply for generators. You can revisit the token approach when you’re ready to support additive generation of fixed‑ID graphs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

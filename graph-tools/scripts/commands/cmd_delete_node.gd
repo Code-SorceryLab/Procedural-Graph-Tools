@@ -5,72 +5,70 @@ extends GraphCommand
 var _id: String
 var _pos: Vector2
 var _type: String
-var _custom_data: Dictionary # Snapshot of Semantic Variables
+var _custom_data: Dictionary
 
-# Edges State
+# Edges State – now stores full canonical edge records
 var _edges: Array[Dictionary] = []
 
-# [FIX] Safety flag to prevent crashes if logic gets out of sync
 var _is_valid: bool = false
 
 func _init(graph: Graph, id: String) -> void:
 	super(graph)
 	_id = id
-	
-	# [FIX] Check existence immediately
+
 	if not _graph.nodes.has(id):
-		# This usually happens if Simulation Logic tries to delete a node
-		# that was already removed via Undo. We abort gracefully.
 		_is_valid = false
 		return
 
 	_is_valid = true
-	
-	# 1. CAPTURE DATA (Safe now)
+
+	# 1. Capture node data
 	var node_data = _graph.nodes[id]
 	_pos = node_data.position
 	_type = node_data.type
-	
-	# Deep copy the custom data so history cannot be mutated by reference
-	_custom_data = node_data.custom_data.duplicate(true) 
-	
-	# 2. CAPTURE EDGES
-	var neighbors = _graph.get_neighbors(id)
-	for n_id in neighbors:
-		var w = _graph.get_edge_weight(id, n_id)
-		_edges.append({
-			"neighbor": n_id,
-			"weight": w
-		})
+	_custom_data = node_data.custom_data.duplicate(true)
+
+	# 2. Capture EVERY edge that touches this node
+	# Iterate the canonical edge store directly to catch both directions.
+	for key in _graph.edge_store:
+		var record = _graph.edge_store[key]
+		if record["u"] == id or record["v"] == id:
+			_edges.append(record.duplicate(true))
 
 func execute() -> void:
-	# Guard check
 	if not _is_valid: return
-	if not _graph.nodes.has(_id): return 
-	
+	if not _graph.nodes.has(_id): return
+
 	_graph.remove_node(_id)
 
 func undo() -> void:
-	# Guard check
 	if not _is_valid: return
-		
-	# 1. Restore the Body (Node)
+
+	# 1. Restore the node body
 	_graph.add_node(_id, _pos)
-	
+
 	if _graph.nodes.has(_id):
 		_graph.nodes[_id].type = _type
-		
-		# Restore the custom variables, again as a deep copy
 		_graph.nodes[_id].custom_data = _custom_data.duplicate(true)
-	
-	# 2. Restore the Web (Edges)
-	for edge in _edges:
-		var neighbor = edge["neighbor"]
-		var weight = edge["weight"]
-		
-		# Safety check: Neighbor must exist to reconnect
-		if _graph.nodes.has(neighbor):
-			_graph.add_edge(_id, neighbor, weight)
+
+	# 2. Restore each edge with its exact direction and custom data
+	for rec in _edges:
+		var u = rec["u"]
+		var v = rec["v"]
+		var weight = rec.get("weight", 1.0)
+		var direction = rec.get("direction", 0)
+		var custom = rec.get("custom", {})
+
+		if not _graph.nodes.has(u) or not _graph.nodes.has(v):
+			continue
+
+		match direction:
+			0:  # Bi-directional
+				_graph.add_edge(u, v, weight, false, custom)
+			1:  # Canonical u -> v only
+				_graph.add_edge(u, v, weight, true, custom)
+			2:  # Canonical v -> u only
+				_graph.add_edge(v, u, weight, true, custom)
 
 func get_name() -> String:
 	return "Delete Node"

@@ -59,10 +59,6 @@ func execute(recorder: GraphRecorder) -> void:
 	for iter in range(steps):
 		var next_grid = {}
 		
-		# If carving only, we only evaluate cells that originally existed.
-		# Otherwise, we evaluate the entire bounding box to allow growth into empty space!
-		var eval_min = min_p if not carve_only else Vector2i.ZERO
-		var eval_max = max_p if not carve_only else Vector2i.ZERO
 		
 		var cells_to_eval = original_nodes.keys()
 		if not carve_only:
@@ -92,21 +88,45 @@ func execute(recorder: GraphRecorder) -> void:
 			
 		grid = next_grid
 
-	# 3. Apply Diff to Sandbox
+	# 3. APPLY DIFF TO SANDBOX (Two‑Pass)
+	
+	# --- PASS 1: Create/Remove nodes, keep original_nodes accurate ---
+	var new_birth_positions: Array[Vector2i] = []
+	
 	for pos in grid:
 		var is_alive = grid[pos]
 		var id = original_nodes.get(pos, "")
 		
 		if id != "" and not is_alive:
-			recorder.remove_node(id) # Died!
+			# Node died
+			recorder.remove_node(id)
+			original_nodes.erase(pos)
+			
 		elif id == "" and is_alive:
-			# Birthed! Create a new node
+			# Node born
 			var new_id = "ca_born_%d_%d" % [pos.x, pos.y]
 			var w_pos = Vector2(pos.x * spacing.x, pos.y * spacing.y)
 			recorder.add_node(new_id, w_pos)
 			original_nodes[pos] = new_id
+			new_birth_positions.append(pos)
+	
+	# --- PASS 2: Connect all newly born nodes to adjacent live nodes ---
+	for pos in new_birth_positions:
+		var new_id: String = original_nodes[pos]
+		
+		for d in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
+			var neighbor_pos = pos + d
+			if not original_nodes.has(neighbor_pos):
+				continue
+				
+			var neighbor_id: String = original_nodes[neighbor_pos]
 			
-			# Connect to existing adjacent orthogonal neighbors
-			for d in [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]:
-				if grid.get(pos + d, false) and original_nodes.has(pos + d):
-					recorder.add_edge(new_id, original_nodes[pos + d])
+			# Safety: only connect if the neighbour actually exists in the sandbox
+			if not recorder.nodes.has(neighbor_id):
+				continue
+				
+			# Prevent duplicate edges (especially between two new births)
+			if recorder.has_edge(new_id, neighbor_id):
+				continue
+				
+			recorder.add_edge(new_id, neighbor_id)

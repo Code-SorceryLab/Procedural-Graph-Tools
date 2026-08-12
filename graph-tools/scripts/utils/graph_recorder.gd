@@ -17,6 +17,8 @@ var _active_zone: GraphZone = null
 var _use_smart_patch: bool = true
 var _grid_spacing: Vector2 = Vector2(64, 64) # Default fallback
 
+var _local_next_display_id: int = 1
+
 func _init(target: Graph, clone_data: bool = true) -> void:
 	_target_graph = target
 	
@@ -26,6 +28,7 @@ func _init(target: Graph, clone_data: bool = true) -> void:
 	
 	# --- STATE CLONE ---
 	if clone_data:
+		_local_next_display_id = target._next_display_id
 		# 1. Duplicate nodes
 		for id in target.nodes:
 			nodes[id] = target.nodes[id].duplicate()
@@ -126,15 +129,11 @@ func add_node(id: String, pos: Vector2 = Vector2.ZERO) -> void:
 		recorded_commands.append(cmd)
 
 func add_zone(zone: GraphZone) -> void:
-	# 1. Update Local Simulation
+	# 1. Update local sandbox only
 	super.add_zone(zone)
-	
-	# 2. Apply to Target
-	# (We bypass Undo Stack for metadata/zones for now)
-	if _target_graph and _target_graph.has_method("add_zone"):
-		_target_graph.add_zone(zone)
-	else:
-		push_error("GraphRecorder: Target graph missing add_zone method.")
+
+	# 2. Record undoable command for the live graph
+	recorded_commands.append(CmdAddZone.new(_target_graph, zone))
 
 
 func add_edge(a: String, b: String, weight: float = 1.0, directed: bool = false, extra_data: Dictionary = {}) -> void:
@@ -165,6 +164,11 @@ func remove_node(id: String) -> void:
 	recorded_commands.append(cmd)
 
 func remove_edge(a: String, b: String, directed: bool = false) -> void:
+	var edge_key = get_edge_key(a, b)
+	var full_record = {}
+	if edge_store.has(edge_key):
+		full_record = edge_store[edge_key].duplicate(true)
+
 	var w = get_edge_weight(a, b)
 	super.remove_edge(a, b, directed)
 	
@@ -173,7 +177,7 @@ func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	pair.sort()
 	touched_edges.erase(pair)
 	
-	var cmd = CmdDisconnect.new(_target_graph, a, b, w)
+	var cmd = CmdDisconnect.new(_target_graph, a, b, w, directed, full_record)
 	recorded_commands.append(cmd)
 
 func set_node_type(id: String, new_type: String) -> void: 
@@ -253,10 +257,9 @@ func remove_agent(agent) -> void:
 	recorded_commands.append(cmd)
 
 func get_next_display_id() -> int:
-	if _target_graph: return _target_graph.get_next_display_id()
-	return super.get_next_display_id()
+	var id = _local_next_display_id
+	_local_next_display_id += 1
+	return id
 
 func clear() -> void:
 	super.clear()
-	if _target_graph and "zones" in _target_graph: _target_graph.zones.clear()
-	if _target_graph and "agents" in _target_graph: _target_graph.agents.clear()

@@ -152,8 +152,7 @@ func _update_action_edges() -> void:
 			breadcrumbs.append(path_points)
 				
 	# Send to Editor
-	if _editor.has_method("set_action_edges"):
-		_editor.set_action_edges(valid_edges)
+	_editor.set_action_edges(valid_edges)
 		
-	if _editor.has_method("set_agent_breadcrumbs"):
-		_editor.set_agent_breadcrumbs(breadcrumbs)
+
+	_editor.set_agent_breadcrumbs(breadcrumbs)

@@ -40,19 +40,16 @@ func execute(recorder: GraphRecorder) -> void:
 		if ui_idx >= 0 and ui_idx < type_keys.size():
 			spawn_type = type_keys[ui_idx]
 
-	# [NEW] Establish Mask
+	# [NEW] Establish EDGE Masking
 	var target_mask = local_settings.get("target_mask", 0)
-	var node_pool = recorder.nodes.keys()
+	var edge_set = {}
 	
 	if target_mask == 1:
-		node_pool = []
-		# Grab touched nodes AND endpoints of touched edges!
-		var context_nodes = get_context_nodes(true) 
-		for id in context_nodes:
-			if recorder.nodes.has(id): node_pool.append(id)
-			
-	var node_set = {}
-	for id in node_pool: node_set[id] = true
+		var context_edges = get_context_edges()
+		for pair in context_edges:
+			var p = [pair[0], pair[1]]
+			p.sort()
+			edge_set[p] = true
 
 	var edge_keys = recorder.edge_store.keys().duplicate()
 	var processed_pairs = {}
@@ -64,28 +61,28 @@ func execute(recorder: GraphRecorder) -> void:
 		var u_id = e.u
 		var v_id = e.v
 		
-		# [CRITICAL FIX] Ensure BOTH endpoints are within the mask!
-		if not node_set.has(u_id) or not node_set.has(v_id): continue 
+		print("[DEBUG] Edge key: ", key)
+		print("[DEBUG] e type: ", typeof(e))
+		print("[DEBUG] e contents: ", e)
+		print("[DEBUG] e.direction (property): ", e.get("direction") if e is Dictionary else e.direction)
 		
-		# 1. Deduplicate processing for Bidirectional edges
+		if not recorder.nodes.has(u_id) or not recorder.nodes.has(v_id): continue
+		
 		var pair = [u_id, v_id]
 		pair.sort()
+		
+		# [CRITICAL FIX] Strictly enforce that the EDGE ITSELF was touched, not just the nodes!
+		if target_mask == 1 and not edge_set.has(pair): continue 
+		
+		# 1. Deduplicate processing for Bidirectional edges
 		if processed_pairs.has(pair): continue
 		processed_pairs[pair] = true
 		
 		if rng.randf() > chance: continue
 		
-		# 2. Check original edge direction state
-		var key_fwd = ""
-		var key_rev = ""
-		
-		for k in recorder.edge_store:
-			var check_e = recorder.edge_store[k]
-			if check_e.u == u_id and check_e.v == v_id: key_fwd = k
-			elif check_e.u == v_id and check_e.v == u_id: key_rev = k
-			
-		var has_fwd = key_fwd != ""
-		var has_rev = key_rev != ""
+		# 2. Determine original edge direction by checking both directed keys
+		var has_fwd = recorder.edge_store.has(recorder.get_edge_key(u_id, v_id))
+		var has_rev = recorder.edge_store.has(recorder.get_edge_key(v_id, u_id))
 		
 		# 3. Determine new directionality rules based on UI setting
 		var apply_fwd = has_fwd
@@ -105,30 +102,42 @@ func execute(recorder: GraphRecorder) -> void:
 		var pos_start = recorder.get_node_pos(u_id)
 		var pos_end = recorder.get_node_pos(v_id)
 		
-		# 4. Remove the original long edges entirely
-		if has_fwd: recorder.remove_edge(u_id, v_id)
-		if has_rev: recorder.remove_edge(v_id, u_id)
+		# 4. Remove the original long edge entirely (whole canonical record)
+		recorder.remove_edge(u_id, v_id, false)
 		
+
+		
+		# 5. Insert the chain of new nodes
+		var sub_counter = 0  # Local counter for deterministic IDs within this execution
 		var previous_id = u_id
 		var segments = cuts + 1
 		var segment_weight = e.weight / float(segments)
 		var custom_data = e.custom.duplicate(true)
-		
-		# 5. Insert the chain of new nodes
+
 		for i in range(1, segments):
 			var t = float(i) / float(segments)
 			var spawn_pos = pos_start.lerp(pos_end, t)
-			
-			var new_id = str(recorder.get_next_display_id())
+
+			# Generate a unique, readable ID without relying on get_next_display_id
+			var new_id = "sub_%s_%s_%d" % [u_id, v_id, i]
+
 			recorder.add_node(new_id, spawn_pos)
 			recorder.set_node_type(new_id, spawn_type)
-			
-			# Connect the chain using our exact directionality rules
-			if apply_fwd: recorder.add_edge(previous_id, new_id, segment_weight, true, custom_data.duplicate(true))
-			if apply_rev: recorder.add_edge(new_id, previous_id, segment_weight, true, custom_data.duplicate(true))
-			
+
+			# Add edge(s) with exact directionality
+			if apply_fwd and apply_rev:
+				recorder.add_edge(previous_id, new_id, segment_weight, false, custom_data.duplicate(true))
+			elif apply_fwd:
+				recorder.add_edge(previous_id, new_id, segment_weight, true, custom_data.duplicate(true))
+			elif apply_rev:
+				recorder.add_edge(new_id, previous_id, segment_weight, true, custom_data.duplicate(true))
+
 			previous_id = new_id
-			
-		# 6. Connect the final new node to the original destination
-		if apply_fwd: recorder.add_edge(previous_id, v_id, segment_weight, true, custom_data.duplicate(true))
-		if apply_rev: recorder.add_edge(v_id, previous_id, segment_weight, true, custom_data.duplicate(true))
+
+		# 6. Connect final segment to v_id
+		if apply_fwd and apply_rev:
+			recorder.add_edge(previous_id, v_id, segment_weight, false, custom_data.duplicate(true))
+		elif apply_fwd:
+			recorder.add_edge(previous_id, v_id, segment_weight, true, custom_data.duplicate(true))
+		elif apply_rev:
+			recorder.add_edge(v_id, previous_id, segment_weight, true, custom_data.duplicate(true))

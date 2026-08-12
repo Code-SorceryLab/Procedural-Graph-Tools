@@ -570,7 +570,6 @@ func _update_rotate_transform(mouse_pos: Vector2, is_shift: bool) -> void:
 
 func _perform_global_deselect() -> void:
 	_editor.clear_selection()
-	_editor.set_zone_selection([], false)
 
 func _reset_tool_state() -> void:
 	_drag_node_id = ""

@@ -129,7 +129,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not is_buoyancy_active or not buoyancy_engine: return
 	
-	# --- [NEW] TICK DECOUPLING ---
+	# --- TICK DECOUPLING ---
 	_physics_accumulator += delta
 	if _physics_accumulator < PHYSICS_TICK_RATE:
 		return # Skip the math and the heavy redraw this frame!
@@ -419,14 +419,18 @@ func clear_selection() -> void:
 	selected_nodes.clear()
 	renderer.selected_nodes_ref = selected_nodes
 	selection_changed.emit(selected_nodes)
-	
+
 	selected_edges.clear()
 	renderer.selected_edges_ref = selected_edges
 	edge_selection_changed.emit(selected_edges)
-	
+
 	selected_agent_ids.clear()
 	renderer.selected_agent_ids_ref = selected_agent_ids
 	SignalManager.agent_selection_changed.emit(selected_agent_ids)
+
+	selected_zones.clear()
+	renderer.selected_zones_ref = selected_zones
+	SignalManager.zone_selection_changed.emit(selected_zones)
 
 # --- HOVER STATE API ---
 
@@ -550,8 +554,15 @@ func connect_nodes(id_a: String, id_b: String, weight: float = 1.0, directed: bo
 
 func disconnect_nodes(id_a: String, id_b: String, directed: bool = false) -> void:
 	if not graph.has_edge(id_a, id_b): return
+
+	# Capture the full canonical edge record before removal
+	var edge_key = graph.get_edge_key(id_a, id_b)
+	var full_record = {}
+	if graph.edge_store.has(edge_key):
+		full_record = graph.edge_store[edge_key].duplicate(true)
+
 	var weight = graph.get_edge_weight(id_a, id_b)
-	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight, directed)
+	var cmd = CmdDisconnect.new(graph, id_a, id_b, weight, directed, full_record)
 	_commit_command(cmd)
 
 # --- Modification Operations ---
@@ -814,11 +825,16 @@ func new_graph() -> void:
 
 func clear_graph() -> void:
 	if graph.nodes.is_empty() and graph.zones.is_empty(): return
+
 	var batch = CmdBatch.new(graph, "Clear Graph")
+
 	for id in graph.nodes:
-		var cmd = CmdDeleteNode.new(graph, id)
-		batch.add_command(cmd)
-	graph.zones.clear() 
+		batch.add_command(CmdDeleteNode.new(graph, id))
+
+	# Clear zones through commands so they are undoable
+	for z in graph.zones:
+		batch.add_command(CmdRemoveZone.new(graph, z))
+
 	_commit_command(batch)
 	_reset_local_state()
 	camera.reset_view()
