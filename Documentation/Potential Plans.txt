@@ -18,11 +18,14 @@
 
 -Tilemap validation via bfs algorithms that can validate several test: if every entity spawn can be reached, if the end point can be reached (not implemented yet), if "keys" scattered across the map can be reached (not implemented yet), etc.
 
-Transformations worth adding masks to:
+Transformations worth adding:
 
--Grammar (maybe?)
--Walkers (Way too convoluted already, but perhaps they can spawn agents on the new nodes or something)
+-BranchByMetric 			(conditional logic holy crap)
+-GenerateScaleFree 			(Uses Barabási–Albert preferential attachment to create a scale‑free network).
 
+Maybe the citation dependency feature (Big Task)
+
+Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 	

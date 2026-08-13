@@ -1,0 +1,728 @@
+{
+	"agents": [
+		{
+			"active": true,
+			"algo_settings": {
+
+			},
+			"auto_paint": false,
+			"behavior_mode": 5,
+			"branching_prob": 0.0,
+			"current_node": "dag_0",
+			"custom_data": {
+				"_looted_memory": {
+					"dag_0": "[key:#2ecc71] Key Gamma",
+					"dag_3": "[key:#e74c3c] Key Alpha"
+				},
+				"inventory": "[key:#2ecc71] Key Gamma, [key:#e74c3c] Key Alpha"
+			},
+			"destructive_backtrack": true,
+			"display_id": 1,
+			"history": [
+				{
+					"node": "dag_0",
+					"step": 0
+				},
+				{
+					"node": "dag_0",
+					"step": 0
+				},
+				{
+					"node": "dag_12",
+					"step": 1
+				},
+				{
+					"node": "dag_11",
+					"step": 2
+				},
+				{
+					"node": "dag_13",
+					"step": 3
+				},
+				{
+					"node": "dag_11",
+					"step": 4
+				},
+				{
+					"node": "dag_8",
+					"step": 5
+				},
+				{
+					"node": "dag_11",
+					"step": 6
+				},
+				{
+					"node": "dag_6",
+					"step": 7
+				},
+				{
+					"node": "dag_11",
+					"step": 8
+				},
+				{
+					"node": "dag_5",
+					"step": 9
+				},
+				{
+					"node": "dag_11",
+					"step": 10
+				},
+				{
+					"node": "dag_12",
+					"step": 11
+				},
+				{
+					"node": "dag_9",
+					"step": 12
+				},
+				{
+					"node": "dag_2",
+					"step": 13
+				},
+				{
+					"node": "dag_9",
+					"step": 14
+				},
+				{
+					"node": "dag_12",
+					"step": 15
+				},
+				{
+					"node": "dag_13",
+					"step": 16
+				},
+				{
+					"node": "dag_12",
+					"step": 17
+				},
+				{
+					"node": "dag_0",
+					"step": 18
+				},
+				{
+					"node": "dag_11",
+					"step": 19
+				},
+				{
+					"node": "dag_0",
+					"step": 20
+				},
+				{
+					"node": "dag_4",
+					"step": 21
+				},
+				{
+					"node": "dag_10",
+					"step": 22
+				},
+				{
+					"node": "dag_6",
+					"step": 23
+				},
+				{
+					"node": "dag_10",
+					"step": 24
+				},
+				{
+					"node": "dag_1",
+					"step": 25
+				},
+				{
+					"node": "dag_10",
+					"step": 26
+				},
+				{
+					"node": "dag_4",
+					"step": 27
+				},
+				{
+					"node": "dag_3",
+					"step": 28
+				},
+				{
+					"node": "dag_4",
+					"step": 29
+				},
+				{
+					"node": "dag_0",
+					"step": 30
+				}
+			],
+			"is_finished": true,
+			"movement_algo": 0,
+			"my_seed": 1549536856,
+			"paint_field": "type",
+			"paint_target": "NODE",
+			"paint_value": "empty",
+			"path_cache": [],
+			"pos_x": 0.0,
+			"pos_y": 0.0,
+			"snap_to_grid": false,
+			"start_node": "dag_0",
+			"step_count": 30,
+			"steps": -1,
+			"target_node": "",
+			"use_geometric_fc": false,
+			"use_zone_constraints": false,
+			"uuid": "8abb571e-e975-4360-b6cf-1540951a5fc9"
+		}
+	],
+	"edges": [
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_0",
+			"v": "dag_4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_0",
+			"v": "dag_12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_4",
+			"v": "dag_3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_12",
+			"v": "dag_9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_4",
+			"v": "dag_10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"requires": "[lock:#2ecc71] Key Gamma",
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_12",
+			"v": "dag_11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_10",
+			"v": "dag_1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_9",
+			"v": "dag_2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_11",
+			"v": "dag_5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_11",
+			"v": "dag_6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"requires": "[lock:#e74c3c] Key Alpha",
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_11",
+			"v": "dag_7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_11",
+			"v": "dag_8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_11",
+			"v": "dag_13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"requires": "[lock:#3498db] Key Beta",
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_1",
+			"v": "dag_14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_2",
+			"v": "dag_14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_10",
+			"v": "dag_6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_0",
+			"v": "dag_11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dag_12",
+			"v": "dag_13",
+			"w": 1.0
+		}
+	],
+	"legend": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"climbable": {
+				"color": "cc9933ff",
+				"name": "Climbable"
+			},
+			"corridor": {
+				"color": "ccccccff",
+				"name": "Corridor"
+			},
+			"door_locked": {
+				"color": "cc3333ff",
+				"name": "Door (Locked)"
+			},
+			"door_open": {
+				"color": "996633ff",
+				"name": "Door (Open)"
+			},
+			"secret": {
+				"color": "6633ccff",
+				"name": "Secret Passage"
+			}
+		},
+		"NODE": {
+			"boss": {
+				"color": "990000ff",
+				"name": "Boss"
+			},
+			"empty": {
+				"color": "ccccccff",
+				"name": "Empty"
+			},
+			"enemy": {
+				"color": "cc4d4dff",
+				"name": "Enemy"
+			},
+			"lava": {
+				"color": "ec6900ff",
+				"name": "Lava"
+			},
+			"scp_breach": {
+				"color": "cc3333ff",
+				"name": "Breached Sector"
+			},
+			"scp_heavy": {
+				"color": "666666ff",
+				"name": "Heavy Containment"
+			},
+			"scp_light": {
+				"color": "e6e6e6ff",
+				"name": "Light Containment"
+			},
+			"scp_office": {
+				"color": "99b3e6ff",
+				"name": "Research Office"
+			},
+			"shop": {
+				"color": "663399ff",
+				"name": "Shop"
+			},
+			"spawn": {
+				"color": "33cc33ff",
+				"name": "Spawn"
+			},
+			"start": {
+				"color": "33cc33ff",
+				"name": "Start"
+			},
+			"treasure": {
+				"color": "ffcc33ff",
+				"name": "Treasure"
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"meta": {
+		"next_ticket": 2,
+		"timestamp": "2026-08-13T15:43:05",
+		"version": "1.6"
+	},
+	"nodes": [
+		{
+			"custom_data": {
+				"dag_depth": 0,
+				"items": ""
+			},
+			"id": "dag_0",
+			"shape": 0,
+			"type": "start",
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 1
+			},
+			"id": "dag_4",
+			"shape": 0,
+			"type": "empty",
+			"x": 250.0,
+			"y": -75.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 1
+			},
+			"id": "dag_12",
+			"shape": 0,
+			"type": "empty",
+			"x": 250.0,
+			"y": 75.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 2,
+				"items": ""
+			},
+			"id": "dag_3",
+			"shape": 0,
+			"type": "empty",
+			"x": 500.0,
+			"y": -225.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 2
+			},
+			"id": "dag_9",
+			"shape": 0,
+			"type": "empty",
+			"x": 500.0,
+			"y": -75.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 2
+			},
+			"id": "dag_10",
+			"shape": 0,
+			"type": "empty",
+			"x": 500.0,
+			"y": 75.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 2,
+				"logic_gate": "OR"
+			},
+			"id": "dag_11",
+			"shape": 0,
+			"type": "empty",
+			"x": 348.308135986328,
+			"y": 316.575134277344
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3
+			},
+			"id": "dag_1",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": -450.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3
+			},
+			"id": "dag_2",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3
+			},
+			"id": "dag_5",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": -150.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3,
+				"logic_gate": "OR"
+			},
+			"id": "dag_6",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3,
+				"items": "[key:#3498db] Key Beta"
+			},
+			"id": "dag_7",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": 150.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3
+			},
+			"id": "dag_8",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 3,
+				"logic_gate": "OR"
+			},
+			"id": "dag_13",
+			"shape": 0,
+			"type": "empty",
+			"x": 750.0,
+			"y": 450.0
+		},
+		{
+			"custom_data": {
+				"dag_depth": 4,
+				"logic_gate": "AND"
+			},
+			"id": "dag_14",
+			"shape": 0,
+			"type": "boss",
+			"x": 1000.0,
+			"y": 0.0
+		}
+	],
+	"schema": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"lock_level": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Lock Level",
+				"type": 2
+			},
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_snap_threshold": {
+				"default": 400.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Snap Threshold",
+				"type": 3
+			},
+			"physics_snappable": {
+				"default": false,
+				"display": 0,
+				"is_core": true,
+				"label": "Can Snap (Tension)",
+				"type": 1
+			},
+			"physics_spring_length": {
+				"default": 150.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Spring Length",
+				"type": 3
+			},
+			"physics_stiffness": {
+				"default": 0.5,
+				"display": 0,
+				"is_core": true,
+				"label": "Spring Stiffness",
+				"type": 3
+			},
+			"requires": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Requires",
+				"type": 4
+			}
+		},
+		"NODE": {
+			"clearance_req": {
+				"default": 1.0,
+				"display": 0,
+				"is_core": false,
+				"label": "Clearance Required",
+				"type": 2
+			},
+			"dag_depth": {
+				"default": 0,
+				"display": 1,
+				"is_core": true,
+				"label": "DAG Depth",
+				"type": 2
+			},
+			"items": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Items",
+				"type": 4
+			},
+			"logic_gate": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Logic Gate",
+				"type": 4
+			},
+			"physics_fusable": {
+				"default": false,
+				"display": 0,
+				"is_core": true,
+				"label": "Can Fuse (Collision)",
+				"type": 1
+			},
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_repulsion": {
+				"default": 100.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Repulsion",
+				"type": 3
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"zones": []
+}

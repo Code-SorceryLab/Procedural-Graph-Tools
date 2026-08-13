@@ -2,7 +2,7 @@ class_name GenerateDAG extends GraphModifier
 
 func _init() -> void:
 	super._init()
-	modifier_name = "Generate DAG (Questline)"
+	modifier_name = "Generate DAG"
 	category = Category.GENERATOR
 
 func get_settings() -> Array[Dictionary]:
@@ -19,6 +19,43 @@ func get_settings() -> Array[Dictionary]:
 	])
 	return s
 
+func get_required_semantics() -> Array[Dictionary]:
+	var reqs: Array[Dictionary] = []
+	var v_root: String = local_settings.get("val_root", "start")
+	var v_sink: String = local_settings.get("val_sink", "boss")
+	var k_depth: String = local_settings.get("key_depth", "dag_depth")
+
+	reqs.append({
+		"type": "category",
+		"target": SemanticRegistry.TARGET_NODE,
+		"key": v_root,
+		"name": v_root.capitalize(),
+		"color": Color(0.2, 0.8, 0.2),
+		"is_core": true
+	})
+
+	reqs.append({
+		"type": "category",
+		"target": SemanticRegistry.TARGET_NODE,
+		"key": v_sink,
+		"name": v_sink.capitalize(),
+		"color": Color(0.8, 0.2, 0.2),
+		"is_core": true
+	})
+
+	reqs.append({
+		"type": "property",
+		"target": SemanticRegistry.TARGET_NODE,
+		"key": k_depth,
+		"label": "DAG Depth",
+		"var_type": TYPE_INT,
+		"default": 0,
+		"display": SemanticRegistry.DisplayMode.LABEL,
+		"is_core": true
+	})
+
+	return reqs
+
 func execute(recorder: GraphRecorder) -> void:
 	setup_rng()
 	
@@ -32,11 +69,6 @@ func execute(recorder: GraphRecorder) -> void:
 	
 	if total_nodes < num_layers: total_nodes = num_layers
 	
-	# Register semantics to UI
-	if SemanticRegistry:
-		SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_root, v_root.capitalize(), Color(0.2, 0.8, 0.2), true)
-		SemanticRegistry.ensure_category(SemanticRegistry.TARGET_NODE, v_sink, v_sink.capitalize(), Color(0.8, 0.2, 0.2), true)
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_depth, "DAG Depth", TYPE_INT, 0, SemanticRegistry.DisplayMode.LABEL, true)
 
 	var layers: Array = []
 	for i in range(num_layers): layers.append([])

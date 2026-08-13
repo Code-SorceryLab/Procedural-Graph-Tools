@@ -78,3 +78,44 @@ func get_context_edges() -> Array:
 	if pipeline_context.has("touched_edges"):
 		return pipeline_context["touched_edges"]
 	return []
+
+# ==============================================================================
+# SEMANTIC PREREGISTRATION
+# ==============================================================================
+
+# Returns a list of semantic registrations required by this modifier.
+# This is called on the MAIN THREAD by both PipelineController and ExperimentController
+# before any background worker is dispatched.
+#
+# Each entry is a Dictionary with either:
+#   { "type": "category", "target": SemanticRegistry.TARGET_*, "key": "...", "name": "...", "color": Color(...), "is_core": bool }
+# or
+#   { "type": "property", "target": SemanticRegistry.TARGET_*, "key": "...", "label": "...", "var_type": TYPE_*, "default": value, "display": SemanticRegistry.DisplayMode.*, "is_core": bool }
+func get_required_semantics() -> Array[Dictionary]:
+	return []
+
+# Shared static helper that both controllers call exactly once before launching threads.
+static func preregister_semantics(modifiers: Array) -> void:
+	for mod in modifiers:
+		if not mod: continue
+		var reqs = mod.get_required_semantics()
+		for req in reqs:
+			match req.get("type", "property"):
+				"category":
+					SemanticRegistry.ensure_category(
+						req["target"],
+						req["key"],
+						req["name"],
+						req["color"],
+						req.get("is_core", false)
+					)
+				"property":
+					SemanticRegistry.ensure_property(
+						req["target"],
+						req["key"],
+						req["label"],
+						req["var_type"],
+						req.get("default", null),
+						req.get("display", 0),
+						req.get("is_core", false)
+					)

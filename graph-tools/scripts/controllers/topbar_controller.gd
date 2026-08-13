@@ -13,6 +13,7 @@ extends Node
 @export var menu_file: PopupMenu
 @export var menu_edit: PopupMenu
 @export var menu_graph: PopupMenu
+@export var menu_agents: PopupMenu
 
 # Simulation Controls
 @export_group("Simulation Controls")
@@ -28,6 +29,10 @@ var is_auto_crystallize_active: bool = false # Tracks crystallization state
 var is_edge_snapping_active: bool = false
 var is_node_fusing_active: bool = false
 var is_depth_overlay_active: bool = false
+var is_solver_debug_active: bool = true
+var is_key_inventory_active: bool = true
+var is_agent_breadcrumbs_active: bool = true
+
 
 # Playback State
 var is_playing: bool = false
@@ -99,6 +104,24 @@ func _setup_menus() -> void:
 		
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
 		
+	# Setup Agents Menu
+	if menu_agents:
+		menu_agents.clear()
+		menu_agents.add_item("Clear All Agents", 401)
+		menu_agents.add_separator()
+		menu_agents.add_check_item("Show Solver Debug Overlays", 402)
+		menu_agents.add_check_item("Show Key Inventory Badges", 403)
+		menu_agents.add_check_item("Show Agent Breadcrumbs", 404)
+
+		# Reflect initial state
+		var idx_debug = menu_agents.get_item_index(402)
+		var idx_inv = menu_agents.get_item_index(403)
+		var idx_bread = menu_agents.get_item_index(404)
+		menu_agents.set_item_checked(idx_debug, is_solver_debug_active)
+		menu_agents.set_item_checked(idx_inv, is_key_inventory_active)
+		menu_agents.set_item_checked(idx_bread, is_agent_breadcrumbs_active)
+
+		menu_agents.id_pressed.connect(_on_agents_menu_pressed)
 
 # Dynamic Undo/Redo Labels
 func _on_edit_menu_about_to_popup() -> void:
@@ -186,6 +209,33 @@ func _on_graph_menu_pressed(id: int) -> void:
 			menu_graph.set_item_checked(idx, is_depth_overlay_active)
 			if graph_editor and graph_editor.has_method("set_debug_depth"):
 				graph_editor.set_debug_depth(is_depth_overlay_active)
+
+func _on_agents_menu_pressed(id: int) -> void:
+	match id:
+		401: # Clear All Agents
+			if graph_editor and graph_editor.has_method("clear_agents"):
+				graph_editor.clear_agents()
+		
+		402: # Toggle Solver Debug Overlays
+			is_solver_debug_active = not is_solver_debug_active
+			var idx_debug = menu_agents.get_item_index(402)
+			menu_agents.set_item_checked(idx_debug, is_solver_debug_active)
+			if graph_editor and graph_editor.has_method("set_solver_debug_overlay"):
+				graph_editor.set_solver_debug_overlay(is_solver_debug_active)
+		
+		403: # Toggle Key Inventory Badges
+			is_key_inventory_active = not is_key_inventory_active
+			var idx_inv = menu_agents.get_item_index(403)
+			menu_agents.set_item_checked(idx_inv, is_key_inventory_active)
+			if graph_editor and graph_editor.has_method("set_solver_key_inventory_overlay"):
+				graph_editor.set_solver_key_inventory_overlay(is_key_inventory_active)
+		
+		404: # Toggle Agent Breadcrumbs
+			is_agent_breadcrumbs_active = not is_agent_breadcrumbs_active
+			var idx_bread = menu_agents.get_item_index(404)
+			menu_agents.set_item_checked(idx_bread, is_agent_breadcrumbs_active)
+			if graph_editor and graph_editor.has_method("set_agent_breadcrumbs_overlay"):
+				graph_editor.set_agent_breadcrumbs_overlay(is_agent_breadcrumbs_active)
 
 # ==============================================================================
 # SIMULATION HANDLERS

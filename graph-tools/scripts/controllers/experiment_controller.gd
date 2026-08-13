@@ -359,6 +359,9 @@ func _start_experiment() -> void:
 	run_button.text = "Cancel Experiment"
 	run_button.modulate = Color(1.0, 0.4, 0.4)
 	
+	# Pre-register semantic fields on the main thread.
+	GraphModifier.preregister_semantics(_active_pipeline)
+	
 	_current_runner = ExperimentRunner.new()
 	_current_runner.progress_updated.connect(_on_progress_updated)
 	_current_runner.experiment_finished.connect(_on_experiment_finished)

@@ -29,7 +29,7 @@ func execute(recorder: GraphRecorder) -> void:
 	var max_conn = local_settings.get("max_connections", 1)
 	var radius = max(GraphSettings.GRID_SPACING.x, GraphSettings.GRID_SPACING.y) * local_settings.get("search_range", 2.5)
 	
-	# [NEW] Establish our restricted processing pool!
+	# Establish our restricted processing pool!
 	var node_pool = recorder.nodes.keys()
 	if pipeline_mask == 1:
 		node_pool = []

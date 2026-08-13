@@ -50,7 +50,11 @@ var selection_rect: Rect2 = Rect2()
 var selection_lasso: PackedVector2Array = []
 var cut_preview_edges: Array = []
 var highlighted_action_edges_ref: Array = []
+
 var agent_breadcrumbs_ref: Array = []
+var show_solver_debug_overlay: bool = true
+var show_solver_key_inventory: bool = true
+var show_agent_breadcrumbs: bool = true
 
 # --- STAMP PREVIEW VISUALS ---
 var stamp_preview_pos: Vector2 = Vector2.ZERO
@@ -100,6 +104,7 @@ func _draw() -> void:
 	# Render Order (Painter's Algorithm: Back to Front)
 	_draw_layer_zones()
 	_draw_layer_edges()
+	_draw_layer_solver_debug()
 	_draw_breadcrumbs()
 	_draw_layer_path()
 	_draw_layer_brush()
@@ -347,7 +352,60 @@ func _draw_flowing_dashed_line(from: Vector2, to: Vector2, color: Color, width: 
 			
 		current_dist += pattern_len
 
+func _draw_layer_solver_debug() -> void:
+	if not show_solver_debug_overlay: return
+	if not graph_ref: return
+	
+	for agent in graph_ref.agents:
+		if agent.behavior_mode != AgentWalker.BehaviorMode.SOLVER:
+			continue
+		if not agent.active or agent.is_finished:
+			continue
+			
+		# Get unique color for this agent based on display_id (golden ratio hue distribution)
+		var agent_color = Color.from_hsv(
+			fmod(float(agent.display_id) * 0.61803398875, 1.0),
+			0.7, 1.0, 1.0
+		)
+		
+		var brain = agent.brain
+		if not brain or not brain.has_method("get_debug_overlay_data"):
+			continue
+			
+		var debug_data = brain.get_debug_overlay_data()
+		
+		# --- Draw visited node halos ---
+		var visited_nodes: Array = debug_data.get("visited_nodes", [])
+		for node_id in visited_nodes:
+			if not graph_ref.nodes.has(node_id):
+				continue
+			var pos = graph_ref.get_node_pos(node_id)
+			draw_arc(pos, node_radius + 8.0, 0, TAU, 32, agent_color, 3.0)
+		
+		# --- Draw visited edges ---
+		var visited_edges: Array = debug_data.get("visited_edges", [])
+		for edge_pair in visited_edges:
+			var u = edge_pair[0]
+			var v = edge_pair[1]
+			if not graph_ref.nodes.has(u) or not graph_ref.nodes.has(v):
+				continue
+			var pos_u = graph_ref.get_node_pos(u)
+			var pos_v = graph_ref.get_node_pos(v)
+			draw_line(pos_u, pos_v, agent_color.lightened(0.5), edge_width + 1.0, true)
+		
+		# --- Draw current path stack (backtracking trail) ---
+		var path_stack: Array = debug_data.get("path_stack", [])
+		if path_stack.size() > 1:
+			var points = PackedVector2Array()
+			for node_id in path_stack:
+				if graph_ref.nodes.has(node_id):
+					points.append(graph_ref.get_node_pos(node_id))
+			if points.size() > 1:
+				draw_polyline(points, Color(1.0, 0.85, 0.2, 0.9), 4.0, true)
+
 func _draw_breadcrumbs() -> void:
+	if not show_agent_breadcrumbs: return
+	
 	for path in agent_breadcrumbs_ref:
 		if path.size() < 2: continue
 		
@@ -606,11 +664,66 @@ func _draw_layer_agents() -> void:
 				
 				_draw_agent_token(draw_pos, is_selected, agent)
 				
+				# Draw solver key inventory above the agent
+				if agent.behavior_mode == AgentWalker.BehaviorMode.SOLVER:
+					_draw_solver_key_inventory(draw_pos, agent)
+				
 				# Draw Semantic Decorators (like the Inventory!) over the Agent
 				_draw_agent_decorators(draw_pos, agent)
 				
 				if is_selected:
 					_draw_agent_brain_visuals(agent)
+
+func _draw_solver_key_inventory(pos: Vector2, agent: Object) -> void:
+	if not show_solver_key_inventory: return
+	
+	var inv_cap = agent.get_capability("Inventory")
+	if not inv_cap:
+		return
+		
+	var keys: Array[String] = inv_cap._get_keys()
+	if keys.is_empty():
+		return
+		
+	# Draw a small dark badge background for readability
+	var icon_size = 14.0
+	var spacing = 4.0
+	var total_width = float(keys.size() * (icon_size + spacing)) - spacing
+	var badge_height = icon_size + 8.0
+	var badge_rect = Rect2(
+		pos.x - total_width / 2.0 - 4.0,
+		pos.y - GraphSettings.AGENT_RADIUS - icon_size - 10.0,
+		total_width + 8.0,
+		badge_height
+	)
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.1, 0.85)
+	style.set_corner_radius_all(int(badge_height / 2.0))
+	style.anti_aliasing = true
+	style.draw(get_canvas_item(), badge_rect)
+	
+	var x_cursor = badge_rect.position.x + 4.0 + icon_size / 2.0
+	var y_center = badge_rect.position.y + badge_height / 2.0
+	
+	for key_tag in keys:
+		var icon_name = "key"
+		var icon_color = Color.WHITE
+		var display_text = key_tag
+		
+		# Parse [key:#FF0000] Alpha style tags
+		if key_tag.begins_with("[") and key_tag.find("]") > 0:
+			var end_idx = key_tag.find("]")
+			var tag = key_tag.substr(1, end_idx - 1)
+			display_text = key_tag.substr(end_idx + 1).strip_edges()
+			var parts = tag.split(":")
+			if parts.size() > 0:
+				icon_name = parts[0].strip_edges()
+			if parts.size() > 1 and parts[1].is_valid_html_color():
+				icon_color = Color(parts[1].strip_edges())
+		
+		GraphIconLibrary.draw_icon(self, icon_name, Vector2(x_cursor, y_center), icon_size, icon_color)
+		x_cursor += icon_size + spacing
 
 # Helper function to draw agent semantic data
 func _draw_agent_decorators(pos: Vector2, agent: Object) -> void:

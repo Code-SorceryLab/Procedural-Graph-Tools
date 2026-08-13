@@ -241,6 +241,21 @@ func set_agent_breadcrumbs(paths: Array) -> void:
 		renderer.agent_breadcrumbs_ref = paths
 		renderer.queue_redraw()
 
+func set_solver_debug_overlay(enabled: bool) -> void:
+	if renderer:
+		renderer.show_solver_debug_overlay = enabled
+		renderer.queue_redraw()
+
+func set_solver_key_inventory_overlay(enabled: bool) -> void:
+	if renderer:
+		renderer.show_solver_key_inventory = enabled
+		renderer.queue_redraw()
+
+func set_agent_breadcrumbs_overlay(enabled: bool) -> void:
+	if renderer:
+		renderer.show_agent_breadcrumbs = enabled
+		renderer.queue_redraw()
+
 # --- Node Operations ---
 
 func create_node(pos: Vector2) -> String:
@@ -305,6 +320,13 @@ func add_agent(agent) -> void:
 func remove_agent(agent) -> void:
 	var cmd = CmdRemoveAgent.new(graph, agent)
 	_commit_command(cmd)
+
+func clear_agents() -> void:
+	if graph.agents.is_empty(): return
+	start_undo_transaction("Clear Agents")
+	for agent in graph.agents.duplicate():
+		remove_agent(agent)
+	commit_undo_transaction()
 
 # Safe Accessor
 func get_agents() -> Array:

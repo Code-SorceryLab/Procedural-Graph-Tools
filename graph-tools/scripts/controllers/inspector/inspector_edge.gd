@@ -58,7 +58,7 @@ func _rebuild_edge_ui() -> void:
 	# Core Logic
 	schema.append({ 
 		"name": "weight", "label": "Weight (Cost)", "type": TYPE_FLOAT, "default": ref_data.weight, 
-		"min": 0.1, "max": 100.0, "step": 0.1, "mixed": mixed.weight 
+		"min": 0.1, "max": 10000.0, "step": 0.1, "mixed": mixed.weight 
 	})
 	
 	schema.append({ 

@@ -2,7 +2,7 @@ class_name AgentWalker
 extends RefCounted
 
 # --- CONSTANTS ---
-const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve Questline,Player Controlled"
+const OPTIONS_BEHAVIOR = "Hold Position,Wander,Grow (Expansion),Seek Target,Maze Generator,Solve DAG,Player Controlled"
 const OPTIONS_ALGO = "Random Walk,Breadth-First,Depth-First,A-Star,Dijkstra"
 
 # Strictly typed behavior modes

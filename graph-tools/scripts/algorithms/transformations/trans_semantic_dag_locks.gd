@@ -16,6 +16,33 @@ func get_settings() -> Array[Dictionary]:
 	])
 	return s
 
+func get_required_semantics() -> Array[Dictionary]:
+	var k_item: String = local_settings.get("key_item", "items")
+	var k_lock: String = local_settings.get("key_lock", "requires")
+
+	return [
+		{
+			"type": "property",
+			"target": SemanticRegistry.TARGET_NODE,
+			"key": k_item,
+			"label": k_item.capitalize(),
+			"var_type": TYPE_STRING,
+			"default": "",
+			"display": SemanticRegistry.DisplayMode.BADGE,
+			"is_core": true
+		},
+		{
+			"type": "property",
+			"target": SemanticRegistry.TARGET_EDGE,
+			"key": k_lock,
+			"label": k_lock.capitalize(),
+			"var_type": TYPE_STRING,
+			"default": "",
+			"display": SemanticRegistry.DisplayMode.BADGE,
+			"is_core": true
+		}
+	]
+
 func execute(recorder: GraphRecorder) -> void:
 	setup_rng()
 	if recorder.nodes.is_empty(): return
@@ -55,9 +82,6 @@ func execute(recorder: GraphRecorder) -> void:
 	var node_set = {}
 	for id in nodes_to_process: node_set[id] = true
 	
-	if SemanticRegistry:
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, k_item, k_item.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_EDGE, k_lock, k_lock.capitalize(), TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
 	
 	# --- 1. DEPTH RESOLUTION ---
 	var temp_depths = {}

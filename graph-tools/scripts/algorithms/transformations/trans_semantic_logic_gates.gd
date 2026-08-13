@@ -13,13 +13,24 @@ func get_settings() -> Array[Dictionary]:
 	])
 	return s
 
+func get_required_semantics() -> Array[Dictionary]:
+	return [
+		{
+			"type": "property",
+			"target": SemanticRegistry.TARGET_NODE,
+			"key": "logic_gate",
+			"label": "Logic Gate",
+			"var_type": TYPE_STRING,
+			"default": "",
+			"display": SemanticRegistry.DisplayMode.BADGE,
+			"is_core": true
+		}
+	]
+
 func execute(recorder: GraphRecorder) -> void:
 	setup_rng()
 	if recorder.nodes.is_empty(): return
 	
-	if SemanticRegistry:
-		SemanticRegistry.ensure_property(SemanticRegistry.TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", SemanticRegistry.DisplayMode.BADGE, true)
-
 	var prob_and = local_settings.get("prob_and_gate", 0.3)
 	var in_degrees = {}
 	

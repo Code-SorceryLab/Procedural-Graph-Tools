@@ -21,21 +21,25 @@ static var available_modifiers: Array[Script] = [
 	GenerateGrid, 
 	GeneratePolar, 
 	GenerateDAG, 
+	GenerateScaleFree,
 	
 	MutateDLA, 
 	MutateMST, 
-	MutateBraid, 
+	MutateBraid,
+	MutateConnectComponents, 
 	MutateCA, 
 	MutateFlowDirect, 
 	MutateWalker, 
 	MutateGrammar, 
 	MutateEdgeSubdivide, 
 	MutatePruneLeaves,
+	MutateFuseNodes,
 	
 	GeoJitter, 
 	GeoRelaxBuoyancy, 
 	
 	SemanticBiomeFill, 
+	SemanticEdgeWeightsFromDistance,
 	SemanticDAGLocks, 
 	SemanticLogicGates
 ]

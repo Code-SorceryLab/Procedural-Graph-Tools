@@ -302,6 +302,9 @@ func _on_palette_popup_confirmed(new_settings: Dictionary) -> void:
 func _on_run_pipeline_pressed() -> void:
 	if modifier_stack.is_empty() or _pipeline_active: return
 	
+	# Pre-register semantic fields on the main thread.
+	GraphModifier.preregister_semantics(modifier_stack)
+	
 	_pipeline_active = true
 	_btn_run.disabled = true
 	_btn_clear.disabled = true
@@ -421,40 +424,43 @@ func _finish_pipeline() -> void:
 
 func _on_live_apply_pressed() -> void:
 	if _pipeline_active or selected_stack_index < 0: return
-	
+
 	var mod = modifier_stack[selected_stack_index]
 	graph_editor.start_undo_transaction("Live Apply: " + mod.modifier_name)
 	var graph = graph_editor.graph
-	
+
+	# [SAFEGUARD] Pre-register semantic fields on the main thread before execution.
+	GraphModifier.preregister_semantics([mod])
+
 	var recorder = GraphRecorder.new(graph)
-	
+
 	# [FIX] Inject memory from the previous Live Apply!
 	mod.pipeline_context = _live_context.duplicate(true)
 	mod.execute(recorder)
-	
+
 	# [FIX] Save memory for the NEXT Live Apply!
 	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
 	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
-	
+
 	var mod_batch = CmdBatch.new(graph, mod.modifier_name, false)
 	for cmd in recorder.recorded_commands:
 		mod_batch.add_command(cmd)
-		
+
 	if mod_batch.get_command_count() > 0:
 		graph_editor._commit_command(mod_batch)
-		
+
 	graph_editor.commit_undo_transaction()
-	GraphValidator.validate(graph, true) 
+	GraphValidator.validate(graph, true)
 	graph_editor.mark_modified()
 	graph_editor.request_redraw()
 
 func _on_live_generate_pressed() -> void:
 	if _pipeline_active or selected_stack_index < 0: return
-	
+
 	var mod = modifier_stack[selected_stack_index]
 	graph_editor.start_undo_transaction("Live Generate: " + mod.modifier_name)
 	var graph = graph_editor.graph
-	
+
 	# 1. Destructive Wipe
 	var clear_batch = CmdBatch.new(graph, "Clear Graph", false)
 	for id in graph.nodes.keys():
@@ -463,28 +469,31 @@ func _on_live_generate_pressed() -> void:
 		clear_batch.add_command(CmdRemoveZone.new(graph, z))
 	if clear_batch.get_command_count() > 0:
 		graph_editor._commit_command(clear_batch)
-		
+
 	# 2. Additive Apply
+	# [SAFEGUARD] Pre-register semantic fields on the main thread before execution.
+	GraphModifier.preregister_semantics([mod])
+
 	var recorder = GraphRecorder.new(graph)
-	
+
 	# [FIX] Wipe the memory clean since we just destroyed the graph!
 	_live_context.clear()
 	mod.pipeline_context = _live_context.duplicate(true)
 	mod.execute(recorder)
-	
+
 	# [FIX] Save memory for the NEXT Live action!
 	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
 	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
-	
+
 	var mod_batch = CmdBatch.new(graph, mod.modifier_name, false)
 	for cmd in recorder.recorded_commands:
 		mod_batch.add_command(cmd)
-		
+
 	if mod_batch.get_command_count() > 0:
 		graph_editor._commit_command(mod_batch)
-		
+
 	graph_editor.commit_undo_transaction()
-	GraphValidator.validate(graph, true) 
+	GraphValidator.validate(graph, true)
 	graph_editor.mark_modified()
 	graph_editor.request_redraw()
 	graph_editor._center_camera_on_graph()

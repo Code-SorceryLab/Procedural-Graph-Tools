@@ -52,9 +52,15 @@ static func _static_init() -> void:
 	register_property(TARGET_EDGE, "physics_spring_length", "Spring Length", TYPE_FLOAT, 150.0, DisplayMode.HIDDEN, true)
 	register_property(TARGET_EDGE, "physics_stiffness", "Spring Stiffness", TYPE_FLOAT, 0.5, DisplayMode.HIDDEN, true)
 	
-	# Add the two snappable properties from InspectorEdge so they lock properly
+	# snappable properties from InspectorEdge so they lock properly
 	register_property(TARGET_EDGE, "physics_snappable", "Can Snap (Tension)", TYPE_BOOL, false, DisplayMode.HIDDEN, true)
 	register_property(TARGET_EDGE, "physics_snap_threshold", "Snap Threshold", TYPE_FLOAT, 400.0, DisplayMode.HIDDEN, true)
+	
+	register_property(TARGET_NODE, "dag_depth", "DAG Depth", TYPE_INT, 0, DisplayMode.LABEL, true)
+	register_property(TARGET_NODE, "items", "Items", TYPE_STRING, "", DisplayMode.BADGE, true)
+	register_property(TARGET_EDGE, "requires", "Requires", TYPE_STRING, "", DisplayMode.BADGE, true)
+	register_property(TARGET_NODE, "logic_gate", "Logic Gate", TYPE_STRING, "", DisplayMode.BADGE, true)
+	register_category(TARGET_NODE, "start", "Start", Color(0.2, 0.8, 0.2), true)
 	
 	# Load user-created semantic fields from disk
 	ConfigManager.load_semantic_data(categories, properties)

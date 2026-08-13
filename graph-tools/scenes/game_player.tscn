@@ -130,7 +130,7 @@ script = ExtResource("5_u2lal")
 graph_editor = NodePath("../GraphEditor")
 toolbar = NodePath("../UI/MainLayout/Workspace/Toolbar")
 
-[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "file_controller", "settings_window", "menu_file", "menu_edit", "menu_graph", "btn_step", "btn_play", "btn_reset", "sb_speed")]
+[node name="TopbarController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "status_label", "tool_options_container", "file_controller", "settings_window", "menu_file", "menu_edit", "menu_graph", "menu_agents", "btn_step", "btn_play", "btn_reset", "sb_speed")]
 script = ExtResource("7_el7nm")
 graph_editor = NodePath("../GraphEditor")
 status_label = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/StatusLabel")
@@ -140,6 +140,7 @@ settings_window = NodePath("../UI/SettingsWindow")
 menu_file = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/File")
 menu_edit = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Edit")
 menu_graph = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Graph")
+menu_agents = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar/Agents")
 btn_step = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnStep")
 btn_play = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnPlay")
 btn_reset = NodePath("../UI/MainLayout/TopBar/MarginContainer/VBoxContainer/ContentRow/SimulationPanel/SimHBox/BtnReset")
@@ -205,6 +206,8 @@ oversampling_override = 1.0
 [node name="Edit" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
 
 [node name="Graph" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
+
+[node name="Agents" type="PopupMenu" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer/MenuBar"]
 
 [node name="ContentRow" type="HBoxContainer" parent="UI/MainLayout/TopBar/MarginContainer/VBoxContainer"]
 layout_mode = 2
