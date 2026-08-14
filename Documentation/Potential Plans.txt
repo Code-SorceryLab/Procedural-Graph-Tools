@@ -32,7 +32,6 @@ Maybe metrics AS transformations to mark certain nodes/edges as "Most recently a
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 	
 -Custom room shapes
--Structures only show up in biome overridden biomes, not the global ones.
 -Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
 
 

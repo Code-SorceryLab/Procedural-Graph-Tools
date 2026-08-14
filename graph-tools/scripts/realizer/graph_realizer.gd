@@ -69,11 +69,13 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	var emit = func(step_name: String):
 		if progress_callback.is_valid():
 			# Deep copy the exact state of the grid right now.
-			var cells_copy = grid.cells.duplicate() 
+			var cells_copy = grid.cells.duplicate()
 			var entities_copy = grid.entities.duplicate(true)
-			
-			# [FIXED] Pass grid.width and grid.height to match the 5 expected arguments!
 			progress_callback.call_deferred(step_name, cells_copy, entities_copy, grid.width, grid.height)
+			
+			# Force the background thread to pause for 150 milliseconds!
+			# This gives the Main Thread time to actually render the snapshot to the screen.
+			OS.delay_msec(150)
 			
 	# --- PIPELINE EXECUTION ---
 	emit.call("Start: Base Initialization")
@@ -99,8 +101,9 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	StructurePlacer.place(graph, self, params)
 	emit.call("Placing Structures")
 	
-	ProgressionSolver.analyze(self, params) # Extract physical Regions and Doors
-	emit.call("Analyzing Logical Progression")
+	# [FIXED] Pass the emit callback into the solver!
+	ProgressionSolver.analyze(self, params, emit) 
+	emit.call("Progression Analysis Complete")
 	
 	EntityScatterer.scatter(graph, self, params)
 	emit.call("Scattering Props & Entities")

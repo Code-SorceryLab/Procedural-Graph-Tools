@@ -83,7 +83,6 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		node.custom_data["_grid_center"] = grid_pos
 
 	# --- PHASE 2: GEOMETRIC BRIDGING (THE MERGER) ---
-	var processed_pairs = {}
 	
 	for i in range(room_data_cache.size()):
 		var r1 = room_data_cache[i]

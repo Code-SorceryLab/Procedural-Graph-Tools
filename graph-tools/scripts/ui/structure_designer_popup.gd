@@ -361,7 +361,6 @@ func _on_canvas_draw() -> void:
 				
 			var arrow_start = Vector2.ZERO
 			var arrow_end = Vector2.ZERO
-			var offset = actual_ts * 0.5
 			
 			# Position the arrow just outside the bounding box in the target direction
 			var center_x = center.x + ((min_coord.x + max_coord.x + 1) / 2.0) * actual_ts

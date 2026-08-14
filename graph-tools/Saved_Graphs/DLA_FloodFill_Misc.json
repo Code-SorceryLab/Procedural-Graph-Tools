@@ -1,0 +1,9593 @@
+{
+	"agents": [],
+	"edges": [
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:0",
+			"v": "dla:0:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:0",
+			"v": "dla:-1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:1",
+			"v": "dla:-1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:0",
+			"v": "dla:-1:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:0",
+			"v": "dla:0:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:0",
+			"v": "dla:1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:2",
+			"v": "dla:-1:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:1",
+			"v": "dla:-1:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-1",
+			"v": "dla:1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:0",
+			"v": "dla:1:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:3",
+			"v": "dla:-1:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:2",
+			"v": "dla:-1:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:2",
+			"v": "dla:-1:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:2",
+			"v": "dla:-2:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:3",
+			"v": "dla:-1:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:3",
+			"v": "dla:-2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:1",
+			"v": "dla:-1:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:1",
+			"v": "dla:-2:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:2",
+			"v": "dla:-2:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:2",
+			"v": "dla:-3:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:0",
+			"v": "dla:-1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:0",
+			"v": "dla:-2:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-2",
+			"v": "dla:1:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-1",
+			"v": "dla:1:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:0",
+			"v": "dla:-2:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:0",
+			"v": "dla:-3:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:1",
+			"v": "dla:1:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:0",
+			"v": "dla:1:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:1",
+			"v": "dla:-2:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:1",
+			"v": "dla:-3:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:1",
+			"v": "dla:1:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:1",
+			"v": "dla:2:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-1",
+			"v": "dla:1:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-1",
+			"v": "dla:2:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-1",
+			"v": "dla:2:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-1",
+			"v": "dla:3:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:-1",
+			"v": "dla:-3:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:0",
+			"v": "dla:-3:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:2",
+			"v": "dla:2:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:1",
+			"v": "dla:2:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:1",
+			"v": "dla:2:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:1",
+			"v": "dla:3:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:3",
+			"v": "dla:-1:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:3",
+			"v": "dla:0:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:3",
+			"v": "dla:2:2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:2",
+			"v": "dla:2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-3",
+			"v": "dla:1:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-2",
+			"v": "dla:1:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-1",
+			"v": "dla:-3:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:-1",
+			"v": "dla:-4:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:3",
+			"v": "dla:2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:3",
+			"v": "dla:3:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-3",
+			"v": "dla:1:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-3",
+			"v": "dla:2:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-2",
+			"v": "dla:-4:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-1",
+			"v": "dla:-4:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:4",
+			"v": "dla:-2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:3",
+			"v": "dla:-2:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-2",
+			"v": "dla:-4:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-2",
+			"v": "dla:-5:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-1",
+			"v": "dla:-4:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-1",
+			"v": "dla:-5:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:1",
+			"v": "dla:3:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:1",
+			"v": "dla:4:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:3",
+			"v": "dla:3:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:3",
+			"v": "dla:4:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:1",
+			"v": "dla:-3:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:1",
+			"v": "dla:-4:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-3",
+			"v": "dla:-4:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-2",
+			"v": "dla:-4:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-3",
+			"v": "dla:2:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-3",
+			"v": "dla:3:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:4",
+			"v": "dla:2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:3",
+			"v": "dla:2:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:4",
+			"v": "dla:4:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:3",
+			"v": "dla:4:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:3",
+			"v": "dla:-2:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:3",
+			"v": "dla:-3:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-4",
+			"v": "dla:1:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-3",
+			"v": "dla:1:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-2",
+			"v": "dla:-5:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-2",
+			"v": "dla:-6:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-1",
+			"v": "dla:-5:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-1",
+			"v": "dla:-6:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:5",
+			"v": "dla:4:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:4",
+			"v": "dla:4:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-3",
+			"v": "dla:3:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-3",
+			"v": "dla:4:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:3",
+			"v": "dla:-3:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:3",
+			"v": "dla:-4:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:5",
+			"v": "dla:2:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:4",
+			"v": "dla:2:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-4",
+			"v": "dla:-4:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-3",
+			"v": "dla:-4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-5",
+			"v": "dla:-4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-4",
+			"v": "dla:-4:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-4",
+			"v": "dla:4:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-3",
+			"v": "dla:4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:4",
+			"v": "dla:-4:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:3",
+			"v": "dla:-4:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:5",
+			"v": "dla:-2:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:4",
+			"v": "dla:-2:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:6",
+			"v": "dla:-2:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:5",
+			"v": "dla:-2:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-4",
+			"v": "dla:4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-4",
+			"v": "dla:5:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-1",
+			"v": "dla:-6:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-1",
+			"v": "dla:-7:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:4",
+			"v": "dla:-4:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:4",
+			"v": "dla:-5:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:5",
+			"v": "dla:4:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:5",
+			"v": "dla:5:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:5",
+			"v": "dla:5:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:5",
+			"v": "dla:6:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-4",
+			"v": "dla:-4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-4",
+			"v": "dla:-5:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-1",
+			"v": "dla:3:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-1",
+			"v": "dla:4:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-5",
+			"v": "dla:5:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-4",
+			"v": "dla:5:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:4",
+			"v": "dla:-5:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:4",
+			"v": "dla:-6:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-6",
+			"v": "dla:-4:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-5",
+			"v": "dla:-4:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-4",
+			"v": "dla:1:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:1:-4",
+			"v": "dla:2:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-4",
+			"v": "dla:4:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-4",
+			"v": "dla:3:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-3",
+			"v": "dla:4:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-3",
+			"v": "dla:5:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-7",
+			"v": "dla:-4:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-6",
+			"v": "dla:-4:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:3",
+			"v": "dla:4:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:3",
+			"v": "dla:5:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-2",
+			"v": "dla:-6:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-2",
+			"v": "dla:-7:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-2",
+			"v": "dla:-7:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-2",
+			"v": "dla:-8:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-3",
+			"v": "dla:-8:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-2",
+			"v": "dla:-8:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-6",
+			"v": "dla:5:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-5",
+			"v": "dla:5:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-1",
+			"v": "dla:4:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-1",
+			"v": "dla:5:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-7",
+			"v": "dla:5:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-6",
+			"v": "dla:5:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:3",
+			"v": "dla:-6:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:4",
+			"v": "dla:-6:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:6",
+			"v": "dla:6:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:5",
+			"v": "dla:6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-6",
+			"v": "dla:5:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-6",
+			"v": "dla:6:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-5",
+			"v": "dla:3:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-4",
+			"v": "dla:3:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:1",
+			"v": "dla:4:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:1",
+			"v": "dla:5:1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-3",
+			"v": "dla:-8:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-3",
+			"v": "dla:-7:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:3",
+			"v": "dla:-6:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:3",
+			"v": "dla:-7:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-2",
+			"v": "dla:-8:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-2",
+			"v": "dla:-9:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-8",
+			"v": "dla:-4:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-7",
+			"v": "dla:-4:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-9",
+			"v": "dla:-4:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-8",
+			"v": "dla:-4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-1",
+			"v": "dla:5:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-1",
+			"v": "dla:6:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:-6",
+			"v": "dla:6:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-6",
+			"v": "dla:7:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:0",
+			"v": "dla:-7:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-1",
+			"v": "dla:-7:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-2",
+			"v": "dla:6:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-1",
+			"v": "dla:6:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:-2",
+			"v": "dla:6:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-2",
+			"v": "dla:7:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:5",
+			"v": "dla:-6:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:4",
+			"v": "dla:-6:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-9",
+			"v": "dla:-4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-9",
+			"v": "dla:-5:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:6",
+			"v": "dla:6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:6",
+			"v": "dla:7:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:7",
+			"v": "dla:6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:6",
+			"v": "dla:6:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-8",
+			"v": "dla:5:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-7",
+			"v": "dla:5:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:6",
+			"v": "dla:-2:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:6",
+			"v": "dla:-3:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:0",
+			"v": "dla:6:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-1",
+			"v": "dla:6:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-9",
+			"v": "dla:5:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-8",
+			"v": "dla:5:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:6",
+			"v": "dla:7:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:6",
+			"v": "dla:8:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:-8",
+			"v": "dla:-4:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-8",
+			"v": "dla:-3:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-7",
+			"v": "dla:5:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-7",
+			"v": "dla:4:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:-9",
+			"v": "dla:-4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-9",
+			"v": "dla:-3:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:7",
+			"v": "dla:-2:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:6",
+			"v": "dla:-2:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:6",
+			"v": "dla:4:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:5",
+			"v": "dla:4:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-10",
+			"v": "dla:-4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-9",
+			"v": "dla:-4:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-2",
+			"v": "dla:-9:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-2",
+			"v": "dla:-10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-6",
+			"v": "dla:7:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:-6",
+			"v": "dla:8:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:6",
+			"v": "dla:-6:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:5",
+			"v": "dla:-6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-7",
+			"v": "dla:8:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-6",
+			"v": "dla:8:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-4",
+			"v": "dla:-7:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-3",
+			"v": "dla:-7:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:8",
+			"v": "dla:6:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:7",
+			"v": "dla:6:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:7",
+			"v": "dla:-6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:6",
+			"v": "dla:-6:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:0",
+			"v": "dla:-7:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:0",
+			"v": "dla:-8:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-5",
+			"v": "dla:-7:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-4",
+			"v": "dla:-7:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-9",
+			"v": "dla:-5:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:-9",
+			"v": "dla:-6:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-5",
+			"v": "dla:3:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-5",
+			"v": "dla:2:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:7",
+			"v": "dla:8:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:6",
+			"v": "dla:8:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:7",
+			"v": "dla:-2:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:7",
+			"v": "dla:-1:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:9",
+			"v": "dla:6:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:8",
+			"v": "dla:6:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:7",
+			"v": "dla:8:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:7",
+			"v": "dla:9:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:7",
+			"v": "dla:-6:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:7",
+			"v": "dla:-5:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-5",
+			"v": "dla:8:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-6",
+			"v": "dla:8:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:10",
+			"v": "dla:6:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:9",
+			"v": "dla:6:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:3",
+			"v": "dla:-7:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:3",
+			"v": "dla:-8:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-4",
+			"v": "dla:8:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-5",
+			"v": "dla:8:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:8",
+			"v": "dla:-6:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:7",
+			"v": "dla:-6:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-9",
+			"v": "dla:-3:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:-9",
+			"v": "dla:-2:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-2",
+			"v": "dla:7:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:7:-2",
+			"v": "dla:8:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-6",
+			"v": "dla:-7:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-5",
+			"v": "dla:-7:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:6",
+			"v": "dla:-6:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:6",
+			"v": "dla:-7:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:8",
+			"v": "dla:9:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:7",
+			"v": "dla:9:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-11",
+			"v": "dla:-4:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:-10",
+			"v": "dla:-4:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:9",
+			"v": "dla:-6:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:8",
+			"v": "dla:-6:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:8",
+			"v": "dla:-6:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:8",
+			"v": "dla:-7:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-10",
+			"v": "dla:-2:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-9",
+			"v": "dla:-2:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:9",
+			"v": "dla:9:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:8",
+			"v": "dla:9:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:10",
+			"v": "dla:9:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:9",
+			"v": "dla:9:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:8",
+			"v": "dla:-7:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:8",
+			"v": "dla:-8:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:11",
+			"v": "dla:9:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:10",
+			"v": "dla:9:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-7",
+			"v": "dla:-7:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-6",
+			"v": "dla:-7:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:8",
+			"v": "dla:9:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:8",
+			"v": "dla:10:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:12",
+			"v": "dla:9:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:11",
+			"v": "dla:9:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-8",
+			"v": "dla:5:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-8",
+			"v": "dla:4:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:13",
+			"v": "dla:9:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:12",
+			"v": "dla:9:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:7",
+			"v": "dla:4:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:6",
+			"v": "dla:4:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:5",
+			"v": "dla:8:6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:6",
+			"v": "dla:8:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-4",
+			"v": "dla:8:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-4",
+			"v": "dla:9:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:8",
+			"v": "dla:-2:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:7",
+			"v": "dla:-2:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:8",
+			"v": "dla:10:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:8",
+			"v": "dla:11:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-8",
+			"v": "dla:8:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-7",
+			"v": "dla:8:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:9",
+			"v": "dla:-2:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:8",
+			"v": "dla:-2:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:10",
+			"v": "dla:-2:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:9",
+			"v": "dla:-2:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-9",
+			"v": "dla:5:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-9",
+			"v": "dla:6:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-8",
+			"v": "dla:8:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-8",
+			"v": "dla:9:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-11",
+			"v": "dla:-2:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-10",
+			"v": "dla:-2:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-9",
+			"v": "dla:5:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:-9",
+			"v": "dla:4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-6",
+			"v": "dla:-7:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-6",
+			"v": "dla:-8:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-5",
+			"v": "dla:-7:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-5",
+			"v": "dla:-8:-5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:8",
+			"v": "dla:11:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:8",
+			"v": "dla:12:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-9",
+			"v": "dla:4:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-9",
+			"v": "dla:3:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:13",
+			"v": "dla:9:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:13",
+			"v": "dla:8:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:7",
+			"v": "dla:-1:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:7",
+			"v": "dla:0:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-9",
+			"v": "dla:9:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-8",
+			"v": "dla:9:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-10",
+			"v": "dla:3:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-9",
+			"v": "dla:3:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-9",
+			"v": "dla:9:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-9",
+			"v": "dla:10:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-10",
+			"v": "dla:9:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-9",
+			"v": "dla:9:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:14",
+			"v": "dla:9:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:13",
+			"v": "dla:9:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:8",
+			"v": "dla:12:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:8",
+			"v": "dla:13:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:14",
+			"v": "dla:9:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:14",
+			"v": "dla:8:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-10",
+			"v": "dla:-6:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-9",
+			"v": "dla:-6:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-10",
+			"v": "dla:9:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-10",
+			"v": "dla:10:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-12",
+			"v": "dla:-2:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-11",
+			"v": "dla:-2:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-6",
+			"v": "dla:-8:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-6",
+			"v": "dla:-9:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-4",
+			"v": "dla:9:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-4",
+			"v": "dla:10:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-10",
+			"v": "dla:-6:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:-10",
+			"v": "dla:-7:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:9",
+			"v": "dla:-8:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:8",
+			"v": "dla:-8:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:9",
+			"v": "dla:-6:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:9",
+			"v": "dla:-5:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-3",
+			"v": "dla:10:-4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-4",
+			"v": "dla:10:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-10",
+			"v": "dla:9:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-10",
+			"v": "dla:8:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-10",
+			"v": "dla:3:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-10",
+			"v": "dla:4:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:10",
+			"v": "dla:-8:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:9",
+			"v": "dla:-8:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-2",
+			"v": "dla:10:-3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-3",
+			"v": "dla:10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-1",
+			"v": "dla:-10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-2",
+			"v": "dla:-10:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:14",
+			"v": "dla:9:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:14",
+			"v": "dla:10:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:8",
+			"v": "dla:0:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:7",
+			"v": "dla:0:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:15",
+			"v": "dla:9:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:14",
+			"v": "dla:9:15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:9",
+			"v": "dla:11:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:8",
+			"v": "dla:11:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:5",
+			"v": "dla:8:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:5",
+			"v": "dla:9:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:9",
+			"v": "dla:13:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:8",
+			"v": "dla:13:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-10",
+			"v": "dla:10:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-10",
+			"v": "dla:11:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-11",
+			"v": "dla:11:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-10",
+			"v": "dla:11:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-8",
+			"v": "dla:-7:-7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-7",
+			"v": "dla:-7:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:10",
+			"v": "dla:-8:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:10",
+			"v": "dla:-9:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-11",
+			"v": "dla:9:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-10",
+			"v": "dla:9:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-2",
+			"v": "dla:-10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-2",
+			"v": "dla:-11:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-12",
+			"v": "dla:11:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-11",
+			"v": "dla:11:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-10",
+			"v": "dla:6:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-9",
+			"v": "dla:6:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:5",
+			"v": "dla:-6:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:5",
+			"v": "dla:-7:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:7",
+			"v": "dla:13:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:8",
+			"v": "dla:13:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-12",
+			"v": "dla:9:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-11",
+			"v": "dla:9:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-12",
+			"v": "dla:11:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-12",
+			"v": "dla:12:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:10",
+			"v": "dla:13:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:9",
+			"v": "dla:13:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:0",
+			"v": "dla:-10:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-1",
+			"v": "dla:-10:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:10",
+			"v": "dla:-2:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:10",
+			"v": "dla:-1:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-12",
+			"v": "dla:-2:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-12",
+			"v": "dla:-1:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-13",
+			"v": "dla:12:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-12",
+			"v": "dla:12:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-8",
+			"v": "dla:-7:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-8",
+			"v": "dla:-8:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:4",
+			"v": "dla:-8:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:3",
+			"v": "dla:-8:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:11",
+			"v": "dla:13:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:10",
+			"v": "dla:13:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-8",
+			"v": "dla:-8:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-8",
+			"v": "dla:-9:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-13",
+			"v": "dla:-1:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-12",
+			"v": "dla:-1:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-6",
+			"v": "dla:-9:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-6",
+			"v": "dla:-10:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:3",
+			"v": "dla:5:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:3",
+			"v": "dla:6:3",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-9",
+			"v": "dla:-9:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-8",
+			"v": "dla:-9:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:4",
+			"v": "dla:-8:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:4",
+			"v": "dla:-9:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:10",
+			"v": "dla:-8:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:10",
+			"v": "dla:-7:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:8:-12",
+			"v": "dla:9:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-12",
+			"v": "dla:8:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-1",
+			"v": "dla:10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-2",
+			"v": "dla:10:-1",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-9",
+			"v": "dla:-9:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:-9",
+			"v": "dla:-10:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:10",
+			"v": "dla:-2:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:10",
+			"v": "dla:-3:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:12",
+			"v": "dla:13:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:11",
+			"v": "dla:13:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:13",
+			"v": "dla:13:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:12",
+			"v": "dla:13:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-11",
+			"v": "dla:4:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-10",
+			"v": "dla:4:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-13",
+			"v": "dla:12:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-13",
+			"v": "dla:11:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:10",
+			"v": "dla:13:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:10",
+			"v": "dla:14:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-12:-2",
+			"v": "dla:-11:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-2",
+			"v": "dla:-12:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:0",
+			"v": "dla:-10:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:0",
+			"v": "dla:-11:0",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:8",
+			"v": "dla:13:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:8",
+			"v": "dla:14:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:14",
+			"v": "dla:10:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:14",
+			"v": "dla:11:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-13:-2",
+			"v": "dla:-12:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-12:-2",
+			"v": "dla:-13:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:4",
+			"v": "dla:9:5",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:5",
+			"v": "dla:9:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-13",
+			"v": "dla:9:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-12",
+			"v": "dla:9:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:11",
+			"v": "dla:-3:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:10",
+			"v": "dla:-3:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-14",
+			"v": "dla:12:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-13",
+			"v": "dla:12:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:10",
+			"v": "dla:-1:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:10",
+			"v": "dla:0:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-2",
+			"v": "dla:10:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-2",
+			"v": "dla:11:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-14",
+			"v": "dla:-1:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-13",
+			"v": "dla:-1:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:15",
+			"v": "dla:11:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:14",
+			"v": "dla:11:15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:11",
+			"v": "dla:13:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:11",
+			"v": "dla:14:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:8",
+			"v": "dla:-8:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:8",
+			"v": "dla:-9:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-2",
+			"v": "dla:11:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-2",
+			"v": "dla:12:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:8",
+			"v": "dla:-9:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:8",
+			"v": "dla:-10:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:-10",
+			"v": "dla:-7:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:-10",
+			"v": "dla:-8:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-14",
+			"v": "dla:9:-13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-13",
+			"v": "dla:9:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:11",
+			"v": "dla:-3:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-3:11",
+			"v": "dla:-4:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-14",
+			"v": "dla:9:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:9:-14",
+			"v": "dla:10:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:9",
+			"v": "dla:-10:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:8",
+			"v": "dla:-10:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:4",
+			"v": "dla:-9:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:4",
+			"v": "dla:-10:4",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:11",
+			"v": "dla:-7:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:10",
+			"v": "dla:-7:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-9",
+			"v": "dla:10:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-9",
+			"v": "dla:11:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-9",
+			"v": "dla:11:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-9",
+			"v": "dla:12:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:7",
+			"v": "dla:13:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:13:7",
+			"v": "dla:14:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-6:11",
+			"v": "dla:-7:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:11",
+			"v": "dla:-6:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:12",
+			"v": "dla:-7:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:11",
+			"v": "dla:-7:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:11",
+			"v": "dla:-1:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:10",
+			"v": "dla:-1:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:10",
+			"v": "dla:6:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:10",
+			"v": "dla:5:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-8",
+			"v": "dla:11:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-9",
+			"v": "dla:11:-8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-6",
+			"v": "dla:-10:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-6",
+			"v": "dla:-11:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:12",
+			"v": "dla:-7:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-7:12",
+			"v": "dla:-8:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:11",
+			"v": "dla:5:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:10",
+			"v": "dla:5:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-11",
+			"v": "dla:6:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:6:-10",
+			"v": "dla:6:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-11",
+			"v": "dla:11:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:-11",
+			"v": "dla:12:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:2:-10",
+			"v": "dla:3:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:3:-10",
+			"v": "dla:2:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:10",
+			"v": "dla:5:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:10",
+			"v": "dla:4:10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-12",
+			"v": "dla:4:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:4:-11",
+			"v": "dla:4:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:0:-14",
+			"v": "dla:-1:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-14",
+			"v": "dla:0:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:12",
+			"v": "dla:5:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:11",
+			"v": "dla:5:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-10",
+			"v": "dla:-10:-9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-9",
+			"v": "dla:-10:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-14:-2",
+			"v": "dla:-13:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-13:-2",
+			"v": "dla:-14:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-11",
+			"v": "dla:-10:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-10",
+			"v": "dla:-10:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-5:11",
+			"v": "dla:-4:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-4:11",
+			"v": "dla:-5:11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:13",
+			"v": "dla:5:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:5:12",
+			"v": "dla:5:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:15:7",
+			"v": "dla:14:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:7",
+			"v": "dla:15:7",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:14",
+			"v": "dla:11:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:11:14",
+			"v": "dla:12:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:9",
+			"v": "dla:-10:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:9",
+			"v": "dla:-11:9",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-15",
+			"v": "dla:10:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:10:-14",
+			"v": "dla:10:-15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-12",
+			"v": "dla:-10:-11",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-11",
+			"v": "dla:-10:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-15",
+			"v": "dla:12:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:12:-14",
+			"v": "dla:12:-15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:13",
+			"v": "dla:-8:12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:12",
+			"v": "dla:-8:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-10",
+			"v": "dla:-10:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-10",
+			"v": "dla:-11:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:14",
+			"v": "dla:-8:13",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:13",
+			"v": "dla:-8:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-15:-2",
+			"v": "dla:-14:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-14:-2",
+			"v": "dla:-15:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-12:-10",
+			"v": "dla:-11:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-10",
+			"v": "dla:-12:-10",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:15",
+			"v": "dla:-8:14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:14",
+			"v": "dla:-8:15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-12",
+			"v": "dla:-10:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:-12",
+			"v": "dla:-11:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-12:-6",
+			"v": "dla:-11:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-6",
+			"v": "dla:-12:-6",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-16:-2",
+			"v": "dla:-15:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-15:-2",
+			"v": "dla:-16:-2",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:8",
+			"v": "dla:-10:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-10:8",
+			"v": "dla:-11:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-9:15",
+			"v": "dla:-8:15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-8:15",
+			"v": "dla:-9:15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:15:8",
+			"v": "dla:14:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:14:8",
+			"v": "dla:15:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-12:-12",
+			"v": "dla:-11:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-11:-12",
+			"v": "dla:-12:-12",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:16:8",
+			"v": "dla:15:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:15:8",
+			"v": "dla:16:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:17:8",
+			"v": "dla:16:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:16:8",
+			"v": "dla:17:8",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-15",
+			"v": "dla:-1:-14",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-14",
+			"v": "dla:-1:-15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-2:-15",
+			"v": "dla:-1:-15",
+			"w": 1.0
+		},
+		{
+			"data": {
+				"physics_spring_length": 150.0,
+				"physics_stiffness": 0.5,
+				"type": 0
+			},
+			"dir": 1,
+			"u": "dla:-1:-15",
+			"v": "dla:-2:-15",
+			"w": 1.0
+		}
+	],
+	"legend": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"climbable": {
+				"color": "cc9933ff",
+				"name": "Climbable"
+			},
+			"corridor": {
+				"color": "ccccccff",
+				"name": "Corridor"
+			},
+			"door_locked": {
+				"color": "cc3333ff",
+				"name": "Door (Locked)"
+			},
+			"door_open": {
+				"color": "996633ff",
+				"name": "Door (Open)"
+			},
+			"secret": {
+				"color": "6633ccff",
+				"name": "Secret Passage"
+			}
+		},
+		"NODE": {
+			"boss": {
+				"color": "990000ff",
+				"name": "Boss"
+			},
+			"empty": {
+				"color": "ccccccff",
+				"name": "Empty"
+			},
+			"enemy": {
+				"color": "cc4d4dff",
+				"name": "Enemy"
+			},
+			"hub": {
+				"color": "f2cc33ff",
+				"name": "Hub"
+			},
+			"lava": {
+				"color": "ec6900ff",
+				"name": "Lava"
+			},
+			"scp_breach": {
+				"color": "cc3333ff",
+				"name": "Breached Sector"
+			},
+			"scp_heavy": {
+				"color": "666666ff",
+				"name": "Heavy Containment"
+			},
+			"scp_light": {
+				"color": "e6e6e6ff",
+				"name": "Light Containment"
+			},
+			"scp_office": {
+				"color": "99b3e6ff",
+				"name": "Research Office"
+			},
+			"shop": {
+				"color": "663399ff",
+				"name": "Shop"
+			},
+			"spawn": {
+				"color": "33cc33ff",
+				"name": "Spawn"
+			},
+			"start": {
+				"color": "33cc33ff",
+				"name": "Start"
+			},
+			"treasure": {
+				"color": "ffcc33ff",
+				"name": "Treasure"
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"meta": {
+		"next_ticket": 1,
+		"timestamp": "2026-08-14T14:08:55",
+		"version": "1.6"
+	},
+	"nodes": [
+		{
+			"custom_data": {
+				"_grid_center": "(53, 51)"
+			},
+			"id": "dla:0:0",
+			"shape": 0,
+			"type": "spawn",
+			"x": 0.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 51)"
+			},
+			"id": "dla:-1:0",
+			"shape": 0,
+			"type": "spawn",
+			"x": -60.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 53)"
+			},
+			"id": "dla:-1:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": -60.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 51)"
+			},
+			"id": "dla:1:0",
+			"shape": 0,
+			"type": "spawn",
+			"x": 60.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 55)"
+			},
+			"id": "dla:-1:2",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -60.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 48)"
+			},
+			"id": "dla:1:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 60.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 58)"
+			},
+			"id": "dla:-1:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -60.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 55)"
+			},
+			"id": "dla:-2:2",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 58)"
+			},
+			"id": "dla:-2:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 53)"
+			},
+			"id": "dla:-2:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": -120.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 55)"
+			},
+			"id": "dla:-3:2",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -180.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 51)"
+			},
+			"id": "dla:-2:0",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -120.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 46)"
+			},
+			"id": "dla:1:-2",
+			"shape": 0,
+			"type": "empty",
+			"x": 60.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 51)"
+			},
+			"id": "dla:-3:0",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -180.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 53)"
+			},
+			"id": "dla:1:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": 60.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 53)"
+			},
+			"id": "dla:-3:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": -180.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 53)"
+			},
+			"id": "dla:2:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": 120.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 48)"
+			},
+			"id": "dla:2:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 120.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 48)"
+			},
+			"id": "dla:3:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 48)"
+			},
+			"id": "dla:-3:-1",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -180.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 55)"
+			},
+			"id": "dla:2:2",
+			"shape": 0,
+			"type": "spawn",
+			"x": 120.0,
+			"y": 120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 53)"
+			},
+			"id": "dla:3:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": 180.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(53, 58)"
+			},
+			"id": "dla:0:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": 0.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 58)"
+			},
+			"id": "dla:2:3",
+			"shape": 0,
+			"type": "spawn",
+			"x": 120.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 43)"
+			},
+			"id": "dla:1:-3",
+			"shape": 0,
+			"type": "empty",
+			"x": 60.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 48)"
+			},
+			"id": "dla:-4:-1",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 58)"
+			},
+			"id": "dla:3:3",
+			"shape": 0,
+			"type": "spawn",
+			"x": 180.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 43)"
+			},
+			"id": "dla:2:-3",
+			"shape": 0,
+			"type": "empty",
+			"x": 120.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 46)"
+			},
+			"id": "dla:-4:-2",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 60)"
+			},
+			"id": "dla:-2:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 46)"
+			},
+			"id": "dla:-5:-2",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -300.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 48)"
+			},
+			"id": "dla:-5:-1",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -300.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 53)"
+			},
+			"id": "dla:4:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 58)"
+			},
+			"id": "dla:4:3",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 53)"
+			},
+			"id": "dla:-4:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": -240.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 43)"
+			},
+			"id": "dla:-4:-3",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 43)"
+			},
+			"id": "dla:3:-3",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 60)"
+			},
+			"id": "dla:2:4",
+			"shape": 0,
+			"type": "spawn",
+			"x": 120.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 60)"
+			},
+			"id": "dla:4:4",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 58)"
+			},
+			"id": "dla:-3:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -180.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(55, 41)"
+			},
+			"id": "dla:1:-4",
+			"shape": 0,
+			"type": "empty",
+			"x": 60.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 46)"
+			},
+			"id": "dla:-6:-2",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -360.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 48)"
+			},
+			"id": "dla:-6:-1",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -360.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 63)"
+			},
+			"id": "dla:4:5",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 43)"
+			},
+			"id": "dla:4:-3",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 58)"
+			},
+			"id": "dla:-4:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -240.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 63)"
+			},
+			"id": "dla:2:5",
+			"shape": 0,
+			"type": "spawn",
+			"x": 120.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 41)"
+			},
+			"id": "dla:-4:-4",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 39)"
+			},
+			"id": "dla:-4:-5",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 41)"
+			},
+			"id": "dla:4:-4",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 60)"
+			},
+			"id": "dla:-4:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -240.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 63)"
+			},
+			"id": "dla:-2:5",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 65)"
+			},
+			"id": "dla:-2:6",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 41)"
+			},
+			"id": "dla:5:-4",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 48)"
+			},
+			"id": "dla:-7:-1",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 60)"
+			},
+			"id": "dla:-5:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -300.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 63)"
+			},
+			"id": "dla:5:5",
+			"shape": 0,
+			"type": "spawn",
+			"x": 300.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 63)"
+			},
+			"id": "dla:6:5",
+			"shape": 0,
+			"type": "spawn",
+			"x": 360.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 41)"
+			},
+			"id": "dla:-5:-4",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -300.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 48)"
+			},
+			"id": "dla:4:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 39)"
+			},
+			"id": "dla:5:-5",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 60)"
+			},
+			"id": "dla:-6:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 36)"
+			},
+			"id": "dla:-4:-6",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 41)"
+			},
+			"id": "dla:2:-4",
+			"shape": 0,
+			"type": "empty",
+			"x": 120.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 41)"
+			},
+			"id": "dla:3:-4",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 43)"
+			},
+			"id": "dla:5:-3",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 34)"
+			},
+			"id": "dla:-4:-7",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 58)"
+			},
+			"id": "dla:5:3",
+			"shape": 0,
+			"type": "spawn",
+			"x": 300.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 46)"
+			},
+			"id": "dla:-7:-2",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 46)"
+			},
+			"id": "dla:-8:-2",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -480.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 43)"
+			},
+			"id": "dla:-8:-3",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -480.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 36)"
+			},
+			"id": "dla:5:-6",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 48)"
+			},
+			"id": "dla:5:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 34)"
+			},
+			"id": "dla:5:-7",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 58)"
+			},
+			"id": "dla:-6:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 65)"
+			},
+			"id": "dla:6:6",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 360.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 36)"
+			},
+			"id": "dla:6:-6",
+			"shape": 0,
+			"type": "start",
+			"x": 360.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 39)"
+			},
+			"id": "dla:3:-5",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 53)"
+			},
+			"id": "dla:5:1",
+			"shape": 0,
+			"type": "spawn",
+			"x": 300.0,
+			"y": 60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 43)"
+			},
+			"id": "dla:-7:-3",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 58)"
+			},
+			"id": "dla:-7:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -420.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 46)"
+			},
+			"id": "dla:-9:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -540.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 31)"
+			},
+			"id": "dla:-4:-8",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 29)"
+			},
+			"id": "dla:-4:-9",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 48)"
+			},
+			"id": "dla:6:-1",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(70, 36)"
+			},
+			"id": "dla:7:-6",
+			"shape": 0,
+			"type": "start",
+			"x": 420.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 51)"
+			},
+			"id": "dla:-7:0",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 46)"
+			},
+			"id": "dla:6:-2",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(70, 46)"
+			},
+			"id": "dla:7:-2",
+			"shape": 0,
+			"type": "empty",
+			"x": 420.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 63)"
+			},
+			"id": "dla:-6:5",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 29)"
+			},
+			"id": "dla:-5:-9",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -300.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(70, 65)"
+			},
+			"id": "dla:7:6",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 420.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 67)"
+			},
+			"id": "dla:6:7",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 360.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 31)"
+			},
+			"id": "dla:5:-8",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 65)"
+			},
+			"id": "dla:-3:6",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -180.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 51)"
+			},
+			"id": "dla:6:0",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 29)"
+			},
+			"id": "dla:5:-9",
+			"shape": 0,
+			"type": "empty",
+			"x": 300.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 65)"
+			},
+			"id": "dla:8:6",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 480.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 31)"
+			},
+			"id": "dla:-3:-8",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -180.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 34)"
+			},
+			"id": "dla:4:-7",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 29)"
+			},
+			"id": "dla:-3:-9",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -180.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 67)"
+			},
+			"id": "dla:-2:7",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 65)"
+			},
+			"id": "dla:4:6",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 27)"
+			},
+			"id": "dla:-4:-10",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 46)"
+			},
+			"id": "dla:-10:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -600.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 36)"
+			},
+			"id": "dla:8:-6",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 65)"
+			},
+			"id": "dla:-6:6",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 34)"
+			},
+			"id": "dla:8:-7",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 41)"
+			},
+			"id": "dla:-7:-4",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 70)"
+			},
+			"id": "dla:6:8",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 360.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 67)"
+			},
+			"id": "dla:-6:7",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 51)"
+			},
+			"id": "dla:-8:0",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -480.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 39)"
+			},
+			"id": "dla:-7:-5",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 29)"
+			},
+			"id": "dla:-6:-9",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -360.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 39)"
+			},
+			"id": "dla:2:-5",
+			"shape": 0,
+			"type": "empty",
+			"x": 120.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 67)"
+			},
+			"id": "dla:8:7",
+			"shape": 0,
+			"type": "treasure",
+			"x": 480.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 67)"
+			},
+			"id": "dla:-1:7",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -60.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 72)"
+			},
+			"id": "dla:6:9",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 360.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 67)"
+			},
+			"id": "dla:9:7",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 67)"
+			},
+			"id": "dla:-5:7",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -300.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 39)"
+			},
+			"id": "dla:8:-5",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 75)"
+			},
+			"id": "dla:6:10",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 360.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 58)"
+			},
+			"id": "dla:-8:3",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -480.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 41)"
+			},
+			"id": "dla:8:-4",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 70)"
+			},
+			"id": "dla:-6:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 29)"
+			},
+			"id": "dla:-2:-9",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -120.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 46)"
+			},
+			"id": "dla:8:-2",
+			"shape": 0,
+			"type": "empty",
+			"x": 480.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 36)"
+			},
+			"id": "dla:-7:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -420.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 65)"
+			},
+			"id": "dla:-7:6",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -420.0,
+			"y": 360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 70)"
+			},
+			"id": "dla:9:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 24)"
+			},
+			"id": "dla:-4:-11",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -240.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 72)"
+			},
+			"id": "dla:-6:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -360.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 70)"
+			},
+			"id": "dla:-7:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -420.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 27)"
+			},
+			"id": "dla:-2:-10",
+			"shape": 0,
+			"type": "hub",
+			"x": -120.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 72)"
+			},
+			"id": "dla:9:9",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 75)"
+			},
+			"id": "dla:9:10",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 70)"
+			},
+			"id": "dla:-8:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -480.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 77)"
+			},
+			"id": "dla:9:11",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 34)"
+			},
+			"id": "dla:-7:-7",
+			"shape": 0,
+			"type": "boss",
+			"x": -420.0,
+			"y": -420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 70)"
+			},
+			"id": "dla:10:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 600.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 79)"
+			},
+			"id": "dla:9:12",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 31)"
+			},
+			"id": "dla:4:-8",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 82)"
+			},
+			"id": "dla:9:13",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 67)"
+			},
+			"id": "dla:4:7",
+			"shape": 0,
+			"type": "spawn",
+			"x": 240.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 63)"
+			},
+			"id": "dla:8:5",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 480.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 41)"
+			},
+			"id": "dla:9:-4",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 70)"
+			},
+			"id": "dla:-2:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 70)"
+			},
+			"id": "dla:11:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 660.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 31)"
+			},
+			"id": "dla:8:-8",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 72)"
+			},
+			"id": "dla:-2:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 75)"
+			},
+			"id": "dla:-2:10",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -120.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 29)"
+			},
+			"id": "dla:6:-9",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 31)"
+			},
+			"id": "dla:9:-8",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 24)"
+			},
+			"id": "dla:-2:-11",
+			"shape": 0,
+			"type": "hub",
+			"x": -120.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 29)"
+			},
+			"id": "dla:4:-9",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 36)"
+			},
+			"id": "dla:-8:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -480.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 39)"
+			},
+			"id": "dla:-8:-5",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -480.0,
+			"y": -300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 70)"
+			},
+			"id": "dla:12:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 720.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 29)"
+			},
+			"id": "dla:3:-9",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 82)"
+			},
+			"id": "dla:8:13",
+			"shape": 0,
+			"type": "treasure",
+			"x": 480.0,
+			"y": 780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(53, 67)"
+			},
+			"id": "dla:0:7",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": 0.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 29)"
+			},
+			"id": "dla:9:-9",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(60, 27)"
+			},
+			"id": "dla:3:-10",
+			"shape": 0,
+			"type": "empty",
+			"x": 180.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 29)"
+			},
+			"id": "dla:10:-9",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 27)"
+			},
+			"id": "dla:9:-10",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 84)"
+			},
+			"id": "dla:9:14",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 70)"
+			},
+			"id": "dla:13:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 84)"
+			},
+			"id": "dla:8:14",
+			"shape": 0,
+			"type": "treasure",
+			"x": 480.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 27)"
+			},
+			"id": "dla:-6:-10",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -360.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 27)"
+			},
+			"id": "dla:10:-10",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 22)"
+			},
+			"id": "dla:-2:-12",
+			"shape": 0,
+			"type": "hub",
+			"x": -120.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 36)"
+			},
+			"id": "dla:-9:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -540.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 41)"
+			},
+			"id": "dla:10:-4",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 27)"
+			},
+			"id": "dla:-7:-10",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -420.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 72)"
+			},
+			"id": "dla:-8:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -480.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 72)"
+			},
+			"id": "dla:-5:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -300.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 43)"
+			},
+			"id": "dla:10:-3",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 27)"
+			},
+			"id": "dla:8:-10",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 27)"
+			},
+			"id": "dla:4:-10",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 75)"
+			},
+			"id": "dla:-8:10",
+			"shape": 0,
+			"type": "enemy",
+			"x": -480.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 46)"
+			},
+			"id": "dla:10:-2",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 48)"
+			},
+			"id": "dla:-10:-1",
+			"shape": 0,
+			"type": "shop",
+			"x": -600.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 84)"
+			},
+			"id": "dla:10:14",
+			"shape": 0,
+			"type": "treasure",
+			"x": 600.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(53, 70)"
+			},
+			"id": "dla:0:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": 0.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 87)"
+			},
+			"id": "dla:9:15",
+			"shape": 0,
+			"type": "treasure",
+			"x": 540.0,
+			"y": 900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 72)"
+			},
+			"id": "dla:11:9",
+			"shape": 0,
+			"type": "treasure",
+			"x": 660.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 63)"
+			},
+			"id": "dla:9:5",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 540.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 72)"
+			},
+			"id": "dla:13:9",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 27)"
+			},
+			"id": "dla:11:-10",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 24)"
+			},
+			"id": "dla:11:-11",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 31)"
+			},
+			"id": "dla:-7:-8",
+			"shape": 0,
+			"type": "boss",
+			"x": -420.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 75)"
+			},
+			"id": "dla:-9:10",
+			"shape": 0,
+			"type": "enemy",
+			"x": -540.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 24)"
+			},
+			"id": "dla:9:-11",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 46)"
+			},
+			"id": "dla:-11:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -660.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 22)"
+			},
+			"id": "dla:11:-12",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 27)"
+			},
+			"id": "dla:6:-10",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 63)"
+			},
+			"id": "dla:-7:5",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -420.0,
+			"y": 300.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 67)"
+			},
+			"id": "dla:13:7",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 22)"
+			},
+			"id": "dla:9:-12",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 22)"
+			},
+			"id": "dla:12:-12",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 75)"
+			},
+			"id": "dla:13:10",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 51)"
+			},
+			"id": "dla:-10:0",
+			"shape": 0,
+			"type": "shop",
+			"x": -600.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 75)"
+			},
+			"id": "dla:-1:10",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -60.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 22)"
+			},
+			"id": "dla:-1:-12",
+			"shape": 0,
+			"type": "hub",
+			"x": -60.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 19)"
+			},
+			"id": "dla:12:-13",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 31)"
+			},
+			"id": "dla:-8:-8",
+			"shape": 0,
+			"type": "boss",
+			"x": -480.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 60)"
+			},
+			"id": "dla:-8:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -480.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 77)"
+			},
+			"id": "dla:13:11",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 31)"
+			},
+			"id": "dla:-9:-8",
+			"shape": 0,
+			"type": "boss",
+			"x": -540.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 19)"
+			},
+			"id": "dla:-1:-13",
+			"shape": 0,
+			"type": "hub",
+			"x": -60.0,
+			"y": -780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 36)"
+			},
+			"id": "dla:-10:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -600.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 58)"
+			},
+			"id": "dla:6:3",
+			"shape": 0,
+			"type": "spawn",
+			"x": 360.0,
+			"y": 180.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 29)"
+			},
+			"id": "dla:-9:-9",
+			"shape": 0,
+			"type": "boss",
+			"x": -540.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 60)"
+			},
+			"id": "dla:-9:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -540.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 75)"
+			},
+			"id": "dla:-7:10",
+			"shape": 0,
+			"type": "enemy",
+			"x": -420.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(72, 22)"
+			},
+			"id": "dla:8:-12",
+			"shape": 0,
+			"type": "start",
+			"x": 480.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 48)"
+			},
+			"id": "dla:10:-1",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -60.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 29)"
+			},
+			"id": "dla:-10:-9",
+			"shape": 0,
+			"type": "boss",
+			"x": -600.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 75)"
+			},
+			"id": "dla:-3:10",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -180.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 79)"
+			},
+			"id": "dla:13:12",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(84, 82)"
+			},
+			"id": "dla:13:13",
+			"shape": 0,
+			"type": "treasure",
+			"x": 780.0,
+			"y": 780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 24)"
+			},
+			"id": "dla:4:-11",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 19)"
+			},
+			"id": "dla:11:-13",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(87, 75)"
+			},
+			"id": "dla:14:10",
+			"shape": 0,
+			"type": "treasure",
+			"x": 840.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(24, 46)"
+			},
+			"id": "dla:-12:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -720.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 51)"
+			},
+			"id": "dla:-11:0",
+			"shape": 0,
+			"type": "shop",
+			"x": -660.0,
+			"y": 0.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(87, 70)"
+			},
+			"id": "dla:14:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 840.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 84)"
+			},
+			"id": "dla:11:14",
+			"shape": 0,
+			"type": "treasure",
+			"x": 660.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(22, 46)"
+			},
+			"id": "dla:-13:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -780.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 60)"
+			},
+			"id": "dla:9:4",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 540.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 19)"
+			},
+			"id": "dla:9:-13",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(46, 77)"
+			},
+			"id": "dla:-3:11",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -180.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 17)"
+			},
+			"id": "dla:12:-14",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(53, 75)"
+			},
+			"id": "dla:0:10",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": 0.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 46)"
+			},
+			"id": "dla:11:-2",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 17)"
+			},
+			"id": "dla:-1:-14",
+			"shape": 0,
+			"type": "hub",
+			"x": -60.0,
+			"y": -840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 87)"
+			},
+			"id": "dla:11:15",
+			"shape": 0,
+			"type": "treasure",
+			"x": 660.0,
+			"y": 900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(87, 77)"
+			},
+			"id": "dla:14:11",
+			"shape": 0,
+			"type": "treasure",
+			"x": 840.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 70)"
+			},
+			"id": "dla:-9:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -540.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 46)"
+			},
+			"id": "dla:12:-2",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 70)"
+			},
+			"id": "dla:-10:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -600.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 27)"
+			},
+			"id": "dla:-8:-10",
+			"shape": 0,
+			"type": "scp_office",
+			"x": -480.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(75, 17)"
+			},
+			"id": "dla:9:-14",
+			"shape": 0,
+			"type": "start",
+			"x": 540.0,
+			"y": -840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(43, 77)"
+			},
+			"id": "dla:-4:11",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -240.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 17)"
+			},
+			"id": "dla:10:-14",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 72)"
+			},
+			"id": "dla:-10:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -600.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 60)"
+			},
+			"id": "dla:-10:4",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -600.0,
+			"y": 240.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 77)"
+			},
+			"id": "dla:-7:11",
+			"shape": 0,
+			"type": "enemy",
+			"x": -420.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 29)"
+			},
+			"id": "dla:11:-9",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 29)"
+			},
+			"id": "dla:12:-9",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(87, 67)"
+			},
+			"id": "dla:14:7",
+			"shape": 0,
+			"type": "treasure",
+			"x": 840.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(39, 77)"
+			},
+			"id": "dla:-6:11",
+			"shape": 0,
+			"type": "enemy",
+			"x": -360.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(36, 79)"
+			},
+			"id": "dla:-7:12",
+			"shape": 0,
+			"type": "enemy",
+			"x": -420.0,
+			"y": 720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 77)"
+			},
+			"id": "dla:-1:11",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -60.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 75)"
+			},
+			"id": "dla:5:10",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 300.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(79, 31)"
+			},
+			"id": "dla:11:-8",
+			"shape": 0,
+			"type": "start",
+			"x": 660.0,
+			"y": -480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 36)"
+			},
+			"id": "dla:-11:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -660.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 79)"
+			},
+			"id": "dla:-8:12",
+			"shape": 0,
+			"type": "enemy",
+			"x": -480.0,
+			"y": 720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 77)"
+			},
+			"id": "dla:5:11",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 300.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(67, 24)"
+			},
+			"id": "dla:6:-11",
+			"shape": 0,
+			"type": "empty",
+			"x": 360.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 24)"
+			},
+			"id": "dla:12:-11",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(58, 27)"
+			},
+			"id": "dla:2:-10",
+			"shape": 0,
+			"type": "empty",
+			"x": 120.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 75)"
+			},
+			"id": "dla:4:10",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 240.0,
+			"y": 600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(63, 22)"
+			},
+			"id": "dla:4:-12",
+			"shape": 0,
+			"type": "empty",
+			"x": 240.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(53, 17)"
+			},
+			"id": "dla:0:-14",
+			"shape": 0,
+			"type": "hub",
+			"x": 0.0,
+			"y": -840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 79)"
+			},
+			"id": "dla:5:12",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 300.0,
+			"y": 720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 27)"
+			},
+			"id": "dla:-10:-10",
+			"shape": 0,
+			"type": "boss",
+			"x": -600.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(19, 46)"
+			},
+			"id": "dla:-14:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -840.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 24)"
+			},
+			"id": "dla:-10:-11",
+			"shape": 0,
+			"type": "boss",
+			"x": -600.0,
+			"y": -660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(41, 77)"
+			},
+			"id": "dla:-5:11",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -300.0,
+			"y": 660.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(65, 82)"
+			},
+			"id": "dla:5:13",
+			"shape": 0,
+			"type": "scp_light",
+			"x": 300.0,
+			"y": 780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(89, 67)"
+			},
+			"id": "dla:15:7",
+			"shape": 0,
+			"type": "treasure",
+			"x": 900.0,
+			"y": 420.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 84)"
+			},
+			"id": "dla:12:14",
+			"shape": 0,
+			"type": "treasure",
+			"x": 720.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 72)"
+			},
+			"id": "dla:-11:9",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -660.0,
+			"y": 540.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(77, 15)"
+			},
+			"id": "dla:10:-15",
+			"shape": 0,
+			"type": "start",
+			"x": 600.0,
+			"y": -900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(29, 22)"
+			},
+			"id": "dla:-10:-12",
+			"shape": 0,
+			"type": "boss",
+			"x": -600.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(82, 15)"
+			},
+			"id": "dla:12:-15",
+			"shape": 0,
+			"type": "start",
+			"x": 720.0,
+			"y": -900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 82)"
+			},
+			"id": "dla:-8:13",
+			"shape": 0,
+			"type": "enemy",
+			"x": -480.0,
+			"y": 780.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 27)"
+			},
+			"id": "dla:-11:-10",
+			"shape": 0,
+			"type": "boss",
+			"x": -660.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 84)"
+			},
+			"id": "dla:-8:14",
+			"shape": 0,
+			"type": "enemy",
+			"x": -480.0,
+			"y": 840.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(17, 46)"
+			},
+			"id": "dla:-15:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -900.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(24, 27)"
+			},
+			"id": "dla:-12:-10",
+			"shape": 0,
+			"type": "boss",
+			"x": -720.0,
+			"y": -600.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(34, 87)"
+			},
+			"id": "dla:-8:15",
+			"shape": 0,
+			"type": "enemy",
+			"x": -480.0,
+			"y": 900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 22)"
+			},
+			"id": "dla:-11:-12",
+			"shape": 0,
+			"type": "boss",
+			"x": -660.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(24, 36)"
+			},
+			"id": "dla:-12:-6",
+			"shape": 0,
+			"type": "boss",
+			"x": -720.0,
+			"y": -360.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(15, 46)"
+			},
+			"id": "dla:-16:-2",
+			"shape": 0,
+			"type": "shop",
+			"x": -960.0,
+			"y": -120.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(27, 70)"
+			},
+			"id": "dla:-11:8",
+			"shape": 0,
+			"type": "scp_breach",
+			"x": -660.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(31, 87)"
+			},
+			"id": "dla:-9:15",
+			"shape": 0,
+			"type": "enemy",
+			"x": -540.0,
+			"y": 900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(89, 70)"
+			},
+			"id": "dla:15:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 900.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(24, 22)"
+			},
+			"id": "dla:-12:-12",
+			"shape": 0,
+			"type": "boss",
+			"x": -720.0,
+			"y": -720.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(91, 70)"
+			},
+			"id": "dla:16:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 960.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(94, 70)"
+			},
+			"id": "dla:17:8",
+			"shape": 0,
+			"type": "treasure",
+			"x": 1020.0,
+			"y": 480.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(51, 15)"
+			},
+			"id": "dla:-1:-15",
+			"shape": 0,
+			"type": "hub",
+			"x": -60.0,
+			"y": -900.0
+		},
+		{
+			"custom_data": {
+				"_grid_center": "(48, 15)"
+			},
+			"id": "dla:-2:-15",
+			"shape": 0,
+			"type": "hub",
+			"x": -120.0,
+			"y": -900.0
+		}
+	],
+	"schema": {
+		"AGENT": {
+
+		},
+		"EDGE": {
+			"lock_level": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Lock Level",
+				"type": 2
+			},
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_snap_threshold": {
+				"default": 400.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Snap Threshold",
+				"type": 3
+			},
+			"physics_snappable": {
+				"default": false,
+				"display": 0,
+				"is_core": true,
+				"label": "Can Snap (Tension)",
+				"type": 1
+			},
+			"physics_spring_length": {
+				"default": 150.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Spring Length",
+				"type": 3
+			},
+			"physics_stiffness": {
+				"default": 0.5,
+				"display": 0,
+				"is_core": true,
+				"label": "Spring Stiffness",
+				"type": 3
+			},
+			"requires": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Requires",
+				"type": 4
+			}
+		},
+		"NODE": {
+			"clearance_req": {
+				"default": 1.0,
+				"display": 0,
+				"is_core": false,
+				"label": "Clearance Required",
+				"type": 2
+			},
+			"dag_depth": {
+				"default": 0,
+				"display": 1,
+				"is_core": true,
+				"label": "DAG Depth",
+				"type": 2
+			},
+			"items": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Items",
+				"type": 4
+			},
+			"logic_gate": {
+				"default": "",
+				"display": 2,
+				"is_core": true,
+				"label": "Logic Gate",
+				"type": 4
+			},
+			"physics_fusable": {
+				"default": false,
+				"display": 0,
+				"is_core": true,
+				"label": "Can Fuse (Collision)",
+				"type": 1
+			},
+			"physics_mode": {
+				"default": 0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Mode",
+				"type": 2
+			},
+			"physics_repulsion": {
+				"default": 100.0,
+				"display": 0,
+				"is_core": true,
+				"label": "Physics Repulsion",
+				"type": 3
+			}
+		},
+		"ZONE": {
+
+		}
+	},
+	"zones": []
+}

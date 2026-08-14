@@ -60,7 +60,27 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 				if d > 0.001:
 					intents.append({ "id": key, "is_density": true, "density": d })
 					
+			# [FIX 1] DENSITY NORMALIZATION
+			# Divides the density by the number of active structures so probability doesn't stack!
+			# 6 structures at 0.01 density will share a single 0.01 probability space.
+			var intent_count = float(intents.size())
+			if intent_count > 0:
+				for intent in intents:
+					intent["density"] = intent["density"] / intent_count
+					
 		if intents.is_empty(): continue
+		
+		# [FIX 2] INTENT SHUFFLING
+		# Randomize the evaluation order so the first structure alphabetically 
+		# doesn't always steal the center of the room!
+		var shuffled_intents = []
+		var temp_intents = intents.duplicate()
+		while temp_intents.size() > 0:
+			var rand_idx = rng.randi() % temp_intents.size()
+			shuffled_intents.append(temp_intents.pop_at(rand_idx))
+		intents = shuffled_intents
+		
+		# --- 2. EVALUATE INTENTS ---
 		
 		# --- 2. EVALUATE INTENTS ---
 		for intent in intents:

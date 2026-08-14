@@ -296,7 +296,7 @@ func _build_ui() -> void:
 		
 		# --- SCATTER SETTING ---
 		{ "name": "sep_scatter", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "scatter_density", "label": "Entity Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01, 
+		{ "name": "scatter_density", "label": "Entity Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.001, 
 		  "hint_text": "Chance to spawn an entity on any valid non-critical floor tile." },
 		{ "name": "scatter_min_dist", "label": "Scatter Min Wall Dist", "type": TYPE_INT, "default": 0, "min": 0, "max": 20, 
 		  "hint_text": "0 = Can spawn against walls. Higher values push entities to the center of rooms." },
@@ -313,7 +313,7 @@ func _build_ui() -> void:
 		{ "name": "progression_enabled", "label": "Generate Locks & Keys", "type": TYPE_BOOL, "default": true, 
 		  "hint_text": "Algorithmic generation of locked doors and physically accessible keys." },
 		{ "name": "progression_lock_chance", "label": "Door Lock Chance", "type": TYPE_FLOAT, "default": 0.4, "min": 0.0, "max": 1.0, "step": 0.05 },
-		{ "name": "progression_max_locks", "label": "Max Locked Doors (0 = Unlimited)", "type": TYPE_INT, "default": 0, "min": 0, "max": 99,
+		{ "name": "progression_max_locks", "label": "Max Locked Doors (0: Unlimited)", "type": TYPE_INT, "default": 0, "min": 0, "max": 99,
 		  "hint_text": "Maximum number of locked doors. Set to 0 to allow infinite locks based purely on lock chance." },
 		{ "name": "progression_key_copies_min", "label": "Min Key Copies", "type": TYPE_INT, "default": 1, "min": 1, "max": 5,
 		  "hint_text": "Minimum number of duplicate keys that will spawn for a single lock." },
@@ -433,7 +433,7 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 					"label": "[Density] " + s_name + " Chance",
 					"type": TYPE_FLOAT,
 					"default": _params.get("density_" + structure_key, 0.0),
-					"min": 0.0, "max": 1.0, "step": 0.01
+					"min": 0.0, "max": 1.0, "step": 0.001
 				})
 				
 		_shape_popup.open_settings("Global Structure Rules", struct_schema, _params)
@@ -562,7 +562,7 @@ func _on_biome_selected() -> void:
 		"corridor_thickness": _params.get("corridor_thickness", 1),
 		"corridor_erosion": _params.get("corridor_erosion", 0.0),
 		"corridor_erosion_scale": _params.get("corridor_erosion_scale", 0.1),
-		"scatter_density": _params.get("scatter_density", 0.05),
+		"scatter_density": _params.get("scatter_density", 0.001),
 		"scatter_min_dist": _params.get("scatter_min_dist", 0),
 		"scatter_max_dist": _params.get("scatter_max_dist", 99),
 		"structure_symmetry": _params.get("structure_symmetry", 0),
@@ -613,7 +613,7 @@ func _on_biome_selected() -> void:
 		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 },
 		# Scatter Settings
 		{ "name": "sep_5", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 },
+		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.001 },
 		{ "name": "scatter_min_dist", "label": "Min Wall Dist", "type": TYPE_INT, "default": 0, "min": 0, "max": 20 },
 		{ "name": "scatter_max_dist", "label": "Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99 },
 		{ "name": "structure_symmetry", "label": "Structure Symmetry", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
@@ -637,7 +637,7 @@ func _on_biome_selected() -> void:
 			schema.append({
 				"name": "density_" + key,
 				"label": "[Density] " + s_name + " Chance",
-				"type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.01
+				"type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.001
 			})
 	
 	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
