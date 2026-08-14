@@ -13,6 +13,21 @@ var _realizer: GraphRealizer
 var _active_inputs: Dictionary = {}
 var _params: Dictionary = {}
 
+# --- TIMELINE / VCR STATE ---
+var _snapshots: Array[Dictionary] = []
+var _current_snapshot_index: int = -1
+var _raster_thread: Thread
+var _is_rasterizing: bool = false
+var _active_mapping: Dictionary = {} # Cached for live re-drawing
+
+# VCR UI References
+var _vcr_container: VBoxContainer
+var _step_list: ItemList
+var _btn_first: Button
+var _btn_prev: Button
+var _btn_next: Button
+var _btn_last: Button
+
 # --- TOOLTIP REFS ---
 var _tooltip_layer: CanvasLayer
 var _tooltip_panel: PanelContainer
@@ -74,7 +89,9 @@ func _ready() -> void:
 	margin.add_child(_tooltip_label)
 	
 	_custom_structures = ConfigManager.load_structures() # Load before building UI!
+	_build_vcr_ui()
 	_build_ui()
+	
 	
 	# Instantiate the popup in memory
 	_mapping_popup = TileMappingPopup.new()
@@ -248,8 +265,13 @@ func _build_ui() -> void:
 		  "hint_text": "Minimum size of a room. A radius of 2 generates a 5x5 tile footprint." },
 		{ "name": "room_radius_max", "label": "Max Room Radius", "type": TYPE_INT, "default": 4, "min": 1, "max": 20, 
 		  "hint_text": "Maximum size of a room. A radius of 4 generates a 9x9 tile footprint." },
+		{ "name": "enable_room_merging", "label": "Enable Room Merging", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "Merges overlapping rooms of the same type into cohesive geometric shapes." },
+		{ "name": "room_merge_tolerance", "label": "Merge Distance Range", "type": TYPE_FLOAT, "default": 0.8, "min": 0.5, "max": 2.0, "step": 0.05, 
+		  "hint_text": "1.0 = Merges only if touching. <1.0 = Must deeply overlap to merge. >1.0 = Merges even with a small gap." },
 		{ "name": "sep_3", "type": TYPE_NIL, "hint": "separator" },
 		
+		{ "name": "routing_mode", "label": "Routing Style", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "Organic (A*),Orthogonal (L-Path)" },
 		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false, 
 		  "hint_text": "If true, the A* pathfinder can carve diagonal hallways, making paths look less rigid and blocky." },
 		{ "name": "corridor_thickness", "label": "Corridor Thickness", "type": TYPE_INT, "default": 1, "min": 1, "max": 10, 
@@ -280,7 +302,9 @@ func _build_ui() -> void:
 		  "hint_text": "0 = Can spawn against walls. Higher values push entities to the center of rooms." },
 		{ "name": "scatter_max_dist", "label": "Scatter Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99, 
 		  "hint_text": "99 = No max limit. 1 = Forces entities to strictly hug walls." },
-		
+		{ "name": "structure_symmetry", "label": "Structure Symmetry", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
+		{ "name": "scatter_symmetry", "label": "Scatter Symmetry", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
+
 		{ "name": "show_entities", "label": "Show Scattered Entities", "type": TYPE_BOOL, "default": true, 
 		  "hint_text": "Draws gold markers over the map to visualize where entities have been scattered." },
 		
@@ -316,6 +340,46 @@ func _build_ui() -> void:
 			
 	var section = SettingsUIBuilder.create_collapsible_section(ui_container, "TileMap Realizer", true)
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, _on_ui_interaction)
+
+func _build_vcr_ui() -> void:
+	if not ui_container: return
+	
+	_vcr_container = VBoxContainer.new()
+	_vcr_container.add_theme_constant_override("separation", 5)
+	
+	var header = Label.new()
+	header.text = "Rasterization Timeline"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_vcr_container.add_child(header)
+	
+	# The Clickable List of Steps
+	_step_list = ItemList.new()
+	_step_list.custom_minimum_size.y = 120 # Tall enough to see a few steps
+	_step_list.item_selected.connect(_on_step_list_selected)
+	_vcr_container.add_child(_step_list)
+	
+	# Playback Buttons
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	
+	_btn_first = Button.new(); _btn_first.text = "|<"
+	_btn_prev = Button.new(); _btn_prev.text = "< Prev"
+	_btn_next = Button.new(); _btn_next.text = "Next >"
+	_btn_last = Button.new(); _btn_last.text = ">|"
+	
+	_btn_first.pressed.connect(func(): _jump_to_snapshot(0))
+	_btn_prev.pressed.connect(func(): _jump_to_snapshot(_current_snapshot_index - 1))
+	_btn_next.pressed.connect(func(): _jump_to_snapshot(_current_snapshot_index + 1))
+	_btn_last.pressed.connect(func(): _jump_to_snapshot(_snapshots.size() - 1))
+	
+	btn_row.add_child(_btn_first)
+	btn_row.add_child(_btn_prev)
+	btn_row.add_child(_btn_next)
+	btn_row.add_child(_btn_last)
+	_vcr_container.add_child(btn_row)
+	
+	ui_container.add_child(_vcr_container)
+	_update_vcr_buttons(false) # Disable on startup
 
 func _on_ui_interaction(key: String, value: Variant) -> void:
 	if key == "btn_rasterize":
@@ -485,12 +549,15 @@ func _on_biome_selected() -> void:
 		"override_enabled": false,
 		"room_radius_min": _params.get("room_radius_min", 2),
 		"room_radius_max": _params.get("room_radius_max", 4),
+		"enable_room_merging": _params.get("enable_room_merging", true),
+		"room_merge_tolerance": _params.get("room_merge_tolerance", 0.8),
 		"ratio_square": _params.get("ratio_square", 1),
 		"ratio_circle": _params.get("ratio_circle", 0),
 		"ratio_triangle": _params.get("ratio_triangle", 0),
 		"ca_iterations": _params.get("ca_iterations", 0),
 		"ca_survive_min": _params.get("ca_survive_min", 4),
 		"ca_birth_min": _params.get("ca_birth_min", 5),
+		"routing_mode": _params.get("routing_mode", 0),
 		"allow_diagonal_corridors": _params.get("allow_diagonal_corridors", false),
 		"corridor_thickness": _params.get("corridor_thickness", 1),
 		"corridor_erosion": _params.get("corridor_erosion", 0.0),
@@ -498,6 +565,8 @@ func _on_biome_selected() -> void:
 		"scatter_density": _params.get("scatter_density", 0.05),
 		"scatter_min_dist": _params.get("scatter_min_dist", 0),
 		"scatter_max_dist": _params.get("scatter_max_dist", 99),
+		"structure_symmetry": _params.get("structure_symmetry", 0),
+		"scatter_symmetry": _params.get("scatter_symmetry", 0),
 		"structure_use_density": _params.get("structure_use_density", false),
 		"spawn_structure": _params.get("spawn_structure", false)
 	})
@@ -515,12 +584,18 @@ func _on_biome_selected() -> void:
 		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "room_radius_min", "label": "Min Radius", "type": TYPE_INT, "default": 2, "min": 1 },
 		{ "name": "room_radius_max", "label": "Max Radius", "type": TYPE_INT, "default": 4, "min": 1 },
+		{ "name": "enable_room_merging", "label": "Enable Room Merging", "type": TYPE_BOOL, "default": true, 
+		  "hint_text": "Merges overlapping rooms of the same type into cohesive geometric shapes." },
+		{ "name": "room_merge_tolerance", "label": "Merge Distance Range", "type": TYPE_FLOAT, "default": 1.2, "min": 0.5, "max": 2.0, "step": 0.05, 
+		  "hint_text": "1.0 = Merges only if touching. <1.0 = Must deeply overlap to merge. >1.0 = Merges even with a small gap." },
+		
 		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": 1, "min": 0 },
 		{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
 		{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
 		# Corridor Settings
 		{ "name": "sep_3", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "routing_mode", "label": "Routing Style", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "Organic (A*),Orthogonal (L-Path)" },
 		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false },
 		{ "name": "corridor_thickness", "label": "Corridor Thickness", "type": TYPE_INT, "default": 1, "min": 1, "max": 10, 
 		  "hint_text": "Exact tile width of connecting hallways. 1 = 1 tile wide, 3 = 3 tiles wide." },
@@ -541,6 +616,8 @@ func _on_biome_selected() -> void:
 		{ "name": "scatter_density", "label": "Scatter Density", "type": TYPE_FLOAT, "default": 0.05, "min": 0.0, "max": 0.5, "step": 0.01 },
 		{ "name": "scatter_min_dist", "label": "Min Wall Dist", "type": TYPE_INT, "default": 0, "min": 0, "max": 20 },
 		{ "name": "scatter_max_dist", "label": "Max Wall Dist", "type": TYPE_INT, "default": 99, "min": 1, "max": 99 },
+		{ "name": "structure_symmetry", "label": "Structure Symmetry", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
+		{ "name": "scatter_symmetry", "label": "Scatter Symmetry", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
 		
 		# --- WEIGHTED BLUEPRINTS SCHEMA ---
 		{ "name": "sep_6", "type": TYPE_NIL, "hint": "separator" },
@@ -568,24 +645,123 @@ func _on_biome_selected() -> void:
 
 
 # ==============================================================================
-# PIPELINE EXECUTION
+# PIPELINE EXECUTION (THREADED)
 # ==============================================================================
 func _on_rasterize_pressed() -> void:
+	if _is_rasterizing: return
 	if not graph_editor or not "graph" in graph_editor: return
 	var graph = graph_editor.graph
 	if graph == null or graph.nodes.is_empty(): return
 	if not tile_map_layer: return
 
-	# [DEBUG] Check the Master Switch before passing the overrides!
+	# 1. Setup Biomes & Prep Thread
 	if _params.get("use_biome_overrides", true):
 		_params["biomes"] = _biome_params
 	else:
-		_params["biomes"] = {} # Force the allocator to ignore biomes
+		_params["biomes"] = {}
 		
+	# Reset State
+	_snapshots.clear()
+	_step_list.clear()
+	_active_mapping.clear() # Reset mapping so it rebuilds on Frame 1
+	_update_vcr_buttons(false)
+	_is_rasterizing = true
 	_realizer = GraphRealizer.new()
-	var grid = _realizer.realize(graph, _params)
 	
-	# --- PROGRAMMATIC TILESET GENERATION ---
+	# 2. Spin up the background thread
+	if _raster_thread and _raster_thread.is_started():
+		_raster_thread.wait_to_finish()
+	_raster_thread = Thread.new()
+	_raster_thread.start(_run_rasterization_thread.bind(graph, _params))
+
+# --- THREAD HANDLERS ---
+
+# Runs purely in the background!
+func _run_rasterization_thread(graph: Graph, params: Dictionary) -> void:
+	_realizer.realize(graph, params, _on_snapshot_received)
+	call_deferred("_on_rasterization_finished")
+
+# Called by the thread every time a step finishes
+func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, w: int, h: int) -> void:
+	_snapshots.append({
+		"name": step_name,
+		"cells": cells,
+		"entities": entities,
+		"w": w,
+		"h": h
+	})
+	
+	var idx = _snapshots.size() - 1
+	_step_list.add_item(step_name)
+	
+	# The very first snapshot is "Base Initialization".
+	# At this point, the Realizer has built its semantic IDs, so we can build the TileSet!
+	if _active_mapping.is_empty():
+		_rebuild_dynamic_tileset_and_mapping()
+		
+	# Live Playback: Auto-scroll and render the newest frame
+	_jump_to_snapshot(idx)
+
+# Called when the thread finishes all steps
+func _on_rasterization_finished() -> void:
+	if _raster_thread and _raster_thread.is_started(): 
+		_raster_thread.wait_to_finish()
+	_is_rasterizing = false
+	_update_vcr_buttons(true) # Unlock timeline controls!
+
+
+# ==============================================================================
+# TIMELINE / VCR RENDERER
+# ==============================================================================
+func _jump_to_snapshot(index: int) -> void:
+	if _snapshots.is_empty() or _active_mapping.is_empty(): return
+	index = clampi(index, 0, _snapshots.size() - 1)
+	
+	_current_snapshot_index = index
+	_step_list.select(index)
+	_step_list.ensure_current_is_visible()
+	
+	var snapshot = _snapshots[index]
+	
+	# Create a Mock Grid to feed into the Adapter!
+	var mock_grid = GridData.new(snapshot["w"], snapshot["h"], _realizer.palette)
+	mock_grid.cells = snapshot["cells"]
+	
+	tile_map_layer.clear()
+	TileMapAdapter.apply_to_layer(mock_grid, tile_map_layer, _active_mapping)
+	
+	# Auto-Alignment Engine
+	if tile_map_layer.tile_set:
+		var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+		var visual_scale = _params["grid_scale"] / cell_size
+		tile_map_layer.scale = Vector2(visual_scale, visual_scale)
+		
+		var offset_x = _realizer._world_offset.x - (_params["padding"] * _params["grid_scale"])
+		var offset_y = _realizer._world_offset.y - (_params["padding"] * _params["grid_scale"])
+		tile_map_layer.position = Vector2(offset_x, offset_y)
+		
+	# Draw the entities matching this specific frame in time
+	_render_overlays(snapshot["entities"])
+	
+	if not _is_rasterizing:
+		_update_vcr_buttons(true)
+
+func _on_step_list_selected(index: int) -> void:
+	if _is_rasterizing: return # Lock manual scrubbing while generating
+	_jump_to_snapshot(index)
+
+func _update_vcr_buttons(active: bool) -> void:
+	if not _vcr_container: return
+	_btn_first.disabled = not active or _current_snapshot_index <= 0
+	_btn_prev.disabled = not active or _current_snapshot_index <= 0
+	_btn_next.disabled = not active or _current_snapshot_index >= _snapshots.size() - 1
+	_btn_last.disabled = not active or _current_snapshot_index >= _snapshots.size() - 1
+
+
+# ==============================================================================
+# VISUAL RENDERING ENGINES
+# ==============================================================================
+func _rebuild_dynamic_tileset_and_mapping() -> void:
 	var dynamic_tileset = TileSet.new()
 	dynamic_tileset.tile_size = _tileset_tile_size
 	
@@ -598,11 +774,9 @@ func _on_rasterize_pressed() -> void:
 	
 	var biome_colors = {}
 	var wall_shift = _palette_params.get("wall_shift", 0.1)
-	
 	for i in range(active_proc_keys.size()):
 		var key = active_proc_keys[i]
 		var t = float(i) / max(1.0, float(active_proc_keys.size() - 1))
-		
 		biome_colors[key + "_floor"] = CosinePaletteEditor.get_iq_color(t, _palette_params)
 		biome_colors[key + "_wall"] = CosinePaletteEditor.get_iq_color(t + wall_shift, _palette_params)
 
@@ -610,8 +784,7 @@ func _on_rasterize_pressed() -> void:
 	var def_floor_atlas = _atlas_mappings.get("default_floor", Vector2i(0,0))
 	var def_wall_atlas = _atlas_mappings.get("default_wall", Vector2i(1,0))
 	var debug_path_atlas = _atlas_mappings.get("debug_path", Vector2i(2,0)) 
-	
-	var biome_alt_ids = {} # Stores { cat_key + "_floor": alt_id }
+	var biome_alt_ids = {}
 	
 	if _tileset_image_path != "" and FileAccess.file_exists(_tileset_image_path):
 		var img = Image.load_from_file(_tileset_image_path)
@@ -620,36 +793,27 @@ func _on_rasterize_pressed() -> void:
 			source.texture = ImageTexture.create_from_image(img)
 			source.texture_region_size = _tileset_tile_size
 			
-			# Helper to ensure a base tile exists
 			var ensure_base_tile = func(coord: Vector2i):
-				if not source.has_tile(coord):
-					source.create_tile(coord)
+				if not source.has_tile(coord): source.create_tile(coord)
 			
-			# Ensure defaults and explicit mappings exist as base tiles (alt_id = 0)
 			ensure_base_tile.call(def_floor_atlas)
 			ensure_base_tile.call(def_wall_atlas)
 			ensure_base_tile.call(debug_path_atlas)
 			for mapping_key in _atlas_mappings:
 				ensure_base_tile.call(_atlas_mappings[mapping_key])
 				
-			# Generate Alternative Tiles for Procedural Biomes!
-			var next_alt_id = {} # Tracks the next available alt_id per coordinate
-			
+			var next_alt_id = {}
 			for cat_key in _realizer.semantic_floor_ids:
 				if _procedural_flags.get(cat_key, false):
 					var f_coord = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
 					var w_coord = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
 					
-					# Floor Alt
-					var f_alt = next_alt_id.get(f_coord, 1)
-					next_alt_id[f_coord] = f_alt + 1
+					var f_alt = next_alt_id.get(f_coord, 1); next_alt_id[f_coord] = f_alt + 1
 					source.create_alternative_tile(f_coord, f_alt)
 					source.get_tile_data(f_coord, f_alt).modulate = biome_colors[cat_key + "_floor"]
 					biome_alt_ids[cat_key + "_floor"] = f_alt
 					
-					# Wall Alt
-					var w_alt = next_alt_id.get(w_coord, 1)
-					next_alt_id[w_coord] = w_alt + 1
+					var w_alt = next_alt_id.get(w_coord, 1); next_alt_id[w_coord] = w_alt + 1
 					source.create_alternative_tile(w_coord, w_alt)
 					source.get_tile_data(w_coord, w_alt).modulate = biome_colors[cat_key + "_wall"]
 					biome_alt_ids[cat_key + "_wall"] = w_alt
@@ -658,12 +822,11 @@ func _on_rasterize_pressed() -> void:
 			
 	tile_map_layer.tile_set = dynamic_tileset
 	
-	# 3. Apply mappings
-	# [FIXED] Pass the alternative_tile ID to the mapping dictionary
+	# 3. Finalize Mapping Dictionary
 	var get_mapping_data = func(atlas_coord: Vector2i, alt_id: int = 0) -> Dictionary:
 		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord, "alternative_tile": alt_id }
 
-	var mapping = {
+	_active_mapping = {
 		_realizer.floor_id: get_mapping_data.call(def_floor_atlas),
 		_realizer.wall_id: get_mapping_data.call(def_wall_atlas),
 		_realizer.debug_path_id: get_mapping_data.call(debug_path_atlas)
@@ -675,152 +838,118 @@ func _on_rasterize_pressed() -> void:
 		
 		var custom_floor = _atlas_mappings.get(cat_key + "_floor", def_floor_atlas)
 		var custom_wall = _atlas_mappings.get(cat_key + "_wall", def_wall_atlas)
-		
 		var floor_alt = biome_alt_ids.get(cat_key + "_floor", 0)
 		var wall_alt = biome_alt_ids.get(cat_key + "_wall", 0)
 		
-		mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt)
-		mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt)
-		
-	# 4. Paint to Screen
-	TileMapAdapter.apply_to_layer(grid, tile_map_layer, mapping)
-	
-	# Auto-Alignment Engine
-	if tile_map_layer.tile_set:
-		var cell_size = float(tile_map_layer.tile_set.tile_size.x)
-		var visual_scale = _params["grid_scale"] / cell_size
-		tile_map_layer.scale = Vector2(visual_scale, visual_scale)
-		
-		var offset_x = _realizer._world_offset.x - (_params["padding"] * _params["grid_scale"])
-		var offset_y = _realizer._world_offset.y - (_params["padding"] * _params["grid_scale"])
-		tile_map_layer.position = Vector2(offset_x, offset_y)
-		
-	# --- OVERLAY RENDERING (Entities & Debug Paths) ---
-	# First, clear all old overlays
+		_active_mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt)
+		_active_mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt)
+
+func _render_overlays(entities: Dictionary) -> void:
 	for child in tile_map_layer.get_children():
 		if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path"):
 			child.queue_free()
 			
-	if tile_map_layer.tile_set:
-		var cell_size = float(tile_map_layer.tile_set.tile_size.x)
-		
-		# A. Render Critical Path Overlays
-		var show_path = _params.get("debug_routing", false)
+	if not tile_map_layer.tile_set: return
+	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+	
+	# A. Render Critical Path Overlays (Read directly from Realizer state)
+	var show_path = _params.get("debug_routing", false)
+	if show_path and _realizer:
 		for pos in _realizer.critical_path_cells:
 			var rect = ColorRect.new()
-			rect.color = Color(1.0, 0.0, 1.0, 0.4) # Semi-transparent magenta
-			rect.size = Vector2(cell_size, cell_size) # Cover the full tile
-			
-			var local_x = pos.x * cell_size
-			var local_y = pos.y * cell_size
-			rect.position = Vector2(local_x, local_y)
-			
-			rect.visible = show_path
+			rect.color = Color(1.0, 0.0, 1.0, 0.4) 
+			rect.size = Vector2(cell_size, cell_size) 
+			rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
 			rect.add_to_group("realizer_critical_path")
 			tile_map_layer.add_child(rect)
 
-		# B. Render Entity Overlays
-		var show_entities = _params.get("show_entities", true)
-		for pos in grid.entities:
-			var entity_data = grid.entities[pos]
-			var e_type = entity_data.get("type", "generic_entity")
+	# B. Render Entity Overlays (Read from the Snapshot's History)
+	var show_entities = _params.get("show_entities", true)
+	if not show_entities: return
+	
+	for pos in entities:
+		var entity_data = entities[pos]
+		var e_type = entity_data.get("type", "generic_entity")
+		var rect = ColorRect.new()
+		
+		if e_type == "structure":
+			var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
+			var footprint_world = entity_data.get("footprint_world", [])
+			for pt in footprint_world:
+				var pt_rect = ColorRect.new()
+				pt_rect.color = struct_color
+				pt_rect.size = Vector2(cell_size, cell_size)
+				pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
+				pt_rect.add_to_group("realizer_entity")
+				tile_map_layer.add_child(pt_rect)
+			continue 
 			
-			var rect = ColorRect.new()
+		elif e_type == "door":
+			var l_type = entity_data.get("lock_type", "Unlocked")
+			var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+			rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
+			rect.size = Vector2(cell_size, cell_size)
+			rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
 			
-			if e_type == "structure":
-				# --- CUSTOM STRUCTURE FOOTPRINT ---
-				var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
-				var footprint_world = entity_data.get("footprint_world", [])
-				
-				for pt in footprint_world:
-					var pt_rect = ColorRect.new()
-					pt_rect.color = struct_color
-					pt_rect.size = Vector2(cell_size, cell_size)
-					pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
-					pt_rect.visible = show_entities
-					pt_rect.add_to_group("realizer_entity")
-					tile_map_layer.add_child(pt_rect)
-				continue # Skip the base rect addition below
-				
-			elif e_type == "door":
-				# --- DOOR / PORTAL ---
-				var l_type = entity_data.get("lock_type", "Unlocked")
-				
-				# If you want the door to match the key color, uncomment this!
-				var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-				rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
-				
-				#rect.color = Color(0.8, 0.5, 0.2, 0.9) # Distinct Orange-Brown (Default)
-				rect.size = Vector2(cell_size, cell_size) # Fills the whole tile
-				rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
-				
-			elif e_type == "start_point":
-				rect.color = Color(0.2, 1.0, 0.2, 0.9) # Bright Green
-				rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
-				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
-				
-			elif e_type == "end_point":
-				rect.color = Color(1.0, 0.2, 0.2, 0.9) # Bright Red
-				rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
-				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
-				
-			elif e_type == "key":
-				var k_col = entity_data.get("key_type", "Red")
-				
-				# Distinguish between Categorical (Colors) and Tiered (White)
-				if k_col.begins_with("Tier"):
-					rect.color = Color.WHITE
-				else:
-					var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-					rect.color = c_map.get(k_col, Color.WHITE)
-				
-				# Draw keys as smaller internal squares
-				rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
-				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
-				
-			elif e_type == "fringe":
-				# --- BOUNDARY FRINGE ---
-				rect.color = Color(0.2, 0.9, 0.2, 0.8) # Bright Green Decor
-				rect.size = Vector2(cell_size * 0.4, cell_size * 0.4) 
-				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
-				
+		elif e_type == "start_point":
+			rect.color = Color(0.2, 1.0, 0.2, 0.9)
+			rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
+			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
+			
+		elif e_type == "end_point":
+			rect.color = Color(1.0, 0.2, 0.2, 0.9)
+			rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
+			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
+			
+		elif e_type == "key":
+			var k_col = entity_data.get("key_type", "Red")
+			if k_col.begins_with("Tier"): rect.color = Color.WHITE
 			else:
-				# --- STANDARD 1x1 SCATTER ---
-				rect.color = Color(1.0, 0.8, 0.0, 0.4) # Solid Gold
-				rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
-				rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
+				var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+				rect.color = c_map.get(k_col, Color.WHITE)
+			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
+			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
 			
-			rect.visible = show_entities
-			rect.add_to_group("realizer_entity")
-			tile_map_layer.add_child(rect)
+		elif e_type == "fringe":
+			rect.color = Color(0.2, 0.9, 0.2, 0.8)
+			rect.size = Vector2(cell_size * 0.4, cell_size * 0.4) 
+			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
+			
+		else:
+			rect.color = Color(1.0, 0.8, 0.0, 0.4)
+			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
+			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
+		
+		rect.add_to_group("realizer_entity")
+		tile_map_layer.add_child(rect)
 
+# ==============================================================================
+# CLEANUP & HELPERS
+# ==============================================================================
 func _on_clear_pressed() -> void:
+	if _is_rasterizing: return
 	if tile_map_layer:
 		tile_map_layer.clear()
 		for child in tile_map_layer.get_children():
 			if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path"):
 				child.queue_free()
 				
-	# [FIXED] Destroy the in-memory grid data and force the tooltip to hide!
 	_realizer = null
-	if _tooltip_panel:
-		_tooltip_panel.visible = false
+	if _tooltip_panel: _tooltip_panel.visible = false
+	_snapshots.clear()
+	_step_list.clear()
+	_update_vcr_buttons(false)
 
-# ==============================================================================
-# VISUAL FEEDBACK HELPER
-# ==============================================================================
 func _update_biome_button_text() -> void:
 	if not _active_inputs.has("btn_biome_config"): return
-	
 	var active_count = 0
 	for b_key in _biome_params:
-		if _biome_params[b_key].get("override_enabled", false):
-			active_count += 1
+		if _biome_params[b_key].get("override_enabled", false): active_count += 1
 			
 	var btn = _active_inputs["btn_biome_config"] as Button
 	if active_count > 0:
 		btn.text = "Override Biome Rules (%d Active)..." % active_count
-		btn.modulate = Color(0.6, 1.0, 0.6) # Tint green to show it's active
+		btn.modulate = Color(0.6, 1.0, 0.6)
 	else:
 		btn.text = "Override Biome Rules..."
 		btn.modulate = Color.WHITE

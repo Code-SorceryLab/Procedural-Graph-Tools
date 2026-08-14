@@ -131,11 +131,21 @@ func _create_control_row(def: Dictionary) -> void:
 			control.toggled.connect(func(s): control.text = "On" if s else "Off")
 			
 		TYPE_INT:
-			control = SpinBox.new()
-			control.min_value = def.get("min", 0)
-			control.max_value = def.get("max", 9999)
-			control.value = int(val)
-			control.rounded = true
+			if def.get("hint") == "enum":
+				control = OptionButton.new()
+				var options = def.get("hint_string", "").split(",")
+				for opt in options:
+					control.add_item(opt.strip_edges())
+				
+				# Clamp just in case the saved value is out of bounds of the current enum list
+				var selected_idx = clampi(int(val), 0, max(0, control.item_count - 1))
+				control.select(selected_idx)
+			else:
+				control = SpinBox.new()
+				control.min_value = def.get("min", 0)
+				control.max_value = def.get("max", 9999)
+				control.value = int(val)
+				control.rounded = true
 			
 		TYPE_FLOAT:
 			control = SpinBox.new()
@@ -168,7 +178,11 @@ func _on_confirmed() -> void:
 		
 		match def.type:
 			TYPE_BOOL: final_settings[key] = control.button_pressed
-			TYPE_INT: final_settings[key] = int(control.value)
+			TYPE_INT: 
+				if control is OptionButton:
+					final_settings[key] = control.selected
+				elif control is SpinBox:
+					final_settings[key] = int(control.value)
 			TYPE_FLOAT: final_settings[key] = float(control.value)
 			TYPE_STRING: final_settings[key] = control.text
 			

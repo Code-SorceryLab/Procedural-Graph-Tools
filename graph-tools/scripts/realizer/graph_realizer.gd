@@ -26,7 +26,7 @@ var core_path_cells: Dictionary = {} # Protects the absolute center of the hallw
 var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
 var distance_field: Dictionary = {} # Stores Vector2i -> Int
 
-func realize(graph: Graph, params: Dictionary = {}) -> GridData:
+func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Callable()) -> GridData:
 	_scale_factor = params.get("grid_scale", 50.0) 
 	_padding = params.get("padding", 10)
 	
@@ -63,17 +63,50 @@ func realize(graph: Graph, params: Dictionary = {}) -> GridData:
 	
 	grid = GridData.new(grid_w, grid_h, palette)
 	
+	# ==========================================================================
+	# THE SNAPSHOT EMITTER
+	# ==========================================================================
+	var emit = func(step_name: String):
+		if progress_callback.is_valid():
+			# Deep copy the exact state of the grid right now.
+			var cells_copy = grid.cells.duplicate() 
+			var entities_copy = grid.entities.duplicate(true)
+			
+			# [FIXED] Pass grid.width and grid.height to match the 5 expected arguments!
+			progress_callback.call_deferred(step_name, cells_copy, entities_copy, grid.width, grid.height)
+			
 	# --- PIPELINE EXECUTION ---
+	emit.call("Start: Base Initialization")
+	
 	RoomAllocator.allocate(graph, self, floor_id, params)
+	emit.call("Room Allocation")
+	
 	EdgeRouter.route(graph, self, floor_id, params)
+	emit.call("Edge Routing")
+	
 	CellularSmoother.smooth(self, floor_id, params)
-	PathEroder.erode(self, params)
+	emit.call("Cellular Smoothing")
+	
+	PathEroder.erode(self, params) #Erodes critical path
+	emit.call("Path Erosion")
+	
 	ZoneDecorator.decorate(self, params) # Applies the Biome Matrix Rules
+	emit.call("Applying Zone Decor")
+	
 	DistanceMapper.map(self) # Map distances before placing objects
+	emit.call("Mapping Distance Fields")
+	
 	StructurePlacer.place(graph, self, params)
+	emit.call("Placing Structures")
+	
 	ProgressionSolver.analyze(self, params) # Extract physical Regions and Doors
+	emit.call("Analyzing Logical Progression")
+	
 	EntityScatterer.scatter(graph, self, params)
+	emit.call("Scattering Props & Entities")
+	
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 
+	emit.call("Generating Outer Walls")
 	
 	return grid
 

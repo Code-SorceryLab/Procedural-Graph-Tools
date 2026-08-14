@@ -25,6 +25,8 @@ Transformations worth adding:
 
 Maybe the citation dependency feature (Big Task)
 
+-Spawn Tile not guarranteed to not be blocked. FIX THIS. We saved a graph for this. Run Default Realizer.
+
 Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.

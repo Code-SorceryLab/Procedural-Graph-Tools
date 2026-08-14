@@ -20,12 +20,9 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
 		if center == Vector2i.ZERO: continue
 		
-		# --- [FIXED] ROBUST BIOME CONTAINMENT ---
-		# Instead of predicting the ID based on overrides, we read the exact floor ID 
-		# directly from the physical center of the room. This guarantees a 100% match!
 		var target_floor_id = grid.get_cell(center.x, center.y)
 		if not valid_floors.has(target_floor_id):
-			target_floor_id = realizer.floor_id # Failsafe in case of weird overlaps
+			target_floor_id = realizer.floor_id 
 		
 		var effective_params = params
 		if biome_overrides.has(node.type) and biome_overrides[node.type].get("override_enabled", false):
@@ -34,12 +31,12 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 			
 		rng.seed = SeedUtils.hash_seed(str(master_seed) + "_" + str(node_id))
 		
-		# --- 1. RESOLVE SPAWN INTENTS (Ratio vs Density) ---
 		var use_density = effective_params.get("structure_use_density", false)
+		var sym_mode = int(effective_params.get("structure_symmetry", 0)) # 0=None, 1=X-Axis, 2=Y-Axis, 3=Radial, 4=Quad
 		var intents = []
 		
+		# --- 1. RESOLVE SPAWN INTENTS ---
 		if not use_density:
-			# RATIO MODE: Lottery picks exactly 1 structure
 			if not effective_params.get("spawn_structure", false): continue
 			var pool = []
 			var total_weight = 0
@@ -58,7 +55,6 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 						intents.append({ "id": item["id"], "is_density": false })
 						break
 		else:
-			# DENSITY MODE: Queue every structure that has a density > 0
 			for key in custom_structures:
 				var d = float(effective_params.get("density_" + key, 0.0))
 				if d > 0.001:
@@ -78,11 +74,13 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 			var min_dist = struct_data.get("min_dist", 0)
 			var max_dist = struct_data.get("max_dist", 99)
 			
-			# SCAN FOR VALID PLACEMENTS
 			var max_r = int(node.custom_data.get("room_radius", effective_params.get("room_radius_max", 4))) + 2
 			var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
-			var valid_placements = []
 			
+			var valid_placements = []
+			var placement_lookup = {} # Fast lookup for symmetry validation
+			
+			# SCAN FOR VALID PLACEMENTS
 			for y in range(rect.position.y, rect.end.y):
 				for x in range(rect.position.x, rect.end.x):
 					var test_center = Vector2i(x, y)
@@ -93,70 +91,118 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 						for pt in raw_footprint:
 							var abs_pt = test_center + _rotate_point(pt, r)
 							
-							# Critical Path & Reserve Collision
 							if realizer.critical_path_cells.has(abs_pt) or realizer.reserved_cells.has(abs_pt):
 								is_valid = false; break
-								
-							# Strict Biome Boundary Check
-							var cell_id = grid.get_cell(abs_pt.x, abs_pt.y)
-							if cell_id != target_floor_id:
+							if grid.get_cell(abs_pt.x, abs_pt.y) != target_floor_id:
 								is_valid = false; break
-								
-							# Distance Field
 							var tile_dist = realizer.distance_field.get(abs_pt, 0)
 							if tile_dist < min_dist or tile_dist > max_dist:
 								is_valid = false; break
 								
 						if is_valid:
-							valid_placements.append({ "pos": test_center, "rot": r })
+							var placement = { "pos": test_center, "rot": r }
+							valid_placements.append(placement)
+							placement_lookup["%d,%d,%d" % [test_center.x, test_center.y, r]] = placement
 							
 			if valid_placements.is_empty(): continue
 			
-			# EVALUATE DIRECTION / FACE PATH
+			# --- [NEW] SYMMETRY GROUPING ---
+			var valid_groups = []
+			var processed_sigs = {}
+			
+			for p in valid_placements:
+				var group = _get_symmetry_group(p, center, sym_mode, allow_rotation)
+				
+				# Generate a unique signature for this group so we don't add the same mirrored pair twice
+				var sig_array = []
+				for member in group: sig_array.append("%d,%d,%d" % [member["pos"].x, member["pos"].y, member["rot"]])
+				sig_array.sort()
+				var sig = str(sig_array)
+				
+				if processed_sigs.has(sig): continue
+				processed_sigs[sig] = true
+				
+				# Strict Check: ALL mirrored positions MUST be valid!
+				var group_is_valid = true
+				for member in group:
+					var m_sig = "%d,%d,%d" % [member["pos"].x, member["pos"].y, member["rot"]]
+					if not placement_lookup.has(m_sig):
+						group_is_valid = false; break
+						
+				if group_is_valid:
+					valid_groups.append(group)
+					
+			if valid_groups.is_empty(): continue
+
+			# FACE PATH EVALUATION (Runs against the primary position in the group)
 			if face_path and not realizer.critical_path_cells.is_empty():
 				var path_target = _find_nearest_path(center, realizer.critical_path_cells)
 				var best_score = -999.0
-				var best_placements = []
+				var best_groups = []
 				
-				for p in valid_placements:
-					var rotated_front = Vector2(_rotate_point(front_dir, p["rot"])).normalized()
-					var to_path = Vector2(path_target - p["pos"]).normalized()
+				for g in valid_groups:
+					var primary = g[0] # Evaluate based on the primary placement
+					var rotated_front = Vector2(_rotate_point(front_dir, primary["rot"])).normalized()
+					var to_path = Vector2(path_target - primary["pos"]).normalized()
 					var score = rotated_front.dot(to_path)
 					
 					if score > best_score + 0.01:
 						best_score = score
-						best_placements = [p]
+						best_groups = [g]
 					elif abs(score - best_score) <= 0.01:
-						best_placements.append(p)
-				valid_placements = best_placements
-				
+						best_groups.append(g)
+				valid_groups = best_groups
+
 			# --- 3. APPLY TO GRID ---
 			if not intent["is_density"]:
-				# RATIO MODE: Pick one random optimal spot and place
-				var chosen = SeedUtils.pick_random(valid_placements, rng)
-				_stamp_structure(chosen, raw_footprint, struct_data, node_id, realizer)
+				var chosen_group = SeedUtils.pick_random(valid_groups, rng)
+				for placement in chosen_group:
+					_stamp_structure(placement, raw_footprint, struct_data, node_id, realizer)
 			else:
-				# DENSITY MODE: Shuffle all valid spots and independently test probability
-				var shuffled = []
-				var temp_valid = valid_placements.duplicate()
-				while temp_valid.size() > 0:
-					var idx = rng.randi() % temp_valid.size()
-					shuffled.append(temp_valid[idx])
-					temp_valid.remove_at(idx)
+				var shuffled = valid_groups.duplicate()
+				while shuffled.size() > 0:
+					var idx = rng.randi() % shuffled.size()
+					var current_group = shuffled.pop_at(idx)
 					
-				for p in shuffled:
-					# We MUST re-check collisions because previous iterations in this loop may have reserved cells!
-					var is_clear = true
-					for pt in raw_footprint:
-						var abs_pt = p["pos"] + _rotate_point(pt, p["rot"])
-						if realizer.reserved_cells.has(abs_pt):
-							is_clear = false
-							break
-							
-					if is_clear and rng.randf() < intent["density"]:
-						_stamp_structure(p, raw_footprint, struct_data, node_id, realizer)
+					# Re-check collision for the entire group dynamically
+					var group_clear = true
+					for placement in current_group:
+						for pt in raw_footprint:
+							var abs_pt = placement["pos"] + _rotate_point(pt, placement["rot"])
+							if realizer.reserved_cells.has(abs_pt):
+								group_clear = false; break
+						if not group_clear: break
+						
+					if group_clear and rng.randf() < intent["density"]:
+						for placement in current_group:
+							_stamp_structure(placement, raw_footprint, struct_data, node_id, realizer)
 
-# Helper function to keep the logic clean
+
+# --- [NEW] SYMMETRY MATH HELPERS ---
+static func _get_symmetry_group(p: Dictionary, center: Vector2i, mode: int, can_rotate: bool) -> Array:
+	var group = [p]
+	var dx = p["pos"].x - center.x
+	var dy = p["pos"].y - center.y
+	
+	var r = p["rot"]
+	var r_x = (4 - r) % 4 if can_rotate else r       # X-Axis reflection
+	var r_y = (6 - r) % 4 if can_rotate else r       # Y-Axis reflection
+	var r_p = (r + 2) % 4 if can_rotate else r       # Point reflection
+	
+	if mode == 1: # X-Axis
+		group.append({"pos": Vector2i(center.x - dx, p["pos"].y), "rot": r_x})
+	elif mode == 2: # Y-Axis
+		group.append({"pos": Vector2i(p["pos"].x, center.y - dy), "rot": r_y})
+	elif mode == 3: # Radial/Point
+		group.append({"pos": Vector2i(center.x - dx, center.y - dy), "rot": r_p})
+	elif mode == 4: # 4-Way Quad
+		group.append({"pos": Vector2i(center.x - dx, p["pos"].y), "rot": r_x})
+		group.append({"pos": Vector2i(p["pos"].x, center.y - dy), "rot": r_y})
+		group.append({"pos": Vector2i(center.x - dx, center.y - dy), "rot": r_p})
+		
+	return group
+
+# (Keep _stamp_structure, _rotate_point, and _find_nearest_path exactly as they are)
 static func _stamp_structure(chosen: Dictionary, raw_footprint: Array, struct_data: Dictionary, node_id: String, realizer: GraphRealizer) -> void:
 	var final_footprint = []
 	for pt in raw_footprint:
