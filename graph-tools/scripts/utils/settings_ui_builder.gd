@@ -123,10 +123,9 @@ static func _create_standard_row(parent: Control, setting: Dictionary, control: 
 	label.text = setting.get("label", setting["name"].capitalize())
 	label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	
-	# [NEW] This completely solves the horizontal scrollbar issue!
+	# This completely solves the horizontal scrollbar issue!
 	# It allows the label to shrink dynamically and adds "..." if it gets squeezed.
 	label.custom_minimum_size.x = 10 
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
 	label.size_flags_stretch_ratio = 0.5 
@@ -160,9 +159,6 @@ static func _create_action_button(setting: Dictionary, parent: Control) -> Butto
 	btn.text = label
 	btn.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	
-	# Also allow action buttons to gracefully clip text if the panel is squeezed
-	btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	btn.clip_text = true
 	
 	if "Delete" in label or "Clear" in label:
 		btn.modulate = Color(1, 0.5, 0.5)
@@ -225,9 +221,6 @@ static func _create_dropdown(setting: Dictionary) -> OptionButton:
 	var opt = OptionButton.new()
 	opt.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	
-	# Shrink the dropdown if it gets squeezed
-	opt.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	opt.clip_text = true
 	
 	var options = []
 	

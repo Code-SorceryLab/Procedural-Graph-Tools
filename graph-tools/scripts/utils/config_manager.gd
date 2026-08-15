@@ -316,3 +316,32 @@ static func load_biome_interactions() -> Dictionary:
 			loaded_interactions[key] = config.get_value("BiomeInteractions", key)
 			
 	return loaded_interactions
+
+# ==============================================================================
+# SCATTER SETS
+# ==============================================================================
+
+static func save_scatter_sets(scatter_sets: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("ScatterSets"):
+		config.erase_section("ScatterSets")
+		
+	for key in scatter_sets:
+		config.set_value("ScatterSets", key, scatter_sets[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Scatter Sets.")
+
+static func load_scatter_sets() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_sets = {}
+	
+	if err == OK and config.has_section("ScatterSets"):
+		for key in config.get_section_keys("ScatterSets"):
+			loaded_sets[key] = config.get_value("ScatterSets", key)
+			
+	return loaded_sets
