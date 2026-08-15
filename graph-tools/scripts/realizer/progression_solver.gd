@@ -1,7 +1,6 @@
 class_name ProgressionSolver
 extends RefCounted
 
-# [NEW] Added the emit Callable to the signature
 static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable = Callable()) -> void:
 	var grid = realizer.grid
 	
@@ -15,9 +14,9 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			valid_floors[id] = true
 
 	# --- 1 & 2. EXTRACT REGIONS & PORTALS ---
-	var regions: Dictionary = {}           
-	var cell_to_region: Dictionary = {}    
-	var portals: Dictionary = {}           
+	var regions: Dictionary = {}
+	var cell_to_region: Dictionary = {}
+	var portals: Dictionary = {}
 	var portal_connections: Dictionary = {}
 	
 	var region_counter = 0
@@ -104,9 +103,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	if emit.is_valid(): emit.call("Solver: Mapped Region Connectivity")
 
-	# ==========================================================================
-	# 4. START & END POINTS
-	# ==========================================================================
+	# --- 4. START & END POINTS ---
 	if regions.is_empty(): return
 	
 	var possible_starts = regions.keys().filter(func(r): return region_adj[r].size() > 1)
@@ -122,9 +119,27 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 
-	# ==========================================================================
-	# 5. THE LOCKSMITH (Stateful BFS & Area Dependency)
-	# ==========================================================================
+	# --- BUILD REGION DEPTH MAP & SPINE ---
+	var region_depth = {}
+	var depth_queue = [start_region]
+	region_depth[start_region] = 0
+	
+	while not depth_queue.is_empty():
+		var r = depth_queue.pop_front()
+		for neighbor in region_adj[r]:
+			if not region_depth.has(neighbor):
+				region_depth[neighbor] = region_depth[r] + 1
+				depth_queue.append(neighbor)
+
+	# [TRIMMED] Merged spine logic into a single cohesive list
+	var spine_path = _find_spine_path(start_region, end_region, region_adj)
+	var spine_regions = {}
+	for r in spine_path: spine_regions[r] = true
+
+
+	# --- 5. THE LOCKSMITH (Stateful BFS & Area Dependency) ---
+	var locked_portals = [] # Purely metadata for your progression report
+	
 	if not params.get("progression_enabled", true): return
 	if portal_connections.is_empty(): return
 	
@@ -135,7 +150,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var current_max_area = 0
 	var region_to_area = { start_region: 0 }
 	var area_map = { 0: [start_region] }
-	var area_entry_locks = {} # [NEW] Tracks exactly which key opened which Area!
+	var area_entry_locks = {}
 	
 	for p_id in portal_connections:
 		if portal_connections[p_id].has(start_region):
@@ -150,7 +165,9 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var min_copies = params.get("progression_key_copies_min", 1)
 	var max_copies = params.get("progression_key_copies_max", 2)
 	var locks_placed = 0
-	
+
+	var main_path_key_stash = params.get("main_path_key_stash", true)
+
 	while frontier_portals.size() > 0:
 		var p_idx = rng.randi() % frontier_portals.size()
 		var edge = frontier_portals.pop_at(p_idx)
@@ -176,9 +193,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		var forge_new_key = false
 		var lock_str = ""
 		
-		# --- [UPDATED] DECISION TREE WITH SEQUENCE BREAK PREVENTION ---
 		if is_new_region:
-			# Normal Expansion
 			if is_end_finale:
 				lock_it = true
 				forge_new_key = true
@@ -190,29 +205,20 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				else:
 					forge_new_key = true
 		else:
-			# [NEW] Anti-Sequence Break Check!
 			var dest_area_id = region_to_area[next_region]
 			if current_area_id != dest_area_id:
-				# This door bridges two DIFFERENT depth areas. Force a lock!
 				lock_it = true
 				forge_new_key = false
-				
-				# Always lock it with the required key of the DEEPEST area
 				var deeper_area = max(current_area_id, dest_area_id)
-				if area_entry_locks.has(deeper_area):
-					lock_str = area_entry_locks[deeper_area]
-				elif generated_locks.size() > 0:
-					lock_str = SeedUtils.pick_random(generated_locks, rng)
-				else:
-					lock_it = false # Failsafe
+				if area_entry_locks.has(deeper_area): lock_str = area_entry_locks[deeper_area]
+				elif generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
+				else: lock_it = false
 			else:
-				# Connects two regions in the SAME area. Just let it be a random loot door or open passage.
 				if (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
 					lock_it = true
 					if generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
 					else: forge_new_key = true
-					
-		# --- APPLY THE LOCK ---
+
 		if lock_it:
 			if forge_new_key:
 				var can_color = key_colors.size() > 0
@@ -227,21 +233,41 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				generated_locks.append(lock_str)
 				locks_placed += 1
 				
+				# --- SPINE AVOIDANCE DROP LOGIC ---
 				var num_keys = rng.randi_range(min_copies, max_copies)
+				
+				# Split the available Area map into Spine and Off-Spine regions
+				var preferred_regions = []
+				var fallback_regions = []
+				for r in area_map[current_area_id]:
+					if main_path_key_stash and not spine_regions.has(r): preferred_regions.append(r)
+					else: fallback_regions.append(r)
+				
+				# Track how the key was actually placed for the Report
+				var has_branches = preferred_regions.size() > 0
+				var spawn_method = "Stashed (Branch)" if (main_path_key_stash and has_branches) else "Main Path (Spine)"
+				var valid_spawn_targets = preferred_regions if (main_path_key_stash and has_branches) else fallback_regions
+				
 				var key_dropped = false
 				for i in range(num_keys):
-					if _spawn_marker(area_map[current_area_id], "key", lock_str, regions, realizer, rng):
+					if _spawn_marker(valid_spawn_targets, "key", lock_str, regions, realizer, rng, spawn_method):
 						key_dropped = true
 						
 				if not key_dropped:
-					_spawn_marker(visited_regions.keys(), "key", lock_str, regions, realizer, rng)
+					# Failsafe: The area was completely full, so drop it anywhere we've previously been
+					_spawn_marker(visited_regions.keys(), "key", lock_str, regions, realizer, rng, "Fallback (Emergency)")
+			
+			# Record for the Report Generator
+			locked_portals.append({
+				"source_region": source_region, "next_region": next_region,
+				"lock_str": lock_str, "forge_new_key": forge_new_key
+			})
 
 			for pos in portals[p_id]:
 				grid.entities[pos]["lock_type"] = lock_str
 				
 			if emit.is_valid(): emit.call("Solver: Secured Door (" + lock_str + ")")
 
-		# --- EXPAND FRONTIER ---
 		if is_new_region:
 			visited_regions[next_region] = true
 			var assigned_area = current_area_id
@@ -250,8 +276,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				current_max_area += 1
 				assigned_area = current_max_area
 				area_map[assigned_area] = []
-				# [NEW] Log exactly which key opens this new depth level!
-				area_entry_locks[assigned_area] = lock_str 
+				area_entry_locks[assigned_area] = lock_str
 				
 			region_to_area[next_region] = assigned_area
 			area_map[assigned_area].append(next_region)
@@ -259,10 +284,8 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			for new_p_id in portal_connections:
 				if not processed_portals.has(new_p_id) and portal_connections[new_p_id].has(next_region):
 					frontier_portals.append({ "p_id": new_p_id, "source_region": next_region })
-	
-	# ==========================================================================
-	# 6. EXPORT METADATA
-	# ==========================================================================
+
+	# --- 6. EXPORT METADATA ---
 	var cell_to_area = {}
 	for pos in cell_to_region:
 		var r_id = cell_to_region[pos]
@@ -270,9 +293,123 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			cell_to_area[pos] = region_to_area[r_id]
 			
 	realizer.set_meta("cell_to_area", cell_to_area)
+	
+	# --- BUILD PROGRESSION REPORT ---
+	var progression_report = _build_progression_report(
+		start_region, end_region, regions, region_depth, region_adj, spine_path, 
+		spine_regions, region_to_area, cell_to_region, locked_portals, grid, realizer
+	)
+	realizer.set_meta("progression_report", progression_report)
+
+# ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+
+# Computes a strict Array representing the shortest path from start to end
+static func _find_spine_path(start: int, end: int, adj: Dictionary) -> Array:
+	var parent = {}
+	var visited = { start: true }
+	var queue = [start]
+	parent[start] = -1
+
+	while not queue.is_empty():
+		var curr = queue.pop_front()
+		if curr == end: break
+		for neighbor in adj[curr]:
+			if not visited.has(neighbor):
+				visited[neighbor] = true
+				parent[neighbor] = curr
+				queue.append(neighbor)
+
+	if not parent.has(end): return []
+
+	var path: Array = []
+	var current = end
+	while current != -1:
+		path.append(current)
+		current = parent.get(current, -1)
+	path.reverse()
+	return path
 
 
-static func _spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator) -> bool:
+static func _build_progression_report(
+	start_region: int, end_region: int, regions: Dictionary, region_depth: Dictionary, 
+	region_adj: Dictionary, spine_path: Array, spine_regions: Dictionary, 
+	region_to_area: Dictionary, cell_to_region: Dictionary, locked_portals: Array, 
+	grid: GridData, realizer: GraphRealizer
+) -> Dictionary:
+	var region_list: Array[Dictionary] = []
+	for r_id in regions:
+		var depth = region_depth.get(r_id, -1)
+		var area = region_to_area.get(r_id, -1)
+		var on_spine = spine_regions.has(r_id)
+
+		var biome_keys: Dictionary = {}
+		for pos in regions[r_id]:
+			var cell_id = grid.get_cell(pos.x, pos.y)
+			if realizer.floor_to_semantic.has(cell_id):
+				biome_keys[realizer.floor_to_semantic[cell_id]] = true
+
+		region_list.append({
+			"id": r_id, "depth": depth, "area": area,
+			"on_spine": on_spine, "biome_keys": biome_keys.keys()
+		})
+
+	# Locks
+	var locks_list: Array[Dictionary] = []
+	for lock_info in locked_portals:
+		locks_list.append({
+			"lock_str": lock_info.get("lock_str", ""),
+			"source_region": lock_info.get("source_region", -1),
+			"dest_region": lock_info.get("next_region", -1),
+			"source_depth": region_depth.get(lock_info.get("source_region", -1), -1),
+			"dest_depth": region_depth.get(lock_info.get("next_region", -1), -1)
+		})
+
+	# Keys
+	var keys_list: Array[Dictionary] = []
+	for pos in grid.entities:
+		var ent = grid.entities[pos]
+		if ent.get("type") != "key": continue
+			
+		var lock_str = ent.get("key_type", "")
+		var r_id = cell_to_region.get(pos, -1)
+		var depth = region_depth.get(r_id, -1)
+		var biome_keys: Dictionary = {}
+		if r_id != -1 and regions.has(r_id):
+			for c in regions[r_id]:
+				var cid = grid.get_cell(c.x, c.y)
+				if realizer.floor_to_semantic.has(cid):
+					biome_keys[realizer.floor_to_semantic[cid]] = true
+
+		keys_list.append({
+			"lock_str": lock_str, "region": r_id, "depth": depth,
+			"biome_keys": biome_keys.keys(), "placement_method": ent.get("placement_method", "unknown")
+		})
+
+	var max_depth = 0
+	for r in region_depth.values(): max_depth = max(max_depth, r)
+
+	var area_count = 0
+	for r in region_to_area.values(): area_count = max(area_count, r + 1)
+
+	var stats = {
+		"region_count": regions.size(),
+		"lock_count": locks_list.size(),
+		"key_count": keys_list.size(),
+		"max_depth": max_depth,
+		"area_count": area_count,
+		"spine_length": spine_path.size()
+	}
+
+	return {
+		"start_region": start_region, "end_region": end_region,
+		"spine_path": spine_path, "regions": region_list,
+		"locks": locks_list, "keys": keys_list, "stats": stats
+	}
+
+# Added the placement_method parameter back!
+static func _spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator, placement_method: String = "default") -> bool:
 	var valid_cells = []
 	for r_id in valid_region_ids:
 		for pos in regions[r_id]:
@@ -284,7 +421,8 @@ static func _spawn_marker(valid_region_ids: Array, e_type: String, subtype: Stri
 		realizer.grid.entities[chosen] = {
 			"type": e_type,
 			"key_type": subtype if e_type == "key" else "",
-			"name": subtype + " Key" if e_type == "key" else subtype
+			"name": subtype + " Key" if e_type == "key" else subtype,
+			"placement_method": placement_method #Save it to the entity data
 		}
 		realizer.reserved_cells[chosen] = true
 		return true

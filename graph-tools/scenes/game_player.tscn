@@ -615,6 +615,7 @@ size_flags_vertical = 3
 [node name="UIContainer" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="Inspector" type="VBoxContainer" parent="UI/MainLayout/Workspace/Sidebar/Margin/TabContainer"]
 visible = false

@@ -1,29 +1,23 @@
 class_name SettingsUIBuilder
 extends RefCounted
 
+const COMPACT_FONT_SIZE = 12
+const HEADER_FONT_SIZE = 13
+
 # ==============================================================================
 # 1. PUBLIC API - BUILDERS
 # ==============================================================================
 
 # Helper to create a unified Collapsible Header + Container
-# [CHANGED] Helper to create a unified Collapsible Header + Container
-# Now uses a distinct blue style to differentiate it from action buttons.
 static func create_collapsible_section(parent: Control, title: String, start_expanded: bool = true) -> VBoxContainer:
 	var btn = Button.new()
 	btn.text = ("v " if start_expanded else "> ") + title
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.add_theme_font_size_override("font_size", HEADER_FONT_SIZE)
 	
 	# --- STYLE CHANGES ---
-	# 1. Remove 'flat = true' so it has a background bar.
-	# btn.flat = true 
-	
-	# 2. Tint the background button itself to a neutral slate blue.
-	# Using self_modulate affects the button background texture without tinting the child text.
 	btn.self_modulate = Color(0.25, 0.35, 0.5) 
-	
-	# 3. Ensure text is bright white for contrast against the blue.
 	btn.add_theme_color_override("font_color", Color.WHITE)
-	# Add hover/pressed overrides to maintain the white text styling
 	btn.add_theme_color_override("font_hover_color", Color(0.9, 0.9, 0.9))
 	btn.add_theme_color_override("font_pressed_color", Color(0.8, 0.8, 0.8))
 	# ---------------------
@@ -127,11 +121,18 @@ static func _create_standard_row(parent: Control, setting: Dictionary, control: 
 	
 	var label = Label.new()
 	label.text = setting.get("label", setting["name"].capitalize())
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
-	label.size_flags_stretch_ratio = 0.4 
+	label.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	
-	var tooltip = setting.get("hint_text", "") # Standard property is often "hint_text"
-	if tooltip == "": tooltip = setting.get("hint", "") # Fallback
+	# [NEW] This completely solves the horizontal scrollbar issue!
+	# It allows the label to shrink dynamically and adds "..." if it gets squeezed.
+	label.custom_minimum_size.x = 10 
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL 
+	label.size_flags_stretch_ratio = 0.5 
+	
+	var tooltip = setting.get("hint_text", "")
+	if tooltip == "": tooltip = setting.get("hint", "") 
 	
 	if tooltip != "":
 		label.tooltip_text = tooltip
@@ -144,7 +145,7 @@ static func _create_standard_row(parent: Control, setting: Dictionary, control: 
 	
 	# Configure Control Layout
 	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	control.size_flags_stretch_ratio = 0.6
+	control.size_flags_stretch_ratio = 0.5
 	row.add_child(control)
 
 static func _create_separator(parent: Control) -> void:
@@ -157,6 +158,11 @@ static func _create_action_button(setting: Dictionary, parent: Control) -> Butto
 	var btn = Button.new()
 	var label = setting.get("label", "Action")
 	btn.text = label
+	btn.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	
+	# Also allow action buttons to gracefully clip text if the panel is squeezed
+	btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	btn.clip_text = true
 	
 	if "Delete" in label or "Clear" in label:
 		btn.modulate = Color(1, 0.5, 0.5)
@@ -172,7 +178,9 @@ static func _create_number(setting: Dictionary) -> SpinBox:
 	spin.max_value = float(setting.get("max", 99999))
 	spin.step = float(setting.get("step", 1.0 if setting["type"] == TYPE_INT else 0.1))
 	
-	# Safely cast the default value to a float to prevent type-mismatch crashes
+	# Apply compact font to the SpinBox's internal LineEdit
+	spin.get_line_edit().add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	
 	var def_val = setting.get("default", 0)
 	if typeof(def_val) == TYPE_STRING and def_val.is_valid_float():
 		spin.value = float(def_val)
@@ -190,6 +198,7 @@ static func _create_number(setting: Dictionary) -> SpinBox:
 static func _create_checkbox(setting: Dictionary) -> CheckBox:
 	var chk = CheckBox.new()
 	chk.text = "Enabled"
+	chk.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	chk.button_pressed = bool(setting.get("default", false))
 	
 	if setting.get("mixed", false):
@@ -200,6 +209,7 @@ static func _create_checkbox(setting: Dictionary) -> CheckBox:
 
 static func _create_line_edit(setting: Dictionary) -> LineEdit:
 	var field = LineEdit.new()
+	field.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	var is_mixed = setting.get("mixed", false)
 	
 	if is_mixed:
@@ -213,13 +223,17 @@ static func _create_line_edit(setting: Dictionary) -> LineEdit:
 
 static func _create_dropdown(setting: Dictionary) -> OptionButton:
 	var opt = OptionButton.new()
+	opt.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+	
+	# Shrink the dropdown if it gets squeezed
+	opt.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	opt.clip_text = true
+	
 	var options = []
 	
-	# Source A: Explicit options string "A,B,C"
 	if setting.get("options", "") != "":
 		var str_opts = setting["options"].split(",")
 		for s in str_opts: options.append(s.strip_edges())
-	# Source B: Hint String (Standard Godot enum hint)
 	elif setting.get("hint_string", "") != "":
 		var str_opts = setting["hint_string"].split(",")
 		for s in str_opts: options.append(s.strip_edges())
@@ -244,11 +258,11 @@ static func _create_vector2(setting: Dictionary) -> HBoxContainer:
 	var spin_x = SpinBox.new()
 	var spin_y = SpinBox.new()
 	
-	# Setup Spins
 	for s in [spin_x, spin_y]:
 		s.min_value = -99999; s.max_value = 99999
 		s.step = setting.get("step", 1.0)
 		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		s.get_line_edit().add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 		if is_mixed: s.modulate = Color(1,1,1,0.5)
 			
 	spin_x.prefix = "X:"; spin_x.value = def_val.x
@@ -267,6 +281,7 @@ static func _create_color_picker(setting: Dictionary) -> ColorPickerButton:
 static func _create_read_only_label(setting: Dictionary) -> Label:
 	var lbl = Label.new()
 	lbl.text = str(setting.get("default", ""))
+	lbl.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	lbl.modulate = Color(0.8, 0.8, 0.8)
 	return lbl
 
@@ -284,7 +299,6 @@ static func collect_params(active_inputs: Dictionary) -> Dictionary:
 		elif control is LineEdit: params[key] = control.text 
 		elif control is ColorPickerButton: params[key] = control.color
 		elif control is HBoxContainer:
-			# Vector2 Logic
 			var sx = control.get_child(0) as SpinBox
 			var sy = control.get_child(1) as SpinBox
 			if sx and sy: params[key] = Vector2(sx.value, sy.value)
@@ -307,13 +321,11 @@ static func connect_live_updates(active_inputs: Dictionary, callback: Callable) 
 		elif control is Button:
 			control.pressed.connect(func(): callback.call(key, true))
 		elif control is HBoxContainer:
-			# Vector2
 			var sx = control.get_child(0)
 			var sy = control.get_child(1)
 			sx.value_changed.connect(func(val): callback.call(key, Vector2(val, sy.value)))
 			sy.value_changed.connect(func(val): callback.call(key, Vector2(sx.value, val)))
 
-# --- REUSABLE COMPONENT LOGIC ---
 static func sync_picker_button(active_inputs: Dictionary, btn_key: String, label_prefix: String, value: Variant) -> void:
 	if active_inputs.has(btn_key):
 		var btn = active_inputs[btn_key] as Button
