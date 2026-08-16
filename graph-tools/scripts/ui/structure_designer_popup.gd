@@ -10,6 +10,7 @@ var name_edit: LineEdit
 var color_picker: ColorPickerButton
 var chk_rotate: CheckBox
 var chk_face_path: CheckBox
+var chk_solid: CheckBox # [NEW]
 var opt_front_dir: OptionButton
 var prop_panel: VBoxContainer
 
@@ -58,7 +59,7 @@ func _init() -> void:
 	
 	left_panel.add_child(HSeparator.new())
 	
-	# Properties Inspector (Hidden if nothing is selected)
+	# Properties Inspector
 	prop_panel = VBoxContainer.new()
 	prop_panel.visible = false
 	left_panel.add_child(prop_panel)
@@ -91,6 +92,12 @@ func _init() -> void:
 	chk_face_path.toggled.connect(func(v): structures[current_id]["face_path"] = v; canvas.queue_redraw())
 	prop_panel.add_child(chk_face_path)
 	
+	# [NEW] Solid Checkbox
+	chk_solid = CheckBox.new()
+	chk_solid.text = "Solid Collision (Blocks Pathing)"
+	chk_solid.toggled.connect(func(v): structures[current_id]["is_solid"] = v)
+	prop_panel.add_child(chk_solid)
+	
 	opt_front_dir = OptionButton.new()
 	opt_front_dir.add_item("Front: UP", 0)
 	opt_front_dir.add_item("Front: RIGHT", 1)
@@ -98,8 +105,6 @@ func _init() -> void:
 	opt_front_dir.add_item("Front: LEFT", 3)
 	opt_front_dir.item_selected.connect(_on_front_dir_selected)
 	prop_panel.add_child(opt_front_dir)
-	
-	# [FIXED] Min/Max distance sliders removed! They belong in the Biome Designer now.
 	
 	# ==========================================================================
 	# RIGHT PANEL: CANVAS
@@ -130,7 +135,6 @@ func _init() -> void:
 	btn_zoom_in.pressed.connect(func(): zoom_level = min(3.0, zoom_level + 0.25); canvas.queue_redraw())
 	top_tools.add_child(btn_zoom_in)
 	
-	# The drawing canvas
 	var canvas_bg = ColorRect.new()
 	canvas_bg.color = Color(0.1, 0.1, 0.12)
 	canvas_bg.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -166,7 +170,6 @@ func _refresh_list() -> void:
 	for key in keys:
 		var struct = structures[key]
 		
-		# Generate a tiny color icon based on the structure's color!
 		var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
 		img.fill(struct.get("color", Color.CYAN))
 		var tex = ImageTexture.create_from_image(img)
@@ -185,12 +188,11 @@ func _add_new_structure() -> void:
 		"footprint": [Vector2i(0, 0)],
 		"allow_rotation": true,
 		"face_path": true,
+		"is_solid": true, # [NEW]
 		"front_dir": Vector2i.UP
-		# [FIXED] Min/Max distance defaults removed!
 	}
 	_refresh_list()
 	
-	# Select the newly created item
 	for i in range(item_list.item_count):
 		if item_list.get_item_metadata(i) == new_id:
 			item_list.select(i)
@@ -214,8 +216,8 @@ func _on_item_selected(idx: int) -> void:
 	color_picker.color = struct.get("color", Color.CYAN)
 	chk_rotate.button_pressed = struct.get("allow_rotation", true)
 	chk_face_path.button_pressed = struct.get("face_path", true)
+	chk_solid.button_pressed = struct.get("is_solid", true)
 	
-	# Map Vector2i back to dropdown index
 	var f_dir = struct.get("front_dir", Vector2i.UP)
 	if f_dir == Vector2i.UP: opt_front_dir.select(0)
 	elif f_dir == Vector2i.RIGHT: opt_front_dir.select(1)
@@ -236,20 +238,15 @@ func _on_front_dir_selected(idx: int) -> void:
 # ==============================================================================
 # CANVAS DRAWING & LOGIC
 # ==============================================================================
-
 func _get_grid_center() -> Vector2:
 	return canvas.size / 2.0
 
 func _get_coord_from_mouse(mouse_pos: Vector2) -> Vector2i:
 	var center = _get_grid_center()
 	var offset = mouse_pos - center
-	
 	var actual_tile_size = tile_size * zoom_level
-	
-	# Standardize the math so negative coordinates round correctly
 	var gx = floor(offset.x / actual_tile_size)
 	var gy = floor(offset.y / actual_tile_size)
-	
 	return Vector2i(gx, gy)
 
 func _on_canvas_input(event: InputEvent) -> void:
@@ -265,7 +262,6 @@ func _on_canvas_input(event: InputEvent) -> void:
 		var coord = _get_coord_from_mouse(event.position)
 		var footprint: Array = structures[current_id]["footprint"]
 		
-		# Typecast array safely
 		var typed_footprint: Array[Vector2i] = []
 		typed_footprint.assign(footprint)
 		
@@ -281,13 +277,10 @@ func _on_canvas_draw() -> void:
 	var center = _get_grid_center()
 	var actual_ts = tile_size * zoom_level
 	
-	# 1. Draw Axis Lines (Shows where 0,0 is)
 	canvas.draw_line(Vector2(center.x, 0), Vector2(center.x, canvas.size.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
 	canvas.draw_line(Vector2(0, center.y), Vector2(canvas.size.x, center.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
 	
-	# 2. Draw Grid
 	var grid_color = Color(1, 1, 1, 0.1)
-	# Draw outwards from center to ensure perfect alignment
 	var steps_x = int((canvas.size.x / 2.0) / actual_ts) + 1
 	var steps_y = int((canvas.size.y / 2.0) / actual_ts) + 1
 	
@@ -298,11 +291,14 @@ func _on_canvas_draw() -> void:
 		var py = center.y + (i * actual_ts)
 		canvas.draw_line(Vector2(0, py), Vector2(canvas.size.x, py), grid_color, 1.0)
 		
-	# 3. Draw the active Structure
 	if current_id != "" and structures.has(current_id):
 		var struct = structures[current_id]
 		var footprint: Array = struct.get("footprint", [])
 		var color = struct.get("color", Color.CYAN)
+		
+		# [NEW] Visually differentiate non-solid structures by making them semi-transparent in the editor
+		var is_solid = struct.get("is_solid", true)
+		if not is_solid: color.a = 0.5
 		
 		for coord in footprint:
 			var px = center.x + (coord.x * actual_ts)
@@ -310,13 +306,11 @@ func _on_canvas_draw() -> void:
 			var rect = Rect2(px, py, actual_ts, actual_ts)
 			
 			canvas.draw_rect(rect, color)
-			canvas.draw_rect(rect, Color.WHITE, false, 2.0) # White Border
+			canvas.draw_rect(rect, Color.WHITE, false, 2.0)
 			
-		# 4. Draw the Front Arrow if enabled
 		if struct.get("face_path", true) and footprint.size() > 0:
 			var front_dir = struct.get("front_dir", Vector2i.UP)
 			
-			# Find the bounds of the structure to draw the arrow on the edge
 			var min_coord = footprint[0]
 			var max_coord = footprint[0]
 			for c in footprint:
@@ -328,7 +322,6 @@ func _on_canvas_draw() -> void:
 			var arrow_start = Vector2.ZERO
 			var arrow_end = Vector2.ZERO
 			
-			# Position the arrow just outside the bounding box in the target direction
 			var center_x = center.x + ((min_coord.x + max_coord.x + 1) / 2.0) * actual_ts
 			var center_y = center.y + ((min_coord.y + max_coord.y + 1) / 2.0) * actual_ts
 			

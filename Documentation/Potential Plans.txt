@@ -16,7 +16,6 @@
 
 -bezier curves for custom edges.
 
--Tilemap validation via bfs algorithms that can validate several test: if every entity spawn can be reached, if the end point can be reached (not implemented yet), if "keys" scattered across the map can be reached (not implemented yet), etc.
 
 Transformations worth adding:
 
@@ -25,7 +24,7 @@ Transformations worth adding:
 
 Maybe the citation dependency feature (Big Task)
 
--Spawn Tile not guarranteed to not be blocked. FIX THIS. We saved a graph for this. Run Default Realizer.
+-Spawn Tile not guaranteed to not be blocked. FIX THIS. We saved a graph for this. Run Default Realizer.
 
 Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 

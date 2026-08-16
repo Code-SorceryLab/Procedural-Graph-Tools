@@ -293,14 +293,15 @@ static func _stamp_structure(chosen: Dictionary, raw_footprint: Array, struct_da
 	for pt in raw_footprint:
 		var abs_pt = chosen["pos"] + _rotate_point(pt, chosen["rot"])
 		final_footprint.append(abs_pt)
-		realizer.reserved_cells[abs_pt] = true
+		realizer.reserved_cells[abs_pt] = true # Non-solid structures still reserve cells so entities don't stack inside them!
 		
 	realizer.grid.entities[chosen["pos"]] = {
 		"type": "structure",
 		"source_node": node_id,
 		"name": struct_data.get("name", "Custom"),
 		"color": struct_data.get("color", Color.CYAN),
-		"footprint_world": final_footprint
+		"footprint_world": final_footprint,
+		"is_solid": struct_data.get("is_solid", true) # Inject the solid flag!
 	}
 
 static func _rotate_point(pt: Vector2i, rot_idx: int) -> Vector2i:

@@ -420,7 +420,7 @@ func _on_validation_event(type: String, data: Variant) -> void:
 			_validator_paint_counter += 1 # Increment for the next tile
 
 
-func _on_validation_finished(success: bool) -> void:
+func _on_validation_finished(result: Dictionary) -> void:
 	if _validator_thread and _validator_thread.is_started():
 		_validator_thread.wait_to_finish()
 	_validation_tab.set_running(false)

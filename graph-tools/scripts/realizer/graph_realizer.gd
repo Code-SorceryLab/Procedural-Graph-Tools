@@ -27,6 +27,8 @@ var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
 var distance_field: Dictionary = {} # Stores Vector2i -> Int
 
 func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Callable()) -> GridData:
+	var start_time = Time.get_ticks_msec() # [NEW] Start the clock!
+	
 	_scale_factor = params.get("grid_scale", 50.0) 
 	_padding = params.get("padding", 10)
 	
@@ -35,7 +37,7 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	wall_id = palette.register_tile("Wall", { "walkable": false })
 	debug_path_id = palette.register_tile("DebugPath", { "walkable": true })
 	
-	critical_path_cells.clear() #  Reset the collision mask
+	critical_path_cells.clear()
 	reserved_cells.clear()
 	room_cells.clear()
 	core_path_cells.clear()
@@ -50,7 +52,7 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 		
 		semantic_floor_ids[cat_key] = s_floor
 		semantic_wall_map[s_floor] = s_wall 
-		floor_to_semantic[s_floor] = cat_key # Store reverse lookup
+		floor_to_semantic[s_floor] = cat_key
 		
 	var stats = graph.get_spatial_stats()
 	var bounds: Rect2 = stats.get("bounds", Rect2(0, 0, 100, 100))
@@ -68,13 +70,9 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	# ==========================================================================
 	var emit = func(step_name: String):
 		if progress_callback.is_valid():
-			# Deep copy the exact state of the grid right now.
 			var cells_copy = grid.cells.duplicate()
 			var entities_copy = grid.entities.duplicate(true)
 			progress_callback.call_deferred(step_name, cells_copy, entities_copy, grid.width, grid.height)
-			
-			# Force the background thread to pause for 150 milliseconds!
-			# This gives the Main Thread time to actually render the snapshot to the screen.
 			OS.delay_msec(150)
 			
 	# --- PIPELINE EXECUTION ---
@@ -89,19 +87,18 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	CellularSmoother.smooth(self, floor_id, params)
 	emit.call("Cellular Smoothing")
 	
-	PathEroder.erode(self, params) #Erodes critical path
+	PathEroder.erode(self, params)
 	emit.call("Path Erosion")
 	
-	ZoneDecorator.decorate(self, params) # Applies the Biome Matrix Rules
+	ZoneDecorator.decorate(self, params)
 	emit.call("Applying Zone Decor")
 	
-	DistanceMapper.map(self) # Map distances before placing objects
+	DistanceMapper.map(self)
 	emit.call("Mapping Distance Fields")
 	
 	StructurePlacer.place(graph, self, params)
 	emit.call("Placing Structures")
 	
-	# [FIXED] Pass the emit callback into the solver!
 	ProgressionSolver.analyze(self, params, emit) 
 	emit.call("Progression Analysis Complete")
 	
@@ -110,6 +107,26 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
+	
+	# ==========================================================================
+	# ANALYTICS & METADATA PACKAGING
+	# ==========================================================================
+	# Run a headless validation pass (visualize = false, full_explore = true)
+	var val_results = GenerationValidator.run(grid, false, true, Callable(), Callable())
+	
+	# Merge the metadata with the existing Progression Report
+	var final_report = {}
+	if self.has_meta("progression_report"):
+		final_report = self.get_meta("progression_report")
+		
+	final_report["meta"] = {
+		"seed": params.get("realizer_seed", "default"),
+		"time_ms": Time.get_ticks_msec() - start_time
+	}
+	final_report["analytics"] = val_results
+	
+	self.set_meta("progression_report", final_report)
+	emit.call("Finalizing Analytics Report")
 	
 	return grid
 

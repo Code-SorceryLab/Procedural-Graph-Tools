@@ -2,6 +2,7 @@ class_name ReportTabView
 extends MarginContainer
 
 var _report_text: RichTextLabel
+var _current_report_raw: String = ""
 
 func _init() -> void:
 	name = "Report"
@@ -10,10 +11,39 @@ func _init() -> void:
 	add_theme_constant_override("margin_right", 10)
 	add_theme_constant_override("margin_bottom", 10)
 
+	var main_vbox = VBoxContainer.new()
+	add_child(main_vbox)
+	
+	# --- EXPORT TOOLBAR ---
+	var toolbar = HBoxContainer.new()
+	main_vbox.add_child(toolbar)
+	
+	var lbl_title = Label.new()
+	lbl_title.text = "Map Analytics"
+	lbl_title.add_theme_font_size_override("font_size", 14)
+	toolbar.add_child(lbl_title)
+	
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_child(spacer)
+	
+	var btn_copy = Button.new()
+	btn_copy.text = "Copy to Clipboard"
+	btn_copy.pressed.connect(_on_copy_pressed)
+	toolbar.add_child(btn_copy)
+	
+	var btn_export = Button.new()
+	btn_export.text = "Export .txt"
+	btn_export.pressed.connect(_on_export_pressed)
+	toolbar.add_child(btn_export)
+	
+	main_vbox.add_child(HSeparator.new())
+
+	# --- REPORT TEXT ---
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(scroll)
+	main_vbox.add_child(scroll)
 
 	_report_text = RichTextLabel.new()
 	_report_text.bbcode_enabled = true
@@ -26,23 +56,113 @@ func _init() -> void:
 
 func clear() -> void:
 	_report_text.text = "[color=gray]No progression data available. Rasterize the graph to view the report.[/color]"
+	_current_report_raw = ""
 
 func set_loading() -> void:
-	_report_text.text = "[color=gray]Generating...[/color]"
+	_report_text.text = "[color=gray]Generating and Validating Map...[/color]"
+	_current_report_raw = ""
 
 func update_report(data: Dictionary) -> void:
 	if data.is_empty():
 		_report_text.text = "[color=gray]Progression solver was disabled or failed to find regions.[/color]"
 		return
 	_report_text.text = _format_report(data)
+	_current_report_raw = _report_text.get_parsed_text() # Saves the raw text without BBCode tags for exporting
+
+# ==============================================================================
+# BUTTON HANDLERS
+# ==============================================================================
+func _on_copy_pressed() -> void:
+	if _current_report_raw != "":
+		DisplayServer.clipboard_set(_current_report_raw)
+
+func _on_export_pressed() -> void:
+	if _current_report_raw == "": return
+	
+	var fd = FileDialog.new()
+	fd.access = FileDialog.ACCESS_FILESYSTEM
+	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	fd.add_filter("*.txt", "Text Files")
+	fd.current_file = "map_analytics_" + str(Time.get_unix_time_from_system()) + ".txt"
+	fd.size = Vector2(600, 400)
+	
+	fd.file_selected.connect(func(path: String):
+		var file = FileAccess.open(path, FileAccess.WRITE)
+		if file:
+			file.store_string(_current_report_raw)
+			file.close()
+		fd.queue_free()
+	)
+	fd.canceled.connect(func(): fd.queue_free())
+	add_child(fd)
+	fd.popup_centered()
 
 # ==============================================================================
 # FORMATTING ENGINE
 # ==============================================================================
 func _format_report(data: Dictionary) -> String:
-	var s = "[b]Critical Path[/b]\n"
-	var spine_path = data.get("spine_path", [])
-	var regions = data.get("regions", [])
+	var s = ""
+	
+	# --- METADATA & ANALYTICS (The Headless Validator Output) ---
+	var meta = data.get("meta", {})
+	if not meta.is_empty():
+		s += "[b]Generation Metadata[/b]\n"
+		s += "  Seed: %s\n" % meta.get("seed", "Unknown")
+		s += "  Rasterization Time: %d ms\n\n" % meta.get("time_ms", 0)
+		
+	var analytics = data.get("analytics", {})
+	if not analytics.is_empty():
+		s += "[b]Validation Analytics[/b]\n"
+		var is_playable = analytics.get("is_playable", false)
+		s += "  Playable (Exit Reached): %s\n" % ("[color=green]YES[/color]" if is_playable else "[color=red]NO[/color]")
+		s += "  Walkable Area Reached: %.1f%% (%d / %d tiles)\n" % [analytics.get("coverage_percent", 0.0), analytics.get("reachable_walkable", 0), analytics.get("total_walkable", 0)]
+		
+		var missed_keys = analytics.get("keys_missed", [])
+		if not missed_keys.is_empty(): s += "  [color=orange]Unreachable Keys:[/color] %s\n" % ", ".join(missed_keys)
+		
+		var stuck_doors = analytics.get("permanently_locked", [])
+		if not stuck_doors.is_empty(): s += "  [color=orange]Permanently Locked Doors:[/color] %s\n" % ", ".join(stuck_doors)
+		
+		# Render the unreachable entity tallies
+		var unreachable_ents = analytics.get("unreachable_entities", {})
+		if not unreachable_ents.is_empty():
+			var ent_strs = []
+			for e_name in unreachable_ents:
+				ent_strs.append("%dx %s" % [unreachable_ents[e_name], e_name])
+			s += "  [color=orange]Unreachable Entities:[/color] %s\n" % ", ".join(ent_strs)
+		else:
+			s += "  [color=green]All entities are reachable.[/color]\n"
+			
+		s += "\n"
+
+	# --- PROGRESSION LOGIC ---
+	var prog = data.get("progression", data)
+	var stats = prog.get("stats", {})
+	var locks = prog.get("locks", [])
+	var keys = prog.get("keys", [])
+	
+	# Calculate Fallbacks manually from the keys array
+	var fallback_count = 0
+	for k in keys:
+		if k.get("placement_method", "") == "fallback":
+			fallback_count += 1
+
+	# Dedicated Metrics Block
+	s += "[b]Progression Metrics[/b]\n"
+	s += "  Areas (Rooms): %d\n" % stats.get("area_count", 0)
+	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
+	s += "  Locks Placed: %d\n" % stats.get("lock_count", locks.size())
+	s += "  Keys Placed: %d\n" % stats.get("key_count", keys.size())
+	s += "  Fallback Placements: %d\n" % fallback_count
+	
+	var avg_detour = stats.get("avg_detour_length", 0.0)
+	if avg_detour > 0.0:
+		s += "  Avg Detour Length: %.1f rooms\n" % avg_detour
+	s += "\n"
+
+	s += "[b]Critical Path[/b]\n"
+	var spine_path = prog.get("spine_path", [])
+	var regions = prog.get("regions", [])
 
 	var region_by_id = {}
 	for r in regions: region_by_id[r["id"]] = r
@@ -57,8 +177,7 @@ func _format_report(data: Dictionary) -> String:
 			s += "  [color=#4CAF50]%s[/color] Depth %d" % [_format_region(r_id, region_by_id), depth]
 			if i < spine_path.size() - 1: s += "\n    ↓\n"
 
-	s += "\n\n[b]Locks[/b]\n"
-	var locks = data.get("locks", [])
+	s += "\n\n[b]Locks & Keys Map[/b]\n"
 	if locks.is_empty():
 		s += "  No locked doors.\n"
 	else:
@@ -66,7 +185,7 @@ func _format_report(data: Dictionary) -> String:
 			var lock_str = l.get("lock_str", "")
 			var src = l.get("source_region", -1)
 			var dst = l.get("dest_region", -1)
-			var key_regions = _find_key_regions_for_lock(data, lock_str)
+			var key_regions = _find_key_regions_for_lock(prog, lock_str)
 			s += "  [color=#F44336]%s[/color]: %s → %s" % [lock_str, _format_region(src, region_by_id), _format_region(dst, region_by_id)]
 			if not key_regions.is_empty():
 				var key_strs = []
@@ -74,33 +193,14 @@ func _format_report(data: Dictionary) -> String:
 				s += " (Key in: " + ", ".join(key_strs) + ")"
 			s += "\n"
 
-	s += "\n[b]Keys[/b]\n"
-	var keys = data.get("keys", [])
-	if keys.is_empty():
-		s += "  No keys.\n"
-	else:
-		for k in keys:
-			s += "  [color=#FFC107]%s[/color]: %s (%s)\n" % [k.get("lock_str", ""), _format_region(k.get("region", -1), region_by_id), k.get("placement_method", "unknown")]
-
-	s += "\n[b]Stats[/b]\n"
-	var stats = data.get("stats", {})
-	s += "  Regions: %d\n" % stats.get("region_count", 0)
-	s += "  Locks: %d\n" % stats.get("lock_count", 0)
-	s += "  Keys: %d\n" % stats.get("key_count", 0)
-	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
-	s += "  Areas: %d\n" % stats.get("area_count", 0)
-	s += "  Spine Length: %d\n" % stats.get("spine_length", 0)
-
 	return s
 
 func _format_region(region_id, region_by_id: Dictionary) -> String:
 	if not region_by_id.has(region_id): return "Region %d" % region_id
 	var r = region_by_id[region_id]
 	var biomes = r.get("biome_keys", [])
-
 	if biomes.is_empty(): return "Region %d" % region_id
 	if biomes.size() == 1: return "%s:%d" % [biomes[0], region_id]
-
 	var parts = []
 	for b in biomes: parts.append(str(b))
 	return "%s:%d" % ["/".join(parts), region_id]
