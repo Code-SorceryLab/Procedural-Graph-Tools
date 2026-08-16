@@ -19,21 +19,21 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 	# Biome rules (Semantic Floors)
 	for type_key in realizer.semantic_floor_ids:
 		var f_id = realizer.semantic_floor_ids[type_key]
-		if biomes.has(type_key) and biomes[type_key].get("override_enabled", false):
-			var b = biomes[type_key]
-			var b_iter = b.get("ca_iterations", params.get("ca_iterations", 0))
-			
-			rule_map[f_id] = {
-				"iter": b_iter,
-				"survive": b.get("ca_survive_min", 4),
-				"birth": b.get("ca_birth_min", 5)
-			}
-			# Elevate the global loop count if this biome needs more passes!
-			if b_iter > max_global_iterations:
-				max_global_iterations = b_iter
-		else:
-			# Fallback to global rules if no override is enabled
-			rule_map[f_id] = rule_map[default_floor_id]
+		var b = biomes.get(type_key, {}) # Safely get the biome dict if it passed the firewall
+		
+		# Because of the firewall, if "ca_iterations" isn't in 'b', 
+		# we know the user disabled the Routing override for this biome!
+		var b_iter = b.get("ca_iterations", params.get("ca_iterations", 0))
+		
+		rule_map[f_id] = {
+			"iter": b_iter,
+			"survive": b.get("ca_survive_min", params.get("ca_survive_min", 4)),
+			"birth": b.get("ca_birth_min", params.get("ca_birth_min", 5))
+		}
+		
+		# Elevate the global loop count if this biome needs more passes!
+		if b_iter > max_global_iterations:
+			max_global_iterations = b_iter
 			
 	if max_global_iterations <= 0: return
 	
@@ -51,9 +51,7 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 			for x in range(grid.width):
 				var pos = Vector2i(x, y)
 				
-				# --- [NEW] IMMUNITY CHECK ---
-				# Lock the A* corridors and doorways in place. They cannot be eroded, 
-				# nor can they be overwritten by invading biomes during Birth!
+				# --- IMMUNITY CHECK ---
 				if realizer.critical_path_cells.has(pos):
 					continue
 					

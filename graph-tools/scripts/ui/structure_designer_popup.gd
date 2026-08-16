@@ -12,8 +12,6 @@ var chk_rotate: CheckBox
 var chk_face_path: CheckBox
 var opt_front_dir: OptionButton
 var prop_panel: VBoxContainer
-var spin_min_dist: SpinBox
-var spin_max_dist: SpinBox
 
 var canvas: Control
 var zoom_level: float = 1.0
@@ -101,35 +99,7 @@ func _init() -> void:
 	opt_front_dir.item_selected.connect(_on_front_dir_selected)
 	prop_panel.add_child(opt_front_dir)
 	
-	var box_min_dist = HBoxContainer.new()
-	var lbl_min = Label.new()
-	lbl_min.text = "Min Wall Dist:"
-	lbl_min.tooltip_text = "0 = Can touch walls. 2 = Must be at least 2 tiles away from walls."
-	lbl_min.mouse_filter = Control.MOUSE_FILTER_STOP
-	box_min_dist.add_child(lbl_min)
-	spin_min_dist = SpinBox.new()
-	spin_min_dist.min_value = 0
-	spin_min_dist.max_value = 10
-	spin_min_dist.value = 0
-	spin_min_dist.size_flags_horizontal = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
-	spin_min_dist.value_changed.connect(func(v): structures[current_id]["min_dist"] = int(v))
-	box_min_dist.add_child(spin_min_dist)
-	prop_panel.add_child(box_min_dist)
-	
-	var box_max_dist = HBoxContainer.new()
-	var lbl_max = Label.new()
-	lbl_max.text = "Max Wall Dist:"
-	lbl_max.tooltip_text = "99 = No max distance. 1 = Must be exactly adjacent to a wall."
-	lbl_max.mouse_filter = Control.MOUSE_FILTER_STOP
-	box_max_dist.add_child(lbl_max)
-	spin_max_dist = SpinBox.new()
-	spin_max_dist.min_value = 1
-	spin_max_dist.max_value = 99
-	spin_max_dist.value = 99
-	spin_max_dist.size_flags_horizontal = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
-	spin_max_dist.value_changed.connect(func(v): structures[current_id]["max_dist"] = int(v))
-	box_max_dist.add_child(spin_max_dist)
-	prop_panel.add_child(box_max_dist)
+	# [FIXED] Min/Max distance sliders removed! They belong in the Biome Designer now.
 	
 	# ==========================================================================
 	# RIGHT PANEL: CANVAS
@@ -215,9 +185,8 @@ func _add_new_structure() -> void:
 		"footprint": [Vector2i(0, 0)],
 		"allow_rotation": true,
 		"face_path": true,
-		"front_dir": Vector2i.UP,
-		"min_dist": 0,
-		"max_dist": 99
+		"front_dir": Vector2i.UP
+		# [FIXED] Min/Max distance defaults removed!
 	}
 	_refresh_list()
 	
@@ -245,9 +214,6 @@ func _on_item_selected(idx: int) -> void:
 	color_picker.color = struct.get("color", Color.CYAN)
 	chk_rotate.button_pressed = struct.get("allow_rotation", true)
 	chk_face_path.button_pressed = struct.get("face_path", true)
-	
-	spin_min_dist.set_value_no_signal(struct.get("min_dist", 0))
-	spin_max_dist.set_value_no_signal(struct.get("max_dist", 99))
 	
 	# Map Vector2i back to dropdown index
 	var f_dir = struct.get("front_dir", Vector2i.UP)

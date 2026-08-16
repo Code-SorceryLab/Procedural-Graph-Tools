@@ -15,90 +15,152 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 		if grid.palette.get_data(id).get("walkable", false):
 			valid_floors[id] = true
 			
-	for node_id in graph.nodes:
+	# --- GLOBAL TRACKERS ---
+	var global_struct_tracker = {} # Tracks individual structures
+	var global_biome_tracker = {}  # Tracks total structures per biome
+	
+	var node_ids = graph.nodes.keys().duplicate()
+	var node_rng = RandomNumberGenerator.new()
+	node_rng.seed = master_seed
+	var shuffled_nodes = []
+	var biome_node_counts = {}
+	
+	while node_ids.size() > 0:
+		var n_id = node_ids.pop_at(node_rng.randi() % node_ids.size())
+		shuffled_nodes.append(n_id)
+		var n_type = graph.nodes[n_id].type
+		biome_node_counts[n_type] = biome_node_counts.get(n_type, 0) + 1
+		
+	var global_nodes_remaining = shuffled_nodes.size()
+			
+	for node_id in shuffled_nodes:
 		var node = graph.nodes[node_id]
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
-		if center == Vector2i.ZERO: continue
+		if center == Vector2i.ZERO: 
+			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
+			continue
 		
 		var target_floor_id = grid.get_cell(center.x, center.y)
 		if not valid_floors.has(target_floor_id):
 			target_floor_id = realizer.floor_id 
 		
-		var effective_params = params
-		if biome_overrides.has(node.type) and biome_overrides[node.type].get("override_enabled", false):
-			effective_params = params.duplicate()
+		var effective_params = params.duplicate()
+		var is_overridden = false
+		if biome_overrides.has(node.type):
 			effective_params.merge(biome_overrides[node.type], true)
+			is_overridden = biome_overrides[node.type].get("override_structures", false)
+			
+		if not effective_params.get("spawn_structure", false):
+			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
+			continue
 			
 		rng.seed = SeedUtils.hash_seed(str(master_seed) + "_" + str(node_id))
 		
+		# --- CAPS & LIMITS ---
+		var master_per_room = int(effective_params.get("master_struct_per_room", 1))
+		var master_per_biome = int(effective_params.get("master_struct_per_biome", 0))
+		var biome_tracker_key = node.type if is_overridden else "global"
+		var nodes_left = biome_node_counts[node.type] if is_overridden else global_nodes_remaining
+		
+		# CIRCUIT BREAKER 1: Have we hit the biome-wide Master Cap?
+		if master_per_biome > 0 and global_biome_tracker.get(biome_tracker_key, 0) >= master_per_biome:
+			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
+			continue
+		
 		var use_density = effective_params.get("structure_use_density", false)
-		var sym_mode = int(effective_params.get("structure_symmetry", 0)) # 0=None, 1=X-Axis, 2=Y-Axis, 3=Radial, 4=Quad
+		
+		var force_pool = []
+		var rng_pool = []
+		var total_weight = 0
+		
+		# --- BUILD THE DECK ---
+		for key in custom_structures:
+			var tracker_key = key + "_" + biome_tracker_key
+			var spawned = global_struct_tracker.get(tracker_key, 0)
+			
+			# CIRCUIT BREAKER 2: Individual Structure Max Cap
+			var max_s = int(effective_params.get("struct_max_spawns_" + key, 0))
+			if max_s > 0 and spawned >= max_s: continue 
+			
+			# CIRCUIT BREAKER 3: Guaranteed Minimums
+			var min_s = int(effective_params.get("struct_min_spawns_" + key, 0))
+			var needed = min_s - spawned
+			
+			if needed > 0 and needed >= nodes_left:
+				force_pool.append(key) # Must spawn NOW to fulfill minimum quota
+			else:
+				if use_density:
+					var d = float(effective_params.get("density_" + key, 0.0))
+					if d > 0.001: rng_pool.append({"id": key, "density": d})
+				else:
+					var w = int(effective_params.get("weight_" + key, 0))
+					if w > 0: 
+						rng_pool.append({"id": key, "weight": w})
+						total_weight += w
+
 		var intents = []
 		
-		# --- 1. RESOLVE SPAWN INTENTS ---
-		if not use_density:
-			if not effective_params.get("spawn_structure", false): continue
-			var pool = []
-			var total_weight = 0
-			for key in custom_structures:
-				var w = int(effective_params.get("weight_" + key, 0))
-				if w > 0:
-					pool.append({ "id": key, "weight": w })
-					total_weight += w
-					
-			if total_weight > 0:
-				var roll = rng.randi() % total_weight
-				var current_w = 0
-				for item in pool:
-					current_w += item["weight"]
-					if roll < current_w:
-						intents.append({ "id": item["id"], "is_density": false })
-						break
-		else:
-			for key in custom_structures:
-				var d = float(effective_params.get("density_" + key, 0.0))
-				if d > 0.001:
-					intents.append({ "id": key, "is_density": true, "density": d })
-					
-			# [FIX 1] DENSITY NORMALIZATION
-			# Divides the density by the number of active structures so probability doesn't stack!
-			# 6 structures at 0.01 density will share a single 0.01 probability space.
-			var intent_count = float(intents.size())
-			if intent_count > 0:
-				for intent in intents:
-					intent["density"] = intent["density"] / intent_count
-					
-		if intents.is_empty(): continue
+		# 1. Fill slots with Forced Minimums first
+		for key in force_pool:
+			if intents.size() >= master_per_room: break
+			intents.append(key)
+			
+		var remaining_slots = master_per_room - intents.size()
 		
-		# [FIX 2] INTENT SHUFFLING
-		# Randomize the evaluation order so the first structure alphabetically 
-		# doesn't always steal the center of the room!
-		var shuffled_intents = []
-		var temp_intents = intents.duplicate()
-		while temp_intents.size() > 0:
-			var rand_idx = rng.randi() % temp_intents.size()
-			shuffled_intents.append(temp_intents.pop_at(rand_idx))
-		intents = shuffled_intents
+		# 2. Fill remaining slots organically
+		if remaining_slots > 0:
+			if use_density:
+				var valid_rng_pool = []
+				for item in rng_pool:
+					if rng.randf() < item["density"]: valid_rng_pool.append(item["id"])
+				valid_rng_pool.shuffle()
+				
+				for key in valid_rng_pool:
+					if intents.size() >= master_per_room: break
+					intents.append(key)
+			else:
+				for i in range(remaining_slots):
+					if total_weight <= 0: break
+					var roll = rng.randi() % total_weight
+					var current_w = 0
+					var chosen_idx = -1
+					for j in range(rng_pool.size()):
+						current_w += rng_pool[j]["weight"]
+						if roll < current_w:
+							chosen_idx = j
+							break
+					if chosen_idx >= 0:
+						var chosen_item = rng_pool[chosen_idx]
+						intents.append(chosen_item["id"])
+						total_weight -= chosen_item["weight"]
+						rng_pool.remove_at(chosen_idx)
+						
+		if intents.is_empty(): 
+			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
+			continue
+			
+		intents.shuffle()
 		
 		# --- 2. EVALUATE INTENTS ---
-		
-		# --- 2. EVALUATE INTENTS ---
-		for intent in intents:
-			var struct_data = custom_structures[intent["id"]]
+		for key in intents:
+			var struct_data = custom_structures[key]
 			var raw_footprint: Array = struct_data.get("footprint", [])
 			if raw_footprint.is_empty(): continue
 			
 			var allow_rotation = struct_data.get("allow_rotation", true)
 			var face_path = struct_data.get("face_path", true)
 			var front_dir = struct_data.get("front_dir", Vector2i.UP)
-			var min_dist = struct_data.get("min_dist", 0)
-			var max_dist = struct_data.get("max_dist", 99)
+			var min_dist = int(effective_params.get("struct_min_dist_" + key, 0))
+			var max_dist = int(effective_params.get("struct_max_dist_" + key, 99))
+			
+			# Fetch symmetry on a PER STRUCTURE basis
+			var sym_mode = int(effective_params.get("struct_symmetry_" + key, 0))
 			
 			var max_r = int(node.custom_data.get("room_radius", effective_params.get("room_radius_max", 4))) + 2
 			var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
 			
 			var valid_placements = []
-			var placement_lookup = {} # Fast lookup for symmetry validation
+			var placement_lookup = {}
 			
 			# SCAN FOR VALID PLACEMENTS
 			for y in range(rect.position.y, rect.end.y):
@@ -126,14 +188,12 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 							
 			if valid_placements.is_empty(): continue
 			
-			# --- [NEW] SYMMETRY GROUPING ---
+			# --- SYMMETRY GROUPING ---
 			var valid_groups = []
 			var processed_sigs = {}
 			
 			for p in valid_placements:
 				var group = _get_symmetry_group(p, center, sym_mode, allow_rotation)
-				
-				# Generate a unique signature for this group so we don't add the same mirrored pair twice
 				var sig_array = []
 				for member in group: sig_array.append("%d,%d,%d" % [member["pos"].x, member["pos"].y, member["rot"]])
 				sig_array.sort()
@@ -142,7 +202,6 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 				if processed_sigs.has(sig): continue
 				processed_sigs[sig] = true
 				
-				# Strict Check: ALL mirrored positions MUST be valid!
 				var group_is_valid = true
 				for member in group:
 					var m_sig = "%d,%d,%d" % [member["pos"].x, member["pos"].y, member["rot"]]
@@ -154,14 +213,14 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 					
 			if valid_groups.is_empty(): continue
 
-			# FACE PATH EVALUATION (Runs against the primary position in the group)
+			# FACE PATH EVALUATION
 			if face_path and not realizer.critical_path_cells.is_empty():
 				var path_target = _find_nearest_path(center, realizer.critical_path_cells)
 				var best_score = -999.0
 				var best_groups = []
 				
 				for g in valid_groups:
-					var primary = g[0] # Evaluate based on the primary placement
+					var primary = g[0]
 					var rotated_front = Vector2(_rotate_point(front_dir, primary["rot"])).normalized()
 					var to_path = Vector2(path_target - primary["pos"]).normalized()
 					var score = rotated_front.dot(to_path)
@@ -174,55 +233,61 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 				valid_groups = best_groups
 
 			# --- 3. APPLY TO GRID ---
-			if not intent["is_density"]:
-				var chosen_group = SeedUtils.pick_random(valid_groups, rng)
+			var chosen_group = SeedUtils.pick_random(valid_groups, rng)
+			var group_size = chosen_group.size()
+			
+			# [NEW] Cap Verification - Ensure the symmetrical burst fits the remaining quota!
+			var t_key = key + "_" + biome_tracker_key
+			var current_struct_count = global_struct_tracker.get(t_key, 0)
+			var current_biome_count = global_biome_tracker.get(biome_tracker_key, 0)
+			
+			var max_s = int(effective_params.get("struct_max_spawns_" + key, 0))
+			if max_s > 0 and current_struct_count + group_size > max_s: continue # Bursts over the structure cap!
+			if master_per_biome > 0 and current_biome_count + group_size > master_per_biome: continue # Bursts over the biome cap!
+			
+			var group_clear = true
+			for placement in chosen_group:
+				for pt in raw_footprint:
+					var abs_pt = placement["pos"] + _rotate_point(pt, placement["rot"])
+					if realizer.reserved_cells.has(abs_pt):
+						group_clear = false; break
+				if not group_clear: break
+				
+			if group_clear:
 				for placement in chosen_group:
 					_stamp_structure(placement, raw_footprint, struct_data, node_id, realizer)
-			else:
-				var shuffled = valid_groups.duplicate()
-				while shuffled.size() > 0:
-					var idx = rng.randi() % shuffled.size()
-					var current_group = shuffled.pop_at(idx)
 					
-					# Re-check collision for the entire group dynamically
-					var group_clear = true
-					for placement in current_group:
-						for pt in raw_footprint:
-							var abs_pt = placement["pos"] + _rotate_point(pt, placement["rot"])
-							if realizer.reserved_cells.has(abs_pt):
-								group_clear = false; break
-						if not group_clear: break
-						
-					if group_clear and rng.randf() < intent["density"]:
-						for placement in current_group:
-							_stamp_structure(placement, raw_footprint, struct_data, node_id, realizer)
+				# [FIXED] Record the ENTIRE group size to the trackers!
+				global_struct_tracker[t_key] = current_struct_count + group_size
+				global_biome_tracker[biome_tracker_key] = current_biome_count + group_size
+
+		_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
 
 
-# --- [NEW] SYMMETRY MATH HELPERS ---
+# --- HELPERS ---
+static func _decrement_trackers(n_type: String, biome_node_counts: Dictionary, global_nodes_remaining: int) -> void:
+	biome_node_counts[n_type] -= 1
+	global_nodes_remaining -= 1
+
 static func _get_symmetry_group(p: Dictionary, center: Vector2i, mode: int, can_rotate: bool) -> Array:
 	var group = [p]
 	var dx = p["pos"].x - center.x
 	var dy = p["pos"].y - center.y
 	
 	var r = p["rot"]
-	var r_x = (4 - r) % 4 if can_rotate else r       # X-Axis reflection
-	var r_y = (6 - r) % 4 if can_rotate else r       # Y-Axis reflection
-	var r_p = (r + 2) % 4 if can_rotate else r       # Point reflection
+	var r_x = (4 - r) % 4 if can_rotate else r
+	var r_y = (6 - r) % 4 if can_rotate else r
+	var r_p = (r + 2) % 4 if can_rotate else r
 	
-	if mode == 1: # X-Axis
-		group.append({"pos": Vector2i(center.x - dx, p["pos"].y), "rot": r_x})
-	elif mode == 2: # Y-Axis
-		group.append({"pos": Vector2i(p["pos"].x, center.y - dy), "rot": r_y})
-	elif mode == 3: # Radial/Point
-		group.append({"pos": Vector2i(center.x - dx, center.y - dy), "rot": r_p})
-	elif mode == 4: # 4-Way Quad
+	if mode == 1: group.append({"pos": Vector2i(center.x - dx, p["pos"].y), "rot": r_x})
+	elif mode == 2: group.append({"pos": Vector2i(p["pos"].x, center.y - dy), "rot": r_y})
+	elif mode == 3: group.append({"pos": Vector2i(center.x - dx, center.y - dy), "rot": r_p})
+	elif mode == 4:
 		group.append({"pos": Vector2i(center.x - dx, p["pos"].y), "rot": r_x})
 		group.append({"pos": Vector2i(p["pos"].x, center.y - dy), "rot": r_y})
 		group.append({"pos": Vector2i(center.x - dx, center.y - dy), "rot": r_p})
-		
 	return group
 
-# (Keep _stamp_structure, _rotate_point, and _find_nearest_path exactly as they are)
 static func _stamp_structure(chosen: Dictionary, raw_footprint: Array, struct_data: Dictionary, node_id: String, realizer: GraphRealizer) -> void:
 	var final_footprint = []
 	for pt in raw_footprint:

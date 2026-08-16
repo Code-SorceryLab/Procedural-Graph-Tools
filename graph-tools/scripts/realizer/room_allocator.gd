@@ -18,11 +18,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var grid_pos = realizer.world_to_grid(world_pos)
 		
 		# Biome Resolution
-		var effective_params = params
+		# [FIXED] Firewall-protected param merge
+		var effective_params = params.duplicate()
 		if biome_overrides.has(node.type):
-			if biome_overrides[node.type].get("override_enabled", false):
-				effective_params = params.duplicate()
-				effective_params.merge(biome_overrides[node.type], true)
+			effective_params.merge(biome_overrides[node.type], true)
 		
 		var min_r = effective_params.get("room_radius_min", 2)
 		var max_r = effective_params.get("room_radius_max", 3)
@@ -49,7 +48,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		# Shape Selection
 		var shape = 0 # 0=Square, 1=Circle, 2=Triangle
 		if total_weight > 0:
-			var roll = rng.randi() % total_weight
+			var roll = rng.randi() % int(total_weight)
 			if roll < w_sq: shape = 0
 			elif roll < w_sq + w_circ: shape = 1
 			else: shape = 2

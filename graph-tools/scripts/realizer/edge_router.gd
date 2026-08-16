@@ -68,9 +68,9 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var end_pos = node_v.custom_data.get("_grid_center", Vector2i.ZERO)
 		if start_pos == Vector2i.ZERO or end_pos == Vector2i.ZERO: continue 
 		
-		var effective_params = params
-		if biome_overrides.has(node_u.type) and biome_overrides[node_u.type].get("override_enabled", false):
-			effective_params = params.duplicate()
+		#Firewall-protected param merge
+		var effective_params = params.duplicate()
+		if biome_overrides.has(node_u.type):
 			effective_params.merge(biome_overrides[node_u.type], true)
 			
 		var corridor_thickness = effective_params.get("corridor_thickness", 1)

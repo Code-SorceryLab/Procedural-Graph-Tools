@@ -37,8 +37,8 @@ var _atlas_mappings: Dictionary = { "default_floor": Vector2i(0, 0), "default_wa
 var _tileset_image_path: String = ""
 var _tileset_tile_size: Vector2i = Vector2i(16, 16)
 
+var _biome_designer: BiomeDesignerPopup
 var _mapping_popup: TileMappingPopup
-var _shape_popup: AlgorithmSettingsPopup
 var _structure_popup: StructureDesignerPopup
 var _interaction_popup: BiomeInteractionPopup
 var _scatter_popup: ScatterDesignerPopup
@@ -48,9 +48,6 @@ var _scatter_sets: Dictionary = {}
 var _procedural_flags: Dictionary = {}
 var _palette_params: Dictionary = {}
 
-var _biome_selector: ConfirmationDialog
-var _biome_dropdown: OptionButton
-var _current_editing_biome: String = ""
 var _biome_params: Dictionary = {}
 
 func _ready() -> void:
@@ -113,25 +110,18 @@ func _ready() -> void:
 	
 	# Instantiate popups
 	_mapping_popup = TileMappingPopup.new(); add_child(_mapping_popup); _mapping_popup.confirmed.connect(_on_mapping_confirmed)
-	_shape_popup = AlgorithmSettingsPopup.new(); add_child(_shape_popup); _shape_popup.settings_confirmed.connect(_on_shape_settings_confirmed)
-	_shape_popup.canceled.connect(func(): _current_editing_biome = "")
+	
 	_structure_popup = StructureDesignerPopup.new(); add_child(_structure_popup); _structure_popup.confirmed.connect(_on_structure_designer_saved)
 	_interaction_popup = BiomeInteractionPopup.new(); add_child(_interaction_popup); _interaction_popup.confirmed.connect(_on_interaction_popup_saved)
 	_scatter_popup = ScatterDesignerPopup.new(); add_child(_scatter_popup); _scatter_popup.confirmed.connect(_on_scatter_designer_saved)
 	
-	_biome_selector = ConfirmationDialog.new()
-	_biome_selector.title = "Select Biome to Override"
-	var vb = VBoxContainer.new()
-	var lbl = Label.new(); lbl.text = "Select Semantic Category:"
-	vb.add_child(lbl)
-	_biome_dropdown = OptionButton.new()
-	vb.add_child(_biome_dropdown)
-	_biome_selector.add_child(vb)
-	add_child(_biome_selector)
-	_biome_selector.confirmed.connect(_on_biome_selected)
+	_biome_designer = BiomeDesignerPopup.new()
+	add_child(_biome_designer)
+	_biome_designer.global_settings_changed.connect(func(p): _params = p)
+	_biome_designer.biome_settings_changed.connect(func(b): _biome_params = b; ConfigManager.save_biome_overrides(b))
+	
 	
 	_biome_params = ConfigManager.load_biome_overrides()
-	_update_biome_button_text()
 	
 	var saved_data = ConfigManager.load_rasterizer_mappings()
 	if saved_data.has("mappings") and not saved_data["mappings"].is_empty(): _atlas_mappings.merge(saved_data["mappings"], true)
@@ -140,32 +130,6 @@ func _ready() -> void:
 	_tileset_image_path = saved_data.get("texture_path", "")
 	_tileset_tile_size = saved_data.get("tile_size", Vector2i(16, 16))
 
-static func get_base_biome_rules() -> Array[Dictionary]:
-	return [
-		{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": 1, "min": 0 },
-		{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
-		{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": 0, "min": 0 },
-		{ "name": "sep_rooms", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "room_radius_min", "label": "Min Room Radius", "type": TYPE_INT, "default": 2, "min": 1, "max": 20 },
-		{ "name": "room_radius_max", "label": "Max Room Radius", "type": TYPE_INT, "default": 4, "min": 1, "max": 20 },
-		{ "name": "enable_room_merging", "label": "Enable Room Merging", "type": TYPE_BOOL, "default": true },
-		{ "name": "room_merge_tolerance", "label": "Merge Distance Range", "type": TYPE_FLOAT, "default": 0.8, "min": 0.5, "max": 2.0, "step": 0.05 },
-		{ "name": "sep_routing", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "routing_mode", "label": "Routing Style", "type": TYPE_INT, "default": 0, "hint": "enum", "hint_string": "Organic (A*),Orthogonal (L-Path)" },
-		{ "name": "allow_diagonal_corridors", "label": "Diagonal Corridors", "type": TYPE_BOOL, "default": false },
-		{ "name": "corridor_thickness", "label": "Corridor Thickness", "type": TYPE_INT, "default": 1, "min": 1, "max": 10 },
-		{ "name": "corridor_erosion", "label": "Corridor Erosion", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 0.9, "step": 0.05 },
-		{ "name": "corridor_erosion_scale", "label": "Erosion Chunk Size", "type": TYPE_FLOAT, "default": 0.1, "min": 0.01, "max": 0.5, "step": 0.01 },
-		{ "name": "sep_ca", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": 0, "min": 0, "max": 10 },
-		{ "name": "ca_survive_min", "label": "CA Survive Min", "type": TYPE_INT, "default": 4, "min": 0, "max": 8 },
-		{ "name": "ca_birth_min", "label": "CA Birth Min", "type": TYPE_INT, "default": 5, "min": 0, "max": 8 }
-		
-		# [FIXED] All hardcoded scatter settings have been removed!
-	]
 
 func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseMotion: return
@@ -237,89 +201,15 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_open_mapper": _mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings, _procedural_flags, _palette_params)
 	elif key == "btn_open_structure_designer": _structure_popup.open()
 	elif key == "btn_open_scatter_designer": _scatter_popup.open()
-		
-	#elif key == "btn_shape_ratios":
-		#_current_editing_biome = "" 
-		#var shape_schema: Array[Dictionary] = [
-			#{ "name": "ratio_square", "label": "Square Weight", "type": TYPE_INT, "default": _params.get("ratio_square", 1), "min": 0 },
-			#{ "name": "ratio_circle", "label": "Circle Weight", "type": TYPE_INT, "default": _params.get("ratio_circle", 0), "min": 0 },
-			#{ "name": "ratio_triangle", "label": "Triangle Weight", "type": TYPE_INT, "default": _params.get("ratio_triangle", 0), "min": 0 }
-		#]
-		#_shape_popup.open_settings("Global Shape Distribution", shape_schema, _params)
-		
-	elif key == "btn_global_structures":
-		_current_editing_biome = "" 
-		var struct_schema: Array[Dictionary] = [
-			{ "name": "structure_use_density", "label": "Use Density Scatter Mode", "type": TYPE_BOOL, "default": _params.get("structure_use_density", false) },
-			{ "name": "sep_str_1", "type": TYPE_NIL, "hint": "separator" },
-			{ "name": "spawn_structure", "label": "[Ratio] Spawn Any Structure", "type": TYPE_BOOL, "default": _params.get("spawn_structure", false) }
-		]
-		
-		if _custom_structures.size() > 0:
-			struct_schema.append({ "name": "sep_str_weights", "type": TYPE_NIL, "hint": "separator" })
-			for structure_key in _custom_structures:
-				var s_name = _custom_structures[structure_key].get("name", "Unnamed")
-				struct_schema.append({ "name": "weight_" + structure_key, "label": "[Ratio] " + s_name + " Weight", "type": TYPE_INT, "default": _params.get("weight_" + structure_key, 0), "min": 0, "max": 100 })
-				struct_schema.append({ "name": "density_" + structure_key, "label": "[Density] " + s_name + " Chance", "type": TYPE_FLOAT, "default": _params.get("density_" + structure_key, 0.0), "min": 0.0, "max": 1.0, "step": 0.001 })
-				
-		_shape_popup.open_settings("Global Structure Rules", struct_schema, _params)
-	
 	elif key == "btn_biome_interactions": _interaction_popup.open()
+	elif key == "btn_open_biome_designer": _biome_designer.open(_params)
 	
-	# Dynamic Global Scatter Set Editor
-	elif key == "btn_global_scatter":
-		_current_editing_biome = "" 
-		var scatter_schema: Array[Dictionary] = []
-		
-		if _scatter_sets.size() > 0:
-			for s_key in _scatter_sets:
-				var s_name = _scatter_sets[s_key].get("name", "Unnamed Set")
-				var mode = _scatter_sets[s_key].get("spawn_mode", 0)
-				
-				if mode == 0:
-					scatter_schema.append({ "name": "density_" + s_key, "label": "[Density] " + s_name, "type": TYPE_FLOAT, "default": _params.get("density_" + s_key, _scatter_sets[s_key].get("density", 0.05)), "min": 0.0, "max": 1.0, "step": 0.001 })
-				else:
-					scatter_schema.append({ "name": "fixed_quantity_" + s_key, "label": "[Fixed] " + s_name, "type": TYPE_INT, "default": _params.get("fixed_quantity_" + s_key, _scatter_sets[s_key].get("fixed_quantity", 1)), "min": 0, "max": 999 })
-		else:
-			scatter_schema.append({ "name": "no_sets", "label": "No Scatter Sets created yet.", "type": TYPE_NIL, "hint": "read_only", "default": "" })
-			
-		_shape_popup.open_settings("Global Scatter Rules", scatter_schema, _params)
-	
-	elif key == "btn_biome_config":
-		_biome_dropdown.clear()
-		var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
-		var keys = []
-		for cat_key in node_cats:
-			keys.append(cat_key)
-			var cat = node_cats[cat_key]
-			var display_name = cat["name"]
-			if _biome_params.has(cat_key) and _biome_params[cat_key].get("override_enabled", false): display_name += "  [ ACTIVE ]"
-				
-			var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
-			img.fill(cat["color"])
-			var border_color = cat["color"].darkened(0.5)
-			for x in range(16):
-				img.set_pixel(x, 0, border_color); img.set_pixel(x, 15, border_color)
-			for y in range(16):
-				img.set_pixel(0, y, border_color); img.set_pixel(15, y, border_color)
-				
-			var tex = ImageTexture.create_from_image(img)
-			_biome_dropdown.add_icon_item(tex, display_name)
-			
-		_biome_dropdown.set_meta("keys", keys)
-		_biome_selector.popup_centered(Vector2(320, 100)) 
-	
-	elif key == "show_entities":
+	# Catch all view toggles and redraw instantly!
+	elif key.begins_with("show_") or key == "debug_routing":
 		_params[key] = value
-		if tile_map_layer:
-			for child in tile_map_layer.get_children():
-				if child.is_in_group("realizer_entity"): child.visible = value
-					
-	elif key == "debug_routing":
-		_params[key] = value
-		if tile_map_layer:
-			for child in tile_map_layer.get_children():
-				if child.is_in_group("realizer_critical_path"): child.visible = value
+		if not _snapshots.is_empty() and tile_map_layer:
+			_render_overlays(_snapshots[-1]["entities"])
+			
 	else:
 		_params[key] = value
 
@@ -331,14 +221,6 @@ func _on_mapping_confirmed() -> void:
 	_tileset_tile_size = _mapping_popup.tile_size
 	ConfigManager.save_rasterizer_mappings(_atlas_mappings, _tileset_image_path, _tileset_tile_size, _procedural_flags, _palette_params)
 
-func _on_shape_settings_confirmed(new_settings: Dictionary) -> void:
-	if _current_editing_biome != "":
-		_biome_params[_current_editing_biome] = new_settings
-		_current_editing_biome = "" 
-		_update_biome_button_text() 
-		ConfigManager.save_biome_overrides(_biome_params)
-	else:
-		_params.merge(new_settings, true)
 
 func _on_structure_designer_saved() -> void:
 	ConfigManager.save_structures(_structure_popup.structures)
@@ -362,68 +244,45 @@ func _on_scatter_designer_saved() -> void:
 		elif mode == 1 and not _params.has("fixed_quantity_" + key):
 			_params["fixed_quantity_" + key] = _scatter_sets[key].get("fixed_quantity", 1)
 
-func _on_biome_selected() -> void:
-	var idx = _biome_dropdown.selected
-	if idx < 0: return
-	var keys = _biome_dropdown.get_meta("keys")
-	_current_editing_biome = keys[idx]
-	var biome_name = _biome_dropdown.get_item_text(idx)
-	
-	var current_vals = _biome_params.get(_current_editing_biome, { "override_enabled": false })
-	var base_rules = get_base_biome_rules()
-	
-	for rule in base_rules:
-		if rule.has("default") and not current_vals.has(rule["name"]):
-			current_vals[rule["name"]] = _params.get(rule["name"], rule["default"])
+# --- [NEW] DATA FIREWALL ---
+# Strips out any stale settings from disabled tabs before generation!
+func _build_filtered_biomes() -> Dictionary:
+	var filtered = {}
+	for b_key in _biome_params:
+		var b_data = _biome_params[b_key]
+		var clean_data = {}
+		
+		# 1. Shape & Topology
+		if b_data.get("override_shape", false):
+			var shape_keys = ["room_radius_min", "room_radius_max", "enable_room_merging", "room_merge_tolerance", "ratio_square", "ratio_circle", "ratio_triangle"]
+			for k in shape_keys:
+				if b_data.has(k): clean_data[k] = b_data[k]
+				
+		# 2. Routing & CA
+		if b_data.get("override_routing", false):
+			var routing_keys = ["routing_mode", "allow_diagonal_corridors", "corridor_thickness", "corridor_erosion", "corridor_erosion_scale", "ca_iterations", "ca_survive_min", "ca_birth_min"]
+			for k in routing_keys:
+				if b_data.has(k): clean_data[k] = b_data[k]
+				
+		# 3. Structures
+		if b_data.get("override_structures", false):
+			clean_data["override_structures"] = true 
+			for k in b_data:
+				if k in ["spawn_structure", "structure_use_density", "structure_symmetry", "master_struct_per_room", "master_struct_per_biome"] or k.begins_with("weight_") or k.begins_with("density_") or k.begins_with("struct_"):
+					clean_data[k] = b_data[k]
+					
+		# 4. Scatter Sets
+		if b_data.get("override_scatter", false):
+			clean_data["override_scatter"] = true # Pass the flag down!
+			for k in b_data:
+				if k.begins_with("scatter_"):
+					clean_data[k] = b_data[k]
+					
+		# Only append if this biome actually has active overrides
+		if not clean_data.is_empty():
+			filtered[b_key] = clean_data
 			
-	if not current_vals.has("structure_use_density"): current_vals["structure_use_density"] = _params.get("structure_use_density", false)
-	if not current_vals.has("spawn_structure"): current_vals["spawn_structure"] = _params.get("spawn_structure", false)
-	
-	for key in _custom_structures:
-		var w_name = "weight_" + key
-		if not current_vals.has(w_name): current_vals[w_name] = _params.get(w_name, 0)
-		var d_name = "density_" + key
-		if not current_vals.has(d_name): current_vals[d_name] = _params.get(d_name, 0.0)
-
-	# [NEW] Pull fallbacks for Scatter Sets
-	for key in _scatter_sets:
-		var mode = _scatter_sets[key].get("spawn_mode", 0)
-		if mode == 0:
-			var d_name = "density_" + key
-			if not current_vals.has(d_name): current_vals[d_name] = _params.get(d_name, _scatter_sets[key].get("density", 0.05))
-		else:
-			var f_name = "fixed_quantity_" + key
-			if not current_vals.has(f_name): current_vals[f_name] = _params.get(f_name, _scatter_sets[key].get("fixed_quantity", 1))
-
-	var schema: Array[Dictionary] = [
-		{ "name": "override_enabled", "label": "Enable Biome Overrides", "type": TYPE_BOOL, "default": false },
-		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" }
-	]
-	
-	schema.append_array(base_rules)
-	
-	# [NEW] Inject Scatter Sets into Biome UI
-	if _scatter_sets.size() > 0:
-		schema.append({ "name": "sep_scatter", "type": TYPE_NIL, "hint": "separator" })
-		for key in _scatter_sets:
-			var s_name = _scatter_sets[key].get("name", "Unnamed Set")
-			var mode = _scatter_sets[key].get("spawn_mode", 0)
-			if mode == 0:
-				schema.append({ "name": "density_" + key, "label": "[Density] " + s_name, "type": TYPE_FLOAT, "default": _scatter_sets[key].get("density", 0.05), "min": 0.0, "max": 1.0, "step": 0.001 })
-			else:
-				schema.append({ "name": "fixed_quantity_" + key, "label": "[Fixed] " + s_name, "type": TYPE_INT, "default": _scatter_sets[key].get("fixed_quantity", 1), "min": 0, "max": 999 })
-	
-	# Append Custom Structures
-	if _custom_structures.size() > 0:
-		schema.append({ "name": "sep_7", "type": TYPE_NIL, "hint": "separator" })
-		schema.append({ "name": "structure_use_density", "label": "Use Density Scatter Mode", "type": TYPE_BOOL, "default": false })
-		schema.append({ "name": "spawn_structure", "label": "[Ratio] Spawn Any Structure", "type": TYPE_BOOL, "default": false })
-		for key in _custom_structures:
-			var s_name = _custom_structures[key].get("name", "Unnamed")
-			schema.append({ "name": "weight_" + key, "label": "[Ratio] " + s_name + " Weight", "type": TYPE_INT, "default": 0, "min": 0, "max": 100 })
-			schema.append({ "name": "density_" + key, "label": "[Density] " + s_name + " Chance", "type": TYPE_FLOAT, "default": 0.0, "min": 0.0, "max": 1.0, "step": 0.001 })
-	
-	_shape_popup.open_settings(biome_name + " Rules", schema, current_vals)
+	return filtered
 
 # ==============================================================================
 # PIPELINE EXECUTION (THREADED)
@@ -435,13 +294,12 @@ func _on_rasterize_pressed() -> void:
 	if graph == null or graph.nodes.is_empty(): return
 	if not tile_map_layer: return
 	
-	# Clean up any running Validator before replacing the map!
 	if _validator_thread and _validator_thread.is_started():
 		_cancel_validation = true
 		_validator_thread.wait_to_finish()
 
-	if _params.get("use_biome_overrides", true): _params["biomes"] = _biome_params
-	else: _params["biomes"] = {}
+	# [FIXED] Pass the data through the firewall!
+	_params["biomes"] = _build_filtered_biomes()
 		
 	_snapshots.clear()
 	_timeline_tab.clear()
@@ -614,8 +472,6 @@ func _render_overlays(entities: Dictionary) -> void:
 	
 	# A. Render Critical Path Overlays
 	var show_path = _params.get("debug_routing", false)
-	
-	# Do not attempt to read the critical path while the thread is actively mutating it!
 	if _realizer and not _is_rasterizing: 
 		for pos in _realizer.critical_path_cells:
 			var rect = ColorRect.new()
@@ -626,10 +482,24 @@ func _render_overlays(entities: Dictionary) -> void:
 			rect.add_to_group("realizer_critical_path")
 			tile_map_layer.add_child(rect)
 
-	var show_entities = _params.get("show_entities", true)
+	# B. Fetch all visibility flags
+	var master_vis = _params.get("show_entities", true)
+	var vis_structs = _params.get("show_structures", true)
+	var vis_prog = _params.get("show_progression", true)
+	var vis_ends = _params.get("show_endpoints", true)
+	var vis_scatter = _params.get("show_scatter_sets", true)
+
 	for pos in entities:
 		var entity_data = entities[pos]
 		var e_type = entity_data.get("type", "generic_entity")
+		
+		# Determine if this specific entity type should be drawn
+		var is_visible = master_vis
+		if e_type == "structure": is_visible = is_visible and vis_structs
+		elif e_type in ["door", "key", "fringe"]: is_visible = is_visible and vis_prog
+		elif e_type in ["start_point", "end_point"]: is_visible = is_visible and vis_ends
+		else: is_visible = is_visible and vis_scatter
+		
 		var rect = ColorRect.new()
 		
 		if e_type == "structure":
@@ -640,7 +510,7 @@ func _render_overlays(entities: Dictionary) -> void:
 				pt_rect.color = struct_color
 				pt_rect.size = Vector2(cell_size, cell_size)
 				pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
-				pt_rect.visible = show_entities
+				pt_rect.visible = is_visible # Apply the new flag!
 				pt_rect.add_to_group("realizer_entity")
 				tile_map_layer.add_child(pt_rect)
 			continue 
@@ -677,12 +547,11 @@ func _render_overlays(entities: Dictionary) -> void:
 			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
 			
 		else:
-			# Draw custom scatter entity colors dynamically!
 			rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
 			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
 			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
 		
-		rect.visible = show_entities
+		rect.visible = is_visible # Apply the new flag!
 		rect.add_to_group("realizer_entity")
 		tile_map_layer.add_child(rect)
 
@@ -792,9 +661,3 @@ func _on_clear_pressed() -> void:
 	_timeline_tab.clear()
 	_report_tab.clear()
 	_validation_tab.clear_logs()
-
-func _update_biome_button_text() -> void:
-	var active_count = 0
-	for b_key in _biome_params:
-		if _biome_params[b_key].get("override_enabled", false): active_count += 1
-	_generator_tab.update_biome_button(active_count)

@@ -13,7 +13,7 @@ var _btn_del: Button
 
 func _init() -> void:
 	title = "Scatter Sets Designer"
-	min_size = Vector2(750, 550)
+	min_size = Vector2(600, 400) # Slightly smaller since we removed so many fields!
 	transient = true
 	exclusive = true
 	
@@ -126,25 +126,11 @@ func _build_right_panel() -> void:
 	
 	var schema = [
 		{ "name": "name", "label": "Scatter Set Name", "type": TYPE_STRING, "default": current_vals.get("name", "New Set") },
-		{ "name": "color", "label": "Editor Entity Color", "type": TYPE_COLOR, "default": current_vals.get("color", Color.WHITE) },
-		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "spawn_mode", "label": "Spawn Mode", "type": TYPE_INT, "default": current_vals.get("spawn_mode", 0), "hint": "enum", "hint_string": "Density (Organic %),Fixed Quantity (Cap)" },
-		{ "name": "density", "label": "Spawn Density %", "type": TYPE_FLOAT, "default": current_vals.get("density", 0.05), "min": 0.0, "max": 1.0, "step": 0.001 },
-		{ "name": "fixed_quantity", "label": "Fixed Spawn Quantity", "type": TYPE_INT, "default": current_vals.get("fixed_quantity", 1), "min": 1, "max": 999 },
-		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "min_dist", "label": "Min Wall Distance", "type": TYPE_INT, "default": current_vals.get("min_dist", 0), "min": 0, "max": 20 },
-		{ "name": "max_dist", "label": "Max Wall Distance", "type": TYPE_INT, "default": current_vals.get("max_dist", 99), "min": 1, "max": 99 },
-		{ "name": "symmetry", "label": "Symmetry Clumping", "type": TYPE_INT, "default": current_vals.get("symmetry", 0), "hint": "enum", "hint_string": "None,X-Axis (Left/Right),Y-Axis (Top/Bottom),Radial (Point),4-Way" },
-		{ "name": "sep_3", "type": TYPE_NIL, "hint": "separator" },
-		
-		{ "name": "clump_chance", "label": "Organic Clump Chance", "type": TYPE_FLOAT, "default": current_vals.get("clump_chance", 0.0), "min": 0.0, "max": 1.0, "step": 0.05 },
-		{ "name": "max_clump_size", "label": "Max Clump Size", "type": TYPE_INT, "default": current_vals.get("max_clump_size", 3), "min": 2, "max": 25 }
+		{ "name": "color", "label": "Editor Entity Color", "type": TYPE_COLOR, "default": current_vals.get("color", Color.WHITE) }
+		# [FIXED] All spawning logic (Density, Clumps, Distance, Symmetry) removed!
 	]
 	
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(_settings_container, schema, _on_setting_changed)
-	_update_field_visibility()
 
 func _on_setting_changed(key: String, value: Variant) -> void:
 	if _current_key == "": return
@@ -155,25 +141,13 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		var idx = _item_list.get_selected_items()[0]
 		_item_list.set_item_text(idx, scatter_sets[_current_key].get("name", "Unnamed"))
 		if key == "color": _populate_list()
-		
-	# If spawn mode changes, we should dim out the irrelevant setting!
-	if key == "spawn_mode":
-		_update_field_visibility()
-
-# Dims Density if Fixed is selected, and vice versa!
-func _update_field_visibility() -> void:
-	var mode = scatter_sets[_current_key].get("spawn_mode", 0)
-	if _active_inputs.has("density"):
-		_active_inputs["density"].get_parent().modulate = Color(1,1,1, 1.0 if mode == 0 else 0.3)
-	if _active_inputs.has("fixed_quantity"):
-		_active_inputs["fixed_quantity"].get_parent().modulate = Color(1,1,1, 1.0 if mode == 1 else 0.3)
 
 func _on_add_pressed() -> void:
 	var new_id = "set_" + str(hash(Time.get_ticks_usec()))
 	scatter_sets[new_id] = {
-		"name": "New Scatter Set", "color": Color(0.8, 0.8, 0.2), "spawn_mode": 0,
-		"density": 0.05, "fixed_quantity": 3, "min_dist": 0, "max_dist": 99,
-		"symmetry": 0, "clump_chance": 0.0, "max_clump_size": 3
+		"name": "New Scatter Set", 
+		"color": Color(0.8, 0.8, 0.2)
+		# [FIXED] Default spawn parameters removed!
 	}
 	_current_key = new_id
 	_populate_list()

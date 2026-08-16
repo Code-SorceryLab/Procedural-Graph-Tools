@@ -5,7 +5,7 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 	var grid = realizer.grid
 	var biome_overrides = params.get("biomes", {})
 	
-	# Extract all active scatter sets from the master params list
+	# Extract all active scatter sets (now just Name and Color data)
 	var all_scatter_sets = ConfigManager.load_scatter_sets()
 	if all_scatter_sets.is_empty(): return
 	
@@ -38,7 +38,27 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 					reachable_cells[neighbor] = true; queue.append(neighbor)
 	# -------------------------------------------------------------------------
 
-	for node_id in graph.nodes:
+	# Tracks how many times a Set has spawned across the entire biome/map
+	var global_spawn_tracker = {}
+	
+	var node_ids = graph.nodes.keys().duplicate()
+	var node_rng = RandomNumberGenerator.new()
+	node_rng.seed = master_seed
+	var shuffled_nodes = []
+	
+	# Pre-count how many rooms exist per biome for distribution math!
+	var biome_node_counts = {}
+	
+	while node_ids.size() > 0:
+		var n_id = node_ids.pop_at(node_rng.randi() % node_ids.size())
+		shuffled_nodes.append(n_id)
+		var n_type = graph.nodes[n_id].type
+		biome_node_counts[n_type] = biome_node_counts.get(n_type, 0) + 1
+		
+	var global_nodes_remaining = shuffled_nodes.size()
+
+	# Iterate through the shuffled rooms
+	for node_id in shuffled_nodes:
 		var node = graph.nodes[node_id]
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
 		if center == Vector2i.ZERO: continue
@@ -47,23 +67,38 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 		if not valid_floors.has(target_floor_id):
 			target_floor_id = realizer.floor_id 
 
+		# --- [FIXED] SELECTIVE OVERRIDE MATH ---
 		var effective_params = params
-		if biome_overrides.has(node.type) and biome_overrides[node.type].get("override_enabled", false):
+		var is_scatter_overridden = false
+		
+		if biome_overrides.has(node.type):
 			effective_params = params.duplicate()
 			effective_params.merge(biome_overrides[node.type], true)
+			# Even if we merged Shape rules, we only isolate the cap tracker if Scatter is checked!
+			is_scatter_overridden = biome_overrides[node.type].get("override_scatter", false)
 
-		# Build a localized list of sets and their specific parameters for this room
 		var active_sets = []
 		for s_key in all_scatter_sets:
-			var mode = all_scatter_sets[s_key].get("spawn_mode", 0)
-			var density = float(effective_params.get("density_" + s_key, all_scatter_sets[s_key].get("density", 0.0)))
-			var qty = int(effective_params.get("fixed_quantity_" + s_key, all_scatter_sets[s_key].get("fixed_quantity", 1)))
+			var mode = int(effective_params.get("scatter_mode_" + s_key, 0))
+			var density = float(effective_params.get("scatter_density_" + s_key, 0.05))
+			var qty = int(effective_params.get("scatter_qty_" + s_key, 1))
 			
 			if (mode == 0 and density > 0.001) or (mode == 1 and qty > 0):
 				var set_data = all_scatter_sets[s_key].duplicate()
 				set_data["key"] = s_key
+				set_data["spawn_mode"] = mode
 				set_data["local_density"] = density
 				set_data["local_qty"] = qty
+				set_data["quantity_scope"] = int(effective_params.get("scatter_scope_" + s_key, 0))
+				set_data["min_dist"] = int(effective_params.get("scatter_min_dist_" + s_key, 0))
+				set_data["max_dist"] = int(effective_params.get("scatter_max_dist_" + s_key, 99))
+				set_data["symmetry"] = int(effective_params.get("scatter_symmetry_" + s_key, 0))
+				set_data["clump_chance"] = float(effective_params.get("scatter_clump_chance_" + s_key, 0.0))
+				set_data["max_clump_size"] = int(effective_params.get("scatter_max_clump_" + s_key, 3))
+				
+				# [FIXED] Tracker uses the specific scatter flag!
+				set_data["tracker_key"] = s_key + ("_" + node.type if is_scatter_overridden else "_global")
+				
 				active_sets.append(set_data)
 
 		if active_sets.is_empty(): continue
@@ -72,59 +107,67 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 		var max_r = int(node.custom_data.get("room_radius", effective_params.get("room_radius_max", 4))) + 2 
 		var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
 		
-		# --- SCAN FOR ALL VALID ANCHORS IN THE ROOM ---
-		var valid_placements = []
+		# --- PRE-CALCULATE ALL VALID ANCHORS IN THE ROOM ---
+		var room_valid_placements = []
 		for y in range(rect.position.y, rect.end.y):
 			for x in range(rect.position.x, rect.end.x):
 				var pt = Vector2i(x, y)
-				if not grid.in_bounds_vec(pt) or grid.entities.has(pt): continue
+				if not grid.in_bounds_vec(pt): continue
 				if realizer.critical_path_cells.has(pt) or realizer.reserved_cells.has(pt) or not reachable_cells.has(pt): continue
 				if grid.get_cell(pt.x, pt.y) != target_floor_id: continue
-				valid_placements.append(pt)
+				room_valid_placements.append(pt)
 
 		# --- PROCESS EACH SCATTER SET ---
 		for current_set in active_sets:
 			var mode = current_set.get("spawn_mode", 0)
+			var scope = current_set.get("quantity_scope", 0) 
 			var min_dist = int(current_set.get("min_dist", 0))
 			var max_dist = int(current_set.get("max_dist", 99))
 			var sym_mode = int(current_set.get("symmetry", 0)) 
 			var clump_chance = float(current_set.get("clump_chance", 0.0))
 			var max_clump_size = int(current_set.get("max_clump_size", 3))
-			var set_name = current_set.get("name", "Unknown Set")
-			var set_color = current_set.get("color", Color.WHITE)
 			
-			var processed_anchors = {}
-			var anchors_to_evaluate = []
-			
-			if mode == 1: # FIXED QUANTITY (Pick N random valid tiles)
-				var shuffled_placements = valid_placements.duplicate()
-				var qty_needed = current_set["local_qty"]
+			var available_placements = []
+			for pt in room_valid_placements:
+				if not grid.entities.has(pt): available_placements.append(pt)
 				
-				while shuffled_placements.size() > 0 and anchors_to_evaluate.size() < qty_needed:
-					var idx = rng.randi() % shuffled_placements.size()
-					anchors_to_evaluate.append(shuffled_placements.pop_at(idx))
-			else: # DENSITY (Evaluate every valid tile)
-				anchors_to_evaluate = valid_placements.duplicate()
+			if available_placements.is_empty(): continue
+			
+			var qty_needed = current_set["local_qty"]
+			var local_room_cap = qty_needed # Default for Per-Room scope
+			
+			# Deduct spawns that already occurred in previous rooms
+			if mode == 1 and scope == 1: 
+				var already_spawned = global_spawn_tracker.get(current_set["tracker_key"], 0)
+				qty_needed -= already_spawned
+				if qty_needed <= 0: continue # This Biome/Map has reached its cap!
+				
+				# Distribute the remaining quota across the remaining rooms
+				var nodes_left = biome_node_counts[node.type] if is_scatter_overridden else global_nodes_remaining
+				local_room_cap = ceil(float(qty_needed) / float(max(1, nodes_left)))
+				
+			if mode == 1:
+				available_placements.shuffle()
+				
+			var successful_spawns = 0
+			var processed_anchors = {}
 
 			# Actually attempt to spawn them
-			for pos in anchors_to_evaluate:
-				if processed_anchors.has(pos): continue 
+			for pos in available_placements:
+				if mode == 1 and successful_spawns >= local_room_cap: break
 				
-				# Evaluate Distance Rules
+				if mode == 0 and rng.randf() >= current_set["local_density"]: continue
+				if processed_anchors.has(pos): continue
+				
 				var tile_dist = realizer.distance_field.get(pos, 0)
 				if tile_dist < min_dist or tile_dist > max_dist: continue
 
-				# Roll Density (Skip if it's Fixed Quantity, since we already picked the exact ones)
-				if mode == 0 and rng.randf() >= current_set["local_density"]: 
-					continue
-					
 				var group = _get_symmetry_group(pos, center, sym_mode)
 				
-				# Strict Validation for Anchors
 				var group_is_valid = true
 				for member in group:
 					var pt = member["pos"]
-					processed_anchors[pt] = true # Mark to avoid redundant rolls
+					processed_anchors[pt] = true
 					if not grid.in_bounds_vec(pt) or grid.entities.has(pt):
 						group_is_valid = false; break
 					if realizer.critical_path_cells.has(pt) or realizer.reserved_cells.has(pt) or not reachable_cells.has(pt):
@@ -137,7 +180,6 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 						
 				if not group_is_valid: continue
 
-				# 1. GENERATE THE CLUMP FOOTPRINT
 				var current_clump_size = 1
 				if rng.randf() < clump_chance:
 					current_clump_size = rng.randi_range(2, max(2, max_clump_size))
@@ -155,7 +197,7 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 							clump_offsets.append(new_tile)
 							edge_tiles.append(new_tile)
 				
-				# 2. APPLY CLUMP TO ALL SYMMETRIC ANCHORS
+				var actually_spawned = false
 				for member in group:
 					for offset in clump_offsets:
 						var trans_offset = _transform_offset(offset, member["flip_x"], member["flip_y"])
@@ -164,16 +206,28 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 						if grid.in_bounds_vec(final_pt) and not grid.entities.has(final_pt):
 							if grid.get_cell(final_pt.x, final_pt.y) == target_floor_id:
 								if not realizer.critical_path_cells.has(final_pt) and not realizer.reserved_cells.has(final_pt) and reachable_cells.has(final_pt):
+									
 									grid.entities[final_pt] = {
-										"type": "scatter_set",       # [NEW] Differentiates it from generic scatters
+										"type": "scatter_set",
 										"set_id": current_set["key"],
-										"name": set_name,
-										"color": set_color,
+										"name": current_set.get("name", "Unknown Set"),
+										"color": current_set.get("color", Color.WHITE),
 										"source_node": node_id
 									}
+									actually_spawned = true
+									room_valid_placements.erase(final_pt)
 									
-									# Update valid_placements so future sets don't spawn on top of this one!
-									valid_placements.erase(final_pt)
+				if actually_spawned:
+					successful_spawns += 1
+					
+			# Record the successful spawns into the global tracker
+			if mode == 1 and scope == 1 and successful_spawns > 0:
+				var t_key = current_set["tracker_key"]
+				global_spawn_tracker[t_key] = global_spawn_tracker.get(t_key, 0) + successful_spawns
+
+		# Decrement the available rooms as we leave this node
+		biome_node_counts[node.type] -= 1
+		global_nodes_remaining -= 1
 
 # --- SYMMETRY MATH HELPERS ---
 static func _get_symmetry_group(pos: Vector2i, center: Vector2i, mode: int) -> Array:

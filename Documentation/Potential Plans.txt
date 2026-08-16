@@ -21,7 +21,7 @@
 Transformations worth adding:
 
 -BranchByMetric 			(conditional logic holy crap)
--GenerateScaleFree 			(Uses Barabási–Albert preferential attachment to create a scale‑free network).
+
 
 Maybe the citation dependency feature (Big Task)
 
@@ -30,7 +30,10 @@ Maybe the citation dependency feature (Big Task)
 Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
-	
+
+-Make Biome configs Popup much nicer (like that of the scatter set designer)
+-Make the rasterizer hover show if a biome has biome configs active.
+-Think of Scatterer upgrades given the new sets feature.
 -Custom room shapes
 -Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
 

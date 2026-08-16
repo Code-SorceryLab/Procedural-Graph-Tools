@@ -20,10 +20,9 @@ static func erode(realizer: GraphRealizer, params: Dictionary) -> void:
 		var floor_id = grid.get_cell(cell.x, cell.y)
 		var cat_key = realizer.floor_to_semantic.get(floor_id, "")
 		
-		# --- BIOME RESOLUTION ---
-		var effective_params = params
-		if cat_key != "" and biome_overrides.has(cat_key) and biome_overrides[cat_key].get("override_enabled", false):
-			effective_params = params.duplicate()
+		# --- BIOME RESOLUTION (Firewall Protected) ---
+		var effective_params = params.duplicate()
+		if cat_key != "" and biome_overrides.has(cat_key):
 			effective_params.merge(biome_overrides[cat_key], true)
 			
 		var erosion_chance = float(effective_params.get("corridor_erosion", 0.0))

@@ -40,20 +40,16 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "padding", "label": "Map Padding", "type": TYPE_INT, "default": 15, "min": 0, "max": 20 },
 		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
 		
-		{ "name": "btn_global_structures", "label": "Global Structure Rules...", "type": TYPE_NIL, "hint": "button" },
-		{ "name": "btn_global_scatter", "label": "Global Scatter Rules...", "type": TYPE_NIL, "hint": "button" },
-		{ "name": "use_biome_overrides", "label": "Use Biome Overrides", "type": TYPE_BOOL, "default": true },
-		{ "name": "btn_biome_config", "label": "Override Biome Rules...", "type": TYPE_NIL, "hint": "button" },
+		# [FIXED] Removed all obsolete Global popup buttons and Override master switches
+		{ "name": "btn_open_biome_designer", "label": "Biome & Generation Designer...", "type": TYPE_NIL, "hint": "button" },
 		{ "name": "btn_biome_interactions", "label": "Biome Edge Matrix...", "type": TYPE_NIL, "hint": "button" },
-		{ "name": "sep_base", "type": TYPE_NIL, "hint": "separator" }
-	]
-	
-	# Inject the core schema!
-	schema.append_array(RealizerController.get_base_biome_rules())
-	
-	schema.append_array([
+		
 		{ "name": "sep_view", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "show_entities", "label": "Show Scattered Entities", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_entities", "label": "Master Entity Visibility", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_structures", "label": "  ↳ Show Structures", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_progression", "label": "  ↳ Show Locks & Keys", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_endpoints", "label": "  ↳ Show Start/End Points", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_scatter_sets", "label": "  ↳ Show Scatter Sets", "type": TYPE_BOOL, "default": true },
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false },
 		
 		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },
@@ -63,30 +59,14 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "progression_key_copies_min", "label": "Min Key Copies", "type": TYPE_INT, "default": 1, "min": 1, "max": 5 },
 		{ "name": "progression_key_copies_max", "label": "Max Key Copies", "type": TYPE_INT, "default": 2, "min": 1, "max": 5 },
 		{ "name": "main_path_key_stash", "label": "Force Main Path Detours", "type": TYPE_BOOL, "default": true }
-	])
+	]
 	
 	# Safely inject missing defaults without overriding user settings
 	for item in schema:
 		if item.has("default") and not current_params.has(item["name"]):
 			current_params[item["name"]] = item["default"]
 			
-	# (The remaining structure overrides can be kept identical)
-	if not current_params.has("structure_use_density"): current_params["structure_use_density"] = false
-	if not current_params.has("spawn_structure"): current_params["spawn_structure"] = false
-	
-	for key in custom_structures:
-		if not current_params.has("weight_" + key): current_params["weight_" + key] = 0
-		if not current_params.has("density_" + key): current_params["density_" + key] = 0.0
-			
 	var section = SettingsUIBuilder.create_collapsible_section(vbox, "TileMap Realizer", true)
 	active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, func(k, v): interaction_triggered.emit(k, v))
 
-func update_biome_button(active_count: int) -> void:
-	if not active_inputs.has("btn_biome_config"): return
-	var btn = active_inputs["btn_biome_config"] as Button
-	if active_count > 0:
-		btn.text = "Override Biome Rules (%d Active)..." % active_count
-		btn.modulate = Color(0.6, 1.0, 0.6)
-	else:
-		btn.text = "Override Biome Rules..."
-		btn.modulate = Color.WHITE
+# [FIXED] Removed update_biome_button() - dynamic text is handled inside the Biome Designer now!
