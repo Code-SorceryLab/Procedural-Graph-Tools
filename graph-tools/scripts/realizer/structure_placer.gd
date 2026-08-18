@@ -301,7 +301,14 @@ static func _stamp_structure(chosen: Dictionary, raw_footprint: Array, struct_da
 		"name": struct_data.get("name", "Custom"),
 		"color": struct_data.get("color", Color.CYAN),
 		"footprint_world": final_footprint,
-		"is_solid": struct_data.get("is_solid", true) # Inject the solid flag!
+		"is_solid": struct_data.get("is_solid", true),
+		
+		# --- SPRITE & ROTATION DATA ---
+		"rot": chosen.get("rot", 0), 
+		"texture_path": struct_data.get("texture_path", ""),
+		"texture_offset": struct_data.get("texture_offset", Vector2.ZERO),
+		"texture_scale": struct_data.get("texture_scale", Vector2.ONE),
+		"texture_filter": struct_data.get("texture_filter", 0)
 	}
 
 static func _rotate_point(pt: Vector2i, rot_idx: int) -> Vector2i:

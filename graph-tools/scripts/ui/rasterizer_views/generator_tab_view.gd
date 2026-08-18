@@ -40,13 +40,13 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "padding", "label": "Map Padding", "type": TYPE_INT, "default": 15, "min": 0, "max": 20 },
 		{ "name": "sep_2", "type": TYPE_NIL, "hint": "separator" },
 		
-		# [FIXED] Removed all obsolete Global popup buttons and Override master switches
 		{ "name": "btn_open_biome_designer", "label": "Biome & Generation Designer...", "type": TYPE_NIL, "hint": "button" },
 		{ "name": "btn_biome_interactions", "label": "Biome Edge Matrix...", "type": TYPE_NIL, "hint": "button" },
 		
 		{ "name": "sep_view", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "show_entities", "label": "Master Entity Visibility", "type": TYPE_BOOL, "default": true },
-		{ "name": "show_structures", "label": "  ↳ Show Structures", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_entity_sprites", "label": "  ↳ Show Structure Sprites", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_entity_collisions", "label": "  ↳ Show Structure Footprints", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_progression", "label": "  ↳ Show Locks & Keys", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_endpoints", "label": "  ↳ Show Start/End Points", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_scatter_sets", "label": "  ↳ Show Scatter Sets", "type": TYPE_BOOL, "default": true },
@@ -68,5 +68,3 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 			
 	var section = SettingsUIBuilder.create_collapsible_section(vbox, "TileMap Realizer", true)
 	active_inputs = SettingsUIBuilder.render_dynamic_section(section, schema, func(k, v): interaction_triggered.emit(k, v))
-
-# [FIXED] Removed update_biome_button() - dynamic text is handled inside the Biome Designer now!

@@ -3,6 +3,7 @@ extends AcceptDialog
 
 var structures: Dictionary = {}
 var current_id: String = ""
+var _texture_cache: Dictionary = {} # Prevents lagging the canvas every frame
 
 # --- UI REFS ---
 var item_list: ItemList
@@ -10,17 +11,26 @@ var name_edit: LineEdit
 var color_picker: ColorPickerButton
 var chk_rotate: CheckBox
 var chk_face_path: CheckBox
-var chk_solid: CheckBox # [NEW]
+var chk_solid: CheckBox
 var opt_front_dir: OptionButton
-var prop_panel: VBoxContainer
 
+# [NEW] Sprite Refs
+var lbl_sprite_path: Label
+var file_dialog: FileDialog
+var spin_offset_x: SpinBox
+var spin_offset_y: SpinBox
+var spin_scale_x: SpinBox
+var spin_scale_y: SpinBox
+var opt_filter: OptionButton
+
+var prop_panel: VBoxContainer
 var canvas: Control
 var zoom_level: float = 1.0
 var tile_size: float = 32.0
 
 func _init() -> void:
 	title = "Custom Structure Designer"
-	size = Vector2i(900, 600)
+	size = Vector2i(1000, 700) # Slightly wider to fit new UI
 	
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -30,7 +40,7 @@ func _init() -> void:
 	# LEFT PANEL: LIST & PROPERTIES
 	# ==========================================================================
 	var left_panel = VBoxContainer.new()
-	left_panel.custom_minimum_size.x = 250
+	left_panel.custom_minimum_size.x = 280
 	hbox.add_child(left_panel)
 	
 	var lbl_list = Label.new()
@@ -60,9 +70,14 @@ func _init() -> void:
 	left_panel.add_child(HSeparator.new())
 	
 	# Properties Inspector
+	var prop_scroll = ScrollContainer.new()
+	prop_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_panel.add_child(prop_scroll)
+	
 	prop_panel = VBoxContainer.new()
+	prop_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	prop_panel.visible = false
-	left_panel.add_child(prop_panel)
+	prop_scroll.add_child(prop_panel)
 	
 	var lbl_name = Label.new()
 	lbl_name.text = "Structure Name:"
@@ -92,10 +107,9 @@ func _init() -> void:
 	chk_face_path.toggled.connect(func(v): structures[current_id]["face_path"] = v; canvas.queue_redraw())
 	prop_panel.add_child(chk_face_path)
 	
-	# [NEW] Solid Checkbox
 	chk_solid = CheckBox.new()
 	chk_solid.text = "Solid Collision (Blocks Pathing)"
-	chk_solid.toggled.connect(func(v): structures[current_id]["is_solid"] = v)
+	chk_solid.toggled.connect(func(v): structures[current_id]["is_solid"] = v; canvas.queue_redraw())
 	prop_panel.add_child(chk_solid)
 	
 	opt_front_dir = OptionButton.new()
@@ -106,6 +120,78 @@ func _init() -> void:
 	opt_front_dir.item_selected.connect(_on_front_dir_selected)
 	prop_panel.add_child(opt_front_dir)
 	
+	prop_panel.add_child(HSeparator.new())
+	
+	# ==========================================================================
+	# SPRITE MAPPING UI
+	# ==========================================================================
+	var lbl_sprite = Label.new()
+	lbl_sprite.text = "Visual Sprite Mapping"
+	lbl_sprite.modulate = Color(0.6, 1.0, 0.6)
+	prop_panel.add_child(lbl_sprite)
+	
+	var box_sprite_btns = HBoxContainer.new()
+	var btn_load_sprite = Button.new()
+	btn_load_sprite.text = "Load Image..."
+	btn_load_sprite.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_load_sprite.pressed.connect(_on_load_sprite_pressed)
+	box_sprite_btns.add_child(btn_load_sprite)
+	
+	var btn_clear_sprite = Button.new()
+	btn_clear_sprite.text = "Clear"
+	btn_clear_sprite.pressed.connect(func(): structures[current_id]["texture_path"] = ""; canvas.queue_redraw())
+	box_sprite_btns.add_child(btn_clear_sprite)
+	prop_panel.add_child(box_sprite_btns)
+	
+	file_dialog = FileDialog.new()
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	file_dialog.add_filter("*.png, *.jpg, *.jpeg", "Image Files")
+	file_dialog.size = Vector2i(600, 400)
+	file_dialog.file_selected.connect(_on_file_selected)
+	add_child(file_dialog)
+	
+	lbl_sprite_path = Label.new()
+	lbl_sprite_path.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl_sprite_path.add_theme_font_size_override("font_size", 10)
+	lbl_sprite_path.modulate = Color(0.6, 0.6, 0.6)
+	prop_panel.add_child(lbl_sprite_path)
+	
+	# Sprite Tweaks
+	var box_offset = HBoxContainer.new()
+	var lbl_offset = Label.new()
+	lbl_offset.text = "Offset (Tiles):"
+	box_offset.add_child(lbl_offset)
+	
+	spin_offset_x = _create_spinbox(-10, 10, 0.1)
+	spin_offset_y = _create_spinbox(-10, 10, 0.1)
+	spin_offset_x.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(v, structures[current_id].get("texture_offset", Vector2.ZERO).y); canvas.queue_redraw())
+	spin_offset_y.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(structures[current_id].get("texture_offset", Vector2.ZERO).x, v); canvas.queue_redraw())
+	box_offset.add_child(spin_offset_x); box_offset.add_child(spin_offset_y)
+	prop_panel.add_child(box_offset)
+	
+	var box_scale = HBoxContainer.new()
+	var lbl_scale = Label.new()
+	lbl_scale.text = "Scale Mult:"
+	box_scale.add_child(lbl_scale)
+	
+	spin_scale_x = _create_spinbox(0.1, 10, 0.1)
+	spin_scale_y = _create_spinbox(0.1, 10, 0.1)
+	spin_scale_x.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(v, structures[current_id].get("texture_scale", Vector2.ONE).y); canvas.queue_redraw())
+	spin_scale_y.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(structures[current_id].get("texture_scale", Vector2.ONE).x, v); canvas.queue_redraw())
+	box_scale.add_child(spin_scale_x); box_scale.add_child(spin_scale_y)
+	prop_panel.add_child(box_scale)
+	
+	opt_filter = OptionButton.new()
+	opt_filter.add_item("Filter: Nearest (Pixel Perfect)", 0)
+	opt_filter.add_item("Filter: Linear (Smooth)", 1)
+	opt_filter.item_selected.connect(func(idx): 
+		structures[current_id]["texture_filter"] = idx
+		canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if idx == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+		canvas.queue_redraw()
+	)
+	prop_panel.add_child(opt_filter)
+
 	# ==========================================================================
 	# RIGHT PANEL: CANVAS
 	# ==========================================================================
@@ -148,12 +234,20 @@ func _init() -> void:
 	canvas.draw.connect(_on_canvas_draw)
 	canvas.gui_input.connect(_on_canvas_input)
 
+func _create_spinbox(min_v: float, max_v: float, step: float) -> SpinBox:
+	var sb = SpinBox.new()
+	sb.min_value = min_v
+	sb.max_value = max_v
+	sb.step = step
+	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return sb
+
 # ==============================================================================
 # LIFECYCLE & DATA
 # ==============================================================================
-
 func open() -> void:
 	structures = ConfigManager.load_structures()
+	_texture_cache.clear()
 	_refresh_list()
 	
 	if structures.is_empty():
@@ -169,14 +263,11 @@ func _refresh_list() -> void:
 	var keys = structures.keys()
 	for key in keys:
 		var struct = structures[key]
-		
 		var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
 		img.fill(struct.get("color", Color.CYAN))
 		var tex = ImageTexture.create_from_image(img)
-		
 		item_list.add_item(struct["name"], tex)
 		item_list.set_item_metadata(item_list.item_count - 1, key)
-		
 		if key == current_id:
 			item_list.select(item_list.item_count - 1)
 
@@ -188,11 +279,14 @@ func _add_new_structure() -> void:
 		"footprint": [Vector2i(0, 0)],
 		"allow_rotation": true,
 		"face_path": true,
-		"is_solid": true, # [NEW]
-		"front_dir": Vector2i.UP
+		"is_solid": true,
+		"front_dir": Vector2i.UP,
+		"texture_path": "",
+		"texture_offset": Vector2.ZERO,
+		"texture_scale": Vector2(1.0, 1.0),
+		"texture_filter": 0
 	}
 	_refresh_list()
-	
 	for i in range(item_list.item_count):
 		if item_list.get_item_metadata(i) == new_id:
 			item_list.select(i)
@@ -211,6 +305,15 @@ func _on_item_selected(idx: int) -> void:
 	current_id = item_list.get_item_metadata(idx)
 	var struct = structures[current_id]
 	
+	# --- LEGACY DATA MIGRATION ---
+	# Automatically inject new properties if an old structure is missing them
+	if not struct.has("is_solid"): struct["is_solid"] = true
+	if not struct.has("texture_path"): struct["texture_path"] = ""
+	if not struct.has("texture_offset"): struct["texture_offset"] = Vector2.ZERO
+	if not struct.has("texture_scale"): struct["texture_scale"] = Vector2.ONE
+	if not struct.has("texture_filter"): struct["texture_filter"] = 0
+	# -----------------------------------
+	
 	prop_panel.visible = true
 	name_edit.text = struct.get("name", "Unnamed")
 	color_picker.color = struct.get("color", Color.CYAN)
@@ -224,6 +327,21 @@ func _on_item_selected(idx: int) -> void:
 	elif f_dir == Vector2i.DOWN: opt_front_dir.select(2)
 	elif f_dir == Vector2i.LEFT: opt_front_dir.select(3)
 	
+	# Sprite Settings
+	lbl_sprite_path.text = struct.get("texture_path", "No Sprite Loaded")
+	var off = struct.get("texture_offset", Vector2.ZERO)
+	spin_offset_x.set_value_no_signal(off.x)
+	spin_offset_y.set_value_no_signal(off.y)
+	var sc = struct.get("texture_scale", Vector2.ONE)
+	spin_scale_x.set_value_no_signal(sc.x)
+	spin_scale_y.set_value_no_signal(sc.y)
+	
+	var t_filter = struct.get("texture_filter", 0)
+	opt_filter.select(t_filter)
+	
+	# Apply node-level filtering instantly
+	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+	
 	canvas.queue_redraw()
 
 func _on_front_dir_selected(idx: int) -> void:
@@ -231,9 +349,39 @@ func _on_front_dir_selected(idx: int) -> void:
 	if idx == 1: dir = Vector2i.RIGHT
 	elif idx == 2: dir = Vector2i.DOWN
 	elif idx == 3: dir = Vector2i.LEFT
-	
 	structures[current_id]["front_dir"] = dir
 	canvas.queue_redraw()
+
+# ==============================================================================
+# SPRITE LOADING
+# ==============================================================================
+func _on_load_sprite_pressed() -> void:
+	file_dialog.popup_centered()
+
+func _on_file_selected(path: String) -> void:
+	if current_id == "": return
+	
+	# Import the sprite into the internal cache directory
+	var cached_path = ConfigManager.import_sprite(path)
+	if cached_path != "":
+		structures[current_id]["texture_path"] = cached_path
+		lbl_sprite_path.text = cached_path
+		
+		# Clear the loaded texture so the canvas is forced to reload the new one
+		if _texture_cache.has(current_id):
+			_texture_cache.erase(current_id)
+			
+		canvas.queue_redraw()
+
+func _get_cached_texture(s_id: String, path: String) -> Texture2D:
+	if _texture_cache.has(s_id): return _texture_cache[s_id]
+	if FileAccess.file_exists(path):
+		var img = Image.load_from_file(path)
+		if img:
+			var tex = ImageTexture.create_from_image(img)
+			_texture_cache[s_id] = tex
+			return tex
+	return null
 
 # ==============================================================================
 # CANVAS DRAWING & LOGIC
@@ -254,21 +402,17 @@ func _on_canvas_input(event: InputEvent) -> void:
 	
 	var is_add = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or \
 				 (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0)
-				 
 	var is_remove = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed) or \
 					(event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0)
 					
 	if is_add or is_remove:
 		var coord = _get_coord_from_mouse(event.position)
 		var footprint: Array = structures[current_id]["footprint"]
-		
 		var typed_footprint: Array[Vector2i] = []
 		typed_footprint.assign(footprint)
 		
-		if is_add and not typed_footprint.has(coord):
-			typed_footprint.append(coord)
-		elif is_remove and typed_footprint.has(coord):
-			typed_footprint.erase(coord)
+		if is_add and not typed_footprint.has(coord): typed_footprint.append(coord)
+		elif is_remove and typed_footprint.has(coord): typed_footprint.erase(coord)
 			
 		structures[current_id]["footprint"] = typed_footprint
 		canvas.queue_redraw()
@@ -295,8 +439,6 @@ func _on_canvas_draw() -> void:
 		var struct = structures[current_id]
 		var footprint: Array = struct.get("footprint", [])
 		var color = struct.get("color", Color.CYAN)
-		
-		# [NEW] Visually differentiate non-solid structures by making them semi-transparent in the editor
 		var is_solid = struct.get("is_solid", true)
 		if not is_solid: color.a = 0.5
 		
@@ -304,13 +446,29 @@ func _on_canvas_draw() -> void:
 			var px = center.x + (coord.x * actual_ts)
 			var py = center.y + (coord.y * actual_ts)
 			var rect = Rect2(px, py, actual_ts, actual_ts)
-			
 			canvas.draw_rect(rect, color)
 			canvas.draw_rect(rect, Color.WHITE, false, 2.0)
 			
+		# --- DRAW THE SPRITE OVERLAY ---
+		var tex_path = struct.get("texture_path", "")
+		if tex_path != "":
+			var tex = _get_cached_texture(current_id, tex_path)
+			if tex:
+				var t_offset = struct.get("texture_offset", Vector2.ZERO)
+				var t_scale = struct.get("texture_scale", Vector2.ONE)
+				
+				# Normalize scale to match the tile size EXACTLY like the Realizer does
+				var normalized_size = Vector2(actual_ts * t_scale.x, actual_ts * t_scale.y)
+				
+				var base_origin = Vector2(center.x + (actual_ts/2.0), center.y + (actual_ts/2.0))
+				var draw_pos = base_origin - (normalized_size / 2.0) + (t_offset * actual_ts)
+				
+				canvas.draw_texture_rect(tex, Rect2(draw_pos, normalized_size), false)
+				
+
+		# Draw the facing arrow last so it stays on top of the sprite
 		if struct.get("face_path", true) and footprint.size() > 0:
 			var front_dir = struct.get("front_dir", Vector2i.UP)
-			
 			var min_coord = footprint[0]
 			var max_coord = footprint[0]
 			for c in footprint:
@@ -321,7 +479,6 @@ func _on_canvas_draw() -> void:
 				
 			var arrow_start = Vector2.ZERO
 			var arrow_end = Vector2.ZERO
-			
 			var center_x = center.x + ((min_coord.x + max_coord.x + 1) / 2.0) * actual_ts
 			var center_y = center.y + ((min_coord.y + max_coord.y + 1) / 2.0) * actual_ts
 			
@@ -339,6 +496,7 @@ func _on_canvas_draw() -> void:
 				arrow_end = arrow_start + Vector2(actual_ts, 0)
 				
 			_draw_arrow(arrow_start, arrow_end, Color.RED)
+
 
 func _draw_arrow(start: Vector2, end: Vector2, color: Color) -> void:
 	canvas.draw_line(start, end, color, 4.0)

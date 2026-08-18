@@ -345,3 +345,32 @@ static func load_scatter_sets() -> Dictionary:
 			loaded_sets[key] = config.get_value("ScatterSets", key)
 			
 	return loaded_sets
+	
+	
+# ==============================================================================
+# SPRITE CACHE MANAGEMENT
+# ==============================================================================
+static func import_sprite(source_path: String) -> String:
+	var dir = DirAccess.open("user://")
+	if not dir.dir_exists("imported_sprites"):
+		dir.make_dir("imported_sprites")
+		
+	var filename = source_path.get_file()
+	# Prepend a timestamp to prevent filename collisions if you upload two different "goblin.png"s
+	var new_filename = str(Time.get_unix_time_from_system()) + "_" + filename
+	var dest_path = "user://imported_sprites/" + new_filename
+	
+	var err = DirAccess.copy_absolute(source_path, dest_path)
+	if err == OK:
+		return dest_path
+	return ""
+
+static func clear_sprite_cache() -> void:
+	var dir = DirAccess.open("user://imported_sprites")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir():
+				dir.remove(file_name)
+			file_name = dir.get_next()
