@@ -212,7 +212,14 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary) -
 										"set_id": current_set["key"],
 										"name": current_set.get("name", "Unknown Set"),
 										"color": current_set.get("color", Color.WHITE),
-										"source_node": node_id
+										"source_node": node_id,
+										
+										# --- SPRITE DATA FOR THE REALIZER ---
+										"texture_path": current_set.get("texture_path", ""),
+										"texture_offset": current_set.get("texture_offset", Vector2.ZERO),
+										"texture_scale": current_set.get("texture_scale", Vector2.ONE),
+										"texture_filter": current_set.get("texture_filter", 0),
+										"rot": 0 # Scatter entities don't currently rotate, so we lock them to 0
 									}
 									actually_spawned = true
 									room_valid_placements.erase(final_pt)

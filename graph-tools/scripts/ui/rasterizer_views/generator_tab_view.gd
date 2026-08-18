@@ -45,11 +45,12 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		
 		{ "name": "sep_view", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "show_entities", "label": "Master Entity Visibility", "type": TYPE_BOOL, "default": true },
-		{ "name": "show_entity_sprites", "label": "  ↳ Show Structure Sprites", "type": TYPE_BOOL, "default": true },
-		{ "name": "show_entity_collisions", "label": "  ↳ Show Structure Footprints", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_struct_sprites", "label": "  ↳ Show Structure Sprites", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_struct_footprints", "label": "  ↳ Show Structure Footprints", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_scatter_sprites", "label": "  ↳ Show Scatter Sprites", "type": TYPE_BOOL, "default": true },
+		{ "name": "show_scatter_footprints", "label": "  ↳ Show Scatter Footprints", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_progression", "label": "  ↳ Show Locks & Keys", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_endpoints", "label": "  ↳ Show Start/End Points", "type": TYPE_BOOL, "default": true },
-		{ "name": "show_scatter_sets", "label": "  ↳ Show Scatter Sets", "type": TYPE_BOOL, "default": true },
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false },
 		
 		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },

@@ -493,69 +493,62 @@ func _render_overlays(entities: Dictionary) -> void:
 			rect.add_to_group("realizer_critical_path")
 			tile_map_layer.add_child(rect)
 
-	# B. Fetch all visibility flags
+	# B. Master Visibility Check
 	var master_vis = _params.get("show_entities", true)
-	var vis_structs = _params.get("show_structures", true)
-	var vis_prog = _params.get("show_progression", true)
-	var vis_ends = _params.get("show_endpoints", true)
-	var vis_scatter = _params.get("show_scatter_sets", true)
-	
-	# [NEW] Sprite & Footprint toggles
-	var show_footprints = _params.get("show_entity_collisions", true)
-	var show_sprites = _params.get("show_entity_sprites", true)
+	if not master_vis: return
 
 	for pos in entities:
 		var entity_data = entities[pos]
 		var e_type = entity_data.get("type", "generic_entity")
 		
-		# Determine if this specific entity category is enabled
-		var is_visible = master_vis
-		if e_type == "structure": is_visible = is_visible and vis_structs
-		elif e_type in ["door", "key", "fringe"]: is_visible = is_visible and vis_prog
-		elif e_type in ["start_point", "end_point"]: is_visible = is_visible and vis_ends
-		else: is_visible = is_visible and vis_scatter
+		# 1. Route the exact toggles based on Entity Type
+		var show_sprite = false
+		var show_footprint = false
 		
-		if not is_visible: continue
-
-		# ======================================================================
-		# [NEW] STRUCTURE RENDERING (Sprites & Footprints decoupled)
-		# ======================================================================
 		if e_type == "structure":
-			var tex_path = entity_data.get("texture_path", "")
-			var has_sprite = (tex_path != "")
-			
-			# 1. Render Sprites
-			if has_sprite and show_sprites:
-				var tex = _get_cached_texture(tex_path)
-				if tex:
-					var sprite = Sprite2D.new()
-					sprite.texture = tex
-					
-					var t_off = entity_data.get("texture_offset", Vector2.ZERO)
-					var t_scale = entity_data.get("texture_scale", Vector2.ONE)
-					var t_filter = entity_data.get("texture_filter", 0)
-					var rot_idx = entity_data.get("rot", 0)
-					
-					# Normalize scale: (cell_size / tex_size) makes the image exactly 1 tile big!
-					var base_scale_x = cell_size / tex.get_size().x
-					var base_scale_y = cell_size / tex.get_size().y
-					sprite.scale = Vector2(base_scale_x * t_scale.x, base_scale_y * t_scale.y)
-					
-					sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
-					sprite.rotation = rot_idx * (PI / 2.0)
-					
-					# Lock position to the grid, but shift the visual offset!
-					sprite.position = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
-					
-					# Adjust offset dynamically based on the final scale
-					sprite.offset = (t_off * cell_size) / sprite.scale
-					
-					sprite.z_index = 1 # <--- Forces sprite above floor tiles to stop clipping!
-					sprite.add_to_group("realizer_entity")
-					tile_map_layer.add_child(sprite)
+			show_sprite = _params.get("show_struct_sprites", true)
+			show_footprint = _params.get("show_struct_footprints", true)
+		elif e_type in ["door", "key", "fringe"]:
+			if not _params.get("show_progression", true): continue
+			show_footprint = true
+		elif e_type in ["start_point", "end_point"]:
+			if not _params.get("show_endpoints", true): continue
+			show_footprint = true
+		else: # Scatter Sets & Generic
+			show_sprite = _params.get("show_scatter_sprites", true)
+			show_footprint = _params.get("show_scatter_footprints", true)
 
-			# 2. Render Footprints
-			if show_footprints:
+		var tex_path = entity_data.get("texture_path", "")
+		var has_sprite = (tex_path != "")
+		
+		# 2. Render Visual Sprites (Structures & Scatter Sets)
+		if has_sprite and show_sprite:
+			var tex = _get_cached_texture(tex_path)
+			if tex:
+				var sprite = Sprite2D.new()
+				sprite.texture = tex
+				
+				var t_off = entity_data.get("texture_offset", Vector2.ZERO)
+				var t_scale = entity_data.get("texture_scale", Vector2.ONE)
+				var t_filter = entity_data.get("texture_filter", 0)
+				var rot_idx = entity_data.get("rot", 0)
+				
+				var base_scale_x = cell_size / tex.get_size().x
+				var base_scale_y = cell_size / tex.get_size().y
+				sprite.scale = Vector2(base_scale_x * t_scale.x, base_scale_y * t_scale.y)
+				sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+				sprite.rotation = rot_idx * (PI / 2.0)
+				
+				sprite.position = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
+				sprite.offset = (t_off * cell_size) / sprite.scale
+				sprite.z_index = 1
+				sprite.add_to_group("realizer_entity")
+				tile_map_layer.add_child(sprite)
+
+		# 3. Render Hitboxes & Indicators
+		# Only draw the hitbox if explicitely requested, OR if the entity doesn't have a sprite (Fallback)
+		if show_footprint or (show_sprite and not has_sprite):
+			if e_type == "structure":
 				var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
 				var footprint_world = entity_data.get("footprint_world", [])
 				for pt in footprint_world:
@@ -565,53 +558,28 @@ func _render_overlays(entities: Dictionary) -> void:
 					pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
 					pt_rect.add_to_group("realizer_entity")
 					tile_map_layer.add_child(pt_rect)
-					
-			# Move to the next entity! (Skips the gameplay entity logic below)
-			continue 
-
-		# ======================================================================
-		# ORIGINAL GAMEPLAY ENTITY RENDERING
-		# ======================================================================
-		var rect = ColorRect.new()
-		
-		if e_type == "door":
-			var l_type = entity_data.get("lock_type", "Unlocked")
-			var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-			rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
-			rect.size = Vector2(cell_size, cell_size)
-			rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
-			
-		elif e_type == "start_point":
-			rect.color = Color(0.2, 1.0, 0.2, 0.9)
-			rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
-			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
-			
-		elif e_type == "end_point":
-			rect.color = Color(1.0, 0.2, 0.2, 0.9)
-			rect.size = Vector2(cell_size * 0.8, cell_size * 0.8) 
-			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.1), pos.y * cell_size + (cell_size * 0.1))
-			
-		elif e_type == "key":
-			var k_col = entity_data.get("key_type", "Red")
-			if k_col.begins_with("Tier"): rect.color = Color.WHITE
 			else:
-				var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-				rect.color = c_map.get(k_col, Color.WHITE)
-			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
-			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
-			
-		elif e_type == "fringe":
-			rect.color = Color(0.2, 0.9, 0.2, 0.8)
-			rect.size = Vector2(cell_size * 0.4, cell_size * 0.4) 
-			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.3), pos.y * cell_size + (cell_size * 0.3))
-			
-		else:
-			rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
-			rect.size = Vector2(cell_size * 0.5, cell_size * 0.5) 
-			rect.position = Vector2(pos.x * cell_size + (cell_size * 0.25), pos.y * cell_size + (cell_size * 0.25))
-		
-		rect.add_to_group("realizer_entity")
-		tile_map_layer.add_child(rect)
+				var rect = ColorRect.new()
+				if e_type == "door":
+					var l_type = entity_data.get("lock_type", "Unlocked")
+					var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+					rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
+				elif e_type == "start_point": rect.color = Color(0.2, 1.0, 0.2, 0.9)
+				elif e_type == "end_point": rect.color = Color(1.0, 0.2, 0.2, 0.9)
+				elif e_type == "key":
+					var k_col = entity_data.get("key_type", "Red")
+					var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
+					rect.color = Color.WHITE if k_col.begins_with("Tier") else c_map.get(k_col, Color.WHITE)
+				elif e_type == "fringe": rect.color = Color(0.2, 0.9, 0.2, 0.8)
+				else: rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
+				
+				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point"] else (0.4 if e_type == "fringe" else 0.5))
+				rect.size = Vector2(cell_size * s_mult, cell_size * s_mult)
+				var center_offset = (cell_size - rect.size.x) / 2.0
+				rect.position = Vector2(pos.x * cell_size + center_offset, pos.y * cell_size + center_offset)
+				
+				rect.add_to_group("realizer_entity")
+				tile_map_layer.add_child(rect)
 
 # ==============================================================================
 # VISUAL RENDERING ENGINES
