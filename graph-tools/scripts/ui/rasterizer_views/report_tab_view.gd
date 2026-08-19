@@ -167,6 +167,8 @@ func _format_report(data: Dictionary) -> String:
 
 	# Dedicated Metrics Block
 	s += "[b]Progression Metrics[/b]\n"
+	s += "  Spawn Placement: %s\n" % stats.get("start_method", "Unknown")
+	s += "  Exit Placement: %s\n" % stats.get("end_method", "Unknown")
 	s += "  Areas (Rooms): %d\n" % stats.get("area_count", 0)
 	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
 	s += "  Critical Locks: %d\n" % critical_locks.size()

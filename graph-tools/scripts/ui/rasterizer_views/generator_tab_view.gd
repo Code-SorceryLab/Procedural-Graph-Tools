@@ -24,6 +24,12 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
 	
+	# Dynamically fetch Biome Keys for the Dropdowns
+	var biome_options = ["Any"]
+	if SemanticRegistry.categories.has(SemanticRegistry.TARGET_NODE):
+		for key in SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].keys():
+			biome_options.append(key)
+	
 	var schema = [
 		{ "name": "btn_rasterize", "label": "Rasterize Graph", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "btn_clear", "label": "Clear TileMap", "type": TYPE_NIL, "hint": "action" },
@@ -52,6 +58,10 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "show_progression", "label": "  ↳ Show Locks & Keys", "type": TYPE_BOOL, "default": true },
 		{ "name": "show_endpoints", "label": "  ↳ Show Start/End Points", "type": TYPE_BOOL, "default": true },
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false },
+		
+		{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "progression_preferred_start", "label": "Preferred Spawn Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options },
+		{ "name": "progression_preferred_end", "label": "Preferred Exit Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options },
 		
 		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "progression_enabled", "label": "Generate Locks & Keys", "type": TYPE_BOOL, "default": true },

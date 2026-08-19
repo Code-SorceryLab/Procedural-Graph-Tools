@@ -115,20 +115,70 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	if emit.is_valid(): emit.call("Solver: Mapped Region Connectivity")
 
-	# --- 4. START & END POINTS ---
+	# --- 4. START & END POINTS (Cascading Logic) ---
 	if regions.is_empty(): return
 	
-	var possible_starts = regions.keys().filter(func(r): return region_adj[r].size() > 1)
-	var start_region = regions.keys()[0]
-	if possible_starts.size() > 0: start_region = SeedUtils.pick_random(possible_starts, rng)
-		
-	var possible_ends = regions.keys().filter(func(r): return region_adj[r].size() == 1 and r != start_region)
-	var end_region = -1
-	if possible_ends.size() > 0: end_region = SeedUtils.pick_random(possible_ends, rng)
-		
-	_spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng)
-	if end_region != -1: _spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng)
+	var pref_start = params.get("progression_preferred_start", "Any")
+	var pref_end = params.get("progression_preferred_end", "Any")
+	
+	var get_r_biomes = func(r_id):
+		var b_dict = {}
+		for pos in regions[r_id]:
+			var cid = grid.get_cell(pos.x, pos.y)
+			if realizer.floor_to_semantic.has(cid): b_dict[realizer.floor_to_semantic[cid]] = true
+		return b_dict
 
+	# [FIXED] The Master Filter: A room MUST have at least 1 door to be a valid objective!
+	var valid_regions = regions.keys().filter(func(r): return region_adj.has(r) and region_adj[r].size() > 0)
+	if valid_regions.is_empty(): valid_regions = regions.keys() # Absolute failsafe
+
+	# START REGION
+	var start_region = -1
+	var start_tag = "Fallback (Random)"
+	
+	if pref_start != "Any":
+		var matches = valid_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
+		if matches.size() > 0:
+			start_region = SeedUtils.pick_random(matches, rng)
+			start_tag = "Preferred Biome"
+			
+	if start_region == -1: 
+		var multi_door = valid_regions.filter(func(r): return region_adj[r].size() > 1)
+		if multi_door.size() > 0:
+			start_region = SeedUtils.pick_random(multi_door, rng)
+			start_tag = "Fallback (Multi-Door)"
+		else:
+			start_region = SeedUtils.pick_random(valid_regions, rng)
+			start_tag = "Fallback (Leaf)"
+			
+	# END REGION
+	var end_candidates = valid_regions.filter(func(r): return r != start_region)
+	var end_region = -1
+	var end_tag = "Fallback (Random)"
+	
+	if pref_end != "Any":
+		var leaf_matches = end_candidates.filter(func(r): return region_adj[r].size() == 1 and get_r_biomes.call(r).has(pref_end))
+		if leaf_matches.size() > 0:
+			end_region = SeedUtils.pick_random(leaf_matches, rng)
+			end_tag = "Preferred Leaf"
+		else:
+			var cycle_matches = end_candidates.filter(func(r): return get_r_biomes.call(r).has(pref_end))
+			if cycle_matches.size() > 0:
+				end_region = SeedUtils.pick_random(cycle_matches, rng)
+				end_tag = "Preferred Cycle Node"
+				
+	if end_region == -1 and end_candidates.size() > 0:
+		var leaves = end_candidates.filter(func(r): return region_adj[r].size() == 1)
+		if leaves.size() > 0:
+			end_region = SeedUtils.pick_random(leaves, rng)
+			end_tag = "Fallback Leaf"
+		else:
+			end_region = SeedUtils.pick_random(end_candidates, rng)
+			end_tag = "Fallback Cycle Node"
+			
+	_spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
+	if end_region != -1: _spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
+	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 
 	# --- BUILD REGION DEPTH MAP & SPINE ---
@@ -343,21 +393,21 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 		# --- SIMULATE UNLOCKING ---
 		visited_regions[next_region] = true
-		accessible_regions.append(next_region)
 		
 		var assigned_area = region_to_area[source_region]
-		
-		# [FIXED] Vaults are side-rooms, they inherit the Security Zone of the hall outside!
-		# Only critical path locks advance the Security Zone math.
 		if lock_it and forge_new_key and not is_vault: 
 			current_max_area += 1
 			assigned_area = current_max_area
 			area_entry_locks[assigned_area] = lock_str
 			
 		region_to_area[next_region] = assigned_area
-		populate_frontier.call(next_region)
 		
-	# --- [NEW] CONTROLLED SEQUENCE BREAKS (Shortcuts) ---
+		# [FIXED] Prevent the BFS from "leaking" out the backdoors of terminal nodes!
+		if not is_vault and not is_end_finale:
+			accessible_regions.append(next_region)
+			populate_frontier.call(next_region)
+		
+	# --- CONTROLLED SEQUENCE BREAKS (Shortcuts) ---
 	var num_shortcuts = rng.randi_range(shortcut_min, shortcut_max)
 	if num_shortcuts > 0 and critical_locks.size() > 0:
 		for i in range(num_shortcuts):
@@ -520,13 +570,21 @@ static func _build_progression_report(
 	var area_count = 0
 	for r in region_to_area.values(): area_count = max(area_count, r + 1)
 
+	var start_method = "Unknown"
+	var end_method = "Unknown"
+	for pos in grid.entities:
+		if grid.entities[pos].get("type") == "start_point": start_method = grid.entities[pos].get("placement_method", "Unknown")
+		elif grid.entities[pos].get("type") == "end_point": end_method = grid.entities[pos].get("placement_method", "Unknown")
+
 	var stats = {
 		"region_count": regions.size(),
 		"lock_count": locks_list.size(),
 		"key_count": keys_list.size(),
 		"max_depth": max_depth,
 		"area_count": area_count,
-		"spine_length": spine_path.size()
+		"spine_length": spine_path.size(),
+		"start_method": start_method, # [NEW]
+		"end_method": end_method      # [NEW]
 	}
 
 	return {

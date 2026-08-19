@@ -66,7 +66,14 @@ static func build_ui(settings_list: Array, container: Control) -> Dictionary:
 		var row_control = null
 		
 		# Decide which control to build based on Type or Hint
-		if setting.get("options", "") != "" or hint == "enum":
+		var has_valid_options = false
+		if setting.has("options"):
+			if typeof(setting["options"]) == TYPE_STRING and setting["options"] != "": 
+				has_valid_options = true
+			elif typeof(setting["options"]) == TYPE_ARRAY: 
+				has_valid_options = true
+				
+		if has_valid_options or hint == "enum":
 			row_control = _create_dropdown(setting)
 		elif hint == "read_only":
 			row_control = _create_read_only_label(setting)
@@ -221,10 +228,12 @@ static func _create_dropdown(setting: Dictionary) -> OptionButton:
 	var opt = OptionButton.new()
 	opt.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
 	
-	
 	var options = []
 	
-	if setting.get("options", "") != "":
+	# [FIXED] Safely handle both String-based splitting and direct Arrays
+	if setting.has("options") and typeof(setting["options"]) == TYPE_ARRAY:
+		options = setting["options"]
+	elif setting.get("options", "") != "":
 		var str_opts = setting["options"].split(",")
 		for s in str_opts: options.append(s.strip_edges())
 	elif setting.get("hint_string", "") != "":
@@ -232,14 +241,25 @@ static func _create_dropdown(setting: Dictionary) -> OptionButton:
 		for s in str_opts: options.append(s.strip_edges())
 		
 	for i in range(options.size()):
-		opt.add_item(options[i], i)
+		opt.add_item(str(options[i]), i)
+		# [NEW] Store the actual string/value so we can retrieve it instead of the integer ID
+		opt.set_item_metadata(i, options[i]) 
 		
 	if setting.get("mixed", false):
 		opt.add_separator()
 		opt.add_item("-- Mixed --", -1)
 		opt.selected = opt.item_count - 1
 	else:
-		opt.selected = int(setting.get("default", 0))
+		# [FIXED] Smart default selection that handles String matching
+		var default_val = setting.get("default", 0)
+		if typeof(default_val) == TYPE_STRING:
+			opt.selected = 0
+			for i in range(opt.item_count):
+				if opt.get_item_text(i) == default_val:
+					opt.selected = i
+					break
+		else:
+			opt.selected = int(default_val)
 		
 	return opt
 
@@ -288,7 +308,11 @@ static func collect_params(active_inputs: Dictionary) -> Dictionary:
 		var control = active_inputs[key]
 		if control is SpinBox: params[key] = control.value
 		elif control is CheckBox: params[key] = control.button_pressed
-		elif control is OptionButton: params[key] = control.selected
+		elif control is OptionButton:
+			# Try to return the String metadata; otherwise fallback to the integer index
+			var meta = control.get_item_metadata(control.selected)
+			if meta != null: params[key] = meta
+			else: params[key] = control.selected
 		elif control is LineEdit: params[key] = control.text 
 		elif control is ColorPickerButton: params[key] = control.color
 		elif control is HBoxContainer:
@@ -306,7 +330,12 @@ static func connect_live_updates(active_inputs: Dictionary, callback: Callable) 
 		elif control is CheckBox:
 			control.toggled.connect(func(val): callback.call(key, val))
 		elif control is OptionButton:
-			control.item_selected.connect(func(val): callback.call(key, val))
+			# Pass the metadata on live update
+			control.item_selected.connect(func(idx): 
+				var meta = control.get_item_metadata(idx)
+				if meta != null: callback.call(key, meta)
+				else: callback.call(key, idx)
+			)
 		elif control is LineEdit:
 			control.text_changed.connect(func(val): callback.call(key, val))
 		elif control is ColorPickerButton:
