@@ -104,8 +104,8 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
 	
-	# Run a headless validation pass
-	var val_results = GenerationValidator.run(grid, false, true, Callable(), Callable())
+	# --- Run a headless validation pass (delay_doors = false) ---
+	var val_results = GenerationValidator.run(grid, false, true, false, Callable(), Callable())
 	
 	var final_report = {}
 	if self.has_meta("progression_report"):

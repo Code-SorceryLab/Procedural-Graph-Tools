@@ -30,7 +30,6 @@ Maybe metrics AS transformations to mark certain nodes/edges as "Most recently a
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 
--Make Biome configs Popup much nicer (like that of the scatter set designer)
 -Make the rasterizer hover show if a biome has biome configs active.
 -Think of Scatterer upgrades given the new sets feature.
 -Custom room shapes
@@ -140,14 +139,6 @@ RASTERIZER UPGRADES
 
 Drunkard's Walk / Jittered Corridors: Right now, the A* algorithm carves perfectly straight lines (diagonal or orthogonal). By running a noise-based "jitter" pass or a constrained Drunkard's Walk algorithm over the critical_path_cells, hallways can be made to snake and curve organically, which is vital for natural cave biomes.
 
-
-2. Strategy Pipeline / Multi‑Pass Generation
-
-Leverages: StrategyExecutor, GraphRecorder, CmdBatch
-
-    What it does – allow chaining of strategies. For example, run StrategyGrid to create a base layout, then pipe the result into StrategyWalker to add agents that carve new paths, then run BuoyancyEngine for organic layout. Each pass is a separate undoable batch.
-
-    Why it matters – most real‑world PCG pipelines are composites. Enabling this natively means developers can prototype entire dungeon‑generation pipelines inside the editor, and researchers can study how successive algorithms interact.
 
 3. Visual Metrics Dashboard (Heatmaps & Overlays)
 

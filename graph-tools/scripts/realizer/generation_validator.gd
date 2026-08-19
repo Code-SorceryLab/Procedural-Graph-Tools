@@ -1,7 +1,7 @@
 class_name GenerationValidator
 extends RefCounted
 
-static func run(grid: GridData, visualize: bool, full_explore: bool, emit: Callable, check_cancel: Callable) -> Dictionary:
+static func run(grid: GridData, visualize: bool, full_explore: bool, delay_doors: bool, emit: Callable, check_cancel: Callable) -> Dictionary:
 	var start_pos = Vector2i(-1, -1)
 	var end_pos = Vector2i(-1, -1)
 	var keys_in_world = {}
@@ -44,13 +44,28 @@ static func run(grid: GridData, visualize: bool, full_explore: bool, emit: Calla
 	var steps_since_emit = 0
 	var visited_batch = []
 	var found_end = false
+	var pending_unlocks = [] # [NEW] Holds doors until the room is clear
 
 	if emit.is_valid(): emit.call_deferred("log", "Starting validation from Start Point...")
 
-	while queue.size() > 0:
+	# [NEW] Keep looping if we still have delayed doors waiting!
+	while queue.size() > 0 or pending_unlocks.size() > 0:
 		if check_cancel.is_valid() and check_cancel.call():
 			if emit.is_valid(): emit.call_deferred("log", "[color=orange]Validation Cancelled.[/color]")
 			return {"is_playable": false, "error": "Cancelled"}
+
+		# --- [NEW] EXHAUSTIVE EXPLORATION TRIGGER ---
+		# We ran out of normal floor tiles. Time to open the delayed doors!
+		if queue.is_empty():
+			if emit.is_valid() and visited_batch.size() > 0:
+				emit.call_deferred("flood", visited_batch.duplicate())
+				visited_batch.clear()
+				
+			queue.append_array(pending_unlocks)
+			if emit.is_valid():
+				emit.call_deferred("log", "[color=magenta]Area exhausted. Progressing through " + str(pending_unlocks.size()) + " delayed door(s)...[/color]")
+			pending_unlocks.clear()
+			if visualize: OS.delay_msec(300)
 
 		var curr = queue.pop_front()
 		visited_batch.append(curr)
@@ -61,7 +76,7 @@ static func run(grid: GridData, visualize: bool, full_explore: bool, emit: Calla
 				if emit.is_valid():
 					emit.call_deferred("flood", visited_batch.duplicate()) 
 					emit.call_deferred("log", "[color=green]Validation Passed! Exit is reachable.[/color]")
-				break # Stop early if we just want to prove it's beatable
+				break 
 			else:
 				if emit.is_valid():
 					emit.call_deferred("flood", visited_batch.duplicate())
@@ -75,11 +90,17 @@ static func run(grid: GridData, visualize: bool, full_explore: bool, emit: Calla
 
 			if doors_in_world.has(n):
 				var req = doors_in_world[n]
-				if req != "" and req != "Unlocked" and not inventory.has(req):
-					if not stuck_doors.has(req): stuck_doors[req] = []
-					stuck_doors[req].append(n)
-					visited[n] = true 
-					continue
+				if req != "" and req != "Unlocked":
+					if not inventory.has(req):
+						if not stuck_doors.has(req): stuck_doors[req] = []
+						stuck_doors[req].append(n)
+						visited[n] = true 
+						continue
+					elif delay_doors:
+						# [NEW] We have the key, but we are delaying the unlock!
+						pending_unlocks.append(n)
+						visited[n] = true
+						continue
 
 			visited[n] = true
 			queue.append(n)
@@ -96,19 +117,26 @@ static func run(grid: GridData, visualize: bool, full_explore: bool, emit: Calla
 
 					if stuck_doors.has(k_type):
 						var unlocked_count = stuck_doors[k_type].size()
-						for door_pos in stuck_doors[k_type]:
-							queue.append(door_pos) 
+						if delay_doors:
+							# [NEW] Put them in the waiting room!
+							pending_unlocks.append_array(stuck_doors[k_type])
+							if emit.is_valid():
+								emit.call_deferred("log", "[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)! (Queued for later)[/color]")
+						else:
+							for door_pos in stuck_doors[k_type]:
+								queue.append(door_pos) 
+							if emit.is_valid():
+								emit.call_deferred("log", "[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)![/color]")
+								
 						stuck_doors.erase(k_type)
-						if emit.is_valid():
-							emit.call_deferred("log", "[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)![/color]")
-							if visualize: OS.delay_msec(250)
+						if visualize: OS.delay_msec(250)
 
 		steps_since_emit += 1
 		if visualize and steps_since_emit >= 20: 
 			if emit.is_valid(): emit.call_deferred("flood", visited_batch.duplicate())
 			visited_batch.clear()
 			steps_since_emit = 0
-			OS.delay_msec(10) 
+			OS.delay_msec(10)
 
 	# Out of valid moves
 	if emit.is_valid():

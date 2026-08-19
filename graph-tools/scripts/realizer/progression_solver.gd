@@ -19,6 +19,15 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var portals: Dictionary = {}
 	var portal_connections: Dictionary = {}
 	
+	# [NEW] Pre-calculate all solid cells so regions naturally flow around them!
+	var solid_cells = {}
+	for pos in grid.entities:
+		var ent = grid.entities[pos]
+		if ent.get("type") == "structure" and ent.get("is_solid", true):
+			var footprint = ent.get("footprint_world", [])
+			for pt in footprint:
+				solid_cells[pt] = true
+	
 	var region_counter = 0
 	var visited_cells = {}
 	var ortho_dirs = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
@@ -27,6 +36,8 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		for x in range(grid.width):
 			var pos = Vector2i(x, y)
 			if visited_cells.has(pos): continue
+			if solid_cells.has(pos): continue # <--- Ignore solid structures entirely!
+			
 			var cell_id = grid.get_cell(x, y)
 			if not valid_floors.has(cell_id): continue
 			if grid.entities.has(pos) and grid.entities[pos].get("type") == "door": continue 
@@ -46,6 +57,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				for d in ortho_dirs:
 					var n = curr + d
 					if not grid.in_bounds_vec(n) or visited_cells.has(n): continue
+					if solid_cells.has(n): continue # <--- [NEW] Stop flood fill at solid walls!
 					if grid.get_cell(n.x, n.y) != cell_id: continue 
 					if grid.entities.has(n) and grid.entities[n].get("type") == "door": continue
 					
@@ -137,88 +149,122 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	for r in spine_path: spine_regions[r] = true
 
 
-	# --- 5. THE LOCKSMITH (Stateful BFS & Area Dependency) ---
-	var locked_portals = [] # Purely metadata for your progression report
+	# --- 5. THE LOCKSMITH (Strict Dependency Chain Simulator) ---
+	var locked_portals = [] 
 	
 	if not params.get("progression_enabled", true): return
 	if portal_connections.is_empty(): return
 	
+	var accessible_regions = [start_region]
 	var visited_regions = { start_region: true }
-	var frontier_portals = []
+	var frontier_edges = []
 	var processed_portals = {}
+	var regions_with_keys = {} 
 	
 	var current_max_area = 0
 	var region_to_area = { start_region: 0 }
-	var area_map = { 0: [start_region] }
-	var area_entry_locks = {}
 	
-	for p_id in portal_connections:
-		if portal_connections[p_id].has(start_region):
-			frontier_portals.append({ "p_id": p_id, "source_region": start_region })
-			
+	var area_entry_locks = {} # [NEW] Tracks the required key for each Security Zone
+	
+	var populate_frontier = func(r_id):
+		for p_id in portal_connections:
+			if processed_portals.has(p_id): continue
+			if portal_connections[p_id].has(r_id):
+				var dest = -1
+				for c in portal_connections[p_id]:
+					if c != r_id: dest = c; break
+				if dest != -1:
+					# [FIXED] Append ALL doors to the frontier, even if already visited!
+					frontier_edges.append({ "p_id": p_id, "source": r_id, "dest": dest })
+
+	populate_frontier.call(start_region)
+	
 	var key_colors = ["Red", "Blue", "Green", "Yellow", "Purple", "Cyan", "Orange"]
 	var current_tier = 0
 	var generated_locks = []
 	
 	var max_locks = params.get("progression_max_locks", 0) 
 	var lock_chance = params.get("progression_lock_chance", 0.4)
+	
+	# [NEW] Calculate GLOBAL extra keys, rather than per-door!
 	var min_copies = params.get("progression_key_copies_min", 1)
 	var max_copies = params.get("progression_key_copies_max", 2)
+	var global_extra_keys_pool = rng.randi_range(min_copies, max_copies) - 1 
+	global_extra_keys_pool = max(0, global_extra_keys_pool)
+	
 	var locks_placed = 0
-
 	var main_path_key_stash = params.get("main_path_key_stash", true)
 
-	while frontier_portals.size() > 0:
-		var p_idx = rng.randi() % frontier_portals.size()
-		var edge = frontier_portals.pop_at(p_idx)
+	while frontier_edges.size() > 0:
+		var e_idx = rng.randi() % frontier_edges.size()
+		var edge = frontier_edges[e_idx]
+		
+		if edge["dest"] == end_region and frontier_edges.size() > 1:
+			var found_other = false
+			for i in range(frontier_edges.size()):
+				if frontier_edges[i]["dest"] != end_region:
+					e_idx = i
+					edge = frontier_edges[i]
+					found_other = true
+					break
+					
+		frontier_edges.remove_at(e_idx)
+		
 		var p_id = edge["p_id"]
-		var source_region = edge["source_region"]
-		var current_area_id = region_to_area[source_region]
+		var source_region = edge["source"]
+		var next_region = edge["dest"]
 		
 		if processed_portals.has(p_id): continue
 		processed_portals[p_id] = true
 		
-		var conn = portal_connections[p_id]
-		var next_region = -1
-		for r in conn:
-			if r != source_region:
-				next_region = r; break
-				
-		if next_region == -1: continue 
+		# --- [NEW] LOOP & SHORTCUT SYNCHRONIZATION ---
+		if visited_regions.has(next_region):
+			var area_source = region_to_area.get(source_region, 0)
+			var area_dest = region_to_area.get(next_region, 0)
+			
+			if area_source != area_dest:
+				# This door connects two different Security Zones! Lock it with the harder key.
+				var deeper_area = max(area_source, area_dest)
+				if area_entry_locks.has(deeper_area):
+					var sync_lock = area_entry_locks[deeper_area]
+					locked_portals.append({
+						"source_region": source_region, "next_region": next_region,
+						"lock_str": sync_lock, "forge_new_key": false
+					})
+					for pos in portals[p_id]:
+						grid.entities[pos]["lock_type"] = sync_lock
+						
+					if emit.is_valid(): emit.call("Solver: Synced Shortcut Door (" + sync_lock + ")")
+			continue
+		# ---------------------------------------------
 		
-		var is_new_region = not visited_regions.has(next_region)
-		var is_end_finale = (next_region == end_region and is_new_region)
-		
+		var is_end_finale = (next_region == end_region)
 		var lock_it = false
 		var forge_new_key = false
 		var lock_str = ""
 		
-		if is_new_region:
-			if is_end_finale:
-				lock_it = true
-				forge_new_key = true
-			elif (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
-				lock_it = true
-				if generated_locks.size() > 0 and rng.randf() < 0.30:
-					forge_new_key = false
-					lock_str = SeedUtils.pick_random(generated_locks, rng)
-				else:
-					forge_new_key = true
-		else:
-			var dest_area_id = region_to_area[next_region]
-			if current_area_id != dest_area_id:
-				lock_it = true
-				forge_new_key = false
-				var deeper_area = max(current_area_id, dest_area_id)
-				if area_entry_locks.has(deeper_area): lock_str = area_entry_locks[deeper_area]
-				elif generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
-				else: lock_it = false
+		var empty_stash_spots = []
+		var empty_branches = []
+		for r in accessible_regions:
+			if not regions_with_keys.has(r):
+				empty_stash_spots.append(r)
+				if main_path_key_stash and not spine_regions.has(r):
+					empty_branches.append(r)
+		
+		if is_end_finale:
+			lock_it = true
+			forge_new_key = false
+			if generated_locks.size() > 0: lock_str = generated_locks[-1] 
+			else: forge_new_key = true 
+				
+		elif (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
+			lock_it = true
+			if empty_stash_spots.size() > 0: forge_new_key = true 
 			else:
-				if (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
-					lock_it = true
-					if generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
-					else: forge_new_key = true
-
+				forge_new_key = false
+				if generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
+				else: lock_it = false
+					
 		if lock_it:
 			if forge_new_key:
 				var can_color = key_colors.size() > 0
@@ -233,31 +279,19 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				generated_locks.append(lock_str)
 				locks_placed += 1
 				
-				# --- SPINE AVOIDANCE DROP LOGIC ---
-				var num_keys = rng.randi_range(min_copies, max_copies)
-				
-				# Split the available Area map into Spine and Off-Spine regions
-				var preferred_regions = []
-				var fallback_regions = []
-				for r in area_map[current_area_id]:
-					if main_path_key_stash and not spine_regions.has(r): preferred_regions.append(r)
-					else: fallback_regions.append(r)
-				
-				# Track how the key was actually placed for the Report
-				var has_branches = preferred_regions.size() > 0
-				var spawn_method = "Stashed (Branch)" if (main_path_key_stash and has_branches) else "Main Path (Spine)"
-				var valid_spawn_targets = preferred_regions if (main_path_key_stash and has_branches) else fallback_regions
+				# [FIXED] Spawn EXACTLY ONE key to form the primary chain
+				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
+				var chosen_region = SeedUtils.pick_random(target_pool, rng)
 				
 				var key_dropped = false
-				for i in range(num_keys):
-					if _spawn_marker(valid_spawn_targets, "key", lock_str, regions, realizer, rng, spawn_method):
+				if chosen_region != null:
+					if _spawn_marker([chosen_region], "key", lock_str, regions, realizer, rng, "Exclusive Room"):
 						key_dropped = true
+						regions_with_keys[chosen_region] = true
 						
 				if not key_dropped:
-					# Failsafe: The area was completely full, so drop it anywhere we've previously been
-					_spawn_marker(visited_regions.keys(), "key", lock_str, regions, realizer, rng, "Fallback (Emergency)")
-			
-			# Record for the Report Generator
+					_spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, "Fallback (Emergency)")
+						
 			locked_portals.append({
 				"source_region": source_region, "next_region": next_region,
 				"lock_str": lock_str, "forge_new_key": forge_new_key
@@ -268,22 +302,51 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				
 			if emit.is_valid(): emit.call("Solver: Secured Door (" + lock_str + ")")
 
-		if is_new_region:
-			visited_regions[next_region] = true
-			var assigned_area = current_area_id
+		# --- SIMULATE UNLOCKING ---
+		visited_regions[next_region] = true
+		accessible_regions.append(next_region)
+		
+		var assigned_area = region_to_area[source_region]
+		
+		# [FIXED] Trigger a new Security Zone on ANY lock, guaranteeing distinct Area IDs
+		if lock_it: 
+			current_max_area += 1
+			assigned_area = current_max_area
+			area_entry_locks[assigned_area] = lock_str # Save the key required for this zone!
 			
-			if lock_it and forge_new_key:
-				current_max_area += 1
-				assigned_area = current_max_area
-				area_map[assigned_area] = []
-				area_entry_locks[assigned_area] = lock_str
+		region_to_area[next_region] = assigned_area
+		populate_frontier.call(next_region)
+		
+	# --- [NEW] BONUS: GLOBAL SHORTCUT KEYS ---
+	# We have finished the main puzzle chain. Now drop the global requested extra copies!
+	if global_extra_keys_pool > 0 and generated_locks.size() > 0:
+		for i in range(global_extra_keys_pool):
+			var bonus_lock = SeedUtils.pick_random(generated_locks, rng)
+			
+			var empty_spots = []
+			for r in accessible_regions:
+				if not regions_with_keys.has(r): empty_spots.append(r)
 				
-			region_to_area[next_region] = assigned_area
-			area_map[assigned_area].append(next_region)
-			
-			for new_p_id in portal_connections:
-				if not processed_portals.has(new_p_id) and portal_connections[new_p_id].has(next_region):
-					frontier_portals.append({ "p_id": new_p_id, "source_region": next_region })
+			if empty_spots.size() > 0:
+				var bonus_region = SeedUtils.pick_random(empty_spots, rng)
+				if _spawn_marker([bonus_region], "key", bonus_lock, regions, realizer, rng, "Extra Shortcut Key"):
+					regions_with_keys[bonus_region] = true
+			else:
+				_spawn_marker(accessible_regions, "key", bonus_lock, regions, realizer, rng, "Fallback Shortcut")
+
+	# --- CLEANUP: ASSIGN REMAINING ROOMS ---
+	# Ensure rooms discovered after we hit the max_locks cap still get assigned an Area ID
+	for r_id in regions:
+		if not region_to_area.has(r_id):
+			# If it doesn't have an area, inherit from a neighbor!
+			var assigned = false
+			if region_adj.has(r_id):
+				for neighbor in region_adj[r_id]:
+					if region_to_area.has(neighbor):
+						region_to_area[r_id] = region_to_area[neighbor]
+						assigned = true
+						break
+			if not assigned: region_to_area[r_id] = 0 # Fallback to Area 0
 
 	# --- 6. EXPORT METADATA ---
 	var cell_to_area = {}
@@ -293,6 +356,9 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			cell_to_area[pos] = region_to_area[r_id]
 			
 	realizer.set_meta("cell_to_area", cell_to_area)
+	
+	# [NEW] Export the Region Map directly so the Tooltip can see it!
+	realizer.set_meta("cell_to_region", cell_to_region)
 	
 	# --- BUILD PROGRESSION REPORT ---
 	var progression_report = _build_progression_report(

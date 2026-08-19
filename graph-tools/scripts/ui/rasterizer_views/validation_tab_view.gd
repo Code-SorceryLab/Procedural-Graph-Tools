@@ -1,8 +1,7 @@
 class_name ValidationTabView
 extends MarginContainer
 
-# [FIXED] Add the full_explore boolean to the signal
-signal run_requested(visualize: bool, full_explore: bool)
+signal run_requested(visualize: bool, full_explore: bool, delay_doors: bool)
 signal stop_requested()
 signal visualize_toggled(is_on: bool)
 
@@ -11,6 +10,7 @@ var _btn_run: Button
 var _btn_stop: Button
 var _chk_visualize: CheckBox
 var _chk_full_explore: CheckBox
+var _chk_delay_doors: CheckBox
 
 func _init() -> void:
 	name = "Validator"
@@ -25,7 +25,8 @@ func _init() -> void:
 	var btn_hbox = HBoxContainer.new()
 	_btn_run = Button.new()
 	_btn_run.text = "Run Validation Test"
-	_btn_run.pressed.connect(func(): run_requested.emit(_chk_visualize.button_pressed, _chk_full_explore.button_pressed))
+	# Pass the third toggle state!
+	_btn_run.pressed.connect(func(): run_requested.emit(_chk_visualize.button_pressed, _chk_full_explore.button_pressed, _chk_delay_doors.button_pressed))
 	
 	_btn_stop = Button.new()
 	_btn_stop.text = "Stop"
@@ -48,8 +49,14 @@ func _init() -> void:
 	_chk_full_explore.button_pressed = false
 	_chk_full_explore.tooltip_text = "If checked, the validator will not stop at the exit. It will explore all side branches until no moves remain."
 	
+	_chk_delay_doors = CheckBox.new()
+	_chk_delay_doors.text = "Exhaustive Exploration (Delay Doors)"
+	_chk_delay_doors.button_pressed = false
+	_chk_delay_doors.tooltip_text = "If checked, the validator will explore all available tiles in the current area before unlocking any doors."
+	
 	options_vbox.add_child(_chk_visualize)
 	options_vbox.add_child(_chk_full_explore)
+	options_vbox.add_child(_chk_delay_doors) # [NEW] Added to UI
 	vbox.add_child(options_vbox)
 	
 	var sep = HSeparator.new()

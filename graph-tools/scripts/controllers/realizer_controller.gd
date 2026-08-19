@@ -148,7 +148,6 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseMotion: return
 	
-	# Your exact suggestion: disable the tooltip entirely while generating!
 	if _is_rasterizing or not _realizer or not _realizer.grid or not tile_map_layer:
 		if _tooltip_panel: _tooltip_panel.visible = false
 		return
@@ -165,22 +164,34 @@ func _input(event: InputEvent) -> void:
 		
 	var biome_name = "Default Global"
 	var terrain_type = "Floor"
+	var current_cat_key = "" 
 	
 	if _realizer.floor_to_semantic.has(cell_id):
-		var cat_key = _realizer.floor_to_semantic[cell_id]
-		if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(cat_key):
-			biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][cat_key].name
+		current_cat_key = _realizer.floor_to_semantic[cell_id]
+		if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(current_cat_key):
+			biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][current_cat_key].name
 	else:
 		terrain_type = "Wall"
 		var found = false
 		for floor_key in _realizer.semantic_wall_map:
 			if _realizer.semantic_wall_map[floor_key] == cell_id:
 				if _realizer.floor_to_semantic.has(floor_key):
-					var cat_key = _realizer.floor_to_semantic[floor_key]
-					if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(cat_key):
-						biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][cat_key].name
+					current_cat_key = _realizer.floor_to_semantic[floor_key]
+					if SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].has(current_cat_key):
+						biome_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][current_cat_key].name
 						found = true; break
 		if not found: biome_name = "Default Global"
+			
+	# --- FETCH REGION ID FOR TOOLTIP ---
+	var region_id = -1
+	if _realizer.has_meta("cell_to_region"):
+		var c2r = _realizer.get_meta("cell_to_region")
+		if c2r.has(map_pos):
+			region_id = c2r[map_pos]
+			
+	if region_id != -1:
+		# Formats exactly like the report: "boss:37"
+		biome_name = "%s:%d" % [biome_name.to_lower(), region_id]
 			
 	var entity_str = ""
 	if _realizer.grid.entities.has(map_pos):
@@ -192,13 +203,33 @@ func _input(event: InputEvent) -> void:
 			var req = ent.get("key_type", "")
 			if req != "": entity_str = "\n[Item] : Key (" + req + ")"
 			else: entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
-				
+			
+	# --- ASSEMBLE THE TOOLTIP ---
 	var text = "[ %d, %d ]\n" % [map_pos.x, map_pos.y]
+	
 	if _realizer.has_meta("cell_to_area"):
 		var c2a = _realizer.get_meta("cell_to_area")
 		if c2a.has(map_pos): text += "Area Depth: %d\n" % c2a[map_pos]
 			
+	# Distance and Status debugging
+	var dist = _realizer.distance_field.get(map_pos, 0)
+	text += "Wall Distance: %d\n" % dist
+	
+	var cell_status = []
+	if _realizer.critical_path_cells.has(map_pos): cell_status.append("Critical Path")
+	if _realizer.reserved_cells.has(map_pos): cell_status.append("Reserved")
+	if not cell_status.is_empty():
+		text += "Status: %s\n" % ", ".join(cell_status)
+			
 	text += "Biome: %s\n" % biome_name
+	
+	# Conditionally list active overrides!
+	if current_cat_key != "" and _biome_params.has(current_cat_key):
+		var b_data = _biome_params[current_cat_key]
+		if b_data.get("override_shape", false): text += "  ↳ Room Shapes Overridden\n"
+		if b_data.get("override_routing", false): text += "  ↳ Routing & CA Overridden\n"
+		if b_data.get("override_spawn_decks", false): text += "  ↳ Spawn Decks Overridden\n"
+	
 	text += "Terrain: %s" % terrain_type
 	if entity_str != "": text += entity_str
 		
@@ -365,7 +396,7 @@ func _on_rasterization_finished() -> void:
 # ==============================================================================
 # VALIDATION ENGINE
 # ==============================================================================
-func _on_validation_run_requested(visualize: bool, full_explore: bool) -> void:
+func _on_validation_run_requested(visualize: bool, full_explore: bool, delay_doors: bool) -> void:
 	if _is_rasterizing: return
 	if not _realizer or not _realizer.grid:
 		_validation_tab.append_log("[color=red]Error: Rasterize the graph first.[/color]")
@@ -384,16 +415,15 @@ func _on_validation_run_requested(visualize: bool, full_explore: bool) -> void:
 		if child.is_in_group("validator_overlay"): child.queue_free()
 
 	_validator_thread = Thread.new()
-	# [FIXED] Pass full_explore into the bound thread
-	_validator_thread.start(_run_validation_thread.bind(_realizer.grid, visualize, full_explore))
+	_validator_thread.start(_run_validation_thread.bind(_realizer.grid, visualize, full_explore, delay_doors))
 
-func _run_validation_thread(grid: GridData, visualize: bool, full_explore: bool) -> void:
+func _run_validation_thread(grid: GridData, visualize: bool, full_explore: bool, delay_doors: bool) -> void:
 	var emit_func = func(type: String, data: Variant = null):
 		call_deferred("_on_validation_event", type, data)
 	var cancel_func = func() -> bool: return _cancel_validation
 		
 	# Pass it down to the validator script
-	var result = GenerationValidator.run(grid, visualize, full_explore, emit_func, cancel_func)
+	var result = GenerationValidator.run(grid, visualize, full_explore, delay_doors, emit_func, cancel_func)
 	call_deferred("_on_validation_finished", result)
 
 func _on_validation_stop_requested() -> void:

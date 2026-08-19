@@ -112,6 +112,7 @@ script = ExtResource("8_i30wh")
 graph_editor = NodePath("../GraphEditor")
 tile_map_layer = NodePath("../TileMapLayer")
 ui_container = NodePath("../UI/MainLayout/Workspace/Sidebar/Margin/TabContainer/Realizer/ScrollContainer/UIContainer")
+floor_source_id = null
 
 [node name="InspectorController" type="Node" parent="." node_paths=PackedStringArray("graph_editor", "strategy_controller", "inspector_vbox", "lbl_no_selection", "node_container", "zone_container", "agent_container", "edge_container")]
 script = ExtResource("5_5u163")
