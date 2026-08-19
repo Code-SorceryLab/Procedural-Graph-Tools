@@ -26,8 +26,8 @@ var core_path_cells: Dictionary = {} # Protects the absolute center of the hallw
 var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
 var distance_field: Dictionary = {} # Stores Vector2i -> Int
 
-func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Callable()) -> GridData:
-	var start_time = Time.get_ticks_msec() # [NEW] Start the clock!
+func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progress_callback: Callable = Callable()) -> GridData:
+	var start_time = Time.get_ticks_msec() 
 	
 	_scale_factor = params.get("grid_scale", 50.0) 
 	_padding = params.get("padding", 10)
@@ -44,7 +44,6 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	floor_to_semantic.clear()
 	distance_field.clear()
 	
-	# Register Floors AND Walls for Semantic Types
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
 	for cat_key in node_cats:
 		var s_floor = palette.register_tile("Floor_" + cat_key, { "walkable": true })
@@ -65,9 +64,6 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	
 	grid = GridData.new(grid_w, grid_h, palette)
 	
-	# ==========================================================================
-	# THE SNAPSHOT EMITTER
-	# ==========================================================================
 	var emit = func(step_name: String):
 		if progress_callback.is_valid():
 			var cells_copy = grid.cells.duplicate()
@@ -96,25 +92,21 @@ func realize(graph: Graph, params: Dictionary, progress_callback: Callable = Cal
 	DistanceMapper.map(self)
 	emit.call("Mapping Distance Fields")
 	
-	StructurePlacer.place(graph, self, params)
+	StructurePlacer.place(graph, self, params, shopping_lists)
 	emit.call("Placing Structures")
 	
 	ProgressionSolver.analyze(self, params, emit) 
 	emit.call("Progression Analysis Complete")
 	
-	EntityScatterer.scatter(graph, self, params)
+	EntityScatterer.scatter(graph, self, params, shopping_lists)
 	emit.call("Scattering Props & Entities")
 	
 	WallGenerator.generate(self, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
 	
-	# ==========================================================================
-	# ANALYTICS & METADATA PACKAGING
-	# ==========================================================================
-	# Run a headless validation pass (visualize = false, full_explore = true)
+	# Run a headless validation pass
 	var val_results = GenerationValidator.run(grid, false, true, Callable(), Callable())
 	
-	# Merge the metadata with the existing Progression Report
 	var final_report = {}
 	if self.has_meta("progression_report"):
 		final_report = self.get_meta("progression_report")

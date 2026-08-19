@@ -1,148 +1,51 @@
 class_name StructurePlacer
 extends RefCounted
 
-static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> void:
+static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, shopping_lists: Dictionary) -> void:
 	var grid = realizer.grid
-	var biome_overrides = params.get("biomes", {})
+	# (We no longer load biome_overrides here, the DistributionEngine handled it!)
 	var master_seed = SeedUtils.hash_seed(str(params.get("realizer_seed", "default")) + "_structure")
 	var rng = RandomNumberGenerator.new()
 	
 	var custom_structures = ConfigManager.load_structures()
-	if custom_structures.is_empty(): return
+	if custom_structures.is_empty() or shopping_lists.is_empty(): return
 	
 	var valid_floors = {}
 	for id in grid.palette._definitions:
 		if grid.palette.get_data(id).get("walkable", false):
 			valid_floors[id] = true
 			
-	# --- GLOBAL TRACKERS ---
-	var global_struct_tracker = {} # Tracks individual structures
-	var global_biome_tracker = {}  # Tracks total structures per biome
-	
 	var node_ids = graph.nodes.keys().duplicate()
 	var node_rng = RandomNumberGenerator.new()
 	node_rng.seed = master_seed
 	var shuffled_nodes = []
-	var biome_node_counts = {}
 	
 	while node_ids.size() > 0:
-		var n_id = node_ids.pop_at(node_rng.randi() % node_ids.size())
-		shuffled_nodes.append(n_id)
-		var n_type = graph.nodes[n_id].type
-		biome_node_counts[n_type] = biome_node_counts.get(n_type, 0) + 1
-		
-	var global_nodes_remaining = shuffled_nodes.size()
+		shuffled_nodes.append(node_ids.pop_at(node_rng.randi() % node_ids.size()))
 			
 	for node_id in shuffled_nodes:
 		var node = graph.nodes[node_id]
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
-		if center == Vector2i.ZERO: 
-			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
-			continue
+		if center == Vector2i.ZERO: continue
 		
 		var target_floor_id = grid.get_cell(center.x, center.y)
 		if not valid_floors.has(target_floor_id):
 			target_floor_id = realizer.floor_id 
 		
-		var effective_params = params.duplicate()
-		var is_overridden = false
-		if biome_overrides.has(node.type):
-			effective_params.merge(biome_overrides[node.type], true)
-			is_overridden = biome_overrides[node.type].get("override_structures", false)
-			
-		if not effective_params.get("spawn_structure", false):
-			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
-			continue
-			
+		# --- [NEW] FETCH SHOPPING LIST ---
+		var room_list = shopping_lists.get(node_id, [])
+		var intents = []
+		for item in room_list:
+			if item["type"] == "structure" and custom_structures.has(item["ref_id"]):
+				intents.append(item)
+				
+		if intents.is_empty(): continue
+		
 		rng.seed = SeedUtils.hash_seed(str(master_seed) + "_" + str(node_id))
 		
-		# --- CAPS & LIMITS ---
-		var master_per_room = int(effective_params.get("master_struct_per_room", 1))
-		var master_per_biome = int(effective_params.get("master_struct_per_biome", 0))
-		var biome_tracker_key = node.type if is_overridden else "global"
-		var nodes_left = biome_node_counts[node.type] if is_overridden else global_nodes_remaining
-		
-		# CIRCUIT BREAKER 1: Have we hit the biome-wide Master Cap?
-		if master_per_biome > 0 and global_biome_tracker.get(biome_tracker_key, 0) >= master_per_biome:
-			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
-			continue
-		
-		var use_density = effective_params.get("structure_use_density", false)
-		
-		var force_pool = []
-		var rng_pool = []
-		var total_weight = 0
-		
-		# --- BUILD THE DECK ---
-		for key in custom_structures:
-			var tracker_key = key + "_" + biome_tracker_key
-			var spawned = global_struct_tracker.get(tracker_key, 0)
-			
-			# CIRCUIT BREAKER 2: Individual Structure Max Cap
-			var max_s = int(effective_params.get("struct_max_spawns_" + key, 0))
-			if max_s > 0 and spawned >= max_s: continue 
-			
-			# CIRCUIT BREAKER 3: Guaranteed Minimums
-			var min_s = int(effective_params.get("struct_min_spawns_" + key, 0))
-			var needed = min_s - spawned
-			
-			if needed > 0 and needed >= nodes_left:
-				force_pool.append(key) # Must spawn NOW to fulfill minimum quota
-			else:
-				if use_density:
-					var d = float(effective_params.get("density_" + key, 0.0))
-					if d > 0.001: rng_pool.append({"id": key, "density": d})
-				else:
-					var w = int(effective_params.get("weight_" + key, 0))
-					if w > 0: 
-						rng_pool.append({"id": key, "weight": w})
-						total_weight += w
-
-		var intents = []
-		
-		# 1. Fill slots with Forced Minimums first
-		for key in force_pool:
-			if intents.size() >= master_per_room: break
-			intents.append(key)
-			
-		var remaining_slots = master_per_room - intents.size()
-		
-		# 2. Fill remaining slots organically
-		if remaining_slots > 0:
-			if use_density:
-				var valid_rng_pool = []
-				for item in rng_pool:
-					if rng.randf() < item["density"]: valid_rng_pool.append(item["id"])
-				valid_rng_pool.shuffle()
-				
-				for key in valid_rng_pool:
-					if intents.size() >= master_per_room: break
-					intents.append(key)
-			else:
-				for i in range(remaining_slots):
-					if total_weight <= 0: break
-					var roll = rng.randi() % total_weight
-					var current_w = 0
-					var chosen_idx = -1
-					for j in range(rng_pool.size()):
-						current_w += rng_pool[j]["weight"]
-						if roll < current_w:
-							chosen_idx = j
-							break
-					if chosen_idx >= 0:
-						var chosen_item = rng_pool[chosen_idx]
-						intents.append(chosen_item["id"])
-						total_weight -= chosen_item["weight"]
-						rng_pool.remove_at(chosen_idx)
-						
-		if intents.is_empty(): 
-			_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
-			continue
-			
-		intents.shuffle()
-		
-		# --- 2. EVALUATE INTENTS ---
-		for key in intents:
+		# --- EVALUATE INTENTS ---
+		for item in intents:
+			var key = item["ref_id"]
 			var struct_data = custom_structures[key]
 			var raw_footprint: Array = struct_data.get("footprint", [])
 			if raw_footprint.is_empty(): continue
@@ -150,13 +53,13 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 			var allow_rotation = struct_data.get("allow_rotation", true)
 			var face_path = struct_data.get("face_path", true)
 			var front_dir = struct_data.get("front_dir", Vector2i.UP)
-			var min_dist = int(effective_params.get("struct_min_dist_" + key, 0))
-			var max_dist = int(effective_params.get("struct_max_dist_" + key, 99))
 			
-			# Fetch symmetry on a PER STRUCTURE basis
-			var sym_mode = int(effective_params.get("struct_symmetry_" + key, 0))
+			# [NEW] Pull placement constraints directly from the Shopping List item!
+			var min_dist = item.get("min_dist", 0)
+			var max_dist = item.get("max_dist", 99)
+			var sym_mode = item.get("symmetry", 0)
 			
-			var max_r = int(node.custom_data.get("room_radius", effective_params.get("room_radius_max", 4))) + 2
+			var max_r = int(node.custom_data.get("room_radius", params.get("room_radius_max", 4))) + 2
 			var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
 			
 			var valid_placements = []
@@ -236,14 +139,7 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 			var chosen_group = SeedUtils.pick_random(valid_groups, rng)
 			var group_size = chosen_group.size()
 			
-			# [NEW] Cap Verification - Ensure the symmetrical burst fits the remaining quota!
-			var t_key = key + "_" + biome_tracker_key
-			var current_struct_count = global_struct_tracker.get(t_key, 0)
-			var current_biome_count = global_biome_tracker.get(biome_tracker_key, 0)
 			
-			var max_s = int(effective_params.get("struct_max_spawns_" + key, 0))
-			if max_s > 0 and current_struct_count + group_size > max_s: continue # Bursts over the structure cap!
-			if master_per_biome > 0 and current_biome_count + group_size > master_per_biome: continue # Bursts over the biome cap!
 			
 			var group_clear = true
 			for placement in chosen_group:
@@ -257,17 +153,10 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 				for placement in chosen_group:
 					_stamp_structure(placement, raw_footprint, struct_data, node_id, realizer)
 					
-				# [FIXED] Record the ENTIRE group size to the trackers!
-				global_struct_tracker[t_key] = current_struct_count + group_size
-				global_biome_tracker[biome_tracker_key] = current_biome_count + group_size
-
-		_decrement_trackers(node.type, biome_node_counts, global_nodes_remaining)
+				
 
 
 # --- HELPERS ---
-static func _decrement_trackers(n_type: String, biome_node_counts: Dictionary, global_nodes_remaining: int) -> void:
-	biome_node_counts[n_type] -= 1
-	global_nodes_remaining -= 1
 
 static func _get_symmetry_group(p: Dictionary, center: Vector2i, mode: int, can_rotate: bool) -> Array:
 	var group = [p]

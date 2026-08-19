@@ -374,3 +374,59 @@ static func clear_sprite_cache() -> void:
 			if not dir.current_is_dir():
 				dir.remove(file_name)
 			file_name = dir.get_next()
+
+# ==============================================================================
+# SPAWN DECKS (Unified Distribution)
+# ==============================================================================
+static func save_spawn_decks(decks: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	
+	if config.has_section("SpawnDecks"):
+		config.erase_section("SpawnDecks")
+		
+	for key in decks:
+		config.set_value("SpawnDecks", key, decks[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Spawn Decks.")
+
+static func load_spawn_decks() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_decks = {}
+	
+	if err == OK and config.has_section("SpawnDecks"):
+		for key in config.get_section_keys("SpawnDecks"):
+			loaded_decks[key] = config.get_value("SpawnDecks", key)
+			
+	return loaded_decks
+	
+# ==============================================================================
+# GLOBAL GENERATOR PARAMS
+# ==============================================================================
+static func save_global_params(params: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	
+	if config.has_section("GlobalParams"):
+		config.erase_section("GlobalParams")
+		
+	for key in params:
+		config.set_value("GlobalParams", key, params[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Global Params.")
+
+static func load_global_params() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_params = {}
+	
+	if err == OK and config.has_section("GlobalParams"):
+		for key in config.get_section_keys("GlobalParams"):
+			loaded_params[key] = config.get_value("GlobalParams", key)
+			
+	return loaded_params

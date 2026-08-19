@@ -109,18 +109,31 @@ func _ready() -> void:
 	
 	_generator_tab.build(_custom_structures, _params)
 	
+	# --- LOAD GLOBAL PARAMS FIRST ---
+	_params = ConfigManager.load_global_params()
+	_generator_tab.build(_custom_structures, _params)
+	
 	# Instantiate popups
 	_mapping_popup = TileMappingPopup.new(); add_child(_mapping_popup); _mapping_popup.confirmed.connect(_on_mapping_confirmed)
-	
 	_structure_popup = StructureDesignerPopup.new(); add_child(_structure_popup); _structure_popup.confirmed.connect(_on_structure_designer_saved)
 	_interaction_popup = BiomeInteractionPopup.new(); add_child(_interaction_popup); _interaction_popup.confirmed.connect(_on_interaction_popup_saved)
 	_scatter_popup = ScatterDesignerPopup.new(); add_child(_scatter_popup); _scatter_popup.confirmed.connect(_on_scatter_designer_saved)
 	
 	_biome_designer = BiomeDesignerPopup.new()
 	add_child(_biome_designer)
-	_biome_designer.global_settings_changed.connect(func(p): _params = p)
-	_biome_designer.biome_settings_changed.connect(func(b): _biome_params = b; ConfigManager.save_biome_overrides(b))
 	
+	# --- CONNECT THE SAVE SIGNALS ---
+	_biome_designer.global_settings_changed.connect(func(p): 
+		_params = p
+		ConfigManager.save_global_params(p)
+	)
+	_biome_designer.biome_settings_changed.connect(func(b): 
+		_biome_params = b
+		ConfigManager.save_biome_overrides(b)
+	)
+	_biome_designer.spawn_decks_changed.connect(func(d): 
+		ConfigManager.save_spawn_decks(d)
+	)
 	
 	_biome_params = ConfigManager.load_biome_overrides()
 	
@@ -208,11 +221,13 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	# Catch all view toggles and redraw instantly!
 	elif key.begins_with("show_") or key == "debug_routing":
 		_params[key] = value
+		ConfigManager.save_global_params(_params)
 		if not _snapshots.is_empty() and tile_map_layer:
 			_render_overlays(_snapshots[-1]["entities"])
 			
 	else:
 		_params[key] = value
+		ConfigManager.save_global_params(_params)
 
 func _on_mapping_confirmed() -> void:
 	_atlas_mappings = _mapping_popup.mappings.duplicate()
@@ -245,7 +260,7 @@ func _on_scatter_designer_saved() -> void:
 		elif mode == 1 and not _params.has("fixed_quantity_" + key):
 			_params["fixed_quantity_" + key] = _scatter_sets[key].get("fixed_quantity", 1)
 
-# --- [NEW] DATA FIREWALL ---
+# --- DATA FIREWALL ---
 # Strips out any stale settings from disabled tabs before generation!
 func _build_filtered_biomes() -> Dictionary:
 	var filtered = {}
@@ -265,20 +280,13 @@ func _build_filtered_biomes() -> Dictionary:
 			for k in routing_keys:
 				if b_data.has(k): clean_data[k] = b_data[k]
 				
-		# 3. Structures
-		if b_data.get("override_structures", false):
-			clean_data["override_structures"] = true 
-			for k in b_data:
-				if k in ["spawn_structure", "structure_use_density", "structure_symmetry", "master_struct_per_room", "master_struct_per_biome"] or k.begins_with("weight_") or k.begins_with("density_") or k.begins_with("struct_"):
-					clean_data[k] = b_data[k]
-					
-		# 4. Scatter Sets
-		if b_data.get("override_scatter", false):
-			clean_data["override_scatter"] = true # Pass the flag down!
-			for k in b_data:
-				if k.begins_with("scatter_"):
-					clean_data[k] = b_data[k]
-					
+		# 3. Spawn Decks
+		if b_data.get("override_spawn_decks", false):
+			clean_data["override_spawn_decks"] = true
+			clean_data["override_enabled"] = true
+			if b_data.has("spawn_decks"):
+				clean_data["spawn_decks"] = b_data["spawn_decks"]
+				
 		# Only append if this biome actually has active overrides
 		if not clean_data.is_empty():
 			filtered[b_key] = clean_data
@@ -299,7 +307,6 @@ func _on_rasterize_pressed() -> void:
 		_cancel_validation = true
 		_validator_thread.wait_to_finish()
 
-	# [FIXED] Pass the data through the firewall!
 	_params["biomes"] = _build_filtered_biomes()
 		
 	_snapshots.clear()
@@ -308,7 +315,6 @@ func _on_rasterize_pressed() -> void:
 	_report_tab.set_loading()
 	_validation_tab.clear_logs()
 	
-	# Clear visual overlays, including old validator paints
 	for child in tile_map_layer.get_children():
 		if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path") or child.is_in_group("validator_overlay"):
 			child.queue_free()
@@ -318,11 +324,18 @@ func _on_rasterize_pressed() -> void:
 	
 	if _raster_thread and _raster_thread.is_started():
 		_raster_thread.wait_to_finish()
+		
+	# --- [NEW] GENERATE THE SHOPPING LISTS ---
+	var global_decks = ConfigManager.load_spawn_decks()
+	var seed_str = str(_params.get("realizer_seed", "default"))
+	var shopping_lists = DistributionEngine.generate_shopping_lists(graph, global_decks, _biome_params, seed_str)
+	
 	_raster_thread = Thread.new()
-	_raster_thread.start(_run_rasterization_thread.bind(graph, _params))
+	# Pass the shopping list into the thread binding
+	_raster_thread.start(_run_rasterization_thread.bind(graph, _params, shopping_lists))
 
-func _run_rasterization_thread(graph: Graph, params: Dictionary) -> void:
-	_realizer.realize(graph, params, _on_snapshot_received)
+func _run_rasterization_thread(graph: Graph, params: Dictionary, shopping_lists: Dictionary) -> void:
+	_realizer.realize(graph, params, shopping_lists, _on_snapshot_received)
 	call_deferred("_on_rasterization_finished")
 
 func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, w: int, h: int) -> void:
