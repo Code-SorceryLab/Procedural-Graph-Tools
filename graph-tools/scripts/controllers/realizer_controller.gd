@@ -189,9 +189,14 @@ func _input(event: InputEvent) -> void:
 		if c2r.has(map_pos):
 			region_id = c2r[map_pos]
 			
+	# Check if this region is a marked Vault
+	var is_vault = false
+	if region_id != -1 and _realizer.has_meta("vault_regions"):
+		var vr = _realizer.get_meta("vault_regions")
+		if vr.has(region_id): is_vault = true
+			
 	if region_id != -1:
-		# Formats exactly like the report: "boss:37"
-		biome_name = "%s:%d" % [biome_name.to_lower(), region_id]
+		biome_name = "%s:%d%s" % [biome_name.to_lower(), region_id, " [Optional Vault]" if is_vault else ""]
 			
 	var entity_str = ""
 	if _realizer.grid.entities.has(map_pos):
@@ -201,8 +206,13 @@ func _input(event: InputEvent) -> void:
 		elif e_type == "door": entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
 		else:
 			var req = ent.get("key_type", "")
-			if req != "": entity_str = "\n[Item] : Key (" + req + ")"
-			else: entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
+			if req != "": 
+				# Append the placement method
+				var p_method = ent.get("placement_method", "")
+				entity_str = "\n[Item] : Key (" + req + ")"
+				if p_method != "": entity_str += " [" + p_method + "]"
+			else: 
+				entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
 			
 	# --- ASSEMBLE THE TOOLTIP ---
 	var text = "[ %d, %d ]\n" % [map_pos.x, map_pos.y]
@@ -603,16 +613,28 @@ func _render_overlays(entities: Dictionary) -> void:
 					tile_map_layer.add_child(pt_rect)
 			else:
 				var rect = ColorRect.new()
+				
+				# --- DYNAMIC COLOR PARSING ---
 				if e_type == "door":
 					var l_type = entity_data.get("lock_type", "Unlocked")
-					var c_map = {"Unlocked": Color(0.8, 0.5, 0.2, 0.9), "Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-					rect.color = c_map.get(l_type, Color(0.8, 0.5, 0.2, 0.9))
+					if l_type == "Unlocked": 
+						rect.color = Color(0.8, 0.5, 0.2, 0.9)
+					elif l_type.begins_with("Tier"): 
+						rect.color = Color(0.7, 0.7, 0.7, 0.9) # Silver/Gray for Tier Doors
+					else: 
+						# Godot 4 parses X11 string names dynamically!
+						rect.color = Color.from_string(l_type, Color(0.8, 0.5, 0.2, 0.9))
+						
 				elif e_type == "start_point": rect.color = Color(0.2, 1.0, 0.2, 0.9)
 				elif e_type == "end_point": rect.color = Color(1.0, 0.2, 0.2, 0.9)
+				
 				elif e_type == "key":
 					var k_col = entity_data.get("key_type", "Red")
-					var c_map = {"Red": Color.RED, "Blue": Color.BLUE, "Green": Color.GREEN, "Yellow": Color.YELLOW, "Purple": Color.PURPLE, "Cyan": Color.CYAN, "Orange": Color.ORANGE}
-					rect.color = Color.WHITE if k_col.begins_with("Tier") else c_map.get(k_col, Color.WHITE)
+					if k_col.begins_with("Tier"): 
+						rect.color = Color.WHITE
+					else: 
+						rect.color = Color.from_string(k_col, Color.WHITE)
+						
 				elif e_type == "fringe": rect.color = Color(0.2, 0.9, 0.2, 0.8)
 				else: rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
 				

@@ -141,18 +141,37 @@ func _format_report(data: Dictionary) -> String:
 	var locks = prog.get("locks", [])
 	var keys = prog.get("keys", [])
 	
-	# Calculate Fallbacks manually from the keys array
+	var critical_locks = prog.get("critical_locks", [])
+	var vault_locks = prog.get("vault_locks", [])
+	
+	# Render the Progression Settings Block
+	var p_set = prog.get("settings", {})
+	if not p_set.is_empty():
+		s += "[b]Progression Settings[/b]\n"
+		s += "  Lock Chance: %.2f\n" % p_set.get("lock_chance", 0.0)
+		s += "  Max Critical Locks: %s\n" % (str(p_set.get("max_locks")) if p_set.get("max_locks", 0) > 0 else "Unlimited")
+		s += "  Max Optional Vaults: %d\n" % p_set.get("max_vaults", 0)
+		s += "  Key Style Ratio: %.2f (0:Tiers, 1:Colors)\n" % p_set.get("style_ratio", 0.0)
+		s += "  Extra Shortcuts: %d - %d\n" % [p_set.get("shortcut_min", 0), p_set.get("shortcut_max", 0)]
+		s += "  Sequence Break Limit: %d\n" % p_set.get("seq_break_limit", 0)
+		s += "  Force Main Detours: %s\n\n" % ("On" if p_set.get("main_path_stash", false) else "Off")
+	
+	# Calculate Placements manually from the keys array metadata
 	var fallback_count = 0
+	var shortcut_count = 0
+	
 	for k in keys:
-		if k.get("placement_method", "") == "fallback":
-			fallback_count += 1
+		var pm = k.get("placement_method", "").to_lower()
+		if pm.contains("fallback"): fallback_count += 1
+		elif pm.contains("shortcut"): shortcut_count += 1
 
 	# Dedicated Metrics Block
 	s += "[b]Progression Metrics[/b]\n"
 	s += "  Areas (Rooms): %d\n" % stats.get("area_count", 0)
 	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
-	s += "  Locks Placed: %d\n" % stats.get("lock_count", locks.size())
-	s += "  Keys Placed: %d\n" % stats.get("key_count", keys.size())
+	s += "  Critical Locks: %d\n" % critical_locks.size()
+	s += "  Optional Vaults: %d\n" % vault_locks.size()
+	s += "  Shortcuts Placed: %d\n" % shortcut_count
 	s += "  Fallback Placements: %d\n" % fallback_count
 	
 	var avg_detour = stats.get("avg_detour_length", 0.0)
@@ -185,8 +204,13 @@ func _format_report(data: Dictionary) -> String:
 			var lock_str = l.get("lock_str", "")
 			var src = l.get("source_region", -1)
 			var dst = l.get("dest_region", -1)
+			
+			var is_vault = vault_locks.has(lock_str)
+			var style_tag = "[color=magenta][Vault][/color]" if is_vault else "[color=cyan][Crit][/color]"
+			
 			var key_regions = _find_key_regions_for_lock(prog, lock_str)
-			s += "  [color=#F44336]%s[/color]: %s → %s" % [lock_str, _format_region(src, region_by_id), _format_region(dst, region_by_id)]
+			s += "  %s [color=#F44336]%s[/color]: %s → %s" % [style_tag, lock_str, _format_region(src, region_by_id), _format_region(dst, region_by_id)]
+			
 			if not key_regions.is_empty():
 				var key_strs = []
 				for x in key_regions: key_strs.append(_format_region(x, region_by_id))

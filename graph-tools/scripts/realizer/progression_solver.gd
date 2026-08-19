@@ -149,7 +149,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	for r in spine_path: spine_regions[r] = true
 
 
-	# --- 5. THE LOCKSMITH (Strict Dependency Chain Simulator) ---
+	# --- 5. THE LOCKSMITH (Advanced Metroidvania Simulator) ---
 	var locked_portals = [] 
 	
 	if not params.get("progression_enabled", true): return
@@ -163,8 +163,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	
 	var current_max_area = 0
 	var region_to_area = { start_region: 0 }
-	
-	var area_entry_locks = {} # [NEW] Tracks the required key for each Security Zone
+	var area_entry_locks = {}
 	
 	var populate_frontier = func(r_id):
 		for p_id in portal_connections:
@@ -174,26 +173,51 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				for c in portal_connections[p_id]:
 					if c != r_id: dest = c; break
 				if dest != -1:
-					# [FIXED] Append ALL doors to the frontier, even if already visited!
 					frontier_edges.append({ "p_id": p_id, "source": r_id, "dest": dest })
 
 	populate_frontier.call(start_region)
 	
-	var key_colors = ["Red", "Blue", "Green", "Yellow", "Purple", "Cyan", "Orange"]
-	var current_tier = 0
-	var generated_locks = []
-	
+	# --- PARAMETERS & CONFIG ---
 	var max_locks = params.get("progression_max_locks", 0) 
 	var lock_chance = params.get("progression_lock_chance", 0.4)
-	
-	# [NEW] Calculate GLOBAL extra keys, rather than per-door!
-	var min_copies = params.get("progression_key_copies_min", 1)
-	var max_copies = params.get("progression_key_copies_max", 2)
-	var global_extra_keys_pool = rng.randi_range(min_copies, max_copies) - 1 
-	global_extra_keys_pool = max(0, global_extra_keys_pool)
-	
-	var locks_placed = 0
+	var max_vaults = params.get("progression_max_vaults", 2)
+	var key_style_ratio = params.get("progression_style_ratio", 0.5)
+	var shortcut_min = params.get("progression_shortcut_min", 0)
+	var shortcut_max = params.get("progression_shortcut_max", 2)
+	var sequence_break_limit = params.get("progression_sequence_break_limit", 2)
 	var main_path_key_stash = params.get("main_path_key_stash", true)
+	
+	# --- MASTER COLOR POOL ---
+	var master_colors = [
+		"AliceBlue", "AntiqueWhite", "Aqua", "Aquamarine", "Azure", "Beige", "Bisque", "BlanchedAlmond", "Blue", "BlueViolet",
+		"Brown", "Burlywood", "CadetBlue", "Chartreuse", "Chocolate", "Coral", "CornflowerBlue", "Cornsilk", "Crimson", "Cyan",
+		"DarkBlue", "DarkCyan", "DarkGoldenrod", "DarkGray", "DarkGreen", "DarkKhaki", "DarkMagenta", "DarkOliveGreen", "DarkOrange", "DarkOrchid",
+		"DarkRed", "DarkSalmon", "DarkSeaGreen", "DarkSlateBlue", "DarkSlateGray", "DarkTurquoise", "DarkViolet", "DeepPink", "DeepSkyBlue", "DimGray",
+		"DodgerBlue", "Firebrick", "FloralWhite", "ForestGreen", "Fuchsia", "Gainsboro", "GhostWhite", "Gold", "Goldenrod", "Gray",
+		"Green", "GreenYellow", "Honeydew", "HotPink", "IndianRed", "Indigo", "Ivory", "Khaki", "Lavender", "LavenderBlush",
+		"LawnGreen", "LemonChiffon", "LightBlue", "LightCoral", "LightCyan", "LightGoldenrod", "LightGray", "LightGreen", "LightPink", "LightSalmon",
+		"LightSeaGreen", "LightSkyBlue", "LightSlateGray", "LightSteelBlue", "LightYellow", "Lime", "LimeGreen", "Linen", "Magenta", "Maroon",
+		"MediumAquamarine", "MediumBlue", "MediumOrchid", "MediumPurple", "MediumSeaGreen", "MediumSlateBlue", "MediumSpringGreen", "MediumTurquoise", "MediumVioletRed", "MidnightBlue",
+		"MintCream", "MistyRose", "Moccasin", "NavajoWhite", "NavyBlue", "OldLace", "Olive", "OliveDrab", "Orange", "OrangeRed",
+		"Orchid", "PaleGoldenrod", "PaleGreen", "PaleTurquoise", "PaleVioletRed", "PapayaWhip", "PeachPuff", "Peru", "Pink", "Plum",
+		"PowderBlue", "Purple", "RebeccaPurple", "Red", "RosyBrown", "RoyalBlue", "SaddleBrown", "Salmon", "SandyBrown", "SeaGreen",
+		"Seashell", "Sienna", "Silver", "SkyBlue", "SlateBlue", "SlateGray", "Snow", "SpringGreen", "SteelBlue", "Tan",
+		"Teal", "Thistle", "Tomato", "Turquoise", "Violet", "WebGray", "WebGreen", "WebMaroon", "WebPurple", "Wheat", "White", "Yellow", "YellowGreen"
+	]
+	
+	var color_pool = master_colors.duplicate()
+	for i in range(color_pool.size() - 1, 0, -1):
+		var j = rng.randi() % (i + 1)
+		var temp = color_pool[i]
+		color_pool[i] = color_pool[j]
+		color_pool[j] = temp
+		
+	var current_tier = 0
+	var critical_locks = []
+	var vault_locks = []
+	var locks_placed = 0
+	var vaults_placed = 0
+	var vault_regions = {} # Track which regions become vaults
 
 	while frontier_edges.size() > 0:
 		var e_idx = rng.randi() % frontier_edges.size()
@@ -217,13 +241,12 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		if processed_portals.has(p_id): continue
 		processed_portals[p_id] = true
 		
-		# --- [NEW] LOOP & SHORTCUT SYNCHRONIZATION ---
+		# --- SHORTCUT SYNCHRONIZATION ---
 		if visited_regions.has(next_region):
 			var area_source = region_to_area.get(source_region, 0)
 			var area_dest = region_to_area.get(next_region, 0)
 			
 			if area_source != area_dest:
-				# This door connects two different Security Zones! Lock it with the harder key.
 				var deeper_area = max(area_source, area_dest)
 				if area_entry_locks.has(deeper_area):
 					var sync_lock = area_entry_locks[deeper_area]
@@ -231,14 +254,17 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 						"source_region": source_region, "next_region": next_region,
 						"lock_str": sync_lock, "forge_new_key": false
 					})
-					for pos in portals[p_id]:
-						grid.entities[pos]["lock_type"] = sync_lock
-						
+					for pos in portals[p_id]: grid.entities[pos]["lock_type"] = sync_lock
 					if emit.is_valid(): emit.call("Solver: Synced Shortcut Door (" + sync_lock + ")")
 			continue
-		# ---------------------------------------------
 		
 		var is_end_finale = (next_region == end_region)
+		var is_leaf = (region_adj[next_region].size() == 1)
+		var is_vault = false
+		
+		if is_leaf and not is_end_finale and vaults_placed < max_vaults:
+			is_vault = true
+			
 		var lock_it = false
 		var forge_new_key = false
 		var lock_str = ""
@@ -248,44 +274,59 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		for r in accessible_regions:
 			if not regions_with_keys.has(r):
 				empty_stash_spots.append(r)
-				if main_path_key_stash and not spine_regions.has(r):
-					empty_branches.append(r)
+				if main_path_key_stash and not spine_regions.has(r): empty_branches.append(r)
 		
+		# --- FORK LOGIC ---
 		if is_end_finale:
 			lock_it = true
 			forge_new_key = false
-			if generated_locks.size() > 0: lock_str = generated_locks[-1] 
+			if critical_locks.size() > 0: lock_str = critical_locks[-1] 
 			else: forge_new_key = true 
+				
+		elif is_vault:
+			lock_it = true
+			if empty_stash_spots.size() > 0: forge_new_key = true 
+			else:
+				forge_new_key = false
+				if vault_locks.size() > 0: lock_str = SeedUtils.pick_random(vault_locks, rng)
+				else: lock_it = false
 				
 		elif (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
 			lock_it = true
 			if empty_stash_spots.size() > 0: forge_new_key = true 
 			else:
 				forge_new_key = false
-				if generated_locks.size() > 0: lock_str = SeedUtils.pick_random(generated_locks, rng)
+				if critical_locks.size() > 0: lock_str = SeedUtils.pick_random(critical_locks, rng)
 				else: lock_it = false
 					
 		if lock_it:
+			var placement_tag = "Critical Progression"
+			
 			if forge_new_key:
-				var can_color = key_colors.size() > 0
-				if not can_color or rng.randf() > 0.5:
+				# Style Ratio Roll
+				if rng.randf() < key_style_ratio and color_pool.size() > 0:
+					lock_str = color_pool.pop_front()
+				else:
 					var tier_jump = 1
 					if rng.randf() < 0.20: tier_jump = 2
 					current_tier += tier_jump
 					lock_str = "Tier " + str(current_tier)
-				else:
-					lock_str = key_colors.pop_front()
 					
-				generated_locks.append(lock_str)
-				locks_placed += 1
-				
-				# [FIXED] Spawn EXACTLY ONE key to form the primary chain
+				if is_vault:
+					vault_locks.append(lock_str)
+					vaults_placed += 1
+					placement_tag = "Optional Vault"
+					vault_regions[next_region] = true # Tag the region
+				else:
+					critical_locks.append(lock_str)
+					locks_placed += 1
+					
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
 				var chosen_region = SeedUtils.pick_random(target_pool, rng)
 				
 				var key_dropped = false
 				if chosen_region != null:
-					if _spawn_marker([chosen_region], "key", lock_str, regions, realizer, rng, "Exclusive Room"):
+					if _spawn_marker([chosen_region], "key", lock_str, regions, realizer, rng, placement_tag):
 						key_dropped = true
 						regions_with_keys[chosen_region] = true
 						
@@ -297,9 +338,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				"lock_str": lock_str, "forge_new_key": forge_new_key
 			})
 
-			for pos in portals[p_id]:
-				grid.entities[pos]["lock_type"] = lock_str
-				
+			for pos in portals[p_id]: grid.entities[pos]["lock_type"] = lock_str
 			if emit.is_valid(): emit.call("Solver: Secured Door (" + lock_str + ")")
 
 		# --- SIMULATE UNLOCKING ---
@@ -308,63 +347,85 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		
 		var assigned_area = region_to_area[source_region]
 		
-		# [FIXED] Trigger a new Security Zone on ANY lock, guaranteeing distinct Area IDs
-		if lock_it: 
+		# [FIXED] Vaults are side-rooms, they inherit the Security Zone of the hall outside!
+		# Only critical path locks advance the Security Zone math.
+		if lock_it and forge_new_key and not is_vault: 
 			current_max_area += 1
 			assigned_area = current_max_area
-			area_entry_locks[assigned_area] = lock_str # Save the key required for this zone!
+			area_entry_locks[assigned_area] = lock_str
 			
 		region_to_area[next_region] = assigned_area
 		populate_frontier.call(next_region)
 		
-	# --- [NEW] BONUS: GLOBAL SHORTCUT KEYS ---
-	# We have finished the main puzzle chain. Now drop the global requested extra copies!
-	if global_extra_keys_pool > 0 and generated_locks.size() > 0:
-		for i in range(global_extra_keys_pool):
-			var bonus_lock = SeedUtils.pick_random(generated_locks, rng)
-			
+	# --- [NEW] CONTROLLED SEQUENCE BREAKS (Shortcuts) ---
+	var num_shortcuts = rng.randi_range(shortcut_min, shortcut_max)
+	if num_shortcuts > 0 and critical_locks.size() > 0:
+		for i in range(num_shortcuts):
 			var empty_spots = []
 			for r in accessible_regions:
 				if not regions_with_keys.has(r): empty_spots.append(r)
 				
 			if empty_spots.size() > 0:
 				var bonus_region = SeedUtils.pick_random(empty_spots, rng)
-				if _spawn_marker([bonus_region], "key", bonus_lock, regions, realizer, rng, "Extra Shortcut Key"):
+				var current_room_area = region_to_area.get(bonus_region, 0)
+				
+				# Advance Area ID by the Break Limit
+				var target_area = current_room_area + rng.randi_range(1, max(1, sequence_break_limit))
+				
+				var bonus_lock = ""
+				if area_entry_locks.has(target_area):
+					bonus_lock = area_entry_locks[target_area]
+				else:
+					# Target area is beyond the end, so just give them the ultimate key!
+					bonus_lock = critical_locks[-1] 
+					
+				if _spawn_marker([bonus_region], "key", bonus_lock, regions, realizer, rng, "Shortcut"):
 					regions_with_keys[bonus_region] = true
 			else:
-				_spawn_marker(accessible_regions, "key", bonus_lock, regions, realizer, rng, "Fallback Shortcut")
+				_spawn_marker(accessible_regions, "key", SeedUtils.pick_random(critical_locks, rng), regions, realizer, rng, "Fallback Shortcut")
 
 	# --- CLEANUP: ASSIGN REMAINING ROOMS ---
-	# Ensure rooms discovered after we hit the max_locks cap still get assigned an Area ID
 	for r_id in regions:
 		if not region_to_area.has(r_id):
-			# If it doesn't have an area, inherit from a neighbor!
 			var assigned = false
 			if region_adj.has(r_id):
 				for neighbor in region_adj[r_id]:
 					if region_to_area.has(neighbor):
 						region_to_area[r_id] = region_to_area[neighbor]
-						assigned = true
-						break
-			if not assigned: region_to_area[r_id] = 0 # Fallback to Area 0
+						assigned = true; break
+			if not assigned: region_to_area[r_id] = 0
 
 	# --- 6. EXPORT METADATA ---
 	var cell_to_area = {}
 	for pos in cell_to_region:
 		var r_id = cell_to_region[pos]
-		if region_to_area.has(r_id):
-			cell_to_area[pos] = region_to_area[r_id]
+		if region_to_area.has(r_id): cell_to_area[pos] = region_to_area[r_id]
 			
 	realizer.set_meta("cell_to_area", cell_to_area)
-	
-	# [NEW] Export the Region Map directly so the Tooltip can see it!
 	realizer.set_meta("cell_to_region", cell_to_region)
+	realizer.set_meta("vault_regions", vault_regions) # Export Vault Regions
 	
 	# --- BUILD PROGRESSION REPORT ---
 	var progression_report = _build_progression_report(
 		start_region, end_region, regions, region_depth, region_adj, spine_path, 
 		spine_regions, region_to_area, cell_to_region, locked_portals, grid, realizer
 	)
+	
+	progression_report["critical_locks"] = critical_locks
+	progression_report["vault_locks"] = vault_locks
+	
+	# Package the settings into the report!
+	progression_report["settings"] = {
+		"lock_chance": lock_chance,
+		"max_locks": max_locks,
+		"max_vaults": max_vaults,
+		"style_ratio": key_style_ratio,
+		"shortcut_min": shortcut_min,
+		"shortcut_max": shortcut_max,
+		"seq_break_limit": sequence_break_limit,
+		"main_path_stash": main_path_key_stash
+	}
+	
 	realizer.set_meta("progression_report", progression_report)
 
 # ==============================================================================
