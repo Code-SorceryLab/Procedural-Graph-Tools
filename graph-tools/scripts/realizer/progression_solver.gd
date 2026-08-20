@@ -115,9 +115,35 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	if emit.is_valid(): emit.call("Solver: Mapped Region Connectivity")
 
-	# --- 4. START & END POINTS (Cascading Logic) ---
+	# --- 4. START & END POINTS (Connected Component Floodfill) ---
 	if regions.is_empty(): return
 	
+	# [NEW] 1. Find the Largest Connected Component
+	var visited_components = {}
+	var largest_component = []
+	
+	for r_id in regions.keys():
+		if visited_components.has(r_id): continue
+		
+		var current_comp = []
+		var queue = [r_id]
+		visited_components[r_id] = true
+		
+		while queue.size() > 0:
+			var curr = queue.pop_front()
+			current_comp.append(curr)
+			for neighbor in region_adj.get(curr, []):
+				if not visited_components.has(neighbor):
+					visited_components[neighbor] = true
+					queue.append(neighbor)
+					
+		if current_comp.size() > largest_component.size():
+			largest_component = current_comp
+			
+	# The valid pool is now strictly the largest contiguous graph of rooms!
+	var valid_regions = largest_component
+	if valid_regions.is_empty(): valid_regions = regions.keys() # Absolute failsafe
+
 	var pref_start = params.get("progression_preferred_start", "Any")
 	var pref_end = params.get("progression_preferred_end", "Any")
 	
@@ -127,10 +153,6 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			var cid = grid.get_cell(pos.x, pos.y)
 			if realizer.floor_to_semantic.has(cid): b_dict[realizer.floor_to_semantic[cid]] = true
 		return b_dict
-
-	# [FIXED] The Master Filter: A room MUST have at least 1 door to be a valid objective!
-	var valid_regions = regions.keys().filter(func(r): return region_adj.has(r) and region_adj[r].size() > 0)
-	if valid_regions.is_empty(): valid_regions = regions.keys() # Absolute failsafe
 
 	# START REGION
 	var start_region = -1
@@ -156,27 +178,35 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var end_region = -1
 	var end_tag = "Fallback (Random)"
 	
-	if pref_end != "Any":
-		var leaf_matches = end_candidates.filter(func(r): return region_adj[r].size() == 1 and get_r_biomes.call(r).has(pref_end))
-		if leaf_matches.size() > 0:
-			end_region = SeedUtils.pick_random(leaf_matches, rng)
-			end_tag = "Preferred Leaf"
-		else:
-			var cycle_matches = end_candidates.filter(func(r): return get_r_biomes.call(r).has(pref_end))
-			if cycle_matches.size() > 0:
-				end_region = SeedUtils.pick_random(cycle_matches, rng)
-				end_tag = "Preferred Cycle Node"
-				
-	if end_region == -1 and end_candidates.size() > 0:
-		var leaves = end_candidates.filter(func(r): return region_adj[r].size() == 1)
-		if leaves.size() > 0:
-			end_region = SeedUtils.pick_random(leaves, rng)
-			end_tag = "Fallback Leaf"
-		else:
-			end_region = SeedUtils.pick_random(end_candidates, rng)
-			end_tag = "Fallback Cycle Node"
+	if end_candidates.is_empty():
+		# [FIXED] Single-Room Graph! Safely put the End Point in the Start Room.
+		end_region = start_region
+		end_tag = "Fallback (Single Room Graph)"
+	else:
+		if pref_end != "Any":
+			var leaf_matches = end_candidates.filter(func(r): return region_adj[r].size() == 1 and get_r_biomes.call(r).has(pref_end))
+			if leaf_matches.size() > 0:
+				end_region = SeedUtils.pick_random(leaf_matches, rng)
+				end_tag = "Preferred Leaf"
+			else:
+				var cycle_matches = end_candidates.filter(func(r): return get_r_biomes.call(r).has(pref_end))
+				if cycle_matches.size() > 0:
+					end_region = SeedUtils.pick_random(cycle_matches, rng)
+					end_tag = "Preferred Cycle Node"
+					
+		if end_region == -1:
+			var leaves = end_candidates.filter(func(r): return region_adj[r].size() == 1)
+			if leaves.size() > 0:
+				end_region = SeedUtils.pick_random(leaves, rng)
+				end_tag = "Fallback Leaf"
+			else:
+				end_region = SeedUtils.pick_random(end_candidates, rng)
+				end_tag = "Fallback Cycle Node"
 			
 	_spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
+	
+	# _spawn_marker natively reserves the cell, so even if start and end are in the same room, 
+	# they will be placed on different physical tiles!
 	if end_region != -1: _spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
 	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
@@ -583,8 +613,8 @@ static func _build_progression_report(
 		"max_depth": max_depth,
 		"area_count": area_count,
 		"spine_length": spine_path.size(),
-		"start_method": start_method, # [NEW]
-		"end_method": end_method      # [NEW]
+		"start_method": start_method,
+		"end_method": end_method
 	}
 
 	return {

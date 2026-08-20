@@ -65,7 +65,7 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		
 		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "progression_enabled", "label": "Generate Locks & Keys", "type": TYPE_BOOL, "default": true },
-		{ "name": "progression_lock_chance", "label": "Door Lock Chance", "type": TYPE_FLOAT, "default": 0.4, "min": 0.0, "max": 1.0, "step": 0.05 },
+		{ "name": "progression_lock_chance", "label": "Door Lock Chance", "type": TYPE_FLOAT, "default": 1, "min": 0.0, "max": 1.0, "step": 0.05 },
 		{ "name": "progression_max_locks", "label": "Max Critical Locks (0: Unl)", "type": TYPE_INT, "default": 0, "min": 0, "max": 99 },
 		{ "name": "progression_style_ratio", "label": "Key Style (0: Tiers, 1: Colors)", "type": TYPE_FLOAT, "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05 },
 		
@@ -79,9 +79,11 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "progression_sequence_break_limit", "label": "Sequence Break Limit", "type": TYPE_INT, "default": 2, "min": 1, "max": 10 }
 	]
 	
-	# Safely inject missing defaults without overriding user settings
+	# Sync loaded params into the UI schema so the visual sliders update
 	for item in schema:
-		if item.has("default") and not current_params.has(item["name"]):
+		if current_params.has(item["name"]):
+			item["default"] = current_params[item["name"]]
+		elif item.has("default"):
 			current_params[item["name"]] = item["default"]
 			
 	var section = SettingsUIBuilder.create_collapsible_section(vbox, "TileMap Realizer", true)

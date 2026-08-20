@@ -24,16 +24,17 @@ Transformations worth adding:
 
 Maybe the citation dependency feature (Big Task)
 
--Spawn Tile not guaranteed to not be blocked. FIX THIS. We saved a graph for this. Run Default Realizer.
-
 Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 
--Make the rasterizer hover show if a biome has biome configs active.
--Think of Scatterer upgrades given the new sets feature.
--Custom room shapes
+-Make graphCamera zoom towards a lock or key's respective counterpart when that lock/key is double clicked.
+-Make numbered locks and keys display their number.
+
+-Custom room shapes similar to the structureDesigner.
 -Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
+
+-Raster to progression graph generation
 
 
 GRAPH GRAMMAR UPGRADES:

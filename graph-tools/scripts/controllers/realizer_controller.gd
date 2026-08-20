@@ -22,6 +22,13 @@ var _validator_thread: Thread
 var _cancel_validation: bool = false
 var _validator_paint_counter: int = 0 # Tracks chronological flood order for the gradient
 
+# --- LOCK & KEY LINE CACHES ---
+var _ghost_web_layer: Node2D
+var _ghost_tween: Tween
+var _hovered_lock_type: String = ""
+var _door_centers_cache: Dictionary = {} # lock_type -> Array of Vector2
+var _key_centers_cache: Dictionary = {}  # key_type -> Array of Vector2
+
 # --- VIEWS ---
 var _generator_tab: GeneratorTabView
 var _timeline_tab: TimelineTabView
@@ -82,6 +89,9 @@ func _ready() -> void:
 	_custom_structures = ConfigManager.load_structures() 
 	_scatter_sets = ConfigManager.load_scatter_sets() # Load the scatter sets
 	
+	# --- [FIXED] LOAD GLOBAL PARAMS FIRST ---
+	_params = ConfigManager.load_global_params()
+	
 	# ==========================================================================
 	# ATTACH THE DUMB VIEWS
 	# ==========================================================================
@@ -107,10 +117,7 @@ func _ready() -> void:
 	_validation_tab.visualize_toggled.connect(_on_visualize_toggled) 
 	tabs.add_child(_validation_tab)
 	
-	_generator_tab.build(_custom_structures, _params)
-	
-	# --- LOAD GLOBAL PARAMS FIRST ---
-	_params = ConfigManager.load_global_params()
+	# [FIXED] Build exactly once with the loaded parameters!
 	_generator_tab.build(_custom_structures, _params)
 	
 	# Instantiate popups
@@ -199,11 +206,16 @@ func _input(event: InputEvent) -> void:
 		biome_name = "%s:%d%s" % [biome_name.to_lower(), region_id, " [Optional Vault]" if is_vault else ""]
 			
 	var entity_str = ""
+	var new_hover_lock = "" # Track what lock/key we are hovering
+	
 	if _realizer.grid.entities.has(map_pos):
 		var ent = _realizer.grid.entities[map_pos]
 		var e_type = ent.get("type", "Unknown")
-		if e_type == "structure": entity_str = "\n[Structure] : " + ent.get("name", "Custom")
-		elif e_type == "door": entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
+		if e_type == "structure": 
+			entity_str = "\n[Structure] : " + ent.get("name", "Custom")
+		elif e_type == "door": 
+			entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
+			new_hover_lock = ent.get("lock_type", "") # Grab the door's lock type
 		else:
 			var req = ent.get("key_type", "")
 			if req != "": 
@@ -211,8 +223,15 @@ func _input(event: InputEvent) -> void:
 				var p_method = ent.get("placement_method", "")
 				entity_str = "\n[Item] : Key (" + req + ")"
 				if p_method != "": entity_str += " [" + p_method + "]"
+				new_hover_lock = req # Grab the key's lock type
 			else: 
 				entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
+				
+	# Update Ghost Web if the hovered lock type changed!
+	# (If we move the mouse off an entity, new_hover_lock is "", which clears the web!)
+	if new_hover_lock != _hovered_lock_type:
+		_hovered_lock_type = new_hover_lock
+		_draw_ghost_web(_hovered_lock_type)
 			
 	# --- ASSEMBLE THE TOOLTIP ---
 	var text = "[ %d, %d ]\n" % [map_pos.x, map_pos.y]
@@ -550,6 +569,51 @@ func _render_overlays(entities: Dictionary) -> void:
 	var master_vis = _params.get("show_entities", true)
 	if not master_vis: return
 
+	# --- GHOST WEB LAYER SETUP ---
+	if not _ghost_web_layer:
+		_ghost_web_layer = Node2D.new()
+		_ghost_web_layer.z_index = 5 # Float above all entities
+		tile_map_layer.add_child(_ghost_web_layer)
+	
+	_door_centers_cache.clear()
+	_key_centers_cache.clear()
+
+	# --- DOOR & KEY CENTROID PRE-PASS ---
+	var portal_centers = {}
+	var portal_counts = {}
+	var portal_locks = {}
+	
+	for p in entities:
+		var e_type = entities[p].get("type", "")
+		if e_type == "door":
+			var pid = entities[p].get("portal_id", -1)
+			var l_type = entities[p].get("lock_type", "Unlocked")
+			if pid != -1:
+				if not portal_centers.has(pid):
+					portal_centers[pid] = Vector2.ZERO
+					portal_counts[pid] = 0
+					portal_locks[pid] = l_type
+				portal_centers[pid] += Vector2(p)
+				portal_counts[pid] += 1
+				
+		elif e_type == "key":
+			var k_type = entities[p].get("key_type", "")
+			if k_type != "":
+				if not _key_centers_cache.has(k_type): _key_centers_cache[k_type] = []
+				var k_world = Vector2(p) * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
+				_key_centers_cache[k_type].append(k_world)
+				
+	for pid in portal_centers:
+		var center_grid = portal_centers[pid] / float(portal_counts[pid])
+		var center_world = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
+		portal_centers[pid] = center_grid # Save for the labels below
+		
+		var l_type = portal_locks[pid]
+		if not _door_centers_cache.has(l_type): _door_centers_cache[l_type] = []
+		_door_centers_cache[l_type].append(center_world)
+
+	var drawn_door_labels = {}
+
 	for pos in entities:
 		var entity_data = entities[pos]
 		var e_type = entity_data.get("type", "generic_entity")
@@ -599,7 +663,6 @@ func _render_overlays(entities: Dictionary) -> void:
 				tile_map_layer.add_child(sprite)
 
 		# 3. Render Hitboxes & Indicators
-		# Only draw the hitbox if explicitely requested, OR if the entity doesn't have a sprite (Fallback)
 		if show_footprint or (show_sprite and not has_sprite):
 			if e_type == "structure":
 				var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
@@ -613,38 +676,86 @@ func _render_overlays(entities: Dictionary) -> void:
 					tile_map_layer.add_child(pt_rect)
 			else:
 				var rect = ColorRect.new()
+				var label_to_add = null 
+				var pid = -1 # Needed for door labeling
 				
-				# --- DYNAMIC COLOR PARSING ---
 				if e_type == "door":
 					var l_type = entity_data.get("lock_type", "Unlocked")
 					if l_type == "Unlocked": 
 						rect.color = Color(0.8, 0.5, 0.2, 0.9)
-					elif l_type.begins_with("Tier"): 
-						rect.color = Color(0.7, 0.7, 0.7, 0.9) # Silver/Gray for Tier Doors
+					elif l_type.begins_with("Tier "): 
+						rect.color = Color(0.35, 0.35, 0.35, 0.9) # Darker Iron for Contrast
+						
+						# Run exactly once per door clump
+						pid = entity_data.get("portal_id", -1)
+						if pid != -1 and not drawn_door_labels.has(pid):
+							drawn_door_labels[pid] = true
+							
+							label_to_add = Label.new()
+							label_to_add.text = l_type.trim_prefix("Tier ")
+							label_to_add.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+							label_to_add.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+							label_to_add.add_theme_color_override("font_color", Color.WHITE)
+							label_to_add.add_theme_color_override("font_outline_color", Color.BLACK)
+							label_to_add.add_theme_constant_override("outline_size", 16) # Massive outline!
+							label_to_add.add_theme_font_size_override("font_size", 100) # High-res font
 					else: 
-						# Godot 4 parses X11 string names dynamically!
 						rect.color = Color.from_string(l_type, Color(0.8, 0.5, 0.2, 0.9))
 						
 				elif e_type == "start_point": rect.color = Color(0.2, 1.0, 0.2, 0.9)
 				elif e_type == "end_point": rect.color = Color(1.0, 0.2, 0.2, 0.9)
-				
 				elif e_type == "key":
+					rect.color = Color.BLACK # Use the base rect as the border!
+					var inner_rect = ColorRect.new()
+					
 					var k_col = entity_data.get("key_type", "Red")
-					if k_col.begins_with("Tier"): 
-						rect.color = Color.WHITE
-					else: 
-						rect.color = Color.from_string(k_col, Color.WHITE)
+					if k_col.begins_with("Tier "): 
+						inner_rect.color = Color.WHITE
 						
+						label_to_add = Label.new()
+						label_to_add.text = k_col.trim_prefix("Tier ")
+						label_to_add.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+						label_to_add.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+						label_to_add.add_theme_color_override("font_color", Color.BLACK)
+						label_to_add.add_theme_font_size_override("font_size", 100) # High-res font
+					else: 
+						inner_rect.color = Color.from_string(k_col, Color.WHITE)
+						
+					rect.add_child(inner_rect)
 				elif e_type == "fringe": rect.color = Color(0.2, 0.9, 0.2, 0.8)
 				else: rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
 				
+				# Position & Sizing
 				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point"] else (0.4 if e_type == "fringe" else 0.5))
 				rect.size = Vector2(cell_size * s_mult, cell_size * s_mult)
 				var center_offset = (cell_size - rect.size.x) / 2.0
 				rect.position = Vector2(pos.x * cell_size + center_offset, pos.y * cell_size + center_offset)
 				
+				# Scale the key's inner colored square to form a perfect border
+				if rect.get_child_count() > 0 and rect.get_child(0) is ColorRect:
+					var inner = rect.get_child(0)
+					var b_size = max(1.0, cell_size * 0.06) # 6% border width
+					inner.position = Vector2(b_size, b_size)
+					inner.size = rect.size - Vector2(b_size * 2, b_size * 2)
+
 				rect.add_to_group("realizer_entity")
 				tile_map_layer.add_child(rect)
+				
+				# Attach the scaled-down, perfectly centered High-Res label!
+				if label_to_add:
+					label_to_add.size = Vector2(200, 200) # Virtual resolution
+					if e_type == "key":
+						label_to_add.scale = rect.size / 200.0
+						label_to_add.position = rect.position
+					else: # Door label
+						label_to_add.scale = Vector2(cell_size, cell_size) / 200.0
+						var center_grid = portal_centers[pid]
+						var center_world = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
+						label_to_add.position = center_world - (label_to_add.size * label_to_add.scale / 2.0)
+						
+					label_to_add.z_index = 2 # Strictly render over everything
+					label_to_add.add_to_group("realizer_entity")
+					tile_map_layer.add_child(label_to_add)
 
 # ==============================================================================
 # VISUAL RENDERING ENGINES
@@ -727,6 +838,51 @@ func _rebuild_dynamic_tileset_and_mapping() -> void:
 		
 		_active_mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt)
 		_active_mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt)
+
+func _draw_ghost_web(lock_str: String) -> void:
+	if not _ghost_web_layer: return
+	for child in _ghost_web_layer.get_children():
+		child.queue_free()
+		
+	if lock_str == "" or lock_str == "Unlocked": return
+	
+	var key_positions = _key_centers_cache.get(lock_str, [])
+	var door_positions = _door_centers_cache.get(lock_str, [])
+	
+	if key_positions.is_empty() or door_positions.is_empty(): return
+	
+	# Determine Web Color
+	var web_color = Color.WHITE
+	if not lock_str.begins_with("Tier "):
+		web_color = Color.from_string(lock_str, Color.WHITE)
+		
+	# Draw Many-to-Many Connections
+	for k_pos in key_positions:
+		for d_pos in door_positions:
+			var line = Line2D.new()
+			line.add_point(k_pos)
+			line.add_point(d_pos)
+			line.width = 6.0
+			line.default_color = web_color
+			line.modulate.a = 0.5
+			line.antialiased = true
+			
+			var core = Line2D.new()
+			core.add_point(k_pos)
+			core.add_point(d_pos)
+			core.width = 2.0
+			core.default_color = Color.WHITE
+			core.antialiased = true
+			
+			line.add_child(core)
+			_ghost_web_layer.add_child(line)
+			
+	# Start Pulsing Animation
+	if _ghost_tween: _ghost_tween.kill()
+	_ghost_tween = create_tween().set_loops()
+	_ghost_web_layer.modulate.a = 0.2
+	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
+	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 0.2, 0.6).set_trans(Tween.TRANS_SINE)
 
 # ==============================================================================
 # CLEANUP
