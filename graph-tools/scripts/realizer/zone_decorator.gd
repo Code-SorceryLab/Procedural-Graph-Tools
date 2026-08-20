@@ -17,6 +17,8 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 			var id1 = grid.get_cell(p1.x, p1.y)
 			
 			if id1 == TilePalette.VOID_ID: continue
+			# Skip walls entirely!
+			if not grid.palette.get_data(id1).get("walkable", false): continue
 			
 			var biome1 = realizer.floor_to_semantic.get(id1, "default")
 			var is_path_p1 = realizer.critical_path_cells.has(p1)
@@ -33,6 +35,8 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 				
 				var id2 = grid.get_cell(p2.x, p2.y)
 				if id2 == TilePalette.VOID_ID: continue
+				# Skip walls entirely
+				if not grid.palette.get_data(id2).get("walkable", false): continue
 				
 				var biome2 = realizer.floor_to_semantic.get(id2, "default")
 				if biome1 == biome2: continue # Same biome, no seam

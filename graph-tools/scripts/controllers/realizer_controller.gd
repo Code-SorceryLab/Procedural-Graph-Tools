@@ -50,7 +50,9 @@ var _mapping_popup: TileMappingPopup
 var _structure_popup: StructureDesignerPopup
 var _interaction_popup: BiomeInteractionPopup
 var _scatter_popup: ScatterDesignerPopup
+var _custom_room_popup: CustomRoomDesignerPopup
 
+var _custom_rooms: Dictionary = {}
 var _custom_structures: Dictionary = {} 
 var _scatter_sets: Dictionary = {}
 var _procedural_flags: Dictionary = {}
@@ -143,6 +145,7 @@ func _ready() -> void:
 	)
 	
 	_biome_params = ConfigManager.load_biome_overrides()
+	_biome_designer.room_decks_changed.connect(func(d): ConfigManager.save_room_decks(d))
 	
 	var saved_data = ConfigManager.load_rasterizer_mappings()
 	if saved_data.has("mappings") and not saved_data["mappings"].is_empty(): _atlas_mappings.merge(saved_data["mappings"], true)
@@ -150,6 +153,16 @@ func _ready() -> void:
 	if saved_data.has("palette_params"): _palette_params.merge(saved_data["palette_params"], true)
 	_tileset_image_path = saved_data.get("texture_path", "")
 	_tileset_tile_size = saved_data.get("tile_size", Vector2i(16, 16))
+	
+	_custom_rooms = ConfigManager.load_custom_rooms()
+	_custom_room_popup = CustomRoomDesignerPopup.new()
+	_custom_room_popup.hide()
+	add_child(_custom_room_popup)
+	
+	_custom_room_popup.confirmed.connect(func():
+		_custom_rooms = _custom_room_popup.custom_rooms.duplicate(true)
+		ConfigManager.save_custom_rooms(_custom_rooms)
+	)
 
 
 func _input(event: InputEvent) -> void:
@@ -277,6 +290,8 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_open_scatter_designer": _scatter_popup.open()
 	elif key == "btn_biome_interactions": _interaction_popup.open()
 	elif key == "btn_open_biome_designer": _biome_designer.open(_params)
+	elif key == "btn_open_custom_room_designer": 
+		_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms)
 	
 	# Catch all view toggles and redraw instantly!
 	elif key.begins_with("show_") or key == "debug_routing":
@@ -366,7 +381,8 @@ func _on_rasterize_pressed() -> void:
 	if _validator_thread and _validator_thread.is_started():
 		_cancel_validation = true
 		_validator_thread.wait_to_finish()
-
+	
+	_params["custom_rooms"] = _custom_rooms
 	_params["biomes"] = _build_filtered_biomes()
 		
 	_snapshots.clear()
@@ -385,21 +401,29 @@ func _on_rasterize_pressed() -> void:
 	if _raster_thread and _raster_thread.is_started():
 		_raster_thread.wait_to_finish()
 		
-	# --- [NEW] GENERATE THE SHOPPING LISTS ---
-	var global_decks = ConfigManager.load_spawn_decks()
+	# --- [NEW] DUAL DISTRIBUTION PASS ---
 	var seed_str = str(_params.get("realizer_seed", "default"))
-	var shopping_lists = DistributionEngine.generate_shopping_lists(graph, global_decks, _biome_params, seed_str)
+	
+	# Pass 1: Room Shapes & Custom Rooms
+	var global_room_decks = ConfigManager.load_room_decks()
+	var room_lists = DistributionEngine.generate_shopping_lists(graph, global_room_decks, _biome_params, seed_str, "room_decks")
+	_params["room_shopping_lists"] = room_lists # Pack it safely into params!
+	
+	# Pass 2: Scatter & Structures
+	var global_spawn_decks = ConfigManager.load_spawn_decks()
+	var spawn_lists = DistributionEngine.generate_shopping_lists(graph, global_spawn_decks, _biome_params, seed_str, "spawn_decks")
 	
 	_raster_thread = Thread.new()
-	# Pass the shopping list into the thread binding
-	_raster_thread.start(_run_rasterization_thread.bind(graph, _params, shopping_lists))
+	# Only pass the spawn_lists to the thread (which preserves StructureBuilder compatibility)
+	_raster_thread.start(_run_rasterization_thread.bind(graph, _params, spawn_lists))
 
 func _run_rasterization_thread(graph: Graph, params: Dictionary, shopping_lists: Dictionary) -> void:
 	_realizer.realize(graph, params, shopping_lists, _on_snapshot_received)
 	call_deferred("_on_rasterization_finished")
 
-func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, w: int, h: int) -> void:
-	_snapshots.append({ "name": step_name, "cells": cells, "entities": entities, "w": w, "h": h })
+func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, atlas_overrides: Dictionary, w: int, h: int) -> void:
+	# [UPDATED] Save it into the snapshot dictionary
+	_snapshots.append({ "name": step_name, "cells": cells, "entities": entities, "atlas_overrides": atlas_overrides, "w": w, "h": h })
 	var idx = _snapshots.size() - 1
 	_timeline_tab.add_snapshot(step_name)
 	
@@ -521,6 +545,7 @@ func _jump_to_snapshot(index: int) -> void:
 	var snapshot = _snapshots[index]
 	var mock_grid = GridData.new(snapshot["w"], snapshot["h"], _realizer.palette)
 	mock_grid.cells = snapshot["cells"]
+	mock_grid.cell_atlas_overrides = snapshot.get("atlas_overrides", {}) # Restore the exact tiles
 	
 	tile_map_layer.clear()
 	TileMapAdapter.apply_to_layer(mock_grid, tile_map_layer, _active_mapping)
@@ -797,6 +822,15 @@ func _rebuild_dynamic_tileset_and_mapping() -> void:
 			ensure_base_tile.call(debug_path_atlas)
 			for mapping_key in _atlas_mappings:
 				ensure_base_tile.call(_atlas_mappings[mapping_key])
+				
+			# --- REGISTER CUSTOM ROOM EXACT TILES ---
+			for r_key in _custom_rooms:
+				var r_data = _custom_rooms[r_key]
+				if r_data.has("exact_floors"):
+					for pos in r_data["exact_floors"]: ensure_base_tile.call(r_data["exact_floors"][pos])
+				if r_data.has("exact_walls"):
+					for pos in r_data["exact_walls"]: ensure_base_tile.call(r_data["exact_walls"][pos])
+			# ----------------------------------------------
 				
 			var next_alt_id = {}
 			for cat_key in _realizer.semantic_floor_ids:

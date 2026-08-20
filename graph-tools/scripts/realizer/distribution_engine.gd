@@ -4,7 +4,7 @@ extends RefCounted
 # ==============================================================================
 # MAIN ENTRY POINT
 # ==============================================================================
-static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, overrides: Dictionary, master_seed: String) -> Dictionary:
+static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, overrides: Dictionary, master_seed: String, override_key: String = "spawn_decks") -> Dictionary:
 	var shopping_lists = {}
 	var rng = RandomNumberGenerator.new()
 	rng.seed = SeedUtils.hash_seed(master_seed + "_distribution")
@@ -22,10 +22,10 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 	for biome in biome_nodes:
 		var decks = global_decks
 		
-		# Apply Biome Overrides if enabled
+		# [UPDATED] Check for the dynamic override_key!
 		if overrides.has(biome) and overrides[biome].get("override_enabled", false):
-			if overrides[biome].has("spawn_decks"):
-				decks = overrides[biome]["spawn_decks"]
+			if overrides[biome].has(override_key):
+				decks = overrides[biome][override_key]
 				
 		if decks.is_empty(): continue
 		
@@ -39,8 +39,8 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 		
 		# 3. Resolve the Roots
 		for root in roots:
-			var scope = root.get("scope", 0) # 0 = Per Room, 1 = Per Biome
-			var mode = root.get("mode", 0)   # 0 = Fixed Quota, 1 = Density
+			var scope = int(root.get("scope", 0)) # 0 = Per Room, 1 = Per Biome
+			var mode = int(root.get("mode", 0))   # 0 = Fixed Quota, 1 = Density
 			
 			if scope == 1: 
 				# --- PER BIOME SCOPE ---

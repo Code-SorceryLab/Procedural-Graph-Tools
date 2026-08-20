@@ -55,6 +55,11 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 				if realizer.critical_path_cells.has(pos):
 					continue
 					
+				# Do not melt Custom Hand-Crafted Rooms
+				if realizer.has_meta("custom_room_cells"):
+					var cr_cells = realizer.get_meta("custom_room_cells")
+					if cr_cells.has(pos): continue
+					
 				var neighbor_floors: Array[int] = []
 				
 				# 8-Way Neighbor Count

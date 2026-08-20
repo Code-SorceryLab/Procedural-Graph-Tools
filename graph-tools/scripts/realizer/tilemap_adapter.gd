@@ -38,9 +38,23 @@ static func apply_to_layer(grid: GridData, layer: TileMapLayer, tile_mapping: Di
 				# --- STATIC TILE MODE ---
 				var source_id = mapping.get("source_id", 0)
 				var atlas_coords = mapping.get("atlas_coords", Vector2i.ZERO)
-				var alt_tile = mapping.get("alternative_tile", 0) # Extract the alternative tile ID
+				var alt_tile = mapping.get("alternative_tile", 0) 
 				
 				for pos in typed_coords:
 					layer.set_cell(pos, source_id, atlas_coords, alt_tile) 
 		else:
 			push_warning("TileMapAdapter: Missing visual mapping for Tile ID %d" % cell_id)
+
+	# --- 3. FORCE EXACT ATLAS OVERRIDES ---
+	# Applied AFTER auto-tiling finishes to guarantee custom pixel-art survives!
+	for pos in grid.cell_atlas_overrides:
+		var atlas = grid.cell_atlas_overrides[pos]
+		var cell_id = grid.get_cell(pos.x, pos.y)
+		
+		if tile_mapping.has(cell_id):
+			var mapping = tile_mapping[cell_id]
+			var source_id = mapping.get("source_id", 0)
+			var alt_tile = mapping.get("alternative_tile", 0)
+			# We apply the specific atlas, but keep the biome's alt_tile tint!
+			
+			layer.set_cell(pos, source_id, atlas, alt_tile)

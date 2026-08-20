@@ -68,7 +68,10 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		if progress_callback.is_valid():
 			var cells_copy = grid.cells.duplicate()
 			var entities_copy = grid.entities.duplicate(true)
-			progress_callback.call_deferred(step_name, cells_copy, entities_copy, grid.width, grid.height)
+			var atlas_copy = grid.cell_atlas_overrides.duplicate(true)
+			
+			# Add atlas_copy to the parameters
+			progress_callback.call_deferred(step_name, cells_copy, entities_copy, atlas_copy, grid.width, grid.height)
 			OS.delay_msec(150)
 			
 	# --- PIPELINE EXECUTION ---

@@ -9,6 +9,9 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 	var rng = RandomNumberGenerator.new()
 	var biome_overrides = params.get("biomes", {})
 	
+	var custom_rooms = params.get("custom_rooms", {})
+	var room_lists = params.get("room_shopping_lists", {}) # [NEW] The Distribution Engine output!
+	
 	# --- PHASE 1: PRE-CALCULATE & STAMP BASES ---
 	var room_data_cache: Array[Dictionary] = []
 	
@@ -18,19 +21,12 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var grid_pos = realizer.world_to_grid(world_pos)
 		
 		# Biome Resolution
-		# [FIXED] Firewall-protected param merge
 		var effective_params = params.duplicate()
 		if biome_overrides.has(node.type):
 			effective_params.merge(biome_overrides[node.type], true)
-		
+			
 		var min_r = effective_params.get("room_radius_min", 2)
 		var max_r = effective_params.get("room_radius_max", 3)
-		var w_sq = effective_params.get("ratio_square", 1)
-		var w_circ = effective_params.get("ratio_circle", 0)
-		var w_tri = effective_params.get("ratio_triangle", 0)
-		var total_weight = w_sq + w_circ + w_tri
-		
-		# Extract the merging settings
 		var allow_merging = effective_params.get("enable_room_merging", true)
 		var merge_tolerance = effective_params.get("room_merge_tolerance", 1.2)
 		
@@ -45,24 +41,109 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			if realizer.semantic_floor_ids.has(node.type):
 				floor_id = realizer.semantic_floor_ids[node.type]
 		
-		# Shape Selection
+		# --- RESOLVE THE SHOPPING LIST ---
+		var chosen_type = "preset"
+		var chosen_ref = "preset_square" # Fallback if list is empty
+		
+		if room_lists.has(node_id) and room_lists[node_id].size() > 0:
+			var items = room_lists[node_id]
+			
+			# Priority Sort: Custom Rooms override Standard Presets
+			items.sort_custom(func(a, b):
+				if a["type"] == "custom_room" and b["type"] != "custom_room": return true
+				return false
+			)
+			
+			var best_item = items[0]
+			chosen_type = best_item["type"]
+			chosen_ref = best_item["ref_id"]
+
+		# --- CUSTOM ROOM STAMPING ---
+		if chosen_type == "custom_room" and custom_rooms.has(chosen_ref):
+			var c_room = custom_rooms[chosen_ref]
+			var anchor = c_room.get("anchor", Vector2i.ZERO)
+			
+			var global_doorways = []
+			var room_cells = []
+			
+			var to_global = func(local_pos: Vector2i) -> Vector2i:
+				return grid_pos + (local_pos - anchor)
+				
+			# [FIXED] Resolve wall_id up here so Exact Walls can use it!
+			var wall_id = realizer.semantic_wall_map.get(floor_id, TilePalette.VOID_ID)
+				
+			# 1. Stamp Semantic Floors
+			if c_room.has("floors"):
+				for l_pos in c_room["floors"]:
+					var g_pos = to_global.call(l_pos)
+					grid.set_cell(g_pos.x, g_pos.y, floor_id)
+					room_cells.append(g_pos)
+					
+			# 2. Stamp Semantic Walls
+			if c_room.has("walls"):
+				for l_pos in c_room["walls"]:
+					var g_pos = to_global.call(l_pos)
+					if wall_id != TilePalette.VOID_ID: grid.set_cell(g_pos.x, g_pos.y, wall_id)
+					room_cells.append(g_pos)
+					
+			# 2.5 Stamp Exact Visual Tiles
+			if c_room.has("exact_floors"):
+				#print("\n--- DEBUG: STAMPING CUSTOM ROOM [", chosen_ref, "] ---")
+				#print("Total exact_floors to stamp: ", c_room["exact_floors"].size())
+				
+				for l_pos in c_room["exact_floors"]:
+					var g_pos = to_global.call(l_pos)
+					var atlas = c_room["exact_floors"][l_pos]
+					
+					# Print the raw data and its internal Godot Type ID!
+					#print("Target Grid Pos: ", g_pos, " | Atlas Value: ", atlas, " | Data Type: ", typeof(atlas))
+					
+					grid.set_cell_atlas(g_pos.x, g_pos.y, floor_id, atlas)
+					room_cells.append(g_pos)
+				#print("--- END DEBUG ---\n")
+					
+			if c_room.has("exact_walls"):
+				for l_pos in c_room["exact_walls"]:
+					var g_pos = to_global.call(l_pos)
+					var atlas = c_room["exact_walls"][l_pos]
+					if wall_id != TilePalette.VOID_ID: 
+						grid.set_cell_atlas(g_pos.x, g_pos.y, wall_id, atlas) # [FIXED]
+					room_cells.append(g_pos)
+					
+			# 3. Apply the Red Reserved Mask
+			if c_room.has("reserved"):
+				for l_pos in c_room["reserved"]:
+					realizer.reserved_cells[to_global.call(l_pos)] = true
+					
+			# 4. Cache the explicit Connection Points (Doorways)
+			if c_room.has("doorways"):
+				for l_pos in c_room["doorways"]:
+					global_doorways.append(to_global.call(l_pos))
+					
+			# 5. Tag the node so the Edge Router knows how to handle it later!
+			node.custom_data["_grid_center"] = grid_pos
+			node.custom_data["_custom_doorways"] = global_doorways
+			node.custom_data["_is_custom_room"] = true
+			node.custom_data["_custom_room_id"] = node_id # Use the node ID as the unique room ID
+			
+			# 6. Build the Data Firewall for the CA Smoother and Zone Decorator
+			var c_room_dict = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
+			for g_pos in room_cells:
+				c_room_dict[g_pos] = node_id
+			realizer.set_meta("custom_room_cells", c_room_dict)
+			
+			continue # Boom! Skip standard shape generation and merging completely!
+			
+		# --- STANDARD PRESET SHAPE STAMPING ---
 		var shape = 0 # 0=Square, 1=Circle, 2=Triangle
-		if total_weight > 0:
-			var roll = rng.randi() % int(total_weight)
-			if roll < w_sq: shape = 0
-			elif roll < w_sq + w_circ: shape = 1
-			else: shape = 2
+		if chosen_ref == "preset_circle": shape = 1
+		elif chosen_ref == "preset_triangle": shape = 2
 		
 		# Store for Merger Phase
 		room_data_cache.append({
-			"id": node_id,
-			"type": node.type,
-			"pos": grid_pos,
-			"radius": radius,
-			"shape": shape,
-			"floor_id": floor_id,
-			"allow_merging": allow_merging,
-			"merge_tolerance": merge_tolerance # <--- Cache the range!
+			"id": node_id, "type": node.type, "pos": grid_pos, "radius": radius,
+			"shape": shape, "floor_id": floor_id, "allow_merging": allow_merging,
+			"merge_tolerance": merge_tolerance 
 		})
 		
 		# Stamp Base Footprint
@@ -82,7 +163,6 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		node.custom_data["_grid_center"] = grid_pos
 
 	# --- PHASE 2: GEOMETRIC BRIDGING (THE MERGER) ---
-	
 	for i in range(room_data_cache.size()):
 		var r1 = room_data_cache[i]
 		for j in range(i + 1, room_data_cache.size()):
@@ -112,7 +192,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 					for x in range(min_x, max_x + 1):
 						var current_point = Vector2(x, y)
 						
-						# [MATH UPGRADE] Get both the distance AND the exact linear projection (t)
+						# Get distance AND exact linear projection (t)
 						var projection_data = _dist_to_segment_data(current_point, Vector2(p1), Vector2(p2))
 						var d = projection_data["dist"]
 						var t = projection_data["t"]

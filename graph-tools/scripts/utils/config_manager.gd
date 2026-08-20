@@ -402,7 +402,27 @@ static func load_spawn_decks() -> Dictionary:
 			loaded_decks[key] = config.get_value("SpawnDecks", key)
 			
 	return loaded_decks
-	
+
+# ==============================================================================
+# ROOM DECKS
+# ==============================================================================
+static func save_room_decks(decks: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	if config.has_section("RoomDecks"): config.erase_section("RoomDecks")
+	for key in decks: config.set_value("RoomDecks", key, decks[key])
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: push_error("ConfigManager: Failed to save Room Decks.")
+
+static func load_room_decks() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_decks = {}
+	if err == OK and config.has_section("RoomDecks"):
+		for key in config.get_section_keys("RoomDecks"):
+			loaded_decks[key] = config.get_value("RoomDecks", key)
+	return loaded_decks
+
 # ==============================================================================
 # GLOBAL GENERATOR PARAMS
 # ==============================================================================
@@ -430,3 +450,68 @@ static func load_global_params() -> Dictionary:
 			loaded_params[key] = config.get_value("GlobalParams", key)
 			
 	return loaded_params
+
+
+# ==============================================================================
+# CUSTOM ROOMS
+# ==============================================================================
+
+static func save_custom_rooms(data: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	
+	if config.has_section("CustomRooms"):
+		config.erase_section("CustomRooms")
+		
+	var serialized = _serialize_vector2i_keys(data)
+	for key in serialized:
+		config.set_value("CustomRooms", key, serialized[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Custom Rooms.")
+
+static func load_custom_rooms() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_rooms = {}
+	
+	if err == OK and config.has_section("CustomRooms"):
+		for key in config.get_section_keys("CustomRooms"):
+			loaded_rooms[key] = config.get_value("CustomRooms", key)
+			
+	return _deserialize_vector2i_keys(loaded_rooms)
+
+# --- Serialization Helpers ---
+# ConfigFile inherently supports Vector2i Arrays (for doorways/reserved/anchors), 
+# but it DOES NOT support Vector2i as Dictionary Keys. We convert keys to Strings for saving!
+static func _serialize_vector2i_keys(data: Dictionary) -> Dictionary:
+	var out = data.duplicate(true)
+	for room_key in out:
+		var room = out[room_key]
+		for prop in ["floors", "walls", "exact_floors", "exact_walls"]:
+			if room.has(prop) and typeof(room[prop]) == TYPE_DICTIONARY:
+				var new_dict = {}
+				for v in room[prop]:
+					var str_key = str(v.x) + "," + str(v.y) if typeof(v) == TYPE_VECTOR2I else str(v)
+					new_dict[str_key] = room[prop][v]
+				room[prop] = new_dict
+	return out
+
+static func _deserialize_vector2i_keys(data: Dictionary) -> Dictionary:
+	var out = data.duplicate(true)
+	var str_to_vec = func(s: String) -> Vector2i:
+		var parts = s.split(",")
+		if parts.size() == 2: return Vector2i(parts[0].to_int(), parts[1].to_int())
+		return Vector2i.ZERO
+		
+	for room_key in out:
+		var room = out[room_key]
+		for prop in ["floors", "walls", "exact_floors", "exact_walls"]:
+			if room.has(prop) and typeof(room[prop]) == TYPE_DICTIONARY:
+				var new_dict = {}
+				for s in room[prop]:
+					var vec_key = str_to_vec.call(s) if (typeof(s) == TYPE_STRING and s.contains(",")) else s
+					new_dict[vec_key] = room[prop][s]
+				room[prop] = new_dict
+	return out

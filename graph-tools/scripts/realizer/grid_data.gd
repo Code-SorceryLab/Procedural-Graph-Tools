@@ -7,6 +7,7 @@ var cells: PackedInt32Array
 var palette: TilePalette
 
 var entities: Dictionary = {} # Maps Vector2i(x, y) -> Dictionary (Entity Data)
+var cell_atlas_overrides: Dictionary = {} # Maps Vector2i -> Vector2i (Atlas Coords)
 
 func _init(w: int, h: int, p_palette: TilePalette = null) -> void:
 	width = max(1, w)
@@ -36,6 +37,12 @@ func in_bounds_vec(pos: Vector2i) -> bool:
 func set_cell(x: int, y: int, id: int) -> void:
 	if in_bounds(x, y):
 		cells[_get_index(x, y)] = id
+		
+# Used exclusively by Custom Rooms to force a specific texture coordinate!
+func set_cell_atlas(x: int, y: int, id: int, atlas: Vector2i) -> void:
+	if in_bounds(x, y):
+		cells[_get_index(x, y)] = id
+		cell_atlas_overrides[Vector2i(x, y)] = atlas
 
 func get_cell(x: int, y: int) -> int:
 	if in_bounds(x, y):

@@ -18,7 +18,7 @@ static func generate(realizer: GraphRealizer, default_wall_id: int, semantic_wal
 			
 			if grid.get_cell(x, y) == TilePalette.VOID_ID:
 				
-				# --- [NEW] IMMUNITY CHECK ---
+				# --- IMMUNITY CHECK ---
 				# NEVER place a wall on a coordinate that belongs to a corridor!
 				if realizer.critical_path_cells.has(pos):
 					continue
