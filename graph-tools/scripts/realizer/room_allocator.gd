@@ -10,13 +10,22 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 	var biome_overrides = params.get("biomes", {})
 	
 	var custom_rooms = params.get("custom_rooms", {})
-	var room_lists = params.get("room_shopping_lists", {}) # [NEW] The Distribution Engine output!
+	var room_lists = params.get("room_shopping_lists", {}) # The Distribution Engine output
 	
 	# --- PHASE 1: PRE-CALCULATE & STAMP BASES ---
 	var room_data_cache: Array[Dictionary] = []
+	var metric_custom_rooms = 0 # Diagnostic tracker
 	
 	for node_id in graph.nodes:
 		var node = graph.nodes[node_id] as NodeData
+		
+		# --- PURGE STALE DATA FROM PREVIOUS GENERATIONS ---
+		node.custom_data.erase("_is_custom_room")
+		node.custom_data.erase("_custom_doorways")
+		node.custom_data.erase("_custom_room_id")
+		node.custom_data.erase("_custom_room_ref")
+		node.custom_data.erase("_grid_center")
+		
 		var world_pos = graph.get_node_pos(node_id)
 		var grid_pos = realizer.world_to_grid(world_pos)
 		
@@ -110,10 +119,13 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 						grid.set_cell_atlas(g_pos.x, g_pos.y, wall_id, atlas) # [FIXED]
 					room_cells.append(g_pos)
 					
-			# 3. Apply the Red Reserved Mask
+			# 3. Apply the Red Reserved Mask (Now acts as the internal Critical Path!)
 			if c_room.has("reserved"):
 				for l_pos in c_room["reserved"]:
-					realizer.reserved_cells[to_global.call(l_pos)] = true
+					var g_pos = to_global.call(l_pos)
+					realizer.reserved_cells[g_pos] = true
+					realizer.critical_path_cells[g_pos] = true # Grants immunity & visibility
+					realizer.core_path_cells[g_pos] = true     # Ensures the pink overlay draws
 					
 			# 4. Cache the explicit Connection Points (Doorways)
 			if c_room.has("doorways"):
@@ -125,6 +137,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			node.custom_data["_custom_doorways"] = global_doorways
 			node.custom_data["_is_custom_room"] = true
 			node.custom_data["_custom_room_id"] = node_id # Use the node ID as the unique room ID
+			node.custom_data["_custom_room_ref"] = chosen_ref #Tag the template name
 			
 			# 6. Build the Data Firewall for the CA Smoother and Zone Decorator
 			var c_room_dict = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
@@ -132,7 +145,8 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 				c_room_dict[g_pos] = node_id
 			realizer.set_meta("custom_room_cells", c_room_dict)
 			
-			continue # Boom! Skip standard shape generation and merging completely!
+			metric_custom_rooms += 1
+			continue # Skip standard shape generation
 			
 		# --- STANDARD PRESET SHAPE STAMPING ---
 		var shape = 0 # 0=Square, 1=Circle, 2=Triangle

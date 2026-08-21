@@ -5,6 +5,9 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 	var grid = realizer.grid
 	var biome_overrides = params.get("biomes", {})
 	
+	# Load Custom Room Firewall
+	var c_room_cells = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
+	
 	# --- DETERMINISTIC ROUTING SEED ---
 	var master_seed_input = params.get("realizer_seed", "default_realizer")
 	var master_seed_hash = SeedUtils.hash_seed(str(master_seed_input) + "_routing")
@@ -64,11 +67,34 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var node_u = graph.nodes[edge.u]
 		var node_v = graph.nodes[edge.v]
 		
-		var start_pos = node_u.custom_data.get("_grid_center", Vector2i.ZERO)
-		var end_pos = node_v.custom_data.get("_grid_center", Vector2i.ZERO)
+		# --- SMART ENDPOINT RESOLUTION ---
+		var get_pts = func(n: NodeData) -> Array:
+			# If it's a Custom Room, expose its specific doorways!
+			if n.custom_data.get("_is_custom_room", false):
+				var doors = n.custom_data.get("_custom_doorways", [])
+				if doors.size() > 0: return doors
+			# Otherwise, fallback to the center point
+			return [n.custom_data.get("_grid_center", Vector2i.ZERO)]
+			
+		var u_pts = get_pts.call(node_u)
+		var v_pts = get_pts.call(node_v)
+		
+		var start_pos = u_pts[0]
+		var end_pos = v_pts[0]
+		var min_d = start_pos.distance_squared_to(end_pos)
+		
+		# Evaluate every doorway combination and pick the shortest bridge!
+		for up in u_pts:
+			for vp in v_pts:
+				var d = up.distance_squared_to(vp)
+				if d < min_d:
+					min_d = d
+					start_pos = up
+					end_pos = vp
+					
 		if start_pos == Vector2i.ZERO or end_pos == Vector2i.ZERO: continue 
 		
-		#Firewall-protected param merge
+		# Firewall-protected param merge
 		var effective_params = params.duplicate()
 		if biome_overrides.has(node_u.type):
 			effective_params.merge(biome_overrides[node_u.type], true)
@@ -148,7 +174,11 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			var point = path[i]
 			var active_floor_id = floor_id_u if i < path_midpoint else floor_id_v
 			
-			realizer.core_path_cells[point] = true 
+			# Visually hand off the path to the Custom Room
+			# If the point is inside the custom room, let the internal "Reserved" mask 
+			# handle the pink overlay. Do not double-draw it!
+			if not c_room_cells.has(point):
+				realizer.core_path_cells[point] = true 
 			
 			# --- DIAGONAL PINCH FIX ---
 			if allow_diagonals and corridor_thickness == 1 and i > 0:
@@ -156,10 +186,13 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 				var dy = abs(point.y - prev_point.y)
 				if dx == 1 and dy == 1:
 					var corner_p = Vector2i(point.x, prev_point.y)
-					realizer.critical_path_cells[corner_p] = true 
-					if grid.get_cell(corner_p.x, corner_p.y) == TilePalette.VOID_ID:
-						var smart_id = get_smart_floor_id.call(corner_p, active_floor_id)
-						grid.set_cell(corner_p.x, corner_p.y, smart_id)
+					
+					# Shield the corner from breaching a Custom Room wall
+					if not c_room_cells.has(corner_p):
+						realizer.critical_path_cells[corner_p] = true 
+						if grid.get_cell(corner_p.x, corner_p.y) == TilePalette.VOID_ID:
+							var smart_id = get_smart_floor_id.call(corner_p, active_floor_id)
+							grid.set_cell(corner_p.x, corner_p.y, smart_id)
 			# --------------------------------
 			
 			var offset_start = -int((corridor_thickness - 1) / 2.0)
@@ -169,6 +202,14 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 				for dx in range(offset_start, offset_end):
 					var p = Vector2i(point.x + dx, point.y + dy)
 					if grid.in_bounds_vec(p):
+						
+						# --- IMMUNITY SHIELD ---
+						# If the expanded thickness hits a Custom Room, block it!
+						# This prevents 3-wide hallways from melting custom walls, while 
+						# still allowing the 1-wide core point to hit the doorway.
+						if c_room_cells.has(p) and p != point:
+							continue
+							
 						realizer.critical_path_cells[p] = true 
 						
 						if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:

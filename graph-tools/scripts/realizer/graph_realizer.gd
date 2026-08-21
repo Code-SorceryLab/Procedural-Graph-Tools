@@ -104,7 +104,7 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	EntityScatterer.scatter(graph, self, params, shopping_lists)
 	emit.call("Scattering Props & Entities")
 	
-	WallGenerator.generate(self, wall_id, semantic_wall_map) 
+	WallGenerator.generate(graph, self, params, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
 	
 	# --- Run a headless validation pass (delay_doors = false) ---
@@ -116,7 +116,10 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		
 	final_report["meta"] = {
 		"seed": params.get("realizer_seed", "default"),
-		"time_ms": Time.get_ticks_msec() - start_time
+		"time_ms": Time.get_ticks_msec() - start_time,
+		"custom_rooms_placed": self.get_meta("metric_custom_rooms") if self.has_meta("metric_custom_rooms") else 0,
+		"sealed_doorways": self.get_meta("metric_doors_sealed") if self.has_meta("metric_doors_sealed") else 0,
+		"failed_routes": self.get_meta("metric_failed_routes") if self.has_meta("metric_failed_routes") else 0
 	}
 	final_report["analytics"] = val_results
 	

@@ -16,14 +16,21 @@ var _height_spin: SpinBox
 var _brush_dropdown: OptionButton
 var _btn_atlas_picker: Button
 var _canvas: Control
+var _warning_dialog: AcceptDialog # [NEW] Error popup for validation
+
+# --- [NEW] UNUSED DOOR UI ---
+var _opt_unused_door: OptionButton
+var _btn_unused_atlas: Button
+var _lbl_unused_atlas: Label
 
 # --- ATLAS PICKER WINDOW ---
 var _picker_window: Window
 var _picker_rect: TextureRect
 var _selected_atlas: Vector2i = Vector2i.ZERO
+var _picking_mode: int = 0 # 0 = Brush, 1 = Unused Door Fallback
 
 # --- STATE ---
-var _draw_mask: int = 0 # 0=None, 1=Left(Paint), 2=Right(Erase)
+var _draw_mask: int = 0 
 var _active_brush: Brush = Brush.NONE
 var _tileset_tex: Texture2D
 var _tile_size: Vector2i = Vector2i(16, 16)
@@ -31,16 +38,19 @@ var _zoom: float = 2.0
 
 func _init() -> void:
 	title = "Custom Room Designer"
-	min_size = Vector2i(900, 600)
+	min_size = Vector2i(900, 650)
 	exclusive = true
 	close_requested.connect(func(): hide())
-	
 	
 	var main_vbox = VBoxContainer.new()
 	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
 	add_child(main_vbox)
 	
-	# --- TOP TOOLBAR ---
+	_warning_dialog = AcceptDialog.new()
+	_warning_dialog.title = "Validation Error"
+	add_child(_warning_dialog)
+	
+	# --- TOP TOOLBAR 1: ROOM CONFIG ---
 	var toolbar = HBoxContainer.new()
 	main_vbox.add_child(toolbar)
 	
@@ -67,7 +77,6 @@ func _init() -> void:
 	var lbl_h = Label.new(); lbl_h.text = "H:"
 	_height_spin = SpinBox.new(); _height_spin.min_value = 3; _height_spin.max_value = 50; _height_spin.value = 9
 	_height_spin.value_changed.connect(func(v): _update_current_room_size())
-	
 	toolbar.add_child(lbl_w); toolbar.add_child(_width_spin)
 	toolbar.add_child(lbl_h); toolbar.add_child(_height_spin)
 	toolbar.add_child(VSeparator.new())
@@ -78,10 +87,31 @@ func _init() -> void:
 	btn_zoom_in.pressed.connect(func(): _zoom = min(8.0, _zoom + 0.5); _canvas.queue_redraw())
 	toolbar.add_child(btn_zoom_out); toolbar.add_child(btn_zoom_in)
 	
+	# --- [NEW] TOP TOOLBAR 2: UNUSED DOOR CONFIG ---
+	var door_toolbar = HBoxContainer.new()
+	main_vbox.add_child(door_toolbar)
+	
+	var lbl_door = Label.new(); lbl_door.text = "Unused Doorway Fallback: "
+	door_toolbar.add_child(lbl_door)
+	
+	_opt_unused_door = OptionButton.new()
+	_opt_unused_door.add_item("Leave as Floor", 0)
+	_opt_unused_door.add_item("Seal with Biome Wall", 1)
+	_opt_unused_door.add_item("Seal with Exact Tile", 2)
+	_opt_unused_door.item_selected.connect(_on_unused_door_mode_changed)
+	door_toolbar.add_child(_opt_unused_door)
+	
+	_btn_unused_atlas = Button.new(); _btn_unused_atlas.text = "Pick Fallback Tile"
+	_btn_unused_atlas.pressed.connect(func(): _picking_mode = 1; _picker_window.popup_centered())
+	door_toolbar.add_child(_btn_unused_atlas)
+	
+	
+	_lbl_unused_atlas = Label.new(); _lbl_unused_atlas.text = "[0, 0]"
+	door_toolbar.add_child(_lbl_unused_atlas)
+	
 	# --- BRUSH TOOLBAR ---
 	var brush_toolbar = HBoxContainer.new()
 	main_vbox.add_child(brush_toolbar)
-	
 	var lbl_brush = Label.new(); lbl_brush.text = "Active Brush (L-Click Paint, R-Click Erase): "
 	brush_toolbar.add_child(lbl_brush)
 	
@@ -97,8 +127,8 @@ func _init() -> void:
 	brush_toolbar.add_child(_brush_dropdown)
 	
 	_btn_atlas_picker = Button.new()
-	_btn_atlas_picker.text = "Pick Atlas Tile [0, 0]"
-	_btn_atlas_picker.pressed.connect(func(): _picker_window.popup_centered())
+	_btn_atlas_picker.text = "Pick Brush Tile [0, 0]"
+	_btn_atlas_picker.pressed.connect(func(): _picking_mode = 0; _picker_window.popup_centered())
 	brush_toolbar.add_child(_btn_atlas_picker)
 	
 	# --- VISUAL TILE PICKER POPUP ---
@@ -130,7 +160,7 @@ func _init() -> void:
 	
 	_canvas = Control.new()
 	_canvas.custom_minimum_size = Vector2(2000, 2000)
-	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # [NEW] Crisp pixels!
+	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST 
 	_canvas.gui_input.connect(_on_canvas_gui_input)
 	_canvas.draw.connect(_on_canvas_draw)
 	panel.add_child(_canvas)
@@ -140,7 +170,7 @@ func _init() -> void:
 	bottom.alignment = BoxContainer.ALIGNMENT_END
 	main_vbox.add_child(bottom)
 	
-	var btn_save = Button.new(); btn_save.text = "Save & Close"; btn_save.pressed.connect(_on_save_pressed)
+	var btn_save = Button.new(); btn_save.text = "Validate & Save"; btn_save.pressed.connect(_on_save_pressed)
 	var btn_cancel = Button.new(); btn_cancel.text = "Cancel"; btn_cancel.pressed.connect(func(): hide())
 	bottom.add_child(btn_cancel); bottom.add_child(btn_save)
 
@@ -165,7 +195,6 @@ func open(texture_path: String, tile_size: Vector2i, existing_rooms: Dictionary)
 	popup_centered()
 
 func _add_new_room_data(r_name: String) -> void:
-	# [UPDATED] Schema now tracks exact walls and floors separately
 	custom_rooms[r_name] = {
 		"width": 9, "height": 9,
 		"anchor": Vector2i(4, 4),
@@ -174,7 +203,9 @@ func _add_new_room_data(r_name: String) -> void:
 		"floors": {},         
 		"walls": {},          
 		"exact_floors": {},   
-		"exact_walls": {}     
+		"exact_walls": {},
+		"unused_door_mode": 1, # 0=Floor, 1=Biome Wall, 2=Exact Tile
+		"unused_door_atlas": Vector2i.ZERO
 	}
 	_current_room_key = r_name
 
@@ -204,18 +235,32 @@ func _load_room_to_ui() -> void:
 	_width_spin.set_value_no_signal(r.get("width", 9))
 	_height_spin.set_value_no_signal(r.get("height", 9))
 	_room_name_edit.text = _current_room_key
+	
+	# Load Door Rule state
+	_opt_unused_door.selected = r.get("unused_door_mode", 1)
+	var d_atlas = r.get("unused_door_atlas", Vector2i.ZERO)
+	_lbl_unused_atlas.text = "[%d, %d]" % [d_atlas.x, d_atlas.y]
+	_btn_unused_atlas.visible = (_opt_unused_door.selected == 2)
+	_lbl_unused_atlas.visible = (_opt_unused_door.selected == 2)
+	
 	_canvas.queue_redraw()
 
 func _on_room_renamed(new_name: String) -> void:
 	var safe_name = new_name.strip_edges()
 	if safe_name == "" or safe_name == _current_room_key or custom_rooms.has(safe_name):
-		_room_name_edit.text = _current_room_key # Revert on failure
+		_room_name_edit.text = _current_room_key 
 		return
 		
 	custom_rooms[safe_name] = custom_rooms[_current_room_key]
 	custom_rooms.erase(_current_room_key)
 	_current_room_key = safe_name
 	_room_dropdown.set_item_text(_room_dropdown.selected, safe_name)
+
+func _on_unused_door_mode_changed(idx: int) -> void:
+	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
+	custom_rooms[_current_room_key]["unused_door_mode"] = idx
+	_btn_unused_atlas.visible = (idx == 2)
+	_lbl_unused_atlas.visible = (idx == 2)
 
 # ==============================================================================
 # VISUAL TILE PICKER
@@ -224,12 +269,20 @@ func _on_picker_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var ax = int(event.position.x / _tile_size.x)
 		var ay = int(event.position.y / _tile_size.y)
-		_selected_atlas = Vector2i(ax, ay)
-		_btn_atlas_picker.text = "Pick Atlas Tile [%d, %d]" % [ax, ay]
+		var picked = Vector2i(ax, ay)
+		
+		if _picking_mode == 0:
+			_selected_atlas = picked
+			_btn_atlas_picker.text = "Pick Brush Tile [%d, %d]" % [ax, ay]
+		else:
+			if _current_room_key != "" and custom_rooms.has(_current_room_key):
+				custom_rooms[_current_room_key]["unused_door_atlas"] = picked
+				_lbl_unused_atlas.text = "[%d, %d]" % [ax, ay]
+				
 		_picker_window.hide()
 
 # ==============================================================================
-# PAINTING LOGIC (SMART ERASER)
+# PAINTING LOGIC
 # ==============================================================================
 func _on_canvas_gui_input(event: InputEvent) -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
@@ -252,27 +305,19 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 	
 	var r = custom_rooms[_current_room_key]
 	if cx < 0 or cx >= r["width"] or cy < 0 or cy >= r["height"]: return
-	
 	var pos = Vector2i(cx, cy)
 	
-	# [NEW] SMART ERASER: Only erases the layer of the currently active brush
 	if erase:
-		if _active_brush == Brush.TOGGLE_RESERVED and r.has("reserved"):
-			r["reserved"].erase(pos)
-		elif _active_brush == Brush.DOORWAY and r.has("doorways"):
-			r["doorways"].erase(pos)
+		if _active_brush == Brush.TOGGLE_RESERVED and r.has("reserved"): r["reserved"].erase(pos)
+		elif _active_brush == Brush.DOORWAY and r.has("doorways"): r["doorways"].erase(pos)
 		elif _active_brush in [Brush.FLOOR_GENERIC, Brush.WALL_GENERIC, Brush.TILE_EXACT_FLOOR, Brush.TILE_EXACT_WALL]:
-			# A structural eraser deletes all base tiles on that spot
 			r["floors"].erase(pos); r["walls"].erase(pos)
 			if r.has("exact_floors"): r["exact_floors"].erase(pos)
 			if r.has("exact_walls"): r["exact_walls"].erase(pos)
-			
 		_canvas.queue_redraw()
 		return
 		
-	# LEFT CLICK PLACEMENTS
-	if _active_brush == Brush.ANCHOR:
-		r["anchor"] = pos
+	if _active_brush == Brush.ANCHOR: r["anchor"] = pos
 	elif _active_brush == Brush.TOGGLE_RESERVED:
 		if not r.has("reserved"): r["reserved"] = []
 		if not r["reserved"].has(pos): r["reserved"].append(pos)
@@ -280,28 +325,21 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 		if not r.has("doorways"): r["doorways"] = []
 		if not r["doorways"].has(pos): r["doorways"].append(pos)
 	elif _active_brush == Brush.FLOOR_GENERIC:
-		r["floors"][pos] = true
-		_clear_base_tiles(r, pos, ["floors"])
+		r["floors"][pos] = true; _clear_base_tiles(r, pos, ["floors"])
 	elif _active_brush == Brush.WALL_GENERIC:
-		r["walls"][pos] = true
-		_clear_base_tiles(r, pos, ["walls"])
+		r["walls"][pos] = true; _clear_base_tiles(r, pos, ["walls"])
 	elif _active_brush == Brush.TILE_EXACT_FLOOR:
 		if not r.has("exact_floors"): r["exact_floors"] = {}
-		r["exact_floors"][pos] = _selected_atlas
-		_clear_base_tiles(r, pos, ["exact_floors"])
+		r["exact_floors"][pos] = _selected_atlas; _clear_base_tiles(r, pos, ["exact_floors"])
 	elif _active_brush == Brush.TILE_EXACT_WALL:
 		if not r.has("exact_walls"): r["exact_walls"] = {}
-		r["exact_walls"][pos] = _selected_atlas
-		_clear_base_tiles(r, pos, ["exact_walls"])
+		r["exact_walls"][pos] = _selected_atlas; _clear_base_tiles(r, pos, ["exact_walls"])
 		
 	_canvas.queue_redraw()
 
-# Helper to ensure only 1 base tile exists at a specific coordinate
 func _clear_base_tiles(r: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
-	var keys = ["floors", "walls", "exact_floors", "exact_walls"]
-	for k in keys:
-		if not keep_keys.has(k) and r.has(k):
-			r[k].erase(pos)
+	for k in ["floors", "walls", "exact_floors", "exact_walls"]:
+		if not keep_keys.has(k) and r.has(k): r[k].erase(pos)
 
 # ==============================================================================
 # DRAWING ENGINE
@@ -309,24 +347,19 @@ func _clear_base_tiles(r: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
 func _on_canvas_draw() -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
 	var r = custom_rooms[_current_room_key]
-	
 	var w = r.get("width", 9)
 	var h = r.get("height", 9)
 	var scaled_sz = _tile_size * _zoom
 	
-	# Draw Background Grid
 	_canvas.draw_rect(Rect2(0, 0, w * scaled_sz.x, h * scaled_sz.y), Color(0.1, 0.1, 0.15))
 	for y in range(h + 1): _canvas.draw_line(Vector2(0, y * scaled_sz.y), Vector2(w * scaled_sz.x, y * scaled_sz.y), Color(1, 1, 1, 0.1))
 	for x in range(w + 1): _canvas.draw_line(Vector2(x * scaled_sz.x, 0), Vector2(x * scaled_sz.x, h * scaled_sz.y), Color(1, 1, 1, 0.1))
 
-	# Draw Base Tiles
 	var draw_rect_at = func(pos: Vector2i, color: Color):
 		_canvas.draw_rect(Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y), color)
 
-	if r.has("floors"):
-		for pos in r["floors"]: draw_rect_at.call(pos, Color(0.2, 0.5, 0.3, 0.8)) # Greenish
-	if r.has("walls"):
-		for pos in r["walls"]: draw_rect_at.call(pos, Color(0.4, 0.4, 0.4, 0.8)) # Gray
+	if r.has("floors"): for pos in r["floors"]: draw_rect_at.call(pos, Color(0.2, 0.5, 0.3, 0.8)) 
+	if r.has("walls"): for pos in r["walls"]: draw_rect_at.call(pos, Color(0.4, 0.4, 0.4, 0.8)) 
 		
 	if r.has("exact_floors") and _tileset_tex:
 		for pos in r["exact_floors"]:
@@ -342,7 +375,6 @@ func _on_canvas_draw() -> void:
 			var dest_rect = Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y)
 			_canvas.draw_texture_rect_region(_tileset_tex, dest_rect, src_rect)
 
-	# Draw Overlays (Masks, Anchors, Doors)
 	if r.has("reserved"):
 		for pos in r["reserved"]:
 			var p1 = Vector2(pos.x * scaled_sz.x, pos.y * scaled_sz.y)
@@ -350,8 +382,7 @@ func _on_canvas_draw() -> void:
 			_canvas.draw_line(p1, p2, Color(1, 0, 0, 0.6), 2.0)
 			
 	if r.has("doorways"):
-		for pos in r["doorways"]:
-			draw_rect_at.call(pos, Color(0.9, 0.2, 0.2, 0.5)) # Red tint
+		for pos in r["doorways"]: draw_rect_at.call(pos, Color(0.9, 0.2, 0.2, 0.5)) 
 			
 	if r.has("anchor"):
 		var a = r["anchor"]
@@ -359,7 +390,7 @@ func _on_canvas_draw() -> void:
 		_canvas.draw_circle(c, scaled_sz.x * 0.3, Color.YELLOW)
 
 # ==============================================================================
-# UI HANDLERS
+# SAVE & VALIDATE
 # ==============================================================================
 func _on_room_selected(idx: int) -> void:
 	_current_room_key = _room_dropdown.get_item_text(idx)
@@ -377,5 +408,44 @@ func _on_delete_room() -> void:
 		_refresh_room_dropdown()
 
 func _on_save_pressed() -> void:
+	# 1. Run strict topological validation on every single room!
+	for r_key in custom_rooms:
+		if not _validate_room_solvability(custom_rooms[r_key]):
+			_warning_dialog.dialog_text = "Validation Failed for room: '" + r_key + "'\n\nAll Doorways must be connected to each other by a continuous path of 'Reserved' tiles!\n\n(Use the Toggle Reserved Mask brush to link them)."
+			_warning_dialog.popup_centered()
+			return
+			
 	confirmed.emit()
 	hide()
+
+# --- THE BFS SOLVABILITY CHECKER ---
+func _validate_room_solvability(r: Dictionary) -> bool:
+	var doors = r.get("doorways", [])
+	if doors.size() <= 1: return true # 0 or 1 doors are inherently fully connected!
+	
+	# Build a lookup table of valid walkable nodes (Doors + Reserved Cells)
+	var valid_path = {}
+	for d in doors: valid_path[d] = true
+	if r.has("reserved"):
+		for res in r["reserved"]: valid_path[res] = true
+		
+	# Standard BFS Flood Fill
+	var visited = { doors[0]: true }
+	var queue = [ doors[0] ]
+	
+	while queue.size() > 0:
+		var curr = queue.pop_front()
+		
+		# Check 4 Cardinal Directions
+		var neighbors = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+		for dir in neighbors:
+			var n = curr + dir
+			if valid_path.has(n) and not visited.has(n):
+				visited[n] = true
+				queue.append(n)
+				
+	# Final Check: Did the flood fill reach every single doorway?
+	for d in doors:
+		if not visited.has(d): return false
+		
+	return true

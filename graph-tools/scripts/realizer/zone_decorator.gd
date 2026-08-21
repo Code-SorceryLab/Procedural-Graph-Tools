@@ -11,6 +11,9 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 	var cells_to_void = {}
 	var entities_to_spawn = {} 
 
+	# Load the custom room firewall
+	var c_rooms = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
+
 	for y in range(grid.height):
 		for x in range(grid.width):
 			var p1 = Vector2i(x, y)
@@ -22,6 +25,9 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 			
 			var biome1 = realizer.floor_to_semantic.get(id1, "default")
 			var is_path_p1 = realizer.critical_path_cells.has(p1)
+			
+			# [FIXED] Use an empty string "" instead of -1 for the default ID!
+			var cr1_id = c_rooms.get(p1, "")
 			
 			var wants_to_void = false
 			var wants_door = false
@@ -38,6 +44,12 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 				# Skip walls entirely
 				if not grid.palette.get_data(id2).get("walkable", false): continue
 				
+				# [FIXED] Use an empty string ""
+				var cr2_id = c_rooms.get(p2, "")
+				
+				# --- IMMUNITY 1: Same Custom Room ---
+				if cr1_id != "" and cr1_id == cr2_id: continue
+				
 				var biome2 = realizer.floor_to_semantic.get(id2, "default")
 				if biome1 == biome2: continue # Same biome, no seam
 				
@@ -52,19 +64,24 @@ static func decorate(realizer: GraphRealizer, params: Dictionary) -> void:
 				if is_path_p1 or is_path_p2:
 					var p_style = rule.get("path_style", 0)
 					if p_style == 1: # Door + Walls
-						if is_path_p1:
-							wants_door = true # Full thickness doors!
-						else:
-							wants_to_void = true # The non-path tiles next to the door become the doorframe walls
+						if is_path_p1 and is_path_p2:
+							wants_door = true
+						elif not is_path_p1 and is_path_p2:
+							# IMMUNITY 2: NEVER void a cell inside a Custom Room!
+							if cr1_id == "":
+								wants_to_void = true
+								
 					elif p_style == 2: # Decorated
-						if is_path_p1:
+						if is_path_p1 and is_path_p2:
 							wants_fringe = true
 							
 				# --- 3. GENERAL BOUNDARY ---
 				else:
 					var s_style = rule.get("seam_style", 1)
 					if s_style == 1: # Walled
-						wants_to_void = true
+						# IMMUNITY 3: NEVER void a cell inside a Custom Room!
+						if cr1_id == "":
+							wants_to_void = true
 					elif s_style == 2: # Decorated
 						wants_fringe = true
 			
