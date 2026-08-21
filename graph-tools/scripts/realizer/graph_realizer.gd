@@ -118,8 +118,9 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		"seed": params.get("realizer_seed", "default"),
 		"time_ms": Time.get_ticks_msec() - start_time,
 		"custom_rooms_placed": self.get_meta("metric_custom_rooms") if self.has_meta("metric_custom_rooms") else 0,
+		"rejected_custom_rooms": self.get_meta("metric_rejected_custom_rooms") if self.has_meta("metric_rejected_custom_rooms") else 0,
 		"sealed_doorways": self.get_meta("metric_doors_sealed") if self.has_meta("metric_doors_sealed") else 0,
-		"failed_routes": self.get_meta("metric_failed_routes") if self.has_meta("metric_failed_routes") else 0
+		"failed_routes": self.get_meta("metric_failed_routes") if self.has_meta("metric_failed_routes") else 0,
 	}
 	final_report["analytics"] = val_results
 	

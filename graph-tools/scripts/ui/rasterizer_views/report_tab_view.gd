@@ -103,12 +103,33 @@ func _on_export_pressed() -> void:
 func _format_report(data: Dictionary) -> String:
 	var s = ""
 	
-	# --- METADATA & ANALYTICS (The Headless Validator Output) ---
+	# --- METADATA & DIAGNOSTICS (The Headless Validator Output) ---
 	var meta = data.get("meta", {})
 	if not meta.is_empty():
 		s += "[b]Generation Metadata[/b]\n"
 		s += "  Seed: %s\n" % meta.get("seed", "Unknown")
-		s += "  Rasterization Time: %d ms\n\n" % meta.get("time_ms", 0)
+		s += "  Rasterization Time: %d ms\n" % meta.get("time_ms", 0)
+		
+		# --- [NEW] BUILDER DIAGNOSTICS ---
+		var c_rooms = meta.get("custom_rooms_placed", 0)
+		var rej_rooms = meta.get("rejected_custom_rooms", 0)
+		var sealed = meta.get("sealed_doorways", 0)
+		var failed_routes = meta.get("failed_routes", 0)
+		
+		if c_rooms > 0 or rej_rooms > 0 or sealed > 0 or failed_routes > 0:
+			s += "\n[b]Builder Diagnostics[/b]\n"
+			s += "  Custom Rooms Placed: %d\n" % c_rooms
+			
+			if rej_rooms > 0:
+				s += "  [color=orange]Rejected Custom Rooms (Overlap): %d[/color]\n" % rej_rooms
+				s += "    [color=gray]* Note: This causes Distribution Engine minimum caps to be missed. Try reducing room sizes or enabling a sparser graph layout.[/color]\n"
+			
+			if sealed > 0:
+				s += "  Unused Custom Doors Sealed: %d\n" % sealed
+				
+			if failed_routes > 0:
+				s += "  [color=red]Failed Corridors (A* Blocked): %d[/color]\n" % failed_routes
+		s += "\n"
 		
 	var analytics = data.get("analytics", {})
 	if not analytics.is_empty():

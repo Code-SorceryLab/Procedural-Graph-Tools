@@ -53,7 +53,44 @@ static func scatter(graph: Graph, realizer: GraphRealizer, params: Dictionary, s
 		if not valid_floors.has(target_floor_id):
 			target_floor_id = realizer.floor_id 
 
-		# --- [NEW] FETCH SHOPPING LIST ---
+		# ======================================================================
+		# [NEW] PRE-PASS: STAMP EXPLICIT CUSTOM ROOM ENTITIES
+		# ======================================================================
+		if node.custom_data.get("_is_custom_room", false):
+			var ref = node.custom_data.get("_custom_room_ref", "")
+			var custom_rooms = params.get("custom_rooms", {})
+			if custom_rooms.has(ref):
+				var c_room = custom_rooms[ref]
+				var anchor = c_room.get("anchor", Vector2i.ZERO)
+				var placed = c_room.get("placed_entities", [])
+				
+				for p_item in placed:
+					var e_id = p_item["id"]
+					if all_scatter_sets.has(e_id):
+						var e_data = all_scatter_sets[e_id]
+						var room_rot = node.custom_data.get("_custom_room_rot", 0) # [NEW]
+						
+						# [UPDATED] Pivot the entity's position around the rotated anchor
+						var rel_pos = p_item["pos"] - anchor
+						var g_pos = center + _rotate_point(rel_pos, room_rot)
+						
+						if grid.in_bounds_vec(g_pos) and not grid.entities.has(g_pos):
+							grid.entities[g_pos] = {
+								"type": "scatter_set",
+								"set_id": e_id,
+								"name": e_data.get("name", "Unknown Set"),
+								"color": e_data.get("color", Color.WHITE),
+								"source_node": node_id,
+								
+								"texture_path": e_data.get("texture_path", ""),
+								"texture_offset": e_data.get("texture_offset", Vector2.ZERO),
+								"texture_scale": e_data.get("texture_scale", Vector2.ONE),
+								"texture_filter": e_data.get("texture_filter", 0),
+								"rot": 0 
+							}
+		# ======================================================================
+
+		# --- FETCH SHOPPING LIST ---
 		var room_list = shopping_lists.get(node_id, [])
 		var intents = []
 		for item in room_list:
@@ -189,3 +226,10 @@ static func _get_symmetry_group(pos: Vector2i, center: Vector2i, mode: int) -> A
 
 static func _transform_offset(offset: Vector2i, flip_x: bool, flip_y: bool) -> Vector2i:
 	return Vector2i(-offset.x if flip_x else offset.x, -offset.y if flip_y else offset.y)
+
+static func _rotate_point(pt: Vector2i, rot_idx: int) -> Vector2i:
+	match rot_idx % 4:
+		1: return Vector2i(-pt.y, pt.x) # 90 deg CW
+		2: return Vector2i(-pt.x, -pt.y) # 180 deg
+		3: return Vector2i(pt.y, -pt.x) # 270 deg CW
+		_: return pt # 0 deg

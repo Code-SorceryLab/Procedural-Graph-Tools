@@ -31,8 +31,37 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, sho
 		var target_floor_id = grid.get_cell(center.x, center.y)
 		if not valid_floors.has(target_floor_id):
 			target_floor_id = realizer.floor_id 
+			
+		# ======================================================================
+		# PRE-PASS: STAMP EXPLICIT CUSTOM ROOM STRUCTURES
+		# ======================================================================
+		if node.custom_data.get("_is_custom_room", false):
+			var ref = node.custom_data.get("_custom_room_ref", "")
+			var custom_rooms = params.get("custom_rooms", {})
+			if custom_rooms.has(ref):
+				var c_room = custom_rooms[ref]
+				var anchor = c_room.get("anchor", Vector2i.ZERO)
+				var placed = c_room.get("placed_structures", [])
+				
+				for p_item in placed:
+					var s_id = p_item["id"]
+					if custom_structures.has(s_id):
+						var s_data = custom_structures[s_id]
+						var room_rot = node.custom_data.get("_custom_room_rot", 0)
+						
+						# [UPDATED] Pivot the structure's position around the rotated anchor
+						var rel_pos = p_item["pos"] - anchor
+						var g_pos = center + _rotate_point(rel_pos, room_rot)
+						
+						# [UPDATED] Combine the structure's base rotation with the room's rotation!
+						var final_rot = (p_item["rot"] + room_rot) % 4
+						var chosen = { "pos": g_pos, "rot": final_rot }
+						
+						var raw_footprint = s_data.get("footprint", [])
+						_stamp_structure(chosen, raw_footprint, s_data, node_id, realizer)
+		# ======================================================================
 		
-		# --- [NEW] FETCH SHOPPING LIST ---
+		# --- FETCH SHOPPING LIST ---
 		var room_list = shopping_lists.get(node_id, [])
 		var intents = []
 		for item in room_list:
@@ -54,13 +83,22 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, sho
 			var face_path = struct_data.get("face_path", true)
 			var front_dir = struct_data.get("front_dir", Vector2i.UP)
 			
-			# [NEW] Pull placement constraints directly from the Shopping List item!
+			# Pull placement constraints directly from the Shopping List item
 			var min_dist = item.get("min_dist", 0)
 			var max_dist = item.get("max_dist", 99)
 			var sym_mode = item.get("symmetry", 0)
 			
 			var max_r = int(node.custom_data.get("room_radius", params.get("room_radius_max", 4))) + 2
 			var rect = Rect2i(center.x - max_r, center.y - max_r, max_r * 2 + 1, max_r * 2 + 1)
+			
+			# --- LOCAL PATH CACHE ---
+			# Drastically optimizes math by only checking paths near this specific room
+			var local_paths = []
+			for cell in realizer.critical_path_cells:
+				if abs(cell.x - center.x) <= max_r + 10 and abs(cell.y - center.y) <= max_r + 10:
+					local_paths.append(Vector2(cell))
+			if local_paths.is_empty() and not realizer.critical_path_cells.is_empty():
+				local_paths.append(Vector2(realizer.critical_path_cells.keys()[0])) # Fallback
 			
 			var valid_placements = []
 			var placement_lookup = {}
@@ -106,10 +144,23 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, sho
 				processed_sigs[sig] = true
 				
 				var group_is_valid = true
+				var group_footprint_cells = {} # Tracks tiles claimed by this specific group
+				
 				for member in group:
 					var m_sig = "%d,%d,%d" % [member["pos"].x, member["pos"].y, member["rot"]]
 					if not placement_lookup.has(m_sig):
 						group_is_valid = false; break
+						
+					# Internal Collision Check
+					# Prevent members of the same symmetry group from overlapping each other
+					for pt in raw_footprint:
+						var abs_pt = member["pos"] + _rotate_point(pt, member["rot"])
+						if group_footprint_cells.has(abs_pt):
+							group_is_valid = false
+							break
+						group_footprint_cells[abs_pt] = true
+						
+					if not group_is_valid: break
 						
 				if group_is_valid:
 					valid_groups.append(group)
@@ -117,22 +168,44 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, sho
 			if valid_groups.is_empty(): continue
 
 			# FACE PATH EVALUATION
-			if face_path and not realizer.critical_path_cells.is_empty():
-				var path_target = _find_nearest_path(center, realizer.critical_path_cells)
+			if face_path and not local_paths.is_empty():
 				var best_score = -999.0
 				var best_groups = []
 				
 				for g in valid_groups:
-					var primary = g[0]
-					var rotated_front = Vector2(_rotate_point(front_dir, primary["rot"])).normalized()
-					var to_path = Vector2(path_target - primary["pos"]).normalized()
-					var score = rotated_front.dot(to_path)
+					var group_score = 0.0
 					
-					if score > best_score + 0.01:
-						best_score = score
+					for member in g:
+						# 1. Find the true physical center of THIS specific structure
+						var member_center = Vector2.ZERO
+						for pt in raw_footprint:
+							member_center += Vector2(member["pos"] + _rotate_point(pt, member["rot"]))
+						member_center /= max(1.0, float(raw_footprint.size()))
+						
+						# 2. Find the path tile closest to THIS structure (not the room center)
+						var min_struct_dist = 999999.0
+						var closest_path = member_center
+						for path_pt in local_paths:
+							var d = path_pt.distance_squared_to(member_center)
+							if d < min_struct_dist:
+								min_struct_dist = d
+								closest_path = path_pt
+								
+						# 3. Calculate dot product score
+						var to_path = (closest_path - member_center).normalized()
+						if to_path != Vector2.ZERO:
+							var rotated_front = Vector2(_rotate_point(front_dir, member["rot"])).normalized()
+							group_score += rotated_front.dot(to_path)
+							
+					# Average the score across all symmetry members in the group
+					group_score /= max(1.0, float(g.size()))
+					
+					if group_score > best_score + 0.01:
+						best_score = group_score
 						best_groups = [g]
-					elif abs(score - best_score) <= 0.01:
+					elif abs(group_score - best_score) <= 0.01:
 						best_groups.append(g)
+						
 				valid_groups = best_groups
 
 			# --- 3. APPLY TO GRID ---
@@ -206,13 +279,3 @@ static func _rotate_point(pt: Vector2i, rot_idx: int) -> Vector2i:
 		2: return Vector2i(-pt.x, -pt.y) # 180 deg
 		3: return Vector2i(pt.y, -pt.x) # 270 deg CW
 		_: return pt # 0 deg
-
-static func _find_nearest_path(room_center: Vector2i, path_cells: Dictionary) -> Vector2i:
-	var nearest = room_center
-	var min_dist = 9999999.0
-	for cell in path_cells:
-		var dist = Vector2(cell).distance_squared_to(Vector2(room_center))
-		if dist < min_dist:
-			min_dist = dist
-			nearest = cell
-	return nearest

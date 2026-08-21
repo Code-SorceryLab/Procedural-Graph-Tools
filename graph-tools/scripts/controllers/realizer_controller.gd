@@ -291,7 +291,7 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_biome_interactions": _interaction_popup.open()
 	elif key == "btn_open_biome_designer": _biome_designer.open(_params)
 	elif key == "btn_open_custom_room_designer": 
-		_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms)
+		_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms, _custom_structures, _scatter_sets)
 	
 	# Catch all view toggles and redraw instantly!
 	elif key.begins_with("show_") or key == "debug_routing":
