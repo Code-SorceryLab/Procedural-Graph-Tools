@@ -435,12 +435,9 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 					
 				if is_vault:
 					vault_locks.append(lock_str)
-					vaults_placed += 1
 					placement_tag = "Optional Vault"
-					vault_regions[next_region] = true # Tag the region
 				else:
 					critical_locks.append(lock_str)
-					locks_placed += 1
 					
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
 				var chosen_region = SeedUtils.pick_random(target_pool, rng)
@@ -453,7 +450,16 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 						
 				if not key_dropped:
 					_spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, "Fallback (Emergency)")
-						
+					
+			# --- [FIXED] ALWAYS TRACK PLACEMENTS ---
+			# Whether we forged a new key or reused an old one, a locked door was placed!
+			# We MUST increment the counters so the generator respects the max_vaults cap.
+			if is_vault:
+				vaults_placed += 1
+				vault_regions[next_region] = true # Ensure the room tooltip gets tagged as a vault!
+			else:
+				locks_placed += 1
+				
 			locked_portals.append({
 				"source_region": source_region, "next_region": next_region,
 				"lock_str": lock_str, "forge_new_key": forge_new_key,

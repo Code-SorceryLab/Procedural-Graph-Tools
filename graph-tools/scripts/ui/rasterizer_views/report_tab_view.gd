@@ -306,15 +306,19 @@ func _format_report(data: Dictionary) -> String:
 		s += "  No locked doors.\n"
 	else:
 		for l in locks:
+			print(l)
 			var lock_str = l.get("lock_str", "")
 			var src = l.get("source_region", -1)
 			var dst = l.get("dest_region", -1)
 			
-			var is_vault = vault_locks.has(lock_str)
+			# --- [FIXED] INSTANCE CHECK ---
+			# We now check the specific door's metadata, completely ignoring the lock's name
+			var v_tag = l.get("vault_tag", "")
+			var is_vault = (v_tag != "") 
+			
 			var style_tag = "[color=cyan][Crit][/color]"
 			
 			if is_vault:
-				var v_tag = l.get("vault_tag", "")
 				if v_tag == "Fallback (Non-Terminal)":
 					style_tag = "[color=yellow][Vault (Fallback)][/color]"
 				elif v_tag == "Non-Terminal Branch":
