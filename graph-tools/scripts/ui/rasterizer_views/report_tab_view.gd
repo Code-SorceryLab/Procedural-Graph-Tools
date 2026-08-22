@@ -110,7 +110,7 @@ func _format_report(data: Dictionary) -> String:
 		s += "  Seed: %s\n" % meta.get("seed", "Unknown")
 		s += "  Rasterization Time: %d ms\n" % meta.get("time_ms", 0)
 		
-		# --- [NEW] BUILDER DIAGNOSTICS ---
+		# --- BUILDER DIAGNOSTICS ---
 		var c_rooms = meta.get("custom_rooms_placed", 0)
 		var rej_rooms = meta.get("rejected_custom_rooms", 0)
 		var sealed = meta.get("sealed_doorways", 0)
@@ -122,7 +122,7 @@ func _format_report(data: Dictionary) -> String:
 			
 			if rej_rooms > 0:
 				s += "  [color=orange]Rejected Custom Rooms (Overlap): %d[/color]\n" % rej_rooms
-				s += "    [color=gray]* Note: This causes Distribution Engine minimum caps to be missed. Try reducing room sizes or enabling a sparser graph layout.[/color]\n"
+				s += "    [color=gray][i]* Note: This causes Distribution Engine minimum caps to be missed. Try reducing room sizes or enabling a sparser graph layout.[/i][/color]\n"
 			
 			if sealed > 0:
 				s += "  Unused Custom Doors Sealed: %d\n" % sealed
@@ -172,11 +172,34 @@ func _format_report(data: Dictionary) -> String:
 		s += "  Lock Chance: %.2f\n" % p_set.get("lock_chance", 0.0)
 		s += "  Max Critical Locks: %s\n" % (str(p_set.get("max_locks")) if p_set.get("max_locks", 0) > 0 else "Unlimited")
 		s += "  Max Optional Vaults: %d\n" % p_set.get("max_vaults", 0)
-		s += "  Key Style Ratio: %.2f (0:Tiers, 1:Colors)\n" % p_set.get("style_ratio", 0.0)
+		s += "  Key Style Ratio: %.2f [color=gray][i](0.0 = All Tiers, 1.0 = All Colors)[/i][/color]\n" % p_set.get("style_ratio", 0.0)
 		s += "  Extra Shortcuts: %d - %d\n" % [p_set.get("shortcut_min", 0), p_set.get("shortcut_max", 0)]
-		s += "  Sequence Break Limit: %d\n" % p_set.get("seq_break_limit", 0)
-		s += "  Force Main Detours: %s\n" % ("On" if p_set.get("main_path_stash", false) else "Off")
-		s += "  Non-Terminal Vaults: %s\n\n" % ("Allowed" if p_set.get("non_terminal_vaults", false) else "Strict Leaves")
+		s += "  Sequence Break Limit: %d [color=gray][i](Maximum depth an optional shortcut can bypass)[/i][/color]\n" % p_set.get("seq_break_limit", 0)
+		s += "  Force Main Detours: %s [color=gray][i](Forces critical keys to spawn in side-branches if available)[/i][/color]\n" % ("On" if p_set.get("main_path_stash", false) else "Off")
+		s += "  Non-Terminal Vaults: %s [color=gray][i](Allows optional vaults to be placed on branching paths or loops)[/i][/color]\n\n" % ("Allowed" if p_set.get("non_terminal_vaults", false) else "Strict Leaves")
+	
+	# --- CACHE REGION MAPPINGS EARLY ---
+	var regions = prog.get("regions", [])
+	var region_by_id = {}
+	for r in regions: region_by_id[r["id"]] = r
+		
+	# Helper lambdas to format arrays of region IDs
+	var format_r_list = func(arr: Array) -> String:
+		if arr.is_empty(): return "None"
+		var str_arr = []
+		for r in arr: str_arr.append(_format_region(r, region_by_id))
+		return ", ".join(str_arr)
+
+	# [NEW] Detailed formatter that lists exactly what a region connects to!
+	var format_detailed_list = func(arr: Array) -> String:
+		if arr.is_empty(): return "None"
+		var str_arr = []
+		for r in arr:
+			var n_strs = []
+			for neighbor in prog.get("region_adj", {}).get(r, []):
+				n_strs.append(_format_region(neighbor, region_by_id))
+			str_arr.append("%s (to: %s)" % [_format_region(r, region_by_id), ", ".join(n_strs)])
+		return "\n      " + "\n      ".join(str_arr)
 	
 	# Calculate Placements manually from the keys array metadata
 	var fallback_keys = []
@@ -184,7 +207,6 @@ func _format_report(data: Dictionary) -> String:
 	
 	for k in keys:
 		var pm = k.get("placement_method", "").to_lower()
-		# Match shortcut first so we don't accidentally match emergency fallbacks!
 		if pm.contains("shortcut"): 
 			shortcut_count += 1
 		elif pm.contains("emergency") or pm.contains("fallback"): 
@@ -198,32 +220,66 @@ func _format_report(data: Dictionary) -> String:
 	s += "[b]Progression Metrics[/b]\n"
 	s += "  Spawn Placement: %s\n" % stats.get("start_method", "Unknown")
 	s += "  Exit Placement: %s\n" % stats.get("end_method", "Unknown")
-	s += "  Areas (Rooms): %d\n" % stats.get("area_count", 0)
+	
+	# [UPGRADED] Topography Breakdown with detailed neighbor lists
+	var hubs = stats.get("hubs", [])
+	var corridors = stats.get("corridors", [])
+	var leaves = stats.get("leaves", [])
+	
+	s += "  Topography: %d Hubs | %d Corridors | %d Leaves\n" % [hubs.size(), corridors.size(), leaves.size()]
+	s += "    [color=gray][i]Calculated from the main network. Hubs (3+ doors), Corridors (2 doors), Leaves (1 door).[/i][/color]\n"
+	if not hubs.is_empty(): s += "    [color=#B2EBF2]Hubs:[/color] %s\n" % format_detailed_list.call(hubs)
+	if not corridors.is_empty(): s += "    [color=#B2EBF2]Corridors:[/color] %s\n" % format_detailed_list.call(corridors)
+	if not leaves.is_empty(): s += "    [color=#B2EBF2]Leaves:[/color] %s\n" % format_r_list.call(leaves)
+	
+	s += "  Door-Bounded Regions (Physical Rooms): %d\n" % stats.get("valid_region_count", 0)
+	s += "    [color=gray][i]Physical spaces separated by doors. (Note: standard graph nodes of the same biome merge into a single physical Region if no doors separate them!).[/i][/color]\n"
+	
+	s += "  Progression Zones (Gated Areas): %d\n" % stats.get("area_count", 0)
+	s += "    [color=gray][i]Clusters of regions grouped by lock requirements (e.g., Zone 0 is unlocked at start).[/i][/color]\n"
+	
 	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
+	s += "    [color=gray][i]The maximum topological distance (measured in door transitions) from the spawn point.[/i][/color]\n"
+	
 	s += "  Critical Locks: %d\n" % critical_locks.size()
+	s += "    [color=gray][i]Mandatory locks blocking the critical path to the exit.[/i][/color]\n"
+	
 	s += "  Optional Vaults: %d\n" % vault_locks.size()
+	s += "    [color=gray][i]Locks leading to optional bonus areas.[/i][/color]\n"
 	
 	if fallback_vaults > 0:
 		s += "  [color=orange]Fallback Vaults: %d[/color]\n" % fallback_vaults
+		s += "    [color=gray][i]Forced non-terminal vaults due to a lack of available dead-ends.[/i][/color]\n"
 		
 	s += "  Shortcuts Placed: %d\n" % shortcut_count
+	s += "    [color=gray][i]Optional keys that allow sequence breaking and skipping map areas.[/i][/color]\n"
 	
 	if fallback_keys.is_empty():
 		s += "  Fallback Placements: None\n"
 	else:
 		s += "  [color=orange]Fallback Placements: %s[/color]\n" % ", ".join(fallback_keys)
+		s += "    [color=gray][i]Keys placed using emergency logic due to severe space constraints.[/i][/color]\n"
+		
+	# Pacing Metrics
+	var avg_backtrack = stats.get("avg_backtrack", 0.0)
+	if avg_backtrack >= 0.0 and critical_locks.size() > 0:
+		s += "  Avg Key-to-Door Distance: %.1f regions\n" % avg_backtrack
+		s += "    [color=gray][i]The average amount of backtracking (in door transitions) required to bring a key to its door.[/i][/color]\n"
+		
+	# [UPGRADED] Empty Areas update
+	var empty_regs = stats.get("empty_regions", [])
+	s += "  Empty Areas (No Objectives): %d\n" % empty_regs.size()
+	s += "    [color=gray][i]Physical areas that contain no keys, locks, vaults, start points, or exit points.[/i][/color]\n"
+	if not empty_regs.is_empty():
+		s += "    [color=#B2EBF2]Empty:[/color] %s\n" % format_r_list.call(empty_regs)
 	
 	var avg_detour = stats.get("avg_detour_length", 0.0)
 	if avg_detour > 0.0:
-		s += "  Avg Detour Length: %.1f rooms\n" % avg_detour
+		s += "  Avg Detour Length: %.1f regions\n" % avg_detour
 	s += "\n"
 
 	s += "[b]Critical Path[/b]\n"
 	var spine_path = prog.get("spine_path", [])
-	var regions = prog.get("regions", [])
-
-	var region_by_id = {}
-	for r in regions: region_by_id[r["id"]] = r
 
 	if spine_path.is_empty():
 		s += "  No path from start to end found.\n"

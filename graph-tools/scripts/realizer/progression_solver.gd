@@ -72,9 +72,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	var portal_counter = 0
 	var visited_doors = {}
-	var eight_way = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1), 
-					 Vector2i(1,1), Vector2i(-1,-1), Vector2i(1,-1), Vector2i(-1,1)]
-					
+	
 	for pos in grid.entities:
 		var ent = grid.entities[pos]
 		if ent.get("type") == "door" and not visited_doors.has(pos):
@@ -89,7 +87,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				head += 1
 				current_portal.append(curr)
 				
-				for d in eight_way:
+				for d in ortho_dirs: # <-- Switched to ortho_dirs
 					var n = curr + d
 					if not grid.in_bounds_vec(n) or visited_doors.has(n): continue
 					if grid.entities.has(n) and grid.entities[n].get("type") == "door":
@@ -558,7 +556,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	
 	# --- BUILD PROGRESSION REPORT ---
 	var progression_report = _build_progression_report(
-		start_region, end_region, regions, region_depth, region_adj, spine_path, 
+		start_region, end_region, valid_regions, regions, region_depth, region_adj, spine_path, 
 		spine_regions, region_to_area, cell_to_region, locked_portals, grid, realizer
 	)
 	
@@ -612,13 +610,13 @@ static func _find_spine_path(start: int, end: int, adj: Dictionary) -> Array:
 
 
 static func _build_progression_report(
-	start_region: int, end_region: int, regions: Dictionary, region_depth: Dictionary, 
+	start_region: int, end_region: int, valid_regions: Array, regions: Dictionary, region_depth: Dictionary, 
 	region_adj: Dictionary, spine_path: Array, spine_regions: Dictionary, 
 	region_to_area: Dictionary, cell_to_region: Dictionary, locked_portals: Array, 
 	grid: GridData, realizer: GraphRealizer
 ) -> Dictionary:
 	var region_list: Array[Dictionary] = []
-	for r_id in regions:
+	for r_id in valid_regions: # [FIXED] Only list playable regions!
 		var depth = region_depth.get(r_id, -1)
 		var area = region_to_area.get(r_id, -1)
 		var on_spine = spine_regions.has(r_id)
@@ -679,8 +677,53 @@ static func _build_progression_report(
 		if grid.entities[pos].get("type") == "start_point": start_method = grid.entities[pos].get("placement_method", "Unknown")
 		elif grid.entities[pos].get("type") == "end_point": end_method = grid.entities[pos].get("placement_method", "Unknown")
 
+	# --- NEW TOPOLOGY & METRIC MATH ---
+	var leaves = []
+	var corridors = []
+	var hubs = []
+	
+	# [FIXED] Collect region IDs instead of raw counts!
+	for r_id in valid_regions:
+		var deg = region_adj[r_id].size()
+		if deg == 1: leaves.append(r_id)
+		elif deg == 2: corridors.append(r_id)
+		elif deg >= 3: hubs.append(r_id)
+		
+	var total_backtrack = 0.0
+	var backtrack_pairs = 0
+	
+	for l in locks_list:
+		var lock_str = l["lock_str"]
+		var lock_depth = l["source_depth"]
+		for k in keys_list:
+			if k["lock_str"] == lock_str:
+				total_backtrack += abs(k["depth"] - lock_depth)
+				backtrack_pairs += 1
+				break
+				
+	var avg_backtrack = total_backtrack / max(1.0, float(backtrack_pairs))
+	
+	# Any region involved in progression logic is marked active
+	var active_regions = { start_region: true, end_region: true }
+	for l in locks_list: 
+		active_regions[l["source_region"]] = true
+		active_regions[l["dest_region"]] = true # Automatically flags vault rooms as active!
+	for k in keys_list: 
+		active_regions[k["region"]] = true
+		
+	var empty_regions = []
+	for r_id in valid_regions:
+		if not active_regions.has(r_id):
+			empty_regions.append(r_id)
+
 	var stats = {
-		"region_count": regions.size(),
+		"valid_region_count": valid_regions.size(),
+		"total_raw_regions": regions.size(),
+		"leaves": leaves,
+		"corridors": corridors,
+		"hubs": hubs,
+		"empty_regions": empty_regions,
+		"avg_backtrack": avg_backtrack,
 		"lock_count": locks_list.size(),
 		"key_count": keys_list.size(),
 		"max_depth": max_depth,
@@ -693,7 +736,8 @@ static func _build_progression_report(
 	return {
 		"start_region": start_region, "end_region": end_region,
 		"spine_path": spine_path, "regions": region_list,
-		"locks": locks_list, "keys": keys_list, "stats": stats
+		"locks": locks_list, "keys": keys_list, "stats": stats,
+		"region_adj": region_adj
 	}
 
 # Added the placement_method parameter back!
