@@ -557,7 +557,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	# --- BUILD PROGRESSION REPORT ---
 	var progression_report = _build_progression_report(
 		start_region, end_region, valid_regions, regions, region_depth, region_adj, spine_path, 
-		spine_regions, region_to_area, cell_to_region, locked_portals, grid, realizer
+		spine_regions, region_to_area, cell_to_region, locked_portals, portal_connections, grid, realizer
 	)
 	
 	progression_report["critical_locks"] = critical_locks
@@ -613,7 +613,7 @@ static func _build_progression_report(
 	start_region: int, end_region: int, valid_regions: Array, regions: Dictionary, region_depth: Dictionary, 
 	region_adj: Dictionary, spine_path: Array, spine_regions: Dictionary, 
 	region_to_area: Dictionary, cell_to_region: Dictionary, locked_portals: Array, 
-	grid: GridData, realizer: GraphRealizer
+	portal_connections: Dictionary, grid: GridData, realizer: GraphRealizer # <-- [NEW PARAM]
 ) -> Dictionary:
 	var region_list: Array[Dictionary] = []
 	for r_id in valid_regions: # [FIXED] Only list playable regions!
@@ -682,12 +682,26 @@ static func _build_progression_report(
 	var corridors = []
 	var hubs = []
 	
-	# [FIXED] Collect region IDs instead of raw counts!
 	for r_id in valid_regions:
 		var deg = region_adj[r_id].size()
 		if deg == 1: leaves.append(r_id)
 		elif deg == 2: corridors.append(r_id)
 		elif deg >= 3: hubs.append(r_id)
+		
+	# --- [NEW] IDENTIFY MULTI-WAY DOORS ---
+	var multi_way_doors = []
+	for p_id in portal_connections:
+		var conn = portal_connections[p_id]
+		var valid_conns = []
+		# Ensure we only count connections to active/playable regions
+		for c in conn:
+			if valid_regions.has(c): valid_conns.append(c)
+			
+		if valid_conns.size() > 2:
+			multi_way_doors.append({
+				"portal_id": p_id,
+				"regions": valid_conns
+			})
 		
 	var total_backtrack = 0.0
 	var backtrack_pairs = 0
@@ -707,7 +721,7 @@ static func _build_progression_report(
 	var active_regions = { start_region: true, end_region: true }
 	for l in locks_list: 
 		active_regions[l["source_region"]] = true
-		active_regions[l["dest_region"]] = true # Automatically flags vault rooms as active!
+		active_regions[l["dest_region"]] = true # Automatically flags vault rooms as active
 	for k in keys_list: 
 		active_regions[k["region"]] = true
 		
@@ -722,6 +736,7 @@ static func _build_progression_report(
 		"leaves": leaves,
 		"corridors": corridors,
 		"hubs": hubs,
+		"multi_way_doors": multi_way_doors,
 		"empty_regions": empty_regions,
 		"avg_backtrack": avg_backtrack,
 		"lock_count": locks_list.size(),

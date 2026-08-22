@@ -190,7 +190,7 @@ func _format_report(data: Dictionary) -> String:
 		for r in arr: str_arr.append(_format_region(r, region_by_id))
 		return ", ".join(str_arr)
 
-	# [NEW] Detailed formatter that lists exactly what a region connects to!
+	# Detailed formatter that lists exactly what a region connects to
 	var format_detailed_list = func(arr: Array) -> String:
 		if arr.is_empty(): return "None"
 		var str_arr = []
@@ -221,7 +221,7 @@ func _format_report(data: Dictionary) -> String:
 	s += "  Spawn Placement: %s\n" % stats.get("start_method", "Unknown")
 	s += "  Exit Placement: %s\n" % stats.get("end_method", "Unknown")
 	
-	# [UPGRADED] Topography Breakdown with detailed neighbor lists
+	# Topography Breakdown
 	var hubs = stats.get("hubs", [])
 	var corridors = stats.get("corridors", [])
 	var leaves = stats.get("leaves", [])
@@ -231,6 +231,16 @@ func _format_report(data: Dictionary) -> String:
 	if not hubs.is_empty(): s += "    [color=#B2EBF2]Hubs:[/color] %s\n" % format_detailed_list.call(hubs)
 	if not corridors.is_empty(): s += "    [color=#B2EBF2]Corridors:[/color] %s\n" % format_detailed_list.call(corridors)
 	if not leaves.is_empty(): s += "    [color=#B2EBF2]Leaves:[/color] %s\n" % format_r_list.call(leaves)
+	
+	# --- MULTI-WAY DOORS (MEGA-PORTALS) ---
+	var multi_doors = stats.get("multi_way_doors", [])
+	if not multi_doors.is_empty():
+		s += "  Multi-Way Doors (3+ Regions): %d\n" % multi_doors.size()
+		s += "    [color=gray][i]Single physical doors that touch and connect three or more regions together.[/i][/color]\n"
+		for md in multi_doors:
+			var r_strs = []
+			for r in md["regions"]: r_strs.append(_format_region(r, region_by_id))
+			s += "    [color=#B2EBF2]Portal %d:[/color] connects %s\n" % [md.get("portal_id", -1), ", ".join(r_strs)]
 	
 	s += "  Door-Bounded Regions (Physical Rooms): %d\n" % stats.get("valid_region_count", 0)
 	s += "    [color=gray][i]Physical spaces separated by doors. (Note: standard graph nodes of the same biome merge into a single physical Region if no doors separate them!).[/i][/color]\n"
