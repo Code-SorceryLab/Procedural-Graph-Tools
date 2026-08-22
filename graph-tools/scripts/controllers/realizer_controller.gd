@@ -37,8 +37,9 @@ var _validation_tab: ValidationTabView
 
 # --- TOOLTIP REFS ---
 var _tooltip_layer: CanvasLayer
+var _tooltip_screen: Control
 var _tooltip_panel: PanelContainer
-var _tooltip_label: Label
+var _tooltip_label: RichTextLabel
 
 var _atlas_mappings: Dictionary = { "default_floor": Vector2i(0, 0), "default_wall": Vector2i(1, 0) }
 var _tileset_image_path: String = ""
@@ -66,6 +67,11 @@ func _ready() -> void:
 	_tooltip_layer.layer = 100 
 	add_child(_tooltip_layer)
 	
+	_tooltip_screen = Control.new()
+	_tooltip_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_tooltip_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip_layer.add_child(_tooltip_screen)
+	
 	_tooltip_panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.15, 0.9)
@@ -77,14 +83,28 @@ func _ready() -> void:
 	_tooltip_panel.add_theme_stylebox_override("panel", style)
 	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip_panel.visible = false
-	_tooltip_layer.add_child(_tooltip_panel)
+	
+	
+	_tooltip_panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_tooltip_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_tooltip_screen.add_child(_tooltip_panel)
 	
 	var margin = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 8); margin.add_theme_constant_override("margin_top", 8)
 	margin.add_theme_constant_override("margin_right", 8); margin.add_theme_constant_override("margin_bottom", 8)
 	_tooltip_panel.add_child(margin)
 	
-	_tooltip_label = Label.new()
+	_tooltip_label = RichTextLabel.new()
+	_tooltip_label.bbcode_enabled = true
+	_tooltip_label.fit_content = true
+	_tooltip_label.scroll_active = false
+	
+	# [FIXED] These two settings are mandatory for floating RichTextLabels!
+	_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_OFF # Forces width to match the longest line
+	_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # Prevents the text from eating your mouse clicks
+	
+	_tooltip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tooltip_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_tooltip_label.add_theme_font_size_override("font_size", 12)
 	margin.add_child(_tooltip_label)
 	
@@ -214,12 +234,18 @@ func _input(event: InputEvent) -> void:
 	if region_id != -1 and _realizer.has_meta("vault_regions"):
 		var vr = _realizer.get_meta("vault_regions")
 		if vr.has(region_id): is_vault = true
+		
+	# --- [NEW] CHECK TOPOLOGY FOR TOOLTIP ---
+	var is_leaf = false
+	if region_id != -1 and _realizer.has_meta("leaf_regions"):
+		if _realizer.get_meta("leaf_regions").has(region_id):
+			is_leaf = true
 			
 	if region_id != -1:
 		biome_name = "%s:%d%s" % [biome_name.to_lower(), region_id, " [Optional Vault]" if is_vault else ""]
 			
 	var entity_str = ""
-	var new_hover_lock = "" # Track what lock/key we are hovering
+	var new_hover_lock = "" 
 	
 	if _realizer.grid.entities.has(map_pos):
 		var ent = _realizer.grid.entities[map_pos]
@@ -228,20 +254,17 @@ func _input(event: InputEvent) -> void:
 			entity_str = "\n[Structure] : " + ent.get("name", "Custom")
 		elif e_type == "door": 
 			entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
-			new_hover_lock = ent.get("lock_type", "") # Grab the door's lock type
+			new_hover_lock = ent.get("lock_type", "") 
 		else:
 			var req = ent.get("key_type", "")
 			if req != "": 
-				# Append the placement method
 				var p_method = ent.get("placement_method", "")
 				entity_str = "\n[Item] : Key (" + req + ")"
 				if p_method != "": entity_str += " [" + p_method + "]"
-				new_hover_lock = req # Grab the key's lock type
+				new_hover_lock = req 
 			else: 
 				entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
 				
-	# Update Ghost Web if the hovered lock type changed!
-	# (If we move the mouse off an entity, new_hover_lock is "", which clears the web!)
 	if new_hover_lock != _hovered_lock_type:
 		_hovered_lock_type = new_hover_lock
 		_draw_ghost_web(_hovered_lock_type)
@@ -253,7 +276,6 @@ func _input(event: InputEvent) -> void:
 		var c2a = _realizer.get_meta("cell_to_area")
 		if c2a.has(map_pos): text += "Area Depth: %d\n" % c2a[map_pos]
 			
-	# Distance and Status debugging
 	var dist = _realizer.distance_field.get(map_pos, 0)
 	text += "Wall Distance: %d\n" % dist
 	
@@ -262,10 +284,13 @@ func _input(event: InputEvent) -> void:
 	if _realizer.reserved_cells.has(map_pos): cell_status.append("Reserved")
 	if not cell_status.is_empty():
 		text += "Status: %s\n" % ", ".join(cell_status)
+		
+	# --- INJECT TOPOLOGY INTO TEXT ---
+	if region_id != -1:
+		text += "Topology: %s\n" % ("[color=cyan]Terminal Leaf[/color]" if is_leaf else "[color=orange]Non-Terminal[/color]")
 			
 	text += "Biome: %s\n" % biome_name
 	
-	# Conditionally list active overrides!
 	if current_cat_key != "" and _biome_params.has(current_cat_key):
 		var b_data = _biome_params[current_cat_key]
 		if b_data.get("override_shape", false): text += "  ↳ Room Shapes Overridden\n"
@@ -277,6 +302,7 @@ func _input(event: InputEvent) -> void:
 		
 	_tooltip_label.text = text
 	_tooltip_panel.visible = true
+	
 	_tooltip_panel.position = event.position + Vector2(15, 15)
 
 # ==============================================================================

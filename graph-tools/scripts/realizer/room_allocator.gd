@@ -74,93 +74,148 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		if chosen_type == "custom_room" and custom_rooms.has(chosen_ref):
 			var c_room = custom_rooms[chosen_ref]
 			var anchor = c_room.get("anchor", Vector2i.ZERO)
-			var room_rot = rng.randi() % 4
 			
-			var to_global = func(local_pos: Vector2i) -> Vector2i:
-				var rel = local_pos - anchor
-				return grid_pos + _rotate_point(rel, room_rot)
-				
-			# --- [NEW] STRICT OVERLAP CHECK ---
-			var is_overlapping = false
-			for cat in ["floors", "walls", "exact_floors", "exact_walls", "reserved", "doorways"]:
-				if c_room.has(cat):
-					for l_pos in c_room[cat]:
-						var g_pos = to_global.call(l_pos)
-						
-						# If it falls off the map, or touches ANY existing tile, reject it!
-						if not grid.in_bounds_vec(g_pos) or grid.get_cell(g_pos.x, g_pos.y) != TilePalette.VOID_ID or realizer.reserved_cells.has(g_pos):
-							is_overlapping = true; break
-				if is_overlapping: break
-				
-			if is_overlapping:
+			# 1. Capacity Gatekeeper
+			# If the node has more connections than the room has doorways, it physically cannot work!
+			var neighbor_nodes = graph.get_neighbors(node_id)
+			var raw_doors = c_room.get("doorways", [])
+			if neighbor_nodes.size() > raw_doors.size() or raw_doors.is_empty():
 				metric_rejected_custom_rooms += 1
 				chosen_type = "preset"
-				chosen_ref = "preset_square" # Downgrade so it processes safely as a standard room
+				chosen_ref = "preset_square"
 			else:
-				var global_doorways = []
-				var room_cells = []
-				var wall_id = realizer.semantic_wall_map.get(floor_id, TilePalette.VOID_ID)
+				# 2. Fetch Neighbor Grid Coordinates
+				var neighbor_targets = []
+				for n_id in neighbor_nodes:
+					# Use the topological world positions to approximate where the neighbor is
+					var n_world = graph.get_node_pos(n_id)
+					neighbor_targets.append(realizer.world_to_grid(n_world))
 					
-				# 1. Stamp Semantic Floors
-				if c_room.has("floors"):
-					for l_pos in c_room["floors"]:
-						var g_pos = to_global.call(l_pos)
-						grid.set_cell(g_pos.x, g_pos.y, floor_id)
-						room_cells.append(g_pos)
-						
-				# 2. Stamp Semantic Walls
-				if c_room.has("walls"):
-					for l_pos in c_room["walls"]:
-						var g_pos = to_global.call(l_pos)
-						if wall_id != TilePalette.VOID_ID: grid.set_cell(g_pos.x, g_pos.y, wall_id)
-						room_cells.append(g_pos)
-						
-				# 2.5 Stamp Exact Visual Tiles
-				if c_room.has("exact_floors"):
-					for l_pos in c_room["exact_floors"]:
-						var g_pos = to_global.call(l_pos)
-						var atlas = c_room["exact_floors"][l_pos]
-						grid.set_cell_atlas(g_pos.x, g_pos.y, floor_id, atlas)
-						room_cells.append(g_pos)
-						
-				if c_room.has("exact_walls"):
-					for l_pos in c_room["exact_walls"]:
-						var g_pos = to_global.call(l_pos)
-						var atlas = c_room["exact_walls"][l_pos]
-						if wall_id != TilePalette.VOID_ID: 
-							grid.set_cell_atlas(g_pos.x, g_pos.y, wall_id, atlas)
-						room_cells.append(g_pos)
-						
-				# 3. Apply the Red Reserved Mask
-				if c_room.has("reserved"):
-					for l_pos in c_room["reserved"]:
-						var g_pos = to_global.call(l_pos)
-						realizer.reserved_cells[g_pos] = true
-						realizer.critical_path_cells[g_pos] = true 
-						realizer.core_path_cells[g_pos] = true     
-						
-				# 4. Cache the explicit Connection Points (Doorways)
-				if c_room.has("doorways"):
-					for l_pos in c_room["doorways"]:
-						global_doorways.append(to_global.call(l_pos))
-						
-				# 5. Tag the node
-				node.custom_data["_grid_center"] = grid_pos
-				node.custom_data["_custom_doorways"] = global_doorways
-				node.custom_data["_is_custom_room"] = true
-				node.custom_data["_custom_room_id"] = node_id 
-				node.custom_data["_custom_room_ref"] = chosen_ref 
-				node.custom_data["_custom_room_rot"] = room_rot 
+				# 3. Score all 4 Rotations
+				var best_rot = 0
+				var best_score = 9999999.0
+				var valid_rots = []
+				var veto_threshold = 200.0 * float(neighbor_targets.size()) 
 				
-				# 6. Build the Data Firewall
-				var c_room_dict = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
-				for g_pos in room_cells:
-					c_room_dict[g_pos] = node_id
-				realizer.set_meta("custom_room_cells", c_room_dict)
-				
-				metric_custom_rooms += 1
-				custom_room_stamped = true
-				
+				for r in range(4):
+					var current_score = 0.0
+					var test_doors = []
+					for local_d in raw_doors:
+						var rel = local_d - anchor
+						test_doors.append(grid_pos + _rotate_point(rel, r))
+						
+					# Pair each neighbor to the closest available doorway
+					for target in neighbor_targets:
+						var min_dist = 9999999.0
+						var best_door_idx = -1
+						
+						# Calculate the general direction of the neighbor
+						var n_dir = Vector2(target - grid_pos).normalized() 
+						
+						for d_idx in range(test_doors.size()):
+							var door_pos = test_doors[d_idx]
+							var d_dir = Vector2(door_pos - grid_pos).normalized()
+							var dist = Vector2(target).distance_squared_to(Vector2(door_pos))
+							
+							# --- DIRECTIONAL PENALTY ---
+							# If the doorway points AWAY from the neighbor, apply a massive penalty!
+							var alignment = n_dir.dot(d_dir)
+							if alignment < -0.2: 
+								dist += 50000.0 # Instant veto for this specific pairing
+								
+							if dist < min_dist:
+								min_dist = dist
+								best_door_idx = d_idx
+								
+						current_score += min_dist
+						if best_door_idx != -1: test_doors.remove_at(best_door_idx)
+						
+					if current_score < best_score:
+						best_score = current_score
+						best_rot = r
+						
+				# 4. The Veto Check
+				if best_score > veto_threshold:
+					metric_rejected_custom_rooms += 1
+					chosen_type = "preset"
+					chosen_ref = "preset_square"
+				else:
+					# 5. Apply the Best Rotation & Stamp!
+					var room_rot = best_rot
+					var to_global = func(local_pos: Vector2i) -> Vector2i:
+						var rel = local_pos - anchor
+						return grid_pos + _rotate_point(rel, room_rot)
+						
+					# --- STRICT OVERLAP CHECK ---
+					var is_overlapping = false
+					for cat in ["floors", "walls", "exact_floors", "exact_walls", "reserved", "doorways"]:
+						if c_room.has(cat):
+							for l_pos in c_room[cat]:
+								var g_pos = to_global.call(l_pos)
+								if not grid.in_bounds_vec(g_pos) or grid.get_cell(g_pos.x, g_pos.y) != TilePalette.VOID_ID or realizer.reserved_cells.has(g_pos):
+									is_overlapping = true; break
+						if is_overlapping: break
+						
+					if is_overlapping:
+						metric_rejected_custom_rooms += 1
+						chosen_type = "preset"
+						chosen_ref = "preset_square"
+					else:
+						# STAMPING (Floors, Walls, Masks, etc.)
+						var global_doorways = []
+						var room_cells = []
+						var wall_id = realizer.semantic_wall_map.get(floor_id, TilePalette.VOID_ID)
+							
+						if c_room.has("floors"):
+							for l_pos in c_room["floors"]:
+								var g_pos = to_global.call(l_pos)
+								grid.set_cell(g_pos.x, g_pos.y, floor_id)
+								room_cells.append(g_pos)
+								
+						if c_room.has("walls"):
+							for l_pos in c_room["walls"]:
+								var g_pos = to_global.call(l_pos)
+								if wall_id != TilePalette.VOID_ID: grid.set_cell(g_pos.x, g_pos.y, wall_id)
+								room_cells.append(g_pos)
+								
+						if c_room.has("exact_floors"):
+							for l_pos in c_room["exact_floors"]:
+								var g_pos = to_global.call(l_pos)
+								grid.set_cell_atlas(g_pos.x, g_pos.y, floor_id, c_room["exact_floors"][l_pos])
+								room_cells.append(g_pos)
+								
+						if c_room.has("exact_walls"):
+							for l_pos in c_room["exact_walls"]:
+								var g_pos = to_global.call(l_pos)
+								if wall_id != TilePalette.VOID_ID: 
+									grid.set_cell_atlas(g_pos.x, g_pos.y, wall_id, c_room["exact_walls"][l_pos])
+								room_cells.append(g_pos)
+								
+						if c_room.has("reserved"):
+							for l_pos in c_room["reserved"]:
+								var g_pos = to_global.call(l_pos)
+								realizer.reserved_cells[g_pos] = true
+								realizer.critical_path_cells[g_pos] = true 
+								realizer.core_path_cells[g_pos] = true     
+								
+						if c_room.has("doorways"):
+							for l_pos in c_room["doorways"]:
+								global_doorways.append(to_global.call(l_pos))
+								
+						node.custom_data["_grid_center"] = grid_pos
+						node.custom_data["_custom_doorways"] = global_doorways
+						node.custom_data["_is_custom_room"] = true
+						node.custom_data["_custom_room_id"] = node_id 
+						node.custom_data["_custom_room_ref"] = chosen_ref 
+						node.custom_data["_custom_room_rot"] = room_rot 
+						
+						var c_room_dict = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
+						for g_pos in room_cells: c_room_dict[g_pos] = node_id
+						realizer.set_meta("custom_room_cells", c_room_dict)
+						
+						metric_custom_rooms += 1
+						custom_room_stamped = true
+						
 		if custom_room_stamped:
 			continue # Skip standard shape generation
 			

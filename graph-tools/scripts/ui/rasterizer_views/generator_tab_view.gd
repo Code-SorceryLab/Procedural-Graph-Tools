@@ -73,6 +73,7 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "sep_vaults", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "progression_max_vaults", "label": "Max Optional Vaults", "type": TYPE_INT, "default": 2, "min": 0, "max": 10 },
 		{ "name": "main_path_key_stash", "label": "Force Main Path Detours", "type": TYPE_BOOL, "default": true },
+		{ "name": "progression_non_terminal_vaults", "label": "Enable Non-Terminal Vault Placement", "type": TYPE_BOOL, "default": true },
 		
 		{ "name": "sep_shortcuts", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "progression_shortcut_min", "label": "Min Extra Shortcuts", "type": TYPE_INT, "default": 0, "min": 0, "max": 10 },

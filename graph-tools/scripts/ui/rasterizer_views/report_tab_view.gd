@@ -175,17 +175,25 @@ func _format_report(data: Dictionary) -> String:
 		s += "  Key Style Ratio: %.2f (0:Tiers, 1:Colors)\n" % p_set.get("style_ratio", 0.0)
 		s += "  Extra Shortcuts: %d - %d\n" % [p_set.get("shortcut_min", 0), p_set.get("shortcut_max", 0)]
 		s += "  Sequence Break Limit: %d\n" % p_set.get("seq_break_limit", 0)
-		s += "  Force Main Detours: %s\n\n" % ("On" if p_set.get("main_path_stash", false) else "Off")
+		s += "  Force Main Detours: %s\n" % ("On" if p_set.get("main_path_stash", false) else "Off")
+		s += "  Non-Terminal Vaults: %s\n\n" % ("Allowed" if p_set.get("non_terminal_vaults", false) else "Strict Leaves")
 	
 	# Calculate Placements manually from the keys array metadata
-	var fallback_count = 0
+	var fallback_keys = []
 	var shortcut_count = 0
 	
 	for k in keys:
 		var pm = k.get("placement_method", "").to_lower()
-		if pm.contains("fallback"): fallback_count += 1
-		elif pm.contains("shortcut"): shortcut_count += 1
-
+		# Match shortcut first so we don't accidentally match emergency fallbacks!
+		if pm.contains("shortcut"): 
+			shortcut_count += 1
+		elif pm.contains("emergency") or pm.contains("fallback"): 
+			fallback_keys.append(k.get("lock_str", "Unknown"))
+	
+	var fallback_vaults = 0
+	for l in locks:
+		if l.get("vault_tag", "") == "Fallback (Non-Terminal)": fallback_vaults += 1
+	
 	# Dedicated Metrics Block
 	s += "[b]Progression Metrics[/b]\n"
 	s += "  Spawn Placement: %s\n" % stats.get("start_method", "Unknown")
@@ -194,8 +202,16 @@ func _format_report(data: Dictionary) -> String:
 	s += "  Max Depth: %d\n" % stats.get("max_depth", 0)
 	s += "  Critical Locks: %d\n" % critical_locks.size()
 	s += "  Optional Vaults: %d\n" % vault_locks.size()
+	
+	if fallback_vaults > 0:
+		s += "  [color=orange]Fallback Vaults: %d[/color]\n" % fallback_vaults
+		
 	s += "  Shortcuts Placed: %d\n" % shortcut_count
-	s += "  Fallback Placements: %d\n" % fallback_count
+	
+	if fallback_keys.is_empty():
+		s += "  Fallback Placements: None\n"
+	else:
+		s += "  [color=orange]Fallback Placements: %s[/color]\n" % ", ".join(fallback_keys)
 	
 	var avg_detour = stats.get("avg_detour_length", 0.0)
 	if avg_detour > 0.0:
@@ -229,7 +245,16 @@ func _format_report(data: Dictionary) -> String:
 			var dst = l.get("dest_region", -1)
 			
 			var is_vault = vault_locks.has(lock_str)
-			var style_tag = "[color=magenta][Vault][/color]" if is_vault else "[color=cyan][Crit][/color]"
+			var style_tag = "[color=cyan][Crit][/color]"
+			
+			if is_vault:
+				var v_tag = l.get("vault_tag", "")
+				if v_tag == "Fallback (Non-Terminal)":
+					style_tag = "[color=yellow][Vault (Fallback)][/color]"
+				elif v_tag == "Non-Terminal Branch":
+					style_tag = "[color=magenta][Vault (Branch)][/color]"
+				else:
+					style_tag = "[color=magenta][Vault][/color]"
 			
 			var key_regions = _find_key_regions_for_lock(prog, lock_str)
 			s += "  %s [color=#F44336]%s[/color]: %s → %s" % [style_tag, lock_str, _format_region(src, region_by_id), _format_region(dst, region_by_id)]

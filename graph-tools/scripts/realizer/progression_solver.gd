@@ -57,8 +57,13 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				for d in ortho_dirs:
 					var n = curr + d
 					if not grid.in_bounds_vec(n) or visited_cells.has(n): continue
-					if solid_cells.has(n): continue # <--- [NEW] Stop flood fill at solid walls!
-					if grid.get_cell(n.x, n.y) != cell_id: continue 
+					if solid_cells.has(n): continue 
+					
+					# --- [FIXED] THE SHATTER BUG ---
+					# We MUST check if the cell is ANY valid floor, not just the identical cell_id!
+					# Otherwise, rooms with multiple floor textures shatter into disconnected micro-regions.
+					if not valid_floors.has(grid.get_cell(n.x, n.y)): continue 
+					
 					if grid.entities.has(n) and grid.entities[n].get("type") == "door": continue
 					
 					visited_cells[n] = true
@@ -108,17 +113,21 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		var conn_arr = connected_regions.keys()
 		portal_connections[p_id] = conn_arr
 		
-		if conn_arr.size() == 2:
-			var r1 = conn_arr[0]; var r2 = conn_arr[1]
-			if not region_adj[r1].has(r2): region_adj[r1].append(r2)
-			if not region_adj[r2].has(r1): region_adj[r2].append(r1)
+		# [FIXED] Combinatorial Adjacency!
+		# Safely links all regions touching this portal, eliminating the strict size==2 rejection bug.
+		for i in range(conn_arr.size()):
+			for j in range(i + 1, conn_arr.size()):
+				var r1 = conn_arr[i]
+				var r2 = conn_arr[j]
+				if not region_adj[r1].has(r2): region_adj[r1].append(r2)
+				if not region_adj[r2].has(r1): region_adj[r2].append(r1)
 
 	if emit.is_valid(): emit.call("Solver: Mapped Region Connectivity")
 
 	# --- 4. START & END POINTS (Connected Component Floodfill) ---
 	if regions.is_empty(): return
 	
-	# [NEW] 1. Find the Largest Connected Component
+	# 1. Find the Largest Connected Component
 	var visited_components = {}
 	var largest_component = []
 	
@@ -244,6 +253,8 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var current_max_area = 0
 	var region_to_area = { start_region: 0 }
 	var area_entry_locks = {}
+	var safe_regions_for_lock = {}
+	var region_prereqs = { start_region: [] }
 	
 	var populate_frontier = func(r_id):
 		for p_id in portal_connections:
@@ -266,6 +277,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var shortcut_max = params.get("progression_shortcut_max", 2)
 	var sequence_break_limit = params.get("progression_sequence_break_limit", 2)
 	var main_path_key_stash = params.get("main_path_key_stash", true)
+	var allow_non_term_vaults = params.get("progression_non_terminal_vaults", false)
 	
 	# --- MASTER COLOR POOL ---
 	var master_colors = [
@@ -298,6 +310,11 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var locks_placed = 0
 	var vaults_placed = 0
 	var vault_regions = {} # Track which regions become vaults
+	# --- LEAF TRACKING FOR VAULT FALLBACKS ---
+	var unvisited_leaves = 0
+	for r in regions:
+		if region_adj[r].size() == 1 and not spine_regions.has(r) and r != start_region and r != end_region:
+			unvisited_leaves += 1
 
 	while frontier_edges.size() > 0:
 		var e_idx = rng.randi() % frontier_edges.size()
@@ -340,21 +357,43 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		
 		var is_end_finale = (next_region == end_region)
 		var is_leaf = (region_adj[next_region].size() == 1)
+		var is_spine = spine_regions.has(next_region)
 		var is_vault = false
+		var vault_tag = ""
 		
-		if is_leaf and not is_end_finale and vaults_placed < max_vaults:
-			is_vault = true
-			
-		var lock_it = false
-		var forge_new_key = false
-		var lock_str = ""
+		# Decrement leaf tracker if this is our first time visiting this valid leaf
+		if is_leaf and not visited_regions.has(next_region) and not is_spine and not is_end_finale:
+			unvisited_leaves -= 1
 		
+		if not is_end_finale and not is_spine and vaults_placed < max_vaults:
+			if is_leaf:
+				is_vault = true
+				vault_tag = "Standard Leaf"
+			elif allow_non_term_vaults: # If allowed, instantly claims the branch
+				is_vault = true
+				vault_tag = "Non-Terminal Branch"
+			elif not allow_non_term_vaults and unvisited_leaves < (max_vaults - vaults_placed):
+				# [FIXED] Zero RNG! Mathematically forces a fallback ONLY if out of leaves.
+				is_vault = true
+				vault_tag = "Fallback (Non-Terminal)"
+				
 		var empty_stash_spots = []
 		var empty_branches = []
 		for r in accessible_regions:
 			if not regions_with_keys.has(r):
 				empty_stash_spots.append(r)
 				if main_path_key_stash and not spine_regions.has(r): empty_branches.append(r)
+				
+		# --- VERIFY VAULT FEASIBILITY ---
+		# If we want to make a vault, we MUST have a place to put its key, or an existing vault key to reuse!
+		# If we don't, we must revoke the vault status so the branch doesn't silently truncate.
+		if is_vault and empty_stash_spots.size() == 0 and vault_locks.size() == 0:
+			is_vault = false
+			vault_tag = ""
+				
+		var lock_it = false
+		var forge_new_key = false
+		var lock_str = ""
 		
 		# --- FORK LOGIC ---
 		if is_end_finale:
@@ -368,8 +407,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 			if empty_stash_spots.size() > 0: forge_new_key = true 
 			else:
 				forge_new_key = false
-				if vault_locks.size() > 0: lock_str = SeedUtils.pick_random(vault_locks, rng)
-				else: lock_it = false
+				lock_str = SeedUtils.pick_random(vault_locks, rng)
 				
 		elif (max_locks == 0 or locks_placed < max_locks) and rng.randf() < lock_chance:
 			lock_it = true
@@ -391,6 +429,11 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 					if rng.randf() < 0.20: tier_jump = 2
 					current_tier += tier_jump
 					lock_str = "Tier " + str(current_tier)
+					
+				# --- DEPENDENCY SNAPSHOT ---
+				# At the exact millisecond this lock is born, the current accessible_regions
+				# are guaranteed to be reachable WITHOUT this key!
+				safe_regions_for_lock[lock_str] = accessible_regions.duplicate()
 					
 				if is_vault:
 					vault_locks.append(lock_str)
@@ -415,7 +458,8 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 						
 			locked_portals.append({
 				"source_region": source_region, "next_region": next_region,
-				"lock_str": lock_str, "forge_new_key": forge_new_key
+				"lock_str": lock_str, "forge_new_key": forge_new_key,
+				"vault_tag": vault_tag # Export the placement context
 			})
 
 			for pos in portals[p_id]: grid.entities[pos]["lock_type"] = lock_str
@@ -423,6 +467,12 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 		# --- SIMULATE UNLOCKING ---
 		visited_regions[next_region] = true
+		
+		# Inherit prerequisites, and add the new lock if one was just placed
+		var prereqs = region_prereqs.get(source_region, []).duplicate()
+		if lock_it and lock_str != "":
+			if not prereqs.has(lock_str): prereqs.append(lock_str)
+		region_prereqs[next_region] = prereqs
 		
 		var assigned_area = region_to_area[source_region]
 		if lock_it and forge_new_key and not is_vault: 
@@ -456,13 +506,27 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 				if area_entry_locks.has(target_area):
 					bonus_lock = area_entry_locks[target_area]
 				else:
-					# Target area is beyond the end, so just give them the ultimate key!
 					bonus_lock = critical_locks[-1] 
 					
-				if _spawn_marker([bonus_region], "key", bonus_lock, regions, realizer, rng, "Shortcut"):
-					regions_with_keys[bonus_region] = true
-			else:
-				_spawn_marker(accessible_regions, "key", SeedUtils.pick_random(critical_locks, rng), regions, realizer, rng, "Fallback Shortcut")
+				# --- [NEW] STRICT DEPENDENCY CHECK ---
+				# Ensure the chosen bonus_region is actually safe for this lock!
+				var safe_spots = safe_regions_for_lock.get(bonus_lock, [])
+				
+				if safe_spots.has(bonus_region):
+					if _spawn_marker([bonus_region], "key", bonus_lock, regions, realizer, rng, "Shortcut"):
+						regions_with_keys[bonus_region] = true
+				else:
+					# The intended room was downstream of the lock! Fallback to a guaranteed safe room.
+					var fallback_empty = []
+					for r in safe_spots:
+						if not regions_with_keys.has(r): fallback_empty.append(r)
+						
+					if fallback_empty.size() > 0:
+						var fallback_reg = SeedUtils.pick_random(fallback_empty, rng)
+						if _spawn_marker([fallback_reg], "key", bonus_lock, regions, realizer, rng, "Shortcut (Adjusted)"):
+							regions_with_keys[fallback_reg] = true
+					elif safe_spots.size() > 0:
+						_spawn_marker(safe_spots, "key", bonus_lock, regions, realizer, rng, "Shortcut (Shared Room)")
 
 	# --- CLEANUP: ASSIGN REMAINING ROOMS ---
 	for r_id in regions:
@@ -481,9 +545,16 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		var r_id = cell_to_region[pos]
 		if region_to_area.has(r_id): cell_to_area[pos] = region_to_area[r_id]
 			
+	# --- EXPORT LEAVES ---
+	var leaf_regions_export = {}
+	for r in regions:
+		if region_adj[r].size() == 1:
+			leaf_regions_export[r] = true
+	realizer.set_meta("leaf_regions", leaf_regions_export)
+			
 	realizer.set_meta("cell_to_area", cell_to_area)
 	realizer.set_meta("cell_to_region", cell_to_region)
-	realizer.set_meta("vault_regions", vault_regions) # Export Vault Regions
+	realizer.set_meta("vault_regions", vault_regions)
 	
 	# --- BUILD PROGRESSION REPORT ---
 	var progression_report = _build_progression_report(
@@ -503,7 +574,8 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 		"shortcut_min": shortcut_min,
 		"shortcut_max": shortcut_max,
 		"seq_break_limit": sequence_break_limit,
-		"main_path_stash": main_path_key_stash
+		"main_path_stash": main_path_key_stash,
+		"non_terminal_vaults": allow_non_term_vaults
 	}
 	
 	realizer.set_meta("progression_report", progression_report)
@@ -570,7 +642,8 @@ static func _build_progression_report(
 			"source_region": lock_info.get("source_region", -1),
 			"dest_region": lock_info.get("next_region", -1),
 			"source_depth": region_depth.get(lock_info.get("source_region", -1), -1),
-			"dest_depth": region_depth.get(lock_info.get("next_region", -1), -1)
+			"dest_depth": region_depth.get(lock_info.get("next_region", -1), -1),
+			"vault_tag": lock_info.get("vault_tag", "")
 		})
 
 	# Keys

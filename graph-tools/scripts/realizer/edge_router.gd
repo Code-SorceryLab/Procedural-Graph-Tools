@@ -27,10 +27,15 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 	for y in range(grid.height):
 		for x in range(grid.width):
 			var pos = Vector2i(x, y)
-			if valid_floors.has(grid.get_cell(x, y)):
+			
+			# --- CUSTOM ROOM FIREWALL ---
+			# Make the physical walls of the room strictly impenetrable to the router!
+			if c_room_cells.has(pos) and not realizer.reserved_cells.has(pos):
+				astar.set_point_solid(pos, true) 
+			elif valid_floors.has(grid.get_cell(x, y)):
 				astar.set_point_weight_scale(pos, 1.0)
 			else:
-				astar.set_point_weight_scale(pos, 3.0) 
+				astar.set_point_weight_scale(pos, 3.0)
 				
 	var processed_edges = {}
 	
@@ -52,8 +57,9 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 	var get_path_cost = func(p_array: Array[Vector2i]) -> float:
 		var cost = 0.0
 		for p in p_array:
-			if grid.in_bounds_vec(p): cost += astar.get_point_weight_scale(p)
-			else: cost += 999.0
+			# If the path hits out of bounds OR a Custom Room wall, heavily penalize it
+			if not grid.in_bounds_vec(p) or astar.is_point_solid(p): cost += 9999.0
+			else: cost += astar.get_point_weight_scale(p)
 		return cost
 	
 	for key in graph.edge_store:
@@ -120,10 +126,7 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var path: Array[Vector2i] = []
 		
 		if routing_mode == 1:
-			# Deterministic dice roll for this specific edge
 			rng.seed = SeedUtils.hash_seed(str(master_seed_hash) + "_" + str(pair[0]) + "_" + str(pair[1]))
-			
-			# Calculate the two possible 90-degree corner points
 			var c1 = Vector2i(end_pos.x, start_pos.y)
 			var c2 = Vector2i(start_pos.x, end_pos.y)
 			
@@ -133,14 +136,14 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 			var cost1 = get_path_cost.call(p1)
 			var cost2 = get_path_cost.call(p2)
 			
-			# Pick the cheaper path to avoid needlessly crashing through thick walls/voids!
-			# If equal, add a tiny noise fraction so the map doesn't look artificially biased to one axis
-			if cost1 + rng.randf_range(-0.1, 0.1) < cost2:
-				path = p1
+			# Check if BOTH L-Paths crash through a solid Custom Room wall. 
+			# If so, gracefully fallback to organic A* snaking!
+			if cost1 < 9000.0 or cost2 < 9000.0:
+				if cost1 + rng.randf_range(-0.1, 0.1) < cost2: path = p1
+				else: path = p2
 			else:
-				path = p2
+				path = astar.get_id_path(start_pos, end_pos)
 		else:
-			# Standard A* Organic Path
 			path = astar.get_id_path(start_pos, end_pos)
 			
 		if path.is_empty(): continue
