@@ -1,7 +1,7 @@
 class_name RoomAllocator
 extends RefCounted
 
-static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: int, params: Dictionary) -> void:
+static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: int, params: Dictionary, emit: Callable = Callable()) -> void:
 	var grid = realizer.grid
 	
 	var master_seed_input = params.get("realizer_seed", "default_realizer")
@@ -16,6 +16,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 	var room_data_cache: Array[Dictionary] = []
 	var metric_custom_rooms = 0 # Diagnostic tracker
 	var metric_rejected_custom_rooms = 0 # Tracks overlaps
+	
+	# --- ANTI-SQUEEZE TRACKERS ---
+	var stamped_walls = {}
+	var stamped_doorways = {}
 
 	for node_id in graph.nodes:
 		var node = graph.nodes[node_id] as NodeData
@@ -72,8 +76,25 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var custom_room_stamped = false
 		
 		if chosen_type == "custom_room" and custom_rooms.has(chosen_ref):
-			var c_room = custom_rooms[chosen_ref]
+			var c_room = custom_rooms[chosen_ref].duplicate(true)
 			var anchor = c_room.get("anchor", Vector2i.ZERO)
+			
+			# --- WFC SOCKET RESOLUTION ---
+			if c_room.has("sockets") and params.has("wfc_modules") and params.get("enable_wfc_decorations", true):
+				var wfc_payload = WFCSolver.resolve(c_room["sockets"], rng, params["wfc_modules"])
+				if not wfc_payload.is_empty():
+					# Merge WFC arrays into the Custom Room
+					for t in ["floors", "walls"]:
+						if not c_room.has(t): c_room[t] = {}
+						for pt in wfc_payload[t]: c_room[t][pt] = true
+					for t in ["exact_floors", "exact_walls"]:
+						if not c_room.has(t): c_room[t] = {}
+						c_room[t].merge(wfc_payload[t], true)
+						
+					if not c_room.has("placed_entities"): c_room["placed_entities"] = []
+					c_room["placed_entities"].append_array(wfc_payload["entities"])
+					
+					if emit.is_valid(): emit.call("WFC: Resolved Sockets (" + chosen_ref + ")")
 			
 			# 1. Capacity Gatekeeper
 			# If the node has more connections than the room has doorways, it physically cannot work!
@@ -156,6 +177,32 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 									is_overlapping = true; break
 						if is_overlapping: break
 						
+					# --- ANTI-SQUEEZE DOORWAY CLEARANCE ---
+					# Guarantees doorways cannot be orthogonally choked by foreign walls
+					if not is_overlapping:
+						var ortho_dirs = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+						
+						# Rule A: The new room's doorways cannot orthogonally touch existing walls
+						if c_room.has("doorways"):
+							for l_pos in c_room["doorways"]:
+								var g_pos = to_global.call(l_pos)
+								for d in ortho_dirs:
+									if stamped_walls.has(g_pos + d):
+										is_overlapping = true; break
+								if is_overlapping: break
+								
+						# Rule B: The new room's walls cannot orthogonally touch existing doorways
+						if not is_overlapping:
+							for cat in ["walls", "exact_walls"]:
+								if c_room.has(cat):
+									for l_pos in c_room[cat]:
+										var g_pos = to_global.call(l_pos)
+										for d in ortho_dirs:
+											if stamped_doorways.has(g_pos + d):
+												is_overlapping = true; break
+										if is_overlapping: break
+								if is_overlapping: break
+						
 					if is_overlapping:
 						metric_rejected_custom_rooms += 1
 						chosen_type = "preset"
@@ -177,6 +224,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 								var g_pos = to_global.call(l_pos)
 								if wall_id != TilePalette.VOID_ID: grid.set_cell(g_pos.x, g_pos.y, wall_id)
 								room_cells.append(g_pos)
+								stamped_walls[g_pos] = true
 								
 						if c_room.has("exact_floors"):
 							for l_pos in c_room["exact_floors"]:
@@ -190,6 +238,7 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 								if wall_id != TilePalette.VOID_ID: 
 									grid.set_cell_atlas(g_pos.x, g_pos.y, wall_id, c_room["exact_walls"][l_pos])
 								room_cells.append(g_pos)
+								stamped_walls[g_pos] = true
 								
 						if c_room.has("reserved"):
 							for l_pos in c_room["reserved"]:
@@ -200,7 +249,19 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 								
 						if c_room.has("doorways"):
 							for l_pos in c_room["doorways"]:
-								global_doorways.append(to_global.call(l_pos))
+								var g_pos = to_global.call(l_pos)
+								global_doorways.append(g_pos)
+								stamped_doorways[g_pos] = true
+								
+						# --- STAMP ENTITIES ---
+						if c_room.has("placed_entities"):
+							for ent in c_room["placed_entities"]:
+								var g_pos = to_global.call(ent["pos"])
+								if not grid.entities.has(g_pos): # Don't overwrite existing entities
+									grid.entities[g_pos] = {
+										"type": "scatter", 
+										"id": ent["id"]
+									}
 								
 						node.custom_data["_grid_center"] = grid_pos
 						node.custom_data["_custom_doorways"] = global_doorways

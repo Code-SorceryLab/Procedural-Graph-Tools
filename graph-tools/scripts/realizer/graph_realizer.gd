@@ -77,7 +77,7 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	# --- PIPELINE EXECUTION ---
 	emit.call("Start: Base Initialization")
 	
-	RoomAllocator.allocate(graph, self, floor_id, params)
+	RoomAllocator.allocate(graph, self, floor_id, params, emit)
 	emit.call("Room Allocation")
 	
 	EdgeRouter.route(graph, self, floor_id, params)

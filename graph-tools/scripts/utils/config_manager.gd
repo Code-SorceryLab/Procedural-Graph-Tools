@@ -515,3 +515,36 @@ static func _deserialize_vector2i_keys(data: Dictionary) -> Dictionary:
 					new_dict[vec_key] = room[prop][s]
 				room[prop] = new_dict
 	return out
+
+
+# ==============================================================================
+# WFC MODULES
+# ==============================================================================
+
+static func save_wfc_modules(data: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	
+	if config.has_section("WfcModules"):
+		config.erase_section("WfcModules")
+		
+	# CRITICAL: We must serialize the Vector2i keys just like Custom Rooms!
+	var serialized = _serialize_vector2i_keys(data)
+	for key in serialized:
+		config.set_value("WfcModules", key, serialized[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save WFC Modules.")
+	
+static func load_wfc_modules() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_modules = {}
+	
+	if err == OK and config.has_section("WfcModules"):
+		for key in config.get_section_keys("WfcModules"):
+			loaded_modules[key] = config.get_value("WfcModules", key)
+			
+	# CRITICAL: We must deserialize the Vector2i keys back into math objects!
+	return _deserialize_vector2i_keys(loaded_modules)

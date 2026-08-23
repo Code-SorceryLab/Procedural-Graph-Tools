@@ -39,6 +39,7 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "btn_open_structure_designer", "label": "Open Structure Designer", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "btn_open_scatter_designer", "label": "Open Scatter Designer", "type": TYPE_NIL, "hint": "action" }, 
 		{ "name": "btn_open_custom_room_designer", "label": "Open Custom Room Designer", "type": TYPE_NIL, "hint": "action" }, 
+		{ "name": "btn_open_wfc_designer", "label": "Design WFC Modules (3x3)", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "sep_mapper", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "realizer_seed", "label": "Generator Seed", "type": TYPE_STRING, "default": "research_01", 

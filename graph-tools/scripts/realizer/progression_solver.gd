@@ -19,7 +19,7 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 	var portals: Dictionary = {}
 	var portal_connections: Dictionary = {}
 	
-	# [NEW] Pre-calculate all solid cells so regions naturally flow around them!
+	# Pre-calculate all solid cells so regions naturally flow around them
 	var solid_cells = {}
 	for pos in grid.entities:
 		var ent = grid.entities[pos]

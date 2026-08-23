@@ -3,7 +3,7 @@ extends Window
 
 signal confirmed
 
-enum Brush { NONE, FLOOR_GENERIC, WALL_GENERIC, TILE_EXACT_FLOOR, TILE_EXACT_WALL, DOORWAY, ANCHOR, TOGGLE_RESERVED, PLACE_STRUCTURE, PLACE_ENTITY }
+enum Brush { NONE, FLOOR_GENERIC, WALL_GENERIC, TILE_EXACT_FLOOR, TILE_EXACT_WALL, DOORWAY, ANCHOR, TOGGLE_RESERVED, PLACE_STRUCTURE, PLACE_ENTITY, PLACE_WFC_SOCKET }
 
 var custom_rooms: Dictionary = {}
 var _current_room_key: String = ""
@@ -138,6 +138,7 @@ func _init() -> void:
 	_brush_dropdown.add_item("Toggle Reserved Mask", Brush.TOGGLE_RESERVED)
 	_brush_dropdown.add_item("Place Structure", Brush.PLACE_STRUCTURE)
 	_brush_dropdown.add_item("Place Entity", Brush.PLACE_ENTITY)
+	_brush_dropdown.add_item("WFC Socket Zone (3x3)", Brush.PLACE_WFC_SOCKET)
 	_brush_dropdown.item_selected.connect(func(idx): _active_brush = _brush_dropdown.get_item_id(idx) as Brush; _update_brush_ui())
 	brush_toolbar.add_child(_brush_dropdown)
 	
@@ -256,6 +257,7 @@ func _add_new_room_data(r_name: String) -> void:
 		"exact_floors": {},   
 		"exact_walls": {},
 		"placed_structures": [], # Array of { "id": String, "pos": Vector2i, "rot": int }
+		"sockets": [],
 		"unused_door_mode": 1, 
 		"unused_door_atlas": Vector2i.ZERO
 	}
@@ -413,7 +415,9 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 	var pos = Vector2i(cx, cy)
 	
 	if erase:
-		if _active_brush == Brush.PLACE_STRUCTURE and r.has("placed_structures"):
+		if _active_brush == Brush.PLACE_WFC_SOCKET and r.has("sockets"):
+			r["sockets"].erase(pos)
+		elif _active_brush == Brush.PLACE_STRUCTURE and r.has("placed_structures"):
 			# Find and delete any structure anchored at this exact spot
 			for i in range(r["placed_structures"].size() - 1, -1, -1):
 				if r["placed_structures"][i]["pos"] == pos:
@@ -440,6 +444,9 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 	elif _active_brush == Brush.DOORWAY:
 		if not r.has("doorways"): r["doorways"] = []
 		if not r["doorways"].has(pos): r["doorways"].append(pos)
+	elif _active_brush == Brush.PLACE_WFC_SOCKET:
+		if not r.has("sockets"): r["sockets"] = []
+		if not r["sockets"].has(pos): r["sockets"].append(pos)
 	elif _active_brush == Brush.FLOOR_GENERIC:
 		r["floors"][pos] = true; _clear_base_tiles(r, pos, ["floors"])
 	elif _active_brush == Brush.WALL_GENERIC:
@@ -610,6 +617,13 @@ func _on_canvas_draw() -> void:
 		var a = r["anchor"]
 		var c = Vector2(a.x * scaled_sz.x + (scaled_sz.x/2.0), a.y * scaled_sz.y + (scaled_sz.y/2.0))
 		_canvas.draw_circle(c, scaled_sz.x * 0.3, Color.YELLOW)
+	
+	if r.has("sockets"):
+		for pos in r["sockets"]:
+			var px = pos.x * scaled_sz.x
+			var py = pos.y * scaled_sz.y
+			_canvas.draw_rect(Rect2(px, py, scaled_sz.x * 3, scaled_sz.y * 3), Color(0.6, 0.2, 0.8, 0.3))
+			_canvas.draw_rect(Rect2(px, py, scaled_sz.x * 3, scaled_sz.y * 3), Color(0.8, 0.4, 1.0, 0.8), false, 2.0)
 	
 	# --- DRAW PLACED STRUCTURES & SPRITES ---
 	var draw_struct = func(s_id: String, s_pos: Vector2i, s_rot: int, alpha: float):
@@ -792,4 +806,12 @@ func _validate_room_layout(r: Dictionary) -> String:
 			if not visited.has(d): 
 				return "All Doorways must be connected to each other by a continuous path of 'Reserved' tiles!\n\n(Use the Toggle Reserved Mask brush to link them)."
 				
+	# CHECK 4: WFC Sockets cannot overlap with Reserved critical paths!
+	if r.has("sockets"):
+		for s_pos in r["sockets"]:
+			for dy in range(3):
+				for dx in range(3):
+					if reserved.has(s_pos + Vector2i(dx, dy)):
+						return "WFC Sockets (3x3) cannot overlap with 'Reserved' tiles! Leave the critical path clear."
+	
 	return "" # Empty string means validation passed!

@@ -22,31 +22,18 @@ Transformations worth adding:
 -BranchByMetric 			(conditional logic holy crap)
 
 
+
+
 Maybe the citation dependency feature (Big Task)
 
 Maybe metrics AS transformations to mark certain nodes/edges as "Most recently affected", for precise targeted changes.
 
 -When DAG keys spawn on the same node, the visuals fuck up a bit.
 
--Make graphCamera zoom towards a lock or key's respective counterpart when that lock/key is double clicked.
--Make numbered locks and keys display their number.
 
--Custom room shapes similar to the structureDesigner.
 -Loading in a prefab for the stamp tool corrupts the existing custom data fields that exist, so be warned.
 
 -Raster to progression graph generation
-
-
-GRAPH GRAMMAR UPGRADES:
-
-4. Spatial Resolution Hooks The Limitation: When is_new spawns a node, it places it at the exact mathematical midpoint (pos_a + pos_b) / 2.0. In a dense graph, rewriting a few edges will cause multiple nodes to visually pile up on the same coordinate.The Upgrade: We can hook the grammar engine directly into your physics system. When the grammar injects a new node, it triggers a localized spatial relaxation (a quick burst of repulsive forces just for the new node and its immediate neighbors) so the graph automatically untangles itself during the rewrite process.
-
-
-
-
-
-
-
 
 
 

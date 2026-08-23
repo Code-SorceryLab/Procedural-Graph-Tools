@@ -306,7 +306,6 @@ func _format_report(data: Dictionary) -> String:
 		s += "  No locked doors.\n"
 	else:
 		for l in locks:
-			print(l)
 			var lock_str = l.get("lock_str", "")
 			var src = l.get("source_region", -1)
 			var dst = l.get("dest_region", -1)

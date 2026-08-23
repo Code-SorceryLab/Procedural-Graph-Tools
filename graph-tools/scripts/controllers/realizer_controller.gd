@@ -52,8 +52,10 @@ var _structure_popup: StructureDesignerPopup
 var _interaction_popup: BiomeInteractionPopup
 var _scatter_popup: ScatterDesignerPopup
 var _custom_room_popup: CustomRoomDesignerPopup
+var _wfc_popup: WfcModuleDesignerPopup
 
 var _custom_rooms: Dictionary = {}
+var _wfc_modules: Dictionary = {}
 var _custom_structures: Dictionary = {} 
 var _scatter_sets: Dictionary = {}
 var _procedural_flags: Dictionary = {}
@@ -182,6 +184,20 @@ func _ready() -> void:
 	_custom_room_popup.confirmed.connect(func():
 		_custom_rooms = _custom_room_popup.custom_rooms.duplicate(true)
 		ConfigManager.save_custom_rooms(_custom_rooms)
+	)
+	
+	# --- [NEW] WFC MODULE SETUP ---
+	# (Assuming you add load_wfc_modules / save_wfc_modules to your ConfigManager!)
+	_wfc_modules = ConfigManager.load_wfc_modules()
+	
+	_wfc_popup = WfcModuleDesignerPopup.new()
+	_wfc_popup.hide()
+	add_child(_wfc_popup)
+	
+	_wfc_popup.confirmed.connect(func(saved_modules):
+		_wfc_modules = saved_modules.duplicate(true)
+
+		ConfigManager.save_wfc_modules(_wfc_modules)
 	)
 
 
@@ -319,6 +335,10 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	elif key == "btn_open_custom_room_designer": 
 		_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms, _custom_structures, _scatter_sets)
 	
+	# --- WFC ROUTER ---
+	elif key == "btn_open_wfc_designer":
+		_wfc_popup.open(_tileset_image_path, _tileset_tile_size, _wfc_modules, _scatter_sets)
+	
 	# Catch all view toggles and redraw instantly!
 	elif key.begins_with("show_") or key == "debug_routing":
 		_params[key] = value
@@ -409,6 +429,7 @@ func _on_rasterize_pressed() -> void:
 		_validator_thread.wait_to_finish()
 	
 	_params["custom_rooms"] = _custom_rooms
+	_params["wfc_modules"] = _wfc_modules
 	_params["biomes"] = _build_filtered_biomes()
 		
 	_snapshots.clear()
