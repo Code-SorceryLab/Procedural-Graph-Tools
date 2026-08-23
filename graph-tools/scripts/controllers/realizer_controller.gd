@@ -325,30 +325,44 @@ func _input(event: InputEvent) -> void:
 # UI ROUTING
 # ==============================================================================
 func _on_ui_interaction(key: String, value: Variant) -> void:
-	if key == "btn_rasterize": _on_rasterize_pressed()
-	elif key == "btn_clear": _on_clear_pressed()
-	elif key == "btn_open_mapper": _mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings, _procedural_flags, _palette_params)
-	elif key == "btn_open_structure_designer": _structure_popup.open()
-	elif key == "btn_open_scatter_designer": _scatter_popup.open()
-	elif key == "btn_biome_interactions": _interaction_popup.open()
-	elif key == "btn_open_biome_designer": _biome_designer.open(_params)
-	elif key == "btn_open_custom_room_designer": 
-		_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms, _custom_structures, _scatter_sets)
-	
-	# --- WFC ROUTER ---
-	elif key == "btn_open_wfc_designer":
-		_wfc_popup.open(_tileset_image_path, _tileset_tile_size, _wfc_modules, _scatter_sets)
-	
-	# Catch all view toggles and redraw instantly!
-	elif key.begins_with("show_") or key == "debug_routing":
-		_params[key] = value
-		ConfigManager.save_global_params(_params)
-		if not _snapshots.is_empty() and tile_map_layer:
-			_render_overlays(_snapshots[-1]["entities"])
-			
-	else:
-		_params[key] = value
-		ConfigManager.save_global_params(_params)
+	match key:
+		"btn_rasterize":
+			_on_rasterize_pressed()
+
+		"btn_clear":
+			_on_clear_pressed()
+
+		"btn_open_mapper":
+			_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings, _procedural_flags, _palette_params)
+
+		"btn_open_structure_designer":
+			_structure_popup.open()
+
+		"btn_open_scatter_designer":
+			_scatter_popup.open()
+
+		"btn_biome_interactions":
+			_interaction_popup.open()
+
+		"btn_open_biome_designer":
+			_biome_designer.open(_params)
+
+		"btn_open_custom_room_designer":
+			_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms, _custom_structures, _scatter_sets)
+
+		# --- WFC ROUTER ---
+		"btn_open_wfc_designer":
+			_wfc_popup.open(_tileset_image_path, _tileset_tile_size, _wfc_modules, _scatter_sets)
+
+		_:
+			# Catch-all: all toggles, generic settings, debug visibility, etc.
+			_params[key] = value
+			ConfigManager.save_global_params(_params)
+
+			# Only for instant visibility toggles, redraw the current overlay state.
+			if key.begins_with("show_") or key == "debug_routing":
+				if not _snapshots.is_empty() and tile_map_layer:
+					_render_overlays(_snapshots[-1]["entities"])
 
 func _on_mapping_confirmed() -> void:
 	_atlas_mappings = _mapping_popup.mappings.duplicate()
@@ -430,6 +444,7 @@ func _on_rasterize_pressed() -> void:
 	
 	_params["custom_rooms"] = _custom_rooms
 	_params["wfc_modules"] = _wfc_modules
+	_params["scatter_sets"] = _scatter_sets
 	_params["biomes"] = _build_filtered_biomes()
 		
 	_snapshots.clear()

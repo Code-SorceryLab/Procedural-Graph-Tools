@@ -253,15 +253,16 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 								global_doorways.append(g_pos)
 								stamped_doorways[g_pos] = true
 								
-						# --- STAMP ENTITIES ---
+						# --- STAMP ENTITIES (Custom Rooms & WFC) ---
 						if c_room.has("placed_entities"):
 							for ent in c_room["placed_entities"]:
 								var g_pos = to_global.call(ent["pos"])
-								if not grid.entities.has(g_pos): # Don't overwrite existing entities
-									grid.entities[g_pos] = {
-										"type": "scatter", 
-										"id": ent["id"]
-									}
+								if not grid.entities.has(g_pos): 
+									# [FIXED] Grab the actual color/texture data from the params!
+									var ent_data = params.get("scatter_sets", {}).get(ent["id"], {}).duplicate(true)
+									ent_data["type"] = "scatter" # Tell the Realizer what this is
+									ent_data["id"] = ent["id"]
+									grid.entities[g_pos] = ent_data
 								
 						node.custom_data["_grid_center"] = grid_pos
 						node.custom_data["_custom_doorways"] = global_doorways

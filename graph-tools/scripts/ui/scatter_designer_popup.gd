@@ -4,7 +4,6 @@ extends ConfirmationDialog
 var scatter_sets: Dictionary = {}
 var _current_key: String = ""
 var _active_inputs: Dictionary = {}
-var _texture_cache: Dictionary = {}
 
 var _item_list: ItemList
 var _dynamic_container: VBoxContainer
@@ -22,10 +21,7 @@ var _spin_scale_x: SpinBox
 var _spin_scale_y: SpinBox
 var _opt_filter: OptionButton
 
-# --- CANVAS REFS ---
-var canvas: Control
-var zoom_level: float = 2.0
-var tile_size: float = 32.0
+var painter: GridCanvasPainter # [NEW] Replaces canvas, zoom, and tile_size!
 
 func _init() -> void:
 	title = "Scatter Sets Designer"
@@ -91,11 +87,9 @@ func _init() -> void:
 	mid_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid_margin.add_child(mid_vbox)
 	
-	# Container 1: The Dynamic UI (Wiped by SettingsUIBuilder)
 	_dynamic_container = VBoxContainer.new()
 	mid_vbox.add_child(_dynamic_container)
 	
-	# Container 2: The Static Sprite UI (Never wiped, prevents duplication bugs!)
 	_sprite_ui_container = VBoxContainer.new()
 	_sprite_ui_container.visible = false
 	mid_vbox.add_child(_sprite_ui_container)
@@ -120,7 +114,7 @@ func _init() -> void:
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_path"] = ""
 			_lbl_sprite_path.text = "No Sprite Loaded"
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 	)
 	box_sprite_btns.add_child(btn_clear_sprite)
 	_sprite_ui_container.add_child(box_sprite_btns)
@@ -141,12 +135,12 @@ func _init() -> void:
 	_spin_offset_x.value_changed.connect(func(v): 
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_offset"] = Vector2(v, scatter_sets[_current_key].get("texture_offset", Vector2.ZERO).y)
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 	)
 	_spin_offset_y.value_changed.connect(func(v): 
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_offset"] = Vector2(scatter_sets[_current_key].get("texture_offset", Vector2.ZERO).x, v)
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 	)
 	box_offset.add_child(_spin_offset_x)
 	box_offset.add_child(_spin_offset_y)
@@ -162,12 +156,12 @@ func _init() -> void:
 	_spin_scale_x.value_changed.connect(func(v): 
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_scale"] = Vector2(v, scatter_sets[_current_key].get("texture_scale", Vector2.ONE).y)
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 	)
 	_spin_scale_y.value_changed.connect(func(v): 
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_scale"] = Vector2(scatter_sets[_current_key].get("texture_scale", Vector2.ONE).x, v)
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 	)
 	box_scale.add_child(_spin_scale_x)
 	box_scale.add_child(_spin_scale_y)
@@ -179,8 +173,8 @@ func _init() -> void:
 	_opt_filter.item_selected.connect(func(idx): 
 		if _current_key != "":
 			scatter_sets[_current_key]["texture_filter"] = idx
-			canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if idx == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
-			canvas.queue_redraw()
+			painter.canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if idx == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+			painter.canvas.queue_redraw()
 	)
 	_sprite_ui_container.add_child(_opt_filter)
 
@@ -193,38 +187,17 @@ func _init() -> void:
 	add_child(_file_dialog)
 
 	# ==========================================================================
-	# RIGHT PANEL (Canvas)
+	# RIGHT PANEL (Painter Component)
 	# ==========================================================================
 	var right_panel = VBoxContainer.new()
 	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(right_panel)
 	
-	var top_tools = HBoxContainer.new()
-	right_panel.add_child(top_tools)
-	var spacer = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_tools.add_child(spacer)
+	painter = GridCanvasPainter.new()
+	painter.origin_mode = GridCanvasPainter.OriginMode.CENTERED
+	right_panel.add_child(painter)
 	
-	var btn_zoom_out = Button.new()
-	btn_zoom_out.text = " - Zoom "
-	btn_zoom_out.pressed.connect(func(): zoom_level = max(0.5, zoom_level - 0.25); canvas.queue_redraw())
-	top_tools.add_child(btn_zoom_out)
-	
-	var btn_zoom_in = Button.new()
-	btn_zoom_in.text = " + Zoom "
-	btn_zoom_in.pressed.connect(func(): zoom_level = min(4.0, zoom_level + 0.25); canvas.queue_redraw())
-	top_tools.add_child(btn_zoom_in)
-	
-	var canvas_bg = ColorRect.new()
-	canvas_bg.color = Color(0.1, 0.1, 0.12)
-	canvas_bg.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	canvas_bg.clip_contents = true
-	right_panel.add_child(canvas_bg)
-	
-	canvas = Control.new()
-	canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	canvas_bg.add_child(canvas)
-	canvas.draw.connect(_on_canvas_draw)
+	painter.canvas.draw.connect(_on_canvas_draw)
 
 func _create_spinbox(min_v: float, max_v: float, step: float) -> SpinBox:
 	var sb = SpinBox.new()
@@ -240,7 +213,6 @@ func _create_spinbox(min_v: float, max_v: float, step: float) -> SpinBox:
 func open() -> void:
 	scatter_sets = ConfigManager.load_scatter_sets().duplicate(true)
 	_current_key = ""
-	_texture_cache.clear()
 	_populate_list()
 	popup_centered()
 
@@ -288,7 +260,7 @@ func _build_right_panel() -> void:
 	if _current_key == "" or not scatter_sets.has(_current_key): return
 	var current_vals = scatter_sets[_current_key]
 	
-	# Legacy migration safety
+	# Legacy migration
 	if not current_vals.has("texture_path"): current_vals["texture_path"] = ""
 	if not current_vals.has("texture_offset"): current_vals["texture_offset"] = Vector2.ZERO
 	if not current_vals.has("texture_scale"): current_vals["texture_scale"] = Vector2.ONE
@@ -299,10 +271,8 @@ func _build_right_panel() -> void:
 		{ "name": "color", "label": "Editor Entity Color", "type": TYPE_COLOR, "default": current_vals.get("color", Color.WHITE) }
 	]
 	
-	# Render the dynamic portion into its dedicated container!
 	_active_inputs = SettingsUIBuilder.render_dynamic_section(_dynamic_container, schema, _on_setting_changed)
 	
-	# Update the static Sprite UI values without firing signals
 	_sprite_ui_container.visible = true
 	
 	var tex_path = current_vals.get("texture_path", "No Sprite Loaded")
@@ -318,9 +288,9 @@ func _build_right_panel() -> void:
 	
 	var t_filter = current_vals.get("texture_filter", 0)
 	_opt_filter.select(t_filter)
-	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+	painter.canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
 	
-	canvas.queue_redraw()
+	painter.canvas.queue_redraw()
 
 func _on_file_selected(path: String) -> void:
 	if _current_key == "": return
@@ -329,19 +299,7 @@ func _on_file_selected(path: String) -> void:
 		scatter_sets[_current_key]["texture_path"] = cached_path
 		if _lbl_sprite_path:
 			_lbl_sprite_path.text = cached_path
-		if _texture_cache.has(_current_key):
-			_texture_cache.erase(_current_key)
-		canvas.queue_redraw()
-
-func _get_cached_texture(s_id: String, path: String) -> Texture2D:
-	if _texture_cache.has(s_id): return _texture_cache[s_id]
-	if FileAccess.file_exists(path):
-		var img = Image.load_from_file(path)
-		if img:
-			var tex = ImageTexture.create_from_image(img)
-			_texture_cache[s_id] = tex
-			return tex
-	return null
+		painter.canvas.queue_redraw()
 
 func _on_setting_changed(key: String, value: Variant) -> void:
 	if _current_key == "": return
@@ -352,7 +310,7 @@ func _on_setting_changed(key: String, value: Variant) -> void:
 		_item_list.set_item_text(idx, scatter_sets[_current_key].get("name", "Unnamed"))
 		if key == "color": 
 			_populate_list()
-			canvas.queue_redraw()
+			painter.canvas.queue_redraw()
 
 func _on_add_pressed() -> void:
 	var new_id = "set_" + str(hash(Time.get_ticks_usec()))
@@ -383,48 +341,21 @@ func _on_delete_pressed() -> void:
 	_populate_list()
 
 # ==============================================================================
-# CANVAS DRAWING
+# PAINTER API USAGE
 # ==============================================================================
 func _on_canvas_draw() -> void:
-	var center = canvas.size / 2.0
-	var actual_ts = tile_size * zoom_level
+	if _current_key == "" or not scatter_sets.has(_current_key): return
+	var struct = scatter_sets[_current_key]
 	
-	canvas.draw_line(Vector2(center.x, 0), Vector2(center.x, canvas.size.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
-	canvas.draw_line(Vector2(0, center.y), Vector2(canvas.size.x, center.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
+	var color = struct.get("color", Color.WHITE)
+	color.a = 0.5 
 	
-	var grid_color = Color(1, 1, 1, 0.1)
-	var steps_x = int((canvas.size.x / 2.0) / actual_ts) + 1
-	var steps_y = int((canvas.size.y / 2.0) / actual_ts) + 1
+	# Draw the 1x1 footprint 
+	painter.draw_cell_rect(Vector2i.ZERO, color, Color.WHITE, 2.0)
 	
-	for i in range(-steps_x, steps_x + 1):
-		var px = center.x + (i * actual_ts)
-		canvas.draw_line(Vector2(px, 0), Vector2(px, canvas.size.y), grid_color, 1.0)
-	for i in range(-steps_y, steps_y + 1):
-		var py = center.y + (i * actual_ts)
-		canvas.draw_line(Vector2(0, py), Vector2(canvas.size.x, py), grid_color, 1.0)
-		
-	if _current_key != "" and scatter_sets.has(_current_key):
-		var struct = scatter_sets[_current_key]
-		var color = struct.get("color", Color.WHITE)
-		color.a = 0.5 # Make the footprint slightly transparent to see the grid/sprite
-		
-		# Draw a single 1x1 tile as the "Scatter Footprint" in the exact center
-		var footprint_pos = Vector2(center.x - (actual_ts / 2.0), center.y - (actual_ts / 2.0))
-		var rect = Rect2(footprint_pos, Vector2(actual_ts, actual_ts))
-		
-		canvas.draw_rect(rect, color)
-		canvas.draw_rect(rect, Color.WHITE, false, 2.0)
-		
-		# Draw the normalized Sprite
-		var tex_path = struct.get("texture_path", "")
-		if tex_path != "":
-			var tex = _get_cached_texture(_current_key, tex_path)
-			if tex:
-				var t_offset = struct.get("texture_offset", Vector2.ZERO)
-				var t_scale = struct.get("texture_scale", Vector2.ONE)
-				
-				# Normalize so (1,1) scale = exactly 1 tile size, matching the realizer mathematically!
-				var normalized_size = Vector2(actual_ts * t_scale.x, actual_ts * t_scale.y)
-				var draw_pos = center - (normalized_size / 2.0) + (t_offset * actual_ts)
-				
-				canvas.draw_texture_rect(tex, Rect2(draw_pos, normalized_size), false)
+	# Draw Global Cached Sprite
+	var tex_path = struct.get("texture_path", "")
+	if tex_path != "":
+		var tex = ConfigManager.get_cached_texture(tex_path)
+		if tex:
+			painter.draw_normalized_sprite(Vector2i.ZERO, tex, struct.get("texture_offset", Vector2.ZERO), struct.get("texture_scale", Vector2.ONE), 0, 1.0)

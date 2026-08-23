@@ -22,7 +22,7 @@ Transformations worth adding:
 -BranchByMetric 			(conditional logic holy crap)
 
 
-
+-FixCustomRoomDesigner SOFTLOCK (I was playing around with the active Brush dropdown (on the exact floor Tile option), and I opened up the "Pick Brush Tile" prompt, and clicked back and forth repeatedly, likely didn't fully close the other option first.
 
 Maybe the citation dependency feature (Big Task)
 

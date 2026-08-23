@@ -11,6 +11,9 @@ const OPPOSITE = {"N": "S", "S": "N", "E": "W", "W": "E"}
 static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Dictionary) -> Dictionary:
 	if modules.is_empty(): return {}
 	
+	#print("\n--- [WFC] STARTING SOLVE ---")
+	#print("[WFC] Sockets detected at: ", sockets)
+	
 	var domains = {}
 	var uncollapsed = {}
 	
@@ -21,7 +24,6 @@ static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Diction
 		
 	# 2. Main Collapse Loop
 	while not uncollapsed.is_empty():
-		# Find lowest entropy (fewest valid modules)
 		var best_socket = Vector2i.ZERO
 		var min_entropy = 99999
 		for s_pos in uncollapsed:
@@ -31,9 +33,11 @@ static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Diction
 				best_socket = s_pos
 				
 		if min_entropy == 0:
-			push_warning("WFC Contradiction at socket: ", best_socket)
-			return {} # Failed to resolve
+			push_error("[WFC] CONTRADICTION at socket: ", best_socket, ". No valid modules fit here!")
+			return {} 
 			
+		#print("[WFC] Collapsing Socket ", best_socket, " | Valid Options: ", domains[best_socket])
+		
 		# Weighted Random Collapse
 		var valid_modules = domains[best_socket]
 		var total_weight = 0.0
@@ -46,11 +50,14 @@ static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Diction
 			if roll <= 0:
 				chosen_module = m; break
 				
+		#print("[WFC] -> Chose Module: '", chosen_module, "'")
 		domains[best_socket] = [chosen_module]
 		uncollapsed.erase(best_socket)
 		
 		# Propagate constraints to neighbors
 		_propagate(best_socket, domains, sockets, modules)
+
+	#print("--- [WFC] SOLVE COMPLETE ---\n")
 
 	# 3. Assemble Final Payload
 	var result = {"floors": [], "exact_floors": {}, "walls": [], "exact_walls": {}, "entities": []}
@@ -81,7 +88,7 @@ static func _propagate(start_pos: Vector2i, domains: Dictionary, all_sockets: Ar
 		
 		for dir_key in DIRS:
 			var neighbor = current + DIRS[dir_key]
-			if not all_sockets.has(neighbor): continue
+			if not all_sockets.has(neighbor): continue # No neighbor in this direction
 			
 			var valid_edges = {}
 			for m in current_modules:
@@ -98,8 +105,10 @@ static func _propagate(start_pos: Vector2i, domains: Dictionary, all_sockets: Ar
 				if valid_edges.has(opp_edge_str):
 					next_modules.append(nm)
 				else:
+					#print("[WFC]   -> Socket ", neighbor, " rejecting '", nm, "' (Edge '", opp_edge_str, "' incompatible with ", valid_edges.keys(), ")")
 					changed = true
 					
 			if changed:
+				#print("[WFC]   -> Socket ", neighbor, " domain reduced to: ", next_modules)
 				domains[neighbor] = next_modules
 				stack.append(neighbor)

@@ -548,3 +548,24 @@ static func load_wfc_modules() -> Dictionary:
 			
 	# CRITICAL: We must deserialize the Vector2i keys back into math objects!
 	return _deserialize_vector2i_keys(loaded_modules)
+
+
+# ==============================================================================
+# GLOBAL TEXTURE CACHE
+# ==============================================================================
+static var _global_texture_cache: Dictionary = {}
+
+static func get_cached_texture(path: String) -> Texture2D:
+	if path == "": return null
+	if _global_texture_cache.has(path): return _global_texture_cache[path]
+	
+	if FileAccess.file_exists(path):
+		var img = Image.load_from_file(path)
+		if img:
+			var tex = ImageTexture.create_from_image(img)
+			_global_texture_cache[path] = tex
+			return tex
+	return null
+
+static func clear_memory_cache() -> void:
+	_global_texture_cache.clear()

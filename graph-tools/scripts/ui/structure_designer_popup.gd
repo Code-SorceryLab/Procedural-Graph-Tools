@@ -3,7 +3,6 @@ extends AcceptDialog
 
 var structures: Dictionary = {}
 var current_id: String = ""
-var _texture_cache: Dictionary = {} # Prevents lagging the canvas every frame
 
 # --- UI REFS ---
 var item_list: ItemList
@@ -14,7 +13,7 @@ var chk_face_path: CheckBox
 var chk_solid: CheckBox
 var opt_front_dir: OptionButton
 
-# [NEW] Sprite Refs
+# Sprite Refs
 var lbl_sprite_path: Label
 var file_dialog: FileDialog
 var spin_offset_x: SpinBox
@@ -24,13 +23,11 @@ var spin_scale_y: SpinBox
 var opt_filter: OptionButton
 
 var prop_panel: VBoxContainer
-var canvas: Control
-var zoom_level: float = 1.0
-var tile_size: float = 32.0
+var painter: GridCanvasPainter # [NEW] Replaces canvas, zoom, and tile_size!
 
 func _init() -> void:
 	title = "Custom Structure Designer"
-	size = Vector2i(1000, 700) # Slightly wider to fit new UI
+	size = Vector2i(1000, 700) 
 	
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -93,7 +90,7 @@ func _init() -> void:
 	
 	color_picker = ColorPickerButton.new()
 	color_picker.custom_minimum_size.x = 40
-	color_picker.color_changed.connect(func(c): structures[current_id]["color"] = c; canvas.queue_redraw())
+	color_picker.color_changed.connect(func(c): structures[current_id]["color"] = c; painter.canvas.queue_redraw())
 	box_color.add_child(color_picker)
 	prop_panel.add_child(box_color)
 	
@@ -104,12 +101,12 @@ func _init() -> void:
 	
 	chk_face_path = CheckBox.new()
 	chk_face_path.text = "Face Critical Path"
-	chk_face_path.toggled.connect(func(v): structures[current_id]["face_path"] = v; canvas.queue_redraw())
+	chk_face_path.toggled.connect(func(v): structures[current_id]["face_path"] = v; painter.canvas.queue_redraw())
 	prop_panel.add_child(chk_face_path)
 	
 	chk_solid = CheckBox.new()
 	chk_solid.text = "Solid Collision (Blocks Pathing)"
-	chk_solid.toggled.connect(func(v): structures[current_id]["is_solid"] = v; canvas.queue_redraw())
+	chk_solid.toggled.connect(func(v): structures[current_id]["is_solid"] = v; painter.canvas.queue_redraw())
 	prop_panel.add_child(chk_solid)
 	
 	opt_front_dir = OptionButton.new()
@@ -134,12 +131,12 @@ func _init() -> void:
 	var btn_load_sprite = Button.new()
 	btn_load_sprite.text = "Load Image..."
 	btn_load_sprite.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn_load_sprite.pressed.connect(_on_load_sprite_pressed)
+	btn_load_sprite.pressed.connect(func(): file_dialog.popup_centered())
 	box_sprite_btns.add_child(btn_load_sprite)
 	
 	var btn_clear_sprite = Button.new()
 	btn_clear_sprite.text = "Clear"
-	btn_clear_sprite.pressed.connect(func(): structures[current_id]["texture_path"] = ""; canvas.queue_redraw())
+	btn_clear_sprite.pressed.connect(func(): structures[current_id]["texture_path"] = ""; painter.canvas.queue_redraw())
 	box_sprite_btns.add_child(btn_clear_sprite)
 	prop_panel.add_child(box_sprite_btns)
 	
@@ -157,7 +154,6 @@ func _init() -> void:
 	lbl_sprite_path.modulate = Color(0.6, 0.6, 0.6)
 	prop_panel.add_child(lbl_sprite_path)
 	
-	# Sprite Tweaks
 	var box_offset = HBoxContainer.new()
 	var lbl_offset = Label.new()
 	lbl_offset.text = "Offset (Tiles):"
@@ -165,8 +161,8 @@ func _init() -> void:
 	
 	spin_offset_x = _create_spinbox(-10, 10, 0.1)
 	spin_offset_y = _create_spinbox(-10, 10, 0.1)
-	spin_offset_x.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(v, structures[current_id].get("texture_offset", Vector2.ZERO).y); canvas.queue_redraw())
-	spin_offset_y.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(structures[current_id].get("texture_offset", Vector2.ZERO).x, v); canvas.queue_redraw())
+	spin_offset_x.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(v, structures[current_id].get("texture_offset", Vector2.ZERO).y); painter.canvas.queue_redraw())
+	spin_offset_y.value_changed.connect(func(v): structures[current_id]["texture_offset"] = Vector2(structures[current_id].get("texture_offset", Vector2.ZERO).x, v); painter.canvas.queue_redraw())
 	box_offset.add_child(spin_offset_x); box_offset.add_child(spin_offset_y)
 	prop_panel.add_child(box_offset)
 	
@@ -177,8 +173,8 @@ func _init() -> void:
 	
 	spin_scale_x = _create_spinbox(0.1, 10, 0.1)
 	spin_scale_y = _create_spinbox(0.1, 10, 0.1)
-	spin_scale_x.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(v, structures[current_id].get("texture_scale", Vector2.ONE).y); canvas.queue_redraw())
-	spin_scale_y.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(structures[current_id].get("texture_scale", Vector2.ONE).x, v); canvas.queue_redraw())
+	spin_scale_x.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(v, structures[current_id].get("texture_scale", Vector2.ONE).y); painter.canvas.queue_redraw())
+	spin_scale_y.value_changed.connect(func(v): structures[current_id]["texture_scale"] = Vector2(structures[current_id].get("texture_scale", Vector2.ONE).x, v); painter.canvas.queue_redraw())
 	box_scale.add_child(spin_scale_x); box_scale.add_child(spin_scale_y)
 	prop_panel.add_child(box_scale)
 	
@@ -187,52 +183,24 @@ func _init() -> void:
 	opt_filter.add_item("Filter: Linear (Smooth)", 1)
 	opt_filter.item_selected.connect(func(idx): 
 		structures[current_id]["texture_filter"] = idx
-		canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if idx == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
-		canvas.queue_redraw()
+		painter.canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if idx == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
+		painter.canvas.queue_redraw()
 	)
 	prop_panel.add_child(opt_filter)
 
 	# ==========================================================================
-	# RIGHT PANEL: CANVAS
+	# RIGHT PANEL: GRID CANVAS PAINTER
 	# ==========================================================================
 	var right_panel = VBoxContainer.new()
 	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(right_panel)
 	
-	var top_tools = HBoxContainer.new()
-	right_panel.add_child(top_tools)
+	painter = GridCanvasPainter.new()
+	painter.origin_mode = GridCanvasPainter.OriginMode.CENTERED
+	right_panel.add_child(painter)
 	
-	var lbl_help = Label.new()
-	lbl_help.text = " Left Click: Draw   |   Right Click: Erase"
-	lbl_help.modulate = Color(1, 1, 1, 0.6)
-	top_tools.add_child(lbl_help)
-	
-	var spacer = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_tools.add_child(spacer)
-	
-	var btn_zoom_out = Button.new()
-	btn_zoom_out.text = " - Zoom "
-	btn_zoom_out.pressed.connect(func(): zoom_level = max(0.5, zoom_level - 0.25); canvas.queue_redraw())
-	top_tools.add_child(btn_zoom_out)
-	
-	var btn_zoom_in = Button.new()
-	btn_zoom_in.text = " + Zoom "
-	btn_zoom_in.pressed.connect(func(): zoom_level = min(3.0, zoom_level + 0.25); canvas.queue_redraw())
-	top_tools.add_child(btn_zoom_in)
-	
-	var canvas_bg = ColorRect.new()
-	canvas_bg.color = Color(0.1, 0.1, 0.12)
-	canvas_bg.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	canvas_bg.clip_contents = true
-	right_panel.add_child(canvas_bg)
-	
-	canvas = Control.new()
-	canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	canvas_bg.add_child(canvas)
-	
-	canvas.draw.connect(_on_canvas_draw)
-	canvas.gui_input.connect(_on_canvas_input)
+	painter.cell_painted.connect(_on_cell_painted)
+	painter.canvas.draw.connect(_on_canvas_draw)
 
 func _create_spinbox(min_v: float, max_v: float, step: float) -> SpinBox:
 	var sb = SpinBox.new()
@@ -247,7 +215,6 @@ func _create_spinbox(min_v: float, max_v: float, step: float) -> SpinBox:
 # ==============================================================================
 func open() -> void:
 	structures = ConfigManager.load_structures()
-	_texture_cache.clear()
 	_refresh_list()
 	
 	if structures.is_empty():
@@ -299,20 +266,18 @@ func _delete_current_structure() -> void:
 		current_id = ""
 		prop_panel.visible = false
 		_refresh_list()
-		canvas.queue_redraw()
+		painter.canvas.queue_redraw()
 
 func _on_item_selected(idx: int) -> void:
 	current_id = item_list.get_item_metadata(idx)
 	var struct = structures[current_id]
 	
-	# --- LEGACY DATA MIGRATION ---
-	# Automatically inject new properties if an old structure is missing them
+	# Legacy migration
 	if not struct.has("is_solid"): struct["is_solid"] = true
 	if not struct.has("texture_path"): struct["texture_path"] = ""
 	if not struct.has("texture_offset"): struct["texture_offset"] = Vector2.ZERO
 	if not struct.has("texture_scale"): struct["texture_scale"] = Vector2.ONE
 	if not struct.has("texture_filter"): struct["texture_filter"] = 0
-	# -----------------------------------
 	
 	prop_panel.visible = true
 	name_edit.text = struct.get("name", "Unnamed")
@@ -327,7 +292,6 @@ func _on_item_selected(idx: int) -> void:
 	elif f_dir == Vector2i.DOWN: opt_front_dir.select(2)
 	elif f_dir == Vector2i.LEFT: opt_front_dir.select(3)
 	
-	# Sprite Settings
 	lbl_sprite_path.text = struct.get("texture_path", "No Sprite Loaded")
 	var off = struct.get("texture_offset", Vector2.ZERO)
 	spin_offset_x.set_value_no_signal(off.x)
@@ -338,11 +302,9 @@ func _on_item_selected(idx: int) -> void:
 	
 	var t_filter = struct.get("texture_filter", 0)
 	opt_filter.select(t_filter)
+	painter.canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
 	
-	# Apply node-level filtering instantly
-	canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
-	
-	canvas.queue_redraw()
+	painter.canvas.queue_redraw()
 
 func _on_front_dir_selected(idx: int) -> void:
 	var dir = Vector2i.UP
@@ -350,158 +312,54 @@ func _on_front_dir_selected(idx: int) -> void:
 	elif idx == 2: dir = Vector2i.DOWN
 	elif idx == 3: dir = Vector2i.LEFT
 	structures[current_id]["front_dir"] = dir
-	canvas.queue_redraw()
-
-# ==============================================================================
-# SPRITE LOADING
-# ==============================================================================
-func _on_load_sprite_pressed() -> void:
-	file_dialog.popup_centered()
+	painter.canvas.queue_redraw()
 
 func _on_file_selected(path: String) -> void:
 	if current_id == "": return
-	
-	# Import the sprite into the internal cache directory
 	var cached_path = ConfigManager.import_sprite(path)
 	if cached_path != "":
 		structures[current_id]["texture_path"] = cached_path
 		lbl_sprite_path.text = cached_path
-		
-		# Clear the loaded texture so the canvas is forced to reload the new one
-		if _texture_cache.has(current_id):
-			_texture_cache.erase(current_id)
-			
-		canvas.queue_redraw()
-
-func _get_cached_texture(s_id: String, path: String) -> Texture2D:
-	if _texture_cache.has(s_id): return _texture_cache[s_id]
-	if FileAccess.file_exists(path):
-		var img = Image.load_from_file(path)
-		if img:
-			var tex = ImageTexture.create_from_image(img)
-			_texture_cache[s_id] = tex
-			return tex
-	return null
+		painter.canvas.queue_redraw()
 
 # ==============================================================================
-# CANVAS DRAWING & LOGIC
+# PAINTER API USAGE
 # ==============================================================================
-func _get_grid_center() -> Vector2:
-	return canvas.size / 2.0
-
-func _get_coord_from_mouse(mouse_pos: Vector2) -> Vector2i:
-	var center = _get_grid_center()
-	var offset = mouse_pos - center
-	var actual_tile_size = tile_size * zoom_level
-	var gx = floor(offset.x / actual_tile_size)
-	var gy = floor(offset.y / actual_tile_size)
-	return Vector2i(gx, gy)
-
-func _on_canvas_input(event: InputEvent) -> void:
+func _on_cell_painted(coord: Vector2i, is_erase: bool, is_drag: bool) -> void:
 	if current_id == "" or not structures.has(current_id): return
 	
-	var is_add = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) or \
-				 (event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0)
-	var is_remove = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed) or \
-					(event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0)
-					
-	if is_add or is_remove:
-		var coord = _get_coord_from_mouse(event.position)
-		var footprint: Array = structures[current_id]["footprint"]
-		var typed_footprint: Array[Vector2i] = []
-		typed_footprint.assign(footprint)
+	var footprint: Array = structures[current_id]["footprint"]
+	var typed_footprint: Array[Vector2i] = []
+	typed_footprint.assign(footprint)
+	
+	if not is_erase and not typed_footprint.has(coord): 
+		typed_footprint.append(coord)
+	elif is_erase and typed_footprint.has(coord): 
+		typed_footprint.erase(coord)
 		
-		if is_add and not typed_footprint.has(coord): typed_footprint.append(coord)
-		elif is_remove and typed_footprint.has(coord): typed_footprint.erase(coord)
-			
-		structures[current_id]["footprint"] = typed_footprint
-		canvas.queue_redraw()
+	structures[current_id]["footprint"] = typed_footprint
+	painter.canvas.queue_redraw()
 
 func _on_canvas_draw() -> void:
-	var center = _get_grid_center()
-	var actual_ts = tile_size * zoom_level
+	if current_id == "" or not structures.has(current_id): return
+	var struct = structures[current_id]
+	var footprint: Array = struct.get("footprint", [])
+	var color = struct.get("color", Color.CYAN)
 	
-	canvas.draw_line(Vector2(center.x, 0), Vector2(center.x, canvas.size.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
-	canvas.draw_line(Vector2(0, center.y), Vector2(canvas.size.x, center.y), Color(0.4, 0.4, 0.4, 0.8), 2.0)
+	if not struct.get("is_solid", true): 
+		color.a = 0.5
 	
-	var grid_color = Color(1, 1, 1, 0.1)
-	var steps_x = int((canvas.size.x / 2.0) / actual_ts) + 1
-	var steps_y = int((canvas.size.y / 2.0) / actual_ts) + 1
-	
-	for i in range(-steps_x, steps_x + 1):
-		var px = center.x + (i * actual_ts)
-		canvas.draw_line(Vector2(px, 0), Vector2(px, canvas.size.y), grid_color, 1.0)
-	for i in range(-steps_y, steps_y + 1):
-		var py = center.y + (i * actual_ts)
-		canvas.draw_line(Vector2(0, py), Vector2(canvas.size.x, py), grid_color, 1.0)
+	# Draw Footprint
+	for coord in footprint:
+		painter.draw_cell_rect(coord, color, Color.WHITE, 2.0)
 		
-	if current_id != "" and structures.has(current_id):
-		var struct = structures[current_id]
-		var footprint: Array = struct.get("footprint", [])
-		var color = struct.get("color", Color.CYAN)
-		var is_solid = struct.get("is_solid", true)
-		if not is_solid: color.a = 0.5
-		
-		for coord in footprint:
-			var px = center.x + (coord.x * actual_ts)
-			var py = center.y + (coord.y * actual_ts)
-			var rect = Rect2(px, py, actual_ts, actual_ts)
-			canvas.draw_rect(rect, color)
-			canvas.draw_rect(rect, Color.WHITE, false, 2.0)
+	# Draw Global Cached Sprite
+	var tex_path = struct.get("texture_path", "")
+	if tex_path != "":
+		var tex = ConfigManager.get_cached_texture(tex_path)
+		if tex:
+			painter.draw_normalized_sprite(Vector2i.ZERO, tex, struct.get("texture_offset", Vector2.ZERO), struct.get("texture_scale", Vector2.ONE), 0, 1.0)
 			
-		# --- DRAW THE SPRITE OVERLAY ---
-		var tex_path = struct.get("texture_path", "")
-		if tex_path != "":
-			var tex = _get_cached_texture(current_id, tex_path)
-			if tex:
-				var t_offset = struct.get("texture_offset", Vector2.ZERO)
-				var t_scale = struct.get("texture_scale", Vector2.ONE)
-				
-				# Normalize scale to match the tile size EXACTLY like the Realizer does
-				var normalized_size = Vector2(actual_ts * t_scale.x, actual_ts * t_scale.y)
-				
-				var base_origin = Vector2(center.x + (actual_ts/2.0), center.y + (actual_ts/2.0))
-				var draw_pos = base_origin - (normalized_size / 2.0) + (t_offset * actual_ts)
-				
-				canvas.draw_texture_rect(tex, Rect2(draw_pos, normalized_size), false)
-				
-
-		# Draw the facing arrow last so it stays on top of the sprite
-		if struct.get("face_path", true) and footprint.size() > 0:
-			var front_dir = struct.get("front_dir", Vector2i.UP)
-			var min_coord = footprint[0]
-			var max_coord = footprint[0]
-			for c in footprint:
-				if c.x < min_coord.x: min_coord.x = c.x
-				if c.y < min_coord.y: min_coord.y = c.y
-				if c.x > max_coord.x: max_coord.x = c.x
-				if c.y > max_coord.y: max_coord.y = c.y
-				
-			var arrow_start = Vector2.ZERO
-			var arrow_end = Vector2.ZERO
-			var center_x = center.x + ((min_coord.x + max_coord.x + 1) / 2.0) * actual_ts
-			var center_y = center.y + ((min_coord.y + max_coord.y + 1) / 2.0) * actual_ts
-			
-			if front_dir == Vector2i.UP:
-				arrow_start = Vector2(center_x, center.y + (min_coord.y * actual_ts))
-				arrow_end = arrow_start + Vector2(0, -actual_ts)
-			elif front_dir == Vector2i.DOWN:
-				arrow_start = Vector2(center_x, center.y + ((max_coord.y + 1) * actual_ts))
-				arrow_end = arrow_start + Vector2(0, actual_ts)
-			elif front_dir == Vector2i.LEFT:
-				arrow_start = Vector2(center.x + (min_coord.x * actual_ts), center_y)
-				arrow_end = arrow_start + Vector2(-actual_ts, 0)
-			elif front_dir == Vector2i.RIGHT:
-				arrow_start = Vector2(center.x + ((max_coord.x + 1) * actual_ts), center_y)
-				arrow_end = arrow_start + Vector2(actual_ts, 0)
-				
-			_draw_arrow(arrow_start, arrow_end, Color.RED)
-
-
-func _draw_arrow(start: Vector2, end: Vector2, color: Color) -> void:
-	canvas.draw_line(start, end, color, 4.0)
-	var dir = (end - start).normalized()
-	var right = dir.rotated(PI * 0.75) * 15.0
-	var left = dir.rotated(-PI * 0.75) * 15.0
-	canvas.draw_line(end, end + right, color, 4.0)
-	canvas.draw_line(end, end + left, color, 4.0)
+	# Draw Arrow
+	if struct.get("face_path", true) and footprint.size() > 0:
+		painter.draw_facing_arrow(Vector2i.ZERO, footprint, struct.get("front_dir", Vector2i.UP), 0, Color.RED)

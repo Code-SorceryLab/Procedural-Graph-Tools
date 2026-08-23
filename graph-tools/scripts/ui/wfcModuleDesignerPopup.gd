@@ -5,7 +5,8 @@ signal confirmed
 
 enum Brush { NONE, FLOOR_GENERIC, WALL_GENERIC, TILE_EXACT_FLOOR, TILE_EXACT_WALL, PLACE_ENTITY }
 
-const SOCKET_SIZE = 3 # A standard 3x3 WFC chunk
+const SOCKET_SIZE = 3 # Standard 3x3 WFC chunk
+const STANDARD_EDGES = ["Open", "Wall", "Carpet", "Path", "Hazard", "Desk"]
 
 var wfc_modules: Dictionary = {}
 var _current_module_key: String = ""
@@ -15,15 +16,14 @@ var _module_dropdown: OptionButton
 var _module_name_edit: LineEdit
 var _weight_spin: SpinBox
 
-# Edge Rules
-var _edge_n: LineEdit
-var _edge_e: LineEdit
-var _edge_s: LineEdit
-var _edge_w: LineEdit
+# Edge Rules (Upgraded to Dropdowns!)
+var _edge_n: OptionButton
+var _edge_e: OptionButton
+var _edge_s: OptionButton
+var _edge_w: OptionButton
 
 var _brush_dropdown: OptionButton
 var _btn_atlas_picker: Button
-var _canvas: Control
 
 var _opt_entity: OptionButton 
 var _lbl_ent: Label
@@ -34,14 +34,13 @@ var _picker_rect: TextureRect
 var _selected_atlas: Vector2i = Vector2i.ZERO
 
 # --- STATE ---
-var _draw_mask: int = 0 
 var _active_brush: Brush = Brush.NONE
 var _tileset_tex: Texture2D
 var _tile_size: Vector2i = Vector2i(16, 16)
-var _texture_cache: Dictionary = {}
-var _zoom: float = 4.0 # Default zoomed in since it's only 3x3
 var _available_entities: Dictionary = {} 
-var _mouse_grid_pos: Vector2i = Vector2i.ZERO 
+var _mouse_grid_pos: Vector2i = Vector2i(-9999, -9999)
+
+var painter: GridCanvasPainter # [NEW] Replaces raw canvas!
 
 func _init() -> void:
 	title = "WFC Module Designer (3x3 Chunks)"
@@ -78,7 +77,7 @@ func _init() -> void:
 	_weight_spin.value_changed.connect(func(v): if _current_module_key != "": wfc_modules[_current_module_key]["weight"] = v)
 	toolbar.add_child(lbl_w); toolbar.add_child(_weight_spin)
 	
-	# --- TOOLBAR 2: EDGE RULES ---
+	# --- TOOLBAR 2: EDGE RULES (DROPDOWNS) ---
 	var edge_toolbar = HBoxContainer.new()
 	main_vbox.add_child(edge_toolbar)
 	
@@ -86,23 +85,23 @@ func _init() -> void:
 	edge_title.text = "Edge Rules:"
 	edge_toolbar.add_child(edge_title)
 	
-	var create_edge_input = func(label_text: String) -> LineEdit:
+	var create_edge_dropdown = func(label_text: String) -> OptionButton:
 		var hb = HBoxContainer.new()
 		var lbl = Label.new()
 		lbl.text = label_text
 		hb.add_child(lbl)
 		
-		var le = LineEdit.new()
-		le.custom_minimum_size.x = 80
-		le.text_changed.connect(func(txt): _update_edge_rules())
-		hb.add_child(le)
+		var opt = OptionButton.new()
+		for e in STANDARD_EDGES: opt.add_item(e)
+		opt.item_selected.connect(func(idx): _update_edge_rules())
+		hb.add_child(opt)
 		edge_toolbar.add_child(hb)
-		return le
+		return opt
 		
-	_edge_n = create_edge_input.call("North:")
-	_edge_e = create_edge_input.call("East:")
-	_edge_s = create_edge_input.call("South:")
-	_edge_w = create_edge_input.call("West:")
+	_edge_n = create_edge_dropdown.call("North:")
+	_edge_e = create_edge_dropdown.call("East:")
+	_edge_s = create_edge_dropdown.call("South:")
+	_edge_w = create_edge_dropdown.call("West:")
 	
 	# --- TOOLBAR 3: BRUSHES ---
 	var brush_toolbar = HBoxContainer.new()
@@ -130,7 +129,7 @@ func _init() -> void:
 	brush_toolbar.add_child(_lbl_ent)
 	
 	_opt_entity = OptionButton.new()
-	_opt_entity.item_selected.connect(func(idx): _canvas.queue_redraw())
+	_opt_entity.item_selected.connect(func(idx): painter.canvas.queue_redraw())
 	brush_toolbar.add_child(_opt_entity)
 	
 	# --- VISUAL TILE PICKER POPUP ---
@@ -151,21 +150,19 @@ func _init() -> void:
 	p_scroll.add_child(_picker_rect)
 	add_child(_picker_window)
 	
-	# --- CANVAS ---
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var panel = PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(panel)
-	main_vbox.add_child(scroll)
+	# --- PAINTER ---
+	painter = GridCanvasPainter.new()
+	painter.origin_mode = GridCanvasPainter.OriginMode.TOP_LEFT
+	painter.grid_bounds = Vector2i(SOCKET_SIZE, SOCKET_SIZE)
+	painter.set_zoom(4.0) # Start zoomed in since it's only 3x3
+	main_vbox.add_child(painter)
 	
-	_canvas = Control.new()
-	_canvas.custom_minimum_size = Vector2(800, 800)
-	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST 
-	_canvas.gui_input.connect(_on_canvas_gui_input)
-	_canvas.draw.connect(_on_canvas_draw)
-	panel.add_child(_canvas)
+	painter.cell_painted.connect(_on_cell_painted)
+	painter.cell_hovered.connect(func(pos): 
+		_mouse_grid_pos = pos
+		if _active_brush == Brush.PLACE_ENTITY: painter.canvas.queue_redraw()
+	)
+	painter.canvas.draw.connect(_on_canvas_draw)
 	
 	# --- BOTTOM BUTTONS ---
 	var bottom = HBoxContainer.new()
@@ -181,6 +178,7 @@ func _init() -> void:
 # ==============================================================================
 func open(texture_path: String, tile_size: Vector2i, existing_modules: Dictionary, available_ents: Dictionary) -> void:
 	_tile_size = tile_size
+	painter.tile_size = float(tile_size.x)
 	_available_entities = available_ents
 	
 	if texture_path != "" and FileAccess.file_exists(texture_path):
@@ -221,10 +219,10 @@ func _add_new_module_data(m_name: String) -> void:
 func _update_edge_rules() -> void:
 	if _current_module_key == "" or not wfc_modules.has(_current_module_key): return
 	wfc_modules[_current_module_key]["edges"] = {
-		"N": _edge_n.text.strip_edges(),
-		"E": _edge_e.text.strip_edges(),
-		"S": _edge_s.text.strip_edges(),
-		"W": _edge_w.text.strip_edges()
+		"N": _edge_n.get_item_text(_edge_n.selected),
+		"E": _edge_e.get_item_text(_edge_e.selected),
+		"S": _edge_s.get_item_text(_edge_s.selected),
+		"W": _edge_w.get_item_text(_edge_w.selected)
 	}
 
 func _refresh_module_dropdown() -> void:
@@ -241,6 +239,17 @@ func _refresh_module_dropdown() -> void:
 		
 	_load_module_to_ui()
 
+# Safely applies a string to a dropdown. If it's a custom string from an older save, it adds it dynamically!
+func _set_edge_dropdown(opt: OptionButton, val: String) -> void:
+	var idx = -1
+	for i in range(opt.item_count):
+		if opt.get_item_text(i) == val:
+			idx = i; break
+	if idx == -1:
+		opt.add_item(val)
+		idx = opt.item_count - 1
+	opt.select(idx)
+
 func _load_module_to_ui() -> void:
 	if not wfc_modules.has(_current_module_key): return
 	var m = wfc_modules[_current_module_key]
@@ -249,12 +258,12 @@ func _load_module_to_ui() -> void:
 	_weight_spin.set_value_no_signal(m.get("weight", 10.0))
 	
 	var edges = m.get("edges", {"N": "Open", "E": "Open", "S": "Open", "W": "Open"})
-	_edge_n.text = edges.get("N", "Open")
-	_edge_e.text = edges.get("E", "Open")
-	_edge_s.text = edges.get("S", "Open")
-	_edge_w.text = edges.get("W", "Open")
+	_set_edge_dropdown(_edge_n, edges.get("N", "Open"))
+	_set_edge_dropdown(_edge_e, edges.get("E", "Open"))
+	_set_edge_dropdown(_edge_s, edges.get("S", "Open"))
+	_set_edge_dropdown(_edge_w, edges.get("W", "Open"))
 	
-	_canvas.queue_redraw()
+	painter.canvas.queue_redraw()
 
 func _on_module_selected(idx: int) -> void:
 	_current_module_key = _module_dropdown.get_item_text(idx)
@@ -297,34 +306,10 @@ func _on_picker_gui_input(event: InputEvent) -> void:
 		_picker_window.hide()
 
 # ==============================================================================
-# PAINTING LOGIC
+# PAINTER API USAGE
 # ==============================================================================
-func _on_canvas_gui_input(event: InputEvent) -> void:
+func _on_cell_painted(pos: Vector2i, erase: bool, is_drag: bool) -> void:
 	if _current_module_key == "" or not wfc_modules.has(_current_module_key): return
-	
-	if event is InputEventMouseMotion:
-		var cell_px = _tile_size.x * _zoom
-		_mouse_grid_pos = Vector2i(int(event.position.x / cell_px), int(event.position.y / cell_px))
-		if _active_brush == Brush.PLACE_ENTITY: _canvas.queue_redraw()
-		
-	if event is InputEventMouseButton:
-		if event.pressed and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-			_draw_mask = 1 if event.button_index == MOUSE_BUTTON_LEFT else 2
-			_paint_cell(event.position, _draw_mask == 2)
-		else:
-			_draw_mask = 0
-			
-	elif event is InputEventMouseMotion and _draw_mask != 0:
-		_paint_cell(event.position, _draw_mask == 2)
-
-func _paint_cell(local_pos: Vector2, erase: bool) -> void:
-	var cell_px = _tile_size.x * _zoom
-	var cx = int(local_pos.x / cell_px)
-	var cy = int(local_pos.y / cell_px)
-	
-	# Strict 3x3 Bounds Check
-	if cx < 0 or cx >= SOCKET_SIZE or cy < 0 or cy >= SOCKET_SIZE: return
-	var pos = Vector2i(cx, cy)
 	var m = wfc_modules[_current_module_key]
 	
 	if erase:
@@ -336,12 +321,14 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 			m["floors"].erase(pos); m["walls"].erase(pos)
 			if m.has("exact_floors"): m["exact_floors"].erase(pos)
 			if m.has("exact_walls"): m["exact_walls"].erase(pos)
-		_canvas.queue_redraw()
+		painter.canvas.queue_redraw()
 		return
 		
 	if _active_brush == Brush.FLOOR_GENERIC:
+		if not m.has("floors"): m["floors"] = {}
 		m["floors"][pos] = true; _clear_base_tiles(m, pos, ["floors"])
 	elif _active_brush == Brush.WALL_GENERIC:
+		if not m.has("walls"): m["walls"] = {}
 		m["walls"][pos] = true; _clear_base_tiles(m, pos, ["walls"])
 	elif _active_brush == Brush.TILE_EXACT_FLOOR:
 		if not m.has("exact_floors"): m["exact_floors"] = {}
@@ -355,53 +342,32 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 		if ent_id == "" or not _available_entities.has(ent_id): return
 		
 		var is_floor = m.get("floors", {}).has(pos) or m.get("exact_floors", {}).has(pos)
-		if not is_floor: return # Must be floor!
+		if not is_floor: return 
 		if m.get("walls", {}).has(pos) or m.get("exact_walls", {}).has(pos): return
 		
 		if not m.has("placed_entities"): m["placed_entities"] = []
-		# Overwrite if exists
 		for i in range(m["placed_entities"].size() - 1, -1, -1):
 			if m["placed_entities"][i]["pos"] == pos: m["placed_entities"].remove_at(i)
 		m["placed_entities"].append({ "id": ent_id, "pos": pos })
 		
-	_canvas.queue_redraw()
+	painter.canvas.queue_redraw()
 
 func _clear_base_tiles(m: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
 	for k in ["floors", "walls", "exact_floors", "exact_walls"]:
 		if not keep_keys.has(k) and m.has(k): m[k].erase(pos)
 
-# ==============================================================================
-# DRAWING ENGINE
-# ==============================================================================
 func _on_canvas_draw() -> void:
 	if _current_module_key == "" or not wfc_modules.has(_current_module_key): return
 	var m = wfc_modules[_current_module_key]
-	var scaled_sz = _tile_size * _zoom
 	
-	# Draw the 3x3 bounds
-	_canvas.draw_rect(Rect2(0, 0, SOCKET_SIZE * scaled_sz.x, SOCKET_SIZE * scaled_sz.y), Color(0.1, 0.1, 0.15))
-	for y in range(SOCKET_SIZE + 1): _canvas.draw_line(Vector2(0, y * scaled_sz.y), Vector2(SOCKET_SIZE * scaled_sz.x, y * scaled_sz.y), Color(1, 1, 1, 0.2))
-	for x in range(SOCKET_SIZE + 1): _canvas.draw_line(Vector2(x * scaled_sz.x, 0), Vector2(x * scaled_sz.x, SOCKET_SIZE * scaled_sz.y), Color(1, 1, 1, 0.2))
-
-	var draw_rect_at = func(pos: Vector2i, color: Color):
-		_canvas.draw_rect(Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y), color)
-
-	if m.has("floors"): for pos in m["floors"]: draw_rect_at.call(pos, Color(0.2, 0.5, 0.3, 0.8)) 
-	if m.has("walls"): for pos in m["walls"]: draw_rect_at.call(pos, Color(0.4, 0.4, 0.4, 0.8)) 
+	if m.has("floors"): for pos in m["floors"]: painter.draw_cell_rect(pos, Color(0.2, 0.5, 0.3, 0.8)) 
+	if m.has("walls"): for pos in m["walls"]: painter.draw_cell_rect(pos, Color(0.4, 0.4, 0.4, 0.8)) 
 		
 	if m.has("exact_floors") and _tileset_tex:
-		for pos in m["exact_floors"]:
-			var atlas = m["exact_floors"][pos]
-			var src_rect = Rect2(atlas.x * _tile_size.x, atlas.y * _tile_size.y, _tile_size.x, _tile_size.y)
-			var dest_rect = Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y)
-			_canvas.draw_texture_rect_region(_tileset_tex, dest_rect, src_rect)
+		for pos in m["exact_floors"]: painter.draw_atlas_cell(pos, _tileset_tex, m["exact_floors"][pos], _tile_size)
 			
 	if m.has("exact_walls") and _tileset_tex:
-		for pos in m["exact_walls"]:
-			var atlas = m["exact_walls"][pos]
-			var src_rect = Rect2(atlas.x * _tile_size.x, atlas.y * _tile_size.y, _tile_size.x, _tile_size.y)
-			var dest_rect = Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y)
-			_canvas.draw_texture_rect_region(_tileset_tex, dest_rect, src_rect)
+		for pos in m["exact_walls"]: painter.draw_atlas_cell(pos, _tileset_tex, m["exact_walls"][pos], _tile_size)
 
 	# --- DRAW ENTITIES ---
 	var draw_ent = func(e_id: String, e_pos: Vector2i, alpha: float):
@@ -410,19 +376,21 @@ func _on_canvas_draw() -> void:
 		var e_color = e_data.get("color", Color.WHITE)
 		e_color.a = alpha
 		
-		var px = e_pos.x * scaled_sz.x
-		var py = e_pos.y * scaled_sz.y
-		_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), e_color)
-		_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), Color(1, 1, 1, alpha), false, 2.0)
+		painter.draw_cell_rect(e_pos, e_color, Color(1, 1, 1, alpha), 2.0)
+		
+		var tex_path = e_data.get("texture_path", "")
+		if tex_path != "":
+			var tex = ConfigManager.get_cached_texture(tex_path)
+			if tex:
+				painter.draw_normalized_sprite(e_pos, tex, e_data.get("texture_offset", Vector2.ZERO), e_data.get("texture_scale", Vector2.ONE), 0, alpha)
 
 	if m.has("placed_entities"):
-		for item in m["placed_entities"]:
-			draw_ent.call(item["id"], item["pos"], 1.0)
+		for item in m["placed_entities"]: draw_ent.call(item["id"], item["pos"], 1.0)
 			
 	# Ghost Preview
 	if _active_brush == Brush.PLACE_ENTITY and _opt_entity.item_count > 0:
 		var ent_id = _opt_entity.get_item_metadata(_opt_entity.selected)
-		if _mouse_grid_pos.x >= 0 and _mouse_grid_pos.x < SOCKET_SIZE and _mouse_grid_pos.y >= 0 and _mouse_grid_pos.y < SOCKET_SIZE:
+		if painter.is_in_bounds(_mouse_grid_pos):
 			draw_ent.call(ent_id, _mouse_grid_pos, 0.4)
 
 # ==============================================================================
@@ -440,7 +408,5 @@ func _on_delete_module() -> void:
 		_refresh_module_dropdown()
 
 func _on_save_pressed() -> void:
-	# Note: Emits the raw dictionary. 
-	# Your ConfigManager / UI Controller will receive this and save it to a JSON file.
 	confirmed.emit(wfc_modules)
 	hide()

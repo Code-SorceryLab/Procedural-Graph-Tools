@@ -15,9 +15,8 @@ var _width_spin: SpinBox
 var _height_spin: SpinBox
 var _brush_dropdown: OptionButton
 var _btn_atlas_picker: Button
-var _canvas: Control
-var _warning_dialog: AcceptDialog # Error popup for validation
-var _struct_toolbar: HBoxContainer # Group container
+var _warning_dialog: AcceptDialog 
+var _struct_toolbar: HBoxContainer 
 var _opt_structure: OptionButton
 var _btn_rotate_struct: Button
 var _opt_entity: OptionButton 
@@ -33,21 +32,20 @@ var _lbl_unused_atlas: Label
 var _picker_window: Window
 var _picker_rect: TextureRect
 var _selected_atlas: Vector2i = Vector2i.ZERO
-var _picking_mode: int = 0 # 0 = Brush, 1 = Unused Door Fallback
+var _picking_mode: int = 0 
 
 # --- STATE ---
-var _draw_mask: int = 0 
 var _active_brush: Brush = Brush.NONE
 var _tileset_tex: Texture2D
 var _tile_size: Vector2i = Vector2i(16, 16)
-var _texture_cache: Dictionary = {}
-var _zoom: float = 2.0
 var _available_structures: Dictionary = {}
 var _available_entities: Dictionary = {} 
 var _current_struct_id: String = ""
 var _current_struct_rot: int = 0
-var _mouse_grid_pos: Vector2i = Vector2i.ZERO # Tracks hover for ghost preview
+var _mouse_grid_pos: Vector2i = Vector2i.ZERO 
 
+# [NEW] Replaces the Canvas, Math, and Zoom tools!
+var painter: GridCanvasPainter 
 
 func _init() -> void:
 	title = "Custom Room Designer"
@@ -94,12 +92,6 @@ func _init() -> void:
 	toolbar.add_child(lbl_h); toolbar.add_child(_height_spin)
 	toolbar.add_child(VSeparator.new())
 	
-	var btn_zoom_out = Button.new(); btn_zoom_out.text = "Zoom -"
-	btn_zoom_out.pressed.connect(func(): _zoom = max(0.5, _zoom - 0.5); _canvas.queue_redraw())
-	var btn_zoom_in = Button.new(); btn_zoom_in.text = "Zoom +"
-	btn_zoom_in.pressed.connect(func(): _zoom = min(8.0, _zoom + 0.5); _canvas.queue_redraw())
-	toolbar.add_child(btn_zoom_out); toolbar.add_child(btn_zoom_in)
-	
 	# --- TOP TOOLBAR 2: UNUSED DOOR CONFIG ---
 	var door_toolbar = HBoxContainer.new()
 	main_vbox.add_child(door_toolbar)
@@ -118,14 +110,13 @@ func _init() -> void:
 	_btn_unused_atlas.pressed.connect(func(): _picking_mode = 1; _picker_window.popup_centered())
 	door_toolbar.add_child(_btn_unused_atlas)
 	
-	
 	_lbl_unused_atlas = Label.new(); _lbl_unused_atlas.text = "[0, 0]"
 	door_toolbar.add_child(_lbl_unused_atlas)
 	
 	# --- BRUSH TOOLBAR ---
 	var brush_toolbar = HBoxContainer.new()
 	main_vbox.add_child(brush_toolbar)
-	var lbl_brush = Label.new(); lbl_brush.text = "Active Brush (L-Click Paint, R-Click Erase): "
+	var lbl_brush = Label.new(); lbl_brush.text = "Active Brush: "
 	brush_toolbar.add_child(lbl_brush)
 	
 	_brush_dropdown = OptionButton.new()
@@ -158,7 +149,7 @@ func _init() -> void:
 	_opt_structure = OptionButton.new()
 	_opt_structure.item_selected.connect(func(idx): 
 		_current_struct_id = _opt_structure.get_item_metadata(idx)
-		_canvas.queue_redraw()
+		painter.canvas.queue_redraw()
 	)
 	_struct_toolbar.add_child(_opt_structure)
 	
@@ -166,7 +157,7 @@ func _init() -> void:
 	_btn_rotate_struct.text = "Rotate 90° (R)"
 	_btn_rotate_struct.pressed.connect(func():
 		_current_struct_rot = (_current_struct_rot + 1) % 4
-		_canvas.queue_redraw()
+		painter.canvas.queue_redraw()
 	)
 	_struct_toolbar.add_child(_btn_rotate_struct)
 	
@@ -174,7 +165,7 @@ func _init() -> void:
 	_struct_toolbar.add_child(_lbl_ent)
 	
 	_opt_entity = OptionButton.new()
-	_opt_entity.item_selected.connect(func(idx): _canvas.queue_redraw())
+	_opt_entity.item_selected.connect(func(idx): painter.canvas.queue_redraw())
 	_struct_toolbar.add_child(_opt_entity)
 	
 	# --- VISUAL TILE PICKER POPUP ---
@@ -195,21 +186,18 @@ func _init() -> void:
 	p_scroll.add_child(_picker_rect)
 	add_child(_picker_window)
 	
-	# --- CANVAS ---
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var panel = PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(panel)
-	main_vbox.add_child(scroll)
+	# --- PAINTER ---
+	painter = GridCanvasPainter.new()
+	painter.origin_mode = GridCanvasPainter.OriginMode.TOP_LEFT
+	main_vbox.add_child(painter)
 	
-	_canvas = Control.new()
-	_canvas.custom_minimum_size = Vector2(2000, 2000)
-	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST 
-	_canvas.gui_input.connect(_on_canvas_gui_input)
-	_canvas.draw.connect(_on_canvas_draw)
-	panel.add_child(_canvas)
+	painter.cell_painted.connect(_on_cell_painted)
+	painter.cell_hovered.connect(func(pos): 
+		_mouse_grid_pos = pos
+		if _active_brush in [Brush.PLACE_STRUCTURE, Brush.PLACE_ENTITY, Brush.PLACE_WFC_SOCKET]: 
+			painter.canvas.queue_redraw()
+	)
+	painter.canvas.draw.connect(_on_canvas_draw)
 	
 	# --- BOTTOM BUTTONS ---
 	var bottom = HBoxContainer.new()
@@ -225,6 +213,7 @@ func _init() -> void:
 # ==============================================================================
 func open(texture_path: String, tile_size: Vector2i, existing_rooms: Dictionary, available_structs: Dictionary, available_ents: Dictionary) -> void:
 	_tile_size = tile_size
+	painter.tile_size = float(tile_size.x)
 	_available_structures = available_structs
 	_available_entities = available_ents
 	
@@ -250,13 +239,14 @@ func _add_new_room_data(r_name: String) -> void:
 	custom_rooms[r_name] = {
 		"width": 9, "height": 9,
 		"anchor": Vector2i(4, 4),
-		"doorways": [],       
-		"reserved": [],       
-		"floors": {},         
-		"walls": {},          
-		"exact_floors": {},   
+		"doorways": [],        
+		"reserved": [],        
+		"floors": {},          
+		"walls": {},           
+		"exact_floors": {},    
 		"exact_walls": {},
-		"placed_structures": [], # Array of { "id": String, "pos": Vector2i, "rot": int }
+		"placed_structures": [], 
+		"placed_entities": [],
 		"sockets": [],
 		"unused_door_mode": 1, 
 		"unused_door_atlas": Vector2i.ZERO
@@ -265,9 +255,12 @@ func _add_new_room_data(r_name: String) -> void:
 
 func _update_current_room_size() -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
-	custom_rooms[_current_room_key]["width"] = int(_width_spin.value)
-	custom_rooms[_current_room_key]["height"] = int(_height_spin.value)
-	_canvas.queue_redraw()
+	var w = int(_width_spin.value)
+	var h = int(_height_spin.value)
+	custom_rooms[_current_room_key]["width"] = w
+	custom_rooms[_current_room_key]["height"] = h
+	painter.grid_bounds = Vector2i(w, h)
+	painter.canvas.queue_redraw()
 
 func _refresh_room_dropdown() -> void:
 	_room_dropdown.clear()
@@ -288,16 +281,16 @@ func _load_room_to_ui() -> void:
 	var r = custom_rooms[_current_room_key]
 	_width_spin.set_value_no_signal(r.get("width", 9))
 	_height_spin.set_value_no_signal(r.get("height", 9))
+	painter.grid_bounds = Vector2i(r.get("width", 9), r.get("height", 9))
 	_room_name_edit.text = _current_room_key
 	
-	# Load Door Rule state
 	_opt_unused_door.selected = r.get("unused_door_mode", 1)
 	var d_atlas = r.get("unused_door_atlas", Vector2i.ZERO)
 	_lbl_unused_atlas.text = "[%d, %d]" % [d_atlas.x, d_atlas.y]
 	_btn_unused_atlas.visible = (_opt_unused_door.selected == 2)
 	_lbl_unused_atlas.visible = (_opt_unused_door.selected == 2)
 	
-	_canvas.queue_redraw()
+	painter.canvas.queue_redraw()
 
 func _on_room_renamed(new_name: String) -> void:
 	var safe_name = new_name.strip_edges()
@@ -323,7 +316,6 @@ func _refresh_structure_dropdown() -> void:
 		var s_data = _available_structures[keys[i]]
 		_opt_structure.add_item(s_data.get("name", "Unnamed"), i)
 		_opt_structure.set_item_metadata(i, keys[i])
-		
 	if keys.size() > 0:
 		_current_struct_id = keys[0]
 		_opt_structure.selected = 0
@@ -343,15 +335,20 @@ func _update_brush_ui() -> void:
 	_lbl_struct.visible = is_struct
 	_opt_structure.visible = is_struct
 	_btn_rotate_struct.visible = is_struct
-	
 	_lbl_ent.visible = is_ent
 	_opt_entity.visible = is_ent
-	
 	_btn_atlas_picker.visible = (_active_brush in [Brush.TILE_EXACT_FLOOR, Brush.TILE_EXACT_WALL])
 
 # ==============================================================================
-# VISUAL TILE PICKER
+# INPUT & MATH
 # ==============================================================================
+func _input(event: InputEvent) -> void:
+	if not visible: return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
+		if _active_brush == Brush.PLACE_STRUCTURE:
+			_current_struct_rot = (_current_struct_rot + 1) % 4
+			painter.canvas.queue_redraw()
+
 func _on_picker_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var ax = int(event.position.x / _tile_size.x)
@@ -368,73 +365,40 @@ func _on_picker_gui_input(event: InputEvent) -> void:
 				
 		_picker_window.hide()
 
-# ==============================================================================
-# PAINTING LOGIC
-# ==============================================================================
-func _on_canvas_gui_input(event: InputEvent) -> void:
-	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
-	
-	# Track hover for ghost preview
-	if event is InputEventMouseMotion:
-		var cell_px = _tile_size.x * _zoom
-		_mouse_grid_pos = Vector2i(int(event.position.x / cell_px), int(event.position.y / cell_px))
-		
-		# Redraw for both Structures AND Entities
-		if _active_brush in [Brush.PLACE_STRUCTURE, Brush.PLACE_ENTITY]: 
-			_canvas.queue_redraw()
-		
-	if event is InputEventKey and event.pressed and event.keycode == KEY_R:
-		if _active_brush == Brush.PLACE_STRUCTURE:
-			_current_struct_rot = (_current_struct_rot + 1) % 4
-			_canvas.queue_redraw()
-			
-	if event is InputEventMouseButton:
-		# Handle Scroll Wheel Rotation
-		if event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-			return
-			
-		# Restrict painting to strict Left/Right clicks
-		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
-			if event.pressed:
-				if event.button_index == MOUSE_BUTTON_LEFT: _draw_mask = 1
-				elif event.button_index == MOUSE_BUTTON_RIGHT: _draw_mask = 2
-				_paint_cell(event.position, _draw_mask == 2)
-			else:
-				_draw_mask = 0
-			
-	elif event is InputEventMouseMotion and _draw_mask != 0:
-		_paint_cell(event.position, _draw_mask == 2)
+func _clear_base_tiles(r: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
+	for k in ["floors", "walls", "exact_floors", "exact_walls"]:
+		if not keep_keys.has(k) and r.has(k): r[k].erase(pos)
 
-func _paint_cell(local_pos: Vector2, erase: bool) -> void:
-	var cell_px = _tile_size.x * _zoom
-	var cx = int(local_pos.x / cell_px)
-	var cy = int(local_pos.y / cell_px)
-	
+# ==============================================================================
+# PAINTER API USAGE
+# ==============================================================================
+func _on_cell_painted(pos: Vector2i, erase: bool, is_drag: bool) -> void:
+	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
 	var r = custom_rooms[_current_room_key]
-	if cx < 0 or cx >= r["width"] or cy < 0 or cy >= r["height"]: return
-	var pos = Vector2i(cx, cy)
 	
 	if erase:
 		if _active_brush == Brush.PLACE_WFC_SOCKET and r.has("sockets"):
-			r["sockets"].erase(pos)
+			# Let the user click ANYWHERE inside the 3x3 socket to erase it
+			for i in range(r["sockets"].size() - 1, -1, -1):
+				var s_pos = r["sockets"][i]
+				var s_rect = Rect2i(s_pos, Vector2i(3, 3))
+				if s_rect.has_point(pos):
+					r["sockets"].remove_at(i)
 		elif _active_brush == Brush.PLACE_STRUCTURE and r.has("placed_structures"):
-			# Find and delete any structure anchored at this exact spot
 			for i in range(r["placed_structures"].size() - 1, -1, -1):
 				if r["placed_structures"][i]["pos"] == pos:
 					r["placed_structures"].remove_at(i)
-					
 		elif _active_brush == Brush.PLACE_ENTITY and r.has("placed_entities"):
 			for i in range(r["placed_entities"].size() - 1, -1, -1):
 				if r["placed_entities"][i]["pos"] == pos:
 					r["placed_entities"].remove_at(i)
-					
 		elif _active_brush == Brush.TOGGLE_RESERVED and r.has("reserved"): r["reserved"].erase(pos)
 		elif _active_brush == Brush.DOORWAY and r.has("doorways"): r["doorways"].erase(pos)
 		elif _active_brush in [Brush.FLOOR_GENERIC, Brush.WALL_GENERIC, Brush.TILE_EXACT_FLOOR, Brush.TILE_EXACT_WALL]:
 			r["floors"].erase(pos); r["walls"].erase(pos)
 			if r.has("exact_floors"): r["exact_floors"].erase(pos)
 			if r.has("exact_walls"): r["exact_walls"].erase(pos)
-		_canvas.queue_redraw()
+		painter.canvas.queue_redraw()
 		return
 		
 	if _active_brush == Brush.ANCHOR: r["anchor"] = pos
@@ -444,12 +408,11 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 	elif _active_brush == Brush.DOORWAY:
 		if not r.has("doorways"): r["doorways"] = []
 		if not r["doorways"].has(pos): r["doorways"].append(pos)
-	elif _active_brush == Brush.PLACE_WFC_SOCKET:
-		if not r.has("sockets"): r["sockets"] = []
-		if not r["sockets"].has(pos): r["sockets"].append(pos)
 	elif _active_brush == Brush.FLOOR_GENERIC:
+		if not r.has("floors"): r["floors"] = {}
 		r["floors"][pos] = true; _clear_base_tiles(r, pos, ["floors"])
 	elif _active_brush == Brush.WALL_GENERIC:
+		if not r.has("walls"): r["walls"] = {}
 		r["walls"][pos] = true; _clear_base_tiles(r, pos, ["walls"])
 	elif _active_brush == Brush.TILE_EXACT_FLOOR:
 		if not r.has("exact_floors"): r["exact_floors"] = {}
@@ -457,34 +420,31 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 	elif _active_brush == Brush.TILE_EXACT_WALL:
 		if not r.has("exact_walls"): r["exact_walls"] = {}
 		r["exact_walls"][pos] = _selected_atlas; _clear_base_tiles(r, pos, ["exact_walls"])
+	
 	# --- STAMP STRUCTURE ---
 	elif _active_brush == Brush.PLACE_STRUCTURE:
 		if _current_struct_id == "" or not _available_structures.has(_current_struct_id): return
 		var s_data = _available_structures[_current_struct_id]
 		
-		# [FIXED] Rotate using the new helper
 		var footprint = []
-		for p in s_data.get("footprint", [Vector2i.ZERO]): footprint.append(_rotate_point(p, _current_struct_rot))
+		for p in s_data.get("footprint", [Vector2i.ZERO]): footprint.append(painter.rotate_point(p, _current_struct_rot))
 		
 		var valid = true
 		for pt in footprint:
 			var check_pos = pos + pt
-			if check_pos.x < 0 or check_pos.x >= r["width"] or check_pos.y < 0 or check_pos.y >= r["height"]: valid = false; break
+			if not painter.is_in_bounds(check_pos): valid = false; break
 			
 			var is_floor = r.get("floors", {}).has(check_pos) or r.get("exact_floors", {}).has(check_pos)
 			if not is_floor: valid = false; break
 			
-			# [NEW] Block overlapping walls, exact walls, doorways, or reserved masks!
 			if r.get("reserved", []).has(check_pos): valid = false; break
 			if r.get("walls", {}).has(check_pos) or r.get("exact_walls", {}).has(check_pos): valid = false; break
 			
-			# [NEW] Check footprint overlaps against ALL other placed structures!
 			if r.has("placed_structures"):
 				for item in r["placed_structures"]:
 					var other_s = _available_structures.get(item["id"], {})
-					var other_fp = other_s.get("footprint", [Vector2i.ZERO])
-					for opt in other_fp:
-						var other_abs = item["pos"] + _rotate_point(opt, item["rot"])
+					for opt in other_s.get("footprint", [Vector2i.ZERO]):
+						var other_abs = item["pos"] + painter.rotate_point(opt, item["rot"])
 						if check_pos == other_abs: valid = false; break
 					if not valid: break
 			if not valid: break
@@ -496,13 +456,13 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 				"pos": pos,
 				"rot": _current_struct_rot
 			})
+			
 	# --- STAMP ENTITY ---
 	elif _active_brush == Brush.PLACE_ENTITY:
 		if _opt_entity.item_count == 0: return
 		var ent_id = _opt_entity.get_item_metadata(_opt_entity.selected)
 		if ent_id == "" or not _available_entities.has(ent_id): return
 		
-		# Validation: Must only touch valid floor tiles!
 		var valid = true
 		var is_floor = r.get("floors", {}).has(pos) or r.get("exact_floors", {}).has(pos)
 		if not is_floor: valid = false
@@ -513,218 +473,170 @@ func _paint_cell(local_pos: Vector2, erase: bool) -> void:
 			for item in r["placed_entities"]:
 				if item["pos"] == pos: valid = false; break
 				
-		# Check against structures
 		if r.has("placed_structures"):
 			for item in r["placed_structures"]:
 				var other_s = _available_structures.get(item["id"], {})
 				for opt in other_s.get("footprint", [Vector2i.ZERO]):
-					if pos == item["pos"] + _rotate_point(opt, item["rot"]): valid = false; break
+					if pos == item["pos"] + painter.rotate_point(opt, item["rot"]): valid = false; break
 				if not valid: break
 				
 		if valid:
 			if not r.has("placed_entities"): r["placed_entities"] = []
 			r["placed_entities"].append({ "id": ent_id, "pos": pos })
+	
+	elif _active_brush == Brush.PLACE_WFC_SOCKET:
+		var valid = true
+		var new_rect = Rect2i(pos, Vector2i(3, 3))
 		
-	_canvas.queue_redraw()
-
-func _clear_base_tiles(r: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
-	for k in ["floors", "walls", "exact_floors", "exact_walls"]:
-		if not keep_keys.has(k) and r.has(k): r[k].erase(pos)
-
-
-# --- ROTATION MATH HELPER ---
-func _rotate_footprint(footprint: Array, rot_idx: int) -> Array[Vector2i]:
-	var rotated: Array[Vector2i] = []
-	for pt in footprint:
-		var p = Vector2i(pt)
-		for i in range(rot_idx):
-			var temp = p.x
-			p.x = -p.y
-			p.y = temp
-		rotated.append(p)
-	return rotated
+		# 1. Check strict Room Bounds
+		if pos.x < 0 or pos.x + 2 >= r.get("width", 9) or pos.y < 0 or pos.y + 2 >= r.get("height", 9):
+			valid = false
+			
+		# 2. Prevent overlapping with existing WFC Sockets
+		if valid and r.has("sockets"):
+			for s_pos in r["sockets"]:
+				if new_rect.intersects(Rect2i(s_pos, Vector2i(3, 3))):
+					valid = false; break
+					
+		# 3. Prevent overlapping with Reserved paths
+		if valid and r.has("reserved"):
+			for res_pos in r["reserved"]:
+				if new_rect.has_point(res_pos):
+					valid = false; break
+					
+		# 4. Prevent overlapping with existing Structures
+		if valid and r.has("placed_structures"):
+			for item in r["placed_structures"]:
+				var other_s = _available_structures.get(item["id"], {})
+				for opt in other_s.get("footprint", [Vector2i.ZERO]):
+					var struct_pt = item["pos"] + painter.rotate_point(opt, item["rot"])
+					if new_rect.has_point(struct_pt):
+						valid = false; break
+				if not valid: break
+				
+		if valid:
+			if not r.has("sockets"): r["sockets"] = []
+			if not r["sockets"].has(pos): r["sockets"].append(pos)
 	
-# --- VISUAL & MATH HELPERS ---
-func _rotate_point(pt: Vector2i, rot_idx: int) -> Vector2i:
-	match rot_idx % 4:
-		1: return Vector2i(-pt.y, pt.x) # 90 deg CW
-		2: return Vector2i(-pt.x, -pt.y) # 180 deg
-		3: return Vector2i(pt.y, -pt.x) # 270 deg CW
-		_: return pt # 0 deg
+	painter.canvas.queue_redraw()
 
-func _get_cached_texture(path: String) -> Texture2D:
-	if _texture_cache.has(path): return _texture_cache[path]
-	if FileAccess.file_exists(path):
-		var img = Image.load_from_file(path)
-		if img:
-			var tex = ImageTexture.create_from_image(img)
-			_texture_cache[path] = tex
-			return tex
-	return null
-
-func _draw_arrow(start: Vector2, end: Vector2, color: Color) -> void:
-	_canvas.draw_line(start, end, color, 4.0)
-	var dir = (end - start).normalized()
-	var right = dir.rotated(PI * 0.75) * 15.0
-	var left = dir.rotated(-PI * 0.75) * 15.0
-	_canvas.draw_line(end, end + right, color, 4.0)
-	_canvas.draw_line(end, end + left, color, 4.0)
-	
-# ==============================================================================
-# DRAWING ENGINE
-# ==============================================================================
 func _on_canvas_draw() -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
 	var r = custom_rooms[_current_room_key]
-	var w = r.get("width", 9)
-	var h = r.get("height", 9)
-	var scaled_sz = _tile_size * _zoom
 	
-	_canvas.draw_rect(Rect2(0, 0, w * scaled_sz.x, h * scaled_sz.y), Color(0.1, 0.1, 0.15))
-	for y in range(h + 1): _canvas.draw_line(Vector2(0, y * scaled_sz.y), Vector2(w * scaled_sz.x, y * scaled_sz.y), Color(1, 1, 1, 0.1))
-	for x in range(w + 1): _canvas.draw_line(Vector2(x * scaled_sz.x, 0), Vector2(x * scaled_sz.x, h * scaled_sz.y), Color(1, 1, 1, 0.1))
-
-	var draw_rect_at = func(pos: Vector2i, color: Color):
-		_canvas.draw_rect(Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y), color)
-
-	if r.has("floors"): for pos in r["floors"]: draw_rect_at.call(pos, Color(0.2, 0.5, 0.3, 0.8)) 
-	if r.has("walls"): for pos in r["walls"]: draw_rect_at.call(pos, Color(0.4, 0.4, 0.4, 0.8)) 
+	if r.has("floors"): for pos in r["floors"]: painter.draw_cell_rect(pos, Color(0.2, 0.5, 0.3, 0.8)) 
+	if r.has("walls"): for pos in r["walls"]: painter.draw_cell_rect(pos, Color(0.4, 0.4, 0.4, 0.8)) 
 		
 	if r.has("exact_floors") and _tileset_tex:
-		for pos in r["exact_floors"]:
-			var atlas = r["exact_floors"][pos]
-			var src_rect = Rect2(atlas.x * _tile_size.x, atlas.y * _tile_size.y, _tile_size.x, _tile_size.y)
-			var dest_rect = Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y)
-			_canvas.draw_texture_rect_region(_tileset_tex, dest_rect, src_rect)
+		for pos in r["exact_floors"]: painter.draw_atlas_cell(pos, _tileset_tex, r["exact_floors"][pos], _tile_size)
 			
 	if r.has("exact_walls") and _tileset_tex:
-		for pos in r["exact_walls"]:
-			var atlas = r["exact_walls"][pos]
-			var src_rect = Rect2(atlas.x * _tile_size.x, atlas.y * _tile_size.y, _tile_size.x, _tile_size.y)
-			var dest_rect = Rect2(pos.x * scaled_sz.x, pos.y * scaled_sz.y, scaled_sz.x, scaled_sz.y)
-			_canvas.draw_texture_rect_region(_tileset_tex, dest_rect, src_rect)
+		for pos in r["exact_walls"]: painter.draw_atlas_cell(pos, _tileset_tex, r["exact_walls"][pos], _tile_size)
 
 	if r.has("reserved"):
 		for pos in r["reserved"]:
-			var p1 = Vector2(pos.x * scaled_sz.x, pos.y * scaled_sz.y)
-			var p2 = p1 + Vector2(scaled_sz)
-			_canvas.draw_line(p1, p2, Color(1, 0, 0, 0.6), 2.0)
+			var p_rect = painter.get_pixel_rect(pos)
+			painter.canvas.draw_line(p_rect.position, p_rect.end, Color(1, 0, 0, 0.6), 2.0)
 			
 	if r.has("doorways"):
-		for pos in r["doorways"]: draw_rect_at.call(pos, Color(0.9, 0.2, 0.2, 0.5)) 
+		for pos in r["doorways"]: painter.draw_cell_rect(pos, Color(0.9, 0.2, 0.2, 0.5)) 
 			
 	if r.has("anchor"):
-		var a = r["anchor"]
-		var c = Vector2(a.x * scaled_sz.x + (scaled_sz.x/2.0), a.y * scaled_sz.y + (scaled_sz.y/2.0))
-		_canvas.draw_circle(c, scaled_sz.x * 0.3, Color.YELLOW)
+		var p_rect = painter.get_pixel_rect(r["anchor"])
+		painter.canvas.draw_circle(p_rect.get_center(), p_rect.size.x * 0.3, Color.YELLOW)
 	
 	if r.has("sockets"):
 		for pos in r["sockets"]:
-			var px = pos.x * scaled_sz.x
-			var py = pos.y * scaled_sz.y
-			_canvas.draw_rect(Rect2(px, py, scaled_sz.x * 3, scaled_sz.y * 3), Color(0.6, 0.2, 0.8, 0.3))
-			_canvas.draw_rect(Rect2(px, py, scaled_sz.x * 3, scaled_sz.y * 3), Color(0.8, 0.4, 1.0, 0.8), false, 2.0)
+			var p_rect = painter.get_pixel_rect(pos)
+			p_rect.size *= 3
+			painter.canvas.draw_rect(p_rect, Color(0.6, 0.2, 0.8, 0.3))
+			painter.canvas.draw_rect(p_rect, Color(0.8, 0.4, 1.0, 0.8), false, 2.0)
 	
-	# --- DRAW PLACED STRUCTURES & SPRITES ---
+	# --- DRAW PLACED STRUCTURES ---
 	var draw_struct = func(s_id: String, s_pos: Vector2i, s_rot: int, alpha: float):
 		if not _available_structures.has(s_id): return
 		var s_data = _available_structures[s_id]
-		var footprint = []
-		for p in s_data.get("footprint", [Vector2i.ZERO]): footprint.append(_rotate_point(p, s_rot))
+		var footprint = s_data.get("footprint", [Vector2i.ZERO])
 		
 		var s_color = s_data.get("color", Color.CYAN)
 		s_color.a = alpha
 		
-		var min_coord = footprint[0]
-		var max_coord = footprint[0]
-		
 		for pt in footprint:
-			if pt.x < min_coord.x: min_coord.x = pt.x
-			if pt.y < min_coord.y: min_coord.y = pt.y
-			if pt.x > max_coord.x: max_coord.x = pt.x
-			if pt.y > max_coord.y: max_coord.y = pt.y
+			painter.draw_cell_rect(s_pos + painter.rotate_point(pt, s_rot), s_color, Color(1, 1, 1, alpha), 2.0)
 			
-			var draw_p = s_pos + pt
-			var px = draw_p.x * scaled_sz.x
-			var py = draw_p.y * scaled_sz.y
-			_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), s_color)
-			_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), Color(1, 1, 1, alpha), false, 2.0)
-			
-		# --- DRAW SPRITE OVERLAY ---
 		var tex_path = s_data.get("texture_path", "")
 		if tex_path != "":
-			var tex = _get_cached_texture(tex_path)
+			var tex = ConfigManager.get_cached_texture(tex_path)
 			if tex:
-				var t_scale = s_data.get("texture_scale", Vector2.ONE)
-				var t_offset = s_data.get("texture_offset", Vector2.ZERO)
-				
-				# Mathematically rotate the visual offset so the sprite stays anchored to its intended side!
-				var rot_offset = Vector2(_rotate_point(Vector2i(round(t_offset.x * 10), round(t_offset.y * 10)), s_rot)) / 10.0
-				
-				var normalized_size = Vector2(scaled_sz.x * t_scale.x, scaled_sz.y * t_scale.y)
-				var base_origin = Vector2(s_pos.x * scaled_sz.x + (scaled_sz.x/2.0), s_pos.y * scaled_sz.y + (scaled_sz.y/2.0))
-				var draw_pos = base_origin - (normalized_size / 2.0) + (rot_offset * scaled_sz.x)
-				
-				_canvas.draw_texture_rect(tex, Rect2(draw_pos, normalized_size), false, Color(1, 1, 1, alpha))
+				painter.draw_normalized_sprite(s_pos, tex, s_data.get("texture_offset", Vector2.ZERO), s_data.get("texture_scale", Vector2.ONE), s_rot, alpha)
 
-		# --- DRAW FACING ARROW ---
 		if s_data.get("face_path", true) and footprint.size() > 0:
-			var front_dir = s_data.get("front_dir", Vector2i.UP)
-			var actual_front = _rotate_point(front_dir, s_rot)
-			
-			var center_x = (s_pos.x + ((min_coord.x + max_coord.x + 1) / 2.0)) * scaled_sz.x
-			var center_y = (s_pos.y + ((min_coord.y + max_coord.y + 1) / 2.0)) * scaled_sz.y
-			
-			var arrow_start = Vector2(center_x, center_y)
-			if actual_front == Vector2i.UP: arrow_start.y = (s_pos.y + min_coord.y) * scaled_sz.y
-			elif actual_front == Vector2i.DOWN: arrow_start.y = (s_pos.y + max_coord.y + 1) * scaled_sz.y
-			elif actual_front == Vector2i.LEFT: arrow_start.x = (s_pos.x + min_coord.x) * scaled_sz.x
-			elif actual_front == Vector2i.RIGHT: arrow_start.x = (s_pos.x + max_coord.x + 1) * scaled_sz.x
-			
-			var arrow_end = arrow_start + Vector2(actual_front) * scaled_sz.x
-			_draw_arrow(arrow_start, arrow_end, Color(1, 0, 0, alpha))
+			painter.draw_facing_arrow(s_pos, footprint, s_data.get("front_dir", Vector2i.UP), s_rot, Color(1, 0, 0, alpha))
 			
 	if r.has("placed_structures"):
-		for item in r["placed_structures"]:
-			draw_struct.call(item["id"], item["pos"], item["rot"], 0.9)
+		for item in r["placed_structures"]: draw_struct.call(item["id"], item["pos"], item["rot"], 0.9)
 			
-	# --- DRAW GHOST PREVIEW ---
+	# --- GHOST PREVIEW STRUCTURE ---
 	if _active_brush == Brush.PLACE_STRUCTURE and _current_struct_id != "":
-		if _mouse_grid_pos.x >= 0 and _mouse_grid_pos.x < w and _mouse_grid_pos.y >= 0 and _mouse_grid_pos.y < h:
+		if painter.is_in_bounds(_mouse_grid_pos):
 			draw_struct.call(_current_struct_id, _mouse_grid_pos, _current_struct_rot, 0.4)
 	
 	# --- DRAW PLACED ENTITIES ---
 	var draw_ent = func(e_id: String, e_pos: Vector2i, alpha: float):
 		if not _available_entities.has(e_id): return
 		var e_data = _available_entities[e_id]
+		
 		var e_color = e_data.get("color", Color.WHITE)
 		e_color.a = alpha
-		
-		var px = e_pos.x * scaled_sz.x
-		var py = e_pos.y * scaled_sz.y
-		_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), e_color)
-		_canvas.draw_rect(Rect2(px, py, scaled_sz.x, scaled_sz.y), Color(1, 1, 1, alpha), false, 2.0)
+		painter.draw_cell_rect(e_pos, e_color, Color(1, 1, 1, alpha), 2.0)
 		
 		var tex_path = e_data.get("texture_path", "")
 		if tex_path != "":
-			var tex = _get_cached_texture(tex_path)
+			var tex = ConfigManager.get_cached_texture(tex_path)
 			if tex:
-				var t_scale = e_data.get("texture_scale", Vector2.ONE)
-				var t_offset = e_data.get("texture_offset", Vector2.ZERO)
-				var normalized_size = Vector2(scaled_sz.x * t_scale.x, scaled_sz.y * t_scale.y)
-				var base_origin = Vector2(e_pos.x * scaled_sz.x + (scaled_sz.x/2.0), e_pos.y * scaled_sz.y + (scaled_sz.y/2.0))
-				var draw_pos = base_origin - (normalized_size / 2.0) + (t_offset * scaled_sz.x)
-				_canvas.draw_texture_rect(tex, Rect2(draw_pos, normalized_size), false, Color(1, 1, 1, alpha))
+				painter.draw_normalized_sprite(e_pos, tex, e_data.get("texture_offset", Vector2.ZERO), e_data.get("texture_scale", Vector2.ONE), 0, alpha)
 
 	if r.has("placed_entities"):
-		for item in r["placed_entities"]:
-			draw_ent.call(item["id"], item["pos"], 0.9)
+		for item in r["placed_entities"]: draw_ent.call(item["id"], item["pos"], 0.9)
 			
+	# --- GHOST PREVIEW ENTITY ---
 	if _active_brush == Brush.PLACE_ENTITY and _opt_entity.item_count > 0:
 		var ent_id = _opt_entity.get_item_metadata(_opt_entity.selected)
-		if _mouse_grid_pos.x >= 0 and _mouse_grid_pos.x < w and _mouse_grid_pos.y >= 0 and _mouse_grid_pos.y < h:
+		if painter.is_in_bounds(_mouse_grid_pos):
 			draw_ent.call(ent_id, _mouse_grid_pos, 0.4)
 	
+	# --- GHOST PREVIEW WFC SOCKET ---
+	if _active_brush == Brush.PLACE_WFC_SOCKET:
+		if painter.is_in_bounds(_mouse_grid_pos):
+			var valid = true
+			var ghost_rect = Rect2i(_mouse_grid_pos, Vector2i(3, 3))
+			
+			# Validate Bounds
+			if _mouse_grid_pos.x + 2 >= r.get("width", 9) or _mouse_grid_pos.y + 2 >= r.get("height", 9):
+				valid = false
+			else:
+				# Validate overlaps for visual feedback
+				if r.has("sockets"):
+					for s_pos in r["sockets"]:
+						if ghost_rect.intersects(Rect2i(s_pos, Vector2i(3, 3))): valid = false; break
+				if valid and r.has("reserved"):
+					for res_pos in r["reserved"]:
+						if ghost_rect.has_point(res_pos): valid = false; break
+				if valid and r.has("placed_structures"):
+					for item in r["placed_structures"]:
+						var other_s = _available_structures.get(item["id"], {})
+						for opt in other_s.get("footprint", [Vector2i.ZERO]):
+							if ghost_rect.has_point(item["pos"] + painter.rotate_point(opt, item["rot"])):
+								valid = false; break
+						if not valid: break
+			
+			var fill_color = Color(0.6, 0.2, 0.8, 0.3) if valid else Color(1.0, 0.0, 0.0, 0.3)
+			var border_color = Color(0.8, 0.4, 1.0, 0.8) if valid else Color(1.0, 0.2, 0.2, 0.8)
+			
+			var p_rect = painter.get_pixel_rect(_mouse_grid_pos)
+			p_rect.size *= 3
+			painter.canvas.draw_rect(p_rect, fill_color)
+			painter.canvas.draw_rect(p_rect, border_color, false, 2.0)
 	
 
 # ==============================================================================
