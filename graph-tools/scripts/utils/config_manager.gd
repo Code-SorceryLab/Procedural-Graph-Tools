@@ -569,3 +569,58 @@ static func get_cached_texture(path: String) -> Texture2D:
 
 static func clear_memory_cache() -> void:
 	_global_texture_cache.clear()
+
+
+# ==============================================================================
+# TEXTURAL WFC PALETTES (Overlapping Model)
+# ==============================================================================
+
+static func save_textural_palettes(data: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	
+	if config.has_section("TexturalWfc"):
+		config.erase_section("TexturalWfc")
+		
+	# Crucial: Serialize the sample_grid Vector2i keys for JSON compatibility!
+	var out = data.duplicate(true)
+	for p_key in out:
+		var p_data = out[p_key]
+		if p_data.has("sample_grid"):
+			var new_grid = {}
+			for v in p_data["sample_grid"]:
+				var str_key = str(v.x) + "," + str(v.y) if typeof(v) == TYPE_VECTOR2I else str(v)
+				new_grid[str_key] = p_data["sample_grid"][v]
+			p_data["sample_grid"] = new_grid
+			
+		config.set_value("TexturalWfc", p_key, p_data)
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Textural WFC Palettes.")
+	
+static func load_textural_palettes() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded = {}
+	
+	if err == OK and config.has_section("TexturalWfc"):
+		for key in config.get_section_keys("TexturalWfc"):
+			loaded[key] = config.get_value("TexturalWfc", key)
+			
+	# Deserialize the String keys back into Vector2i!
+	var str_to_vec = func(s: String) -> Vector2i:
+		var parts = s.split(",")
+		if parts.size() == 2: return Vector2i(parts[0].to_int(), parts[1].to_int())
+		return Vector2i.ZERO
+		
+	for p_key in loaded:
+		var p_data = loaded[p_key]
+		if p_data.has("sample_grid"):
+			var new_grid = {}
+			for s in p_data["sample_grid"]:
+				var vec_key = str_to_vec.call(s) if (typeof(s) == TYPE_STRING and s.contains(",")) else s
+				new_grid[vec_key] = p_data["sample_grid"][s]
+			p_data["sample_grid"] = new_grid
+			
+	return loaded

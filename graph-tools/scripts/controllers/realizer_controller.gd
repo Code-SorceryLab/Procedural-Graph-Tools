@@ -53,9 +53,11 @@ var _interaction_popup: BiomeInteractionPopup
 var _scatter_popup: ScatterDesignerPopup
 var _custom_room_popup: CustomRoomDesignerPopup
 var _wfc_popup: WfcModuleDesignerPopup
+var _tile_wfc_popup: TileWfcDesignerPopup
 
 var _custom_rooms: Dictionary = {}
 var _wfc_modules: Dictionary = {}
+var _tile_wfc_patterns: Dictionary = {}
 var _custom_structures: Dictionary = {} 
 var _scatter_sets: Dictionary = {}
 var _procedural_flags: Dictionary = {}
@@ -186,8 +188,7 @@ func _ready() -> void:
 		ConfigManager.save_custom_rooms(_custom_rooms)
 	)
 	
-	# --- [NEW] WFC MODULE SETUP ---
-	# (Assuming you add load_wfc_modules / save_wfc_modules to your ConfigManager!)
+	# --- WFC MODULE SETUP ---
 	_wfc_modules = ConfigManager.load_wfc_modules()
 	
 	_wfc_popup = WfcModuleDesignerPopup.new()
@@ -198,6 +199,17 @@ func _ready() -> void:
 		_wfc_modules = saved_modules.duplicate(true)
 
 		ConfigManager.save_wfc_modules(_wfc_modules)
+	)
+	# --- WFC TILE SETUP ---
+	_tile_wfc_patterns = ConfigManager.load_textural_palettes()
+	_tile_wfc_popup = TileWfcDesignerPopup.new()
+	_tile_wfc_popup.hide()
+	add_child(_tile_wfc_popup)
+	
+	_tile_wfc_popup.confirmed.connect(func(saved_patterns):
+		_tile_wfc_patterns = saved_patterns.duplicate(true)
+
+		ConfigManager.save_textural_palettes(_tile_wfc_patterns)
 	)
 
 
@@ -328,37 +340,40 @@ func _on_ui_interaction(key: String, value: Variant) -> void:
 	match key:
 		"btn_rasterize":
 			_on_rasterize_pressed()
-
+		
 		"btn_clear":
 			_on_clear_pressed()
-
+		
 		"btn_open_mapper":
 			_mapping_popup.open(_tileset_image_path, _tileset_tile_size, _atlas_mappings, _procedural_flags, _palette_params)
-
+		
 		"btn_open_structure_designer":
 			_structure_popup.open()
-
+		
 		"btn_open_scatter_designer":
 			_scatter_popup.open()
-
+		
 		"btn_biome_interactions":
 			_interaction_popup.open()
-
+		
 		"btn_open_biome_designer":
 			_biome_designer.open(_params)
-
+		
 		"btn_open_custom_room_designer":
 			_custom_room_popup.open(_tileset_image_path, _tileset_tile_size, _custom_rooms, _custom_structures, _scatter_sets)
-
+		
 		# --- WFC ROUTER ---
 		"btn_open_wfc_designer":
 			_wfc_popup.open(_tileset_image_path, _tileset_tile_size, _wfc_modules, _scatter_sets)
-
+		
+		"btn_open_tile_wfc_designer":
+			_tile_wfc_popup.open(_tileset_image_path, _tileset_tile_size, _tile_wfc_patterns)
+		
 		_:
 			# Catch-all: all toggles, generic settings, debug visibility, etc.
 			_params[key] = value
 			ConfigManager.save_global_params(_params)
-
+			
 			# Only for instant visibility toggles, redraw the current overlay state.
 			if key.begins_with("show_") or key == "debug_routing":
 				if not _snapshots.is_empty() and tile_map_layer:
@@ -444,6 +459,7 @@ func _on_rasterize_pressed() -> void:
 	
 	_params["custom_rooms"] = _custom_rooms
 	_params["wfc_modules"] = _wfc_modules
+	_params["tile_wfc_patterns"] = _tile_wfc_patterns
 	_params["scatter_sets"] = _scatter_sets
 	_params["biomes"] = _build_filtered_biomes()
 		
