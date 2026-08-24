@@ -115,8 +115,10 @@ func _format_report(data: Dictionary) -> String:
 		var rej_rooms = meta.get("rejected_custom_rooms", 0)
 		var sealed = meta.get("sealed_doorways", 0)
 		var failed_routes = meta.get("failed_routes", 0)
+		var wfc_contras = meta.get("wfc_contradictions", 0)
 		
-		if c_rooms > 0 or rej_rooms > 0 or sealed > 0 or failed_routes > 0:
+		# [CHANGED] Add wfc_contras to the display condition
+		if c_rooms > 0 or rej_rooms > 0 or sealed > 0 or failed_routes > 0 or wfc_contras > 0: 
 			s += "\n[b]Builder Diagnostics[/b]\n"
 			s += "  Custom Rooms Placed: %d\n" % c_rooms
 			
@@ -129,6 +131,12 @@ func _format_report(data: Dictionary) -> String:
 				
 			if failed_routes > 0:
 				s += "  [color=red]Failed Corridors (A* Blocked): %d[/color]\n" % failed_routes
+				
+			# --- RENDER THE CONTRADICTIONS ---
+			if wfc_contras > 0:
+				s += "  [color=orange]WFC Contradictions (Fallbacks Triggered): %d[/color]\n" % wfc_contras
+				s += "    [color=gray][i]* Note: The pattern extractor encountered boundaries or gaps it didn't know how to resolve based on the sample image.[/i][/color]\n"
+				
 		s += "\n"
 		
 	var analytics = data.get("analytics", {})

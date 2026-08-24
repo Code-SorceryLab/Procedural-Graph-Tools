@@ -437,6 +437,12 @@ func _build_filtered_biomes() -> Dictionary:
 			if b_data.has("spawn_decks"):
 				clean_data["spawn_decks"] = b_data["spawn_decks"]
 				
+		# 4. Textural WFC
+		if b_data.get("override_wfc", false):
+			clean_data["override_wfc"] = true
+			if b_data.has("wfc_palette_ref"):
+				clean_data["wfc_palette_ref"] = b_data["wfc_palette_ref"]
+				
 		# Only append if this biome actually has active overrides
 		if not clean_data.is_empty():
 			filtered[b_key] = clean_data
@@ -479,7 +485,7 @@ func _on_rasterize_pressed() -> void:
 	if _raster_thread and _raster_thread.is_started():
 		_raster_thread.wait_to_finish()
 		
-	# --- [NEW] DUAL DISTRIBUTION PASS ---
+	# --- DUAL DISTRIBUTION PASS ---
 	var seed_str = str(_params.get("realizer_seed", "default"))
 	
 	# Pass 1: Room Shapes & Custom Rooms

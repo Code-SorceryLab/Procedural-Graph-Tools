@@ -1,7 +1,6 @@
 class_name WallGenerator
 extends RefCounted
 
-# [UPDATED] Signature now takes graph and params
 static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, default_wall_id: int, semantic_wall_map: Dictionary = {}) -> void:
 	var grid = realizer.grid
 	var walls_to_build: Dictionary = {} 

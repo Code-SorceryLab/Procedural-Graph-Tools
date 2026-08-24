@@ -17,6 +17,10 @@ var canvas: Control
 var _mouse_grid_pos: Vector2i = Vector2i(-9999, -9999)
 var _draw_mask: int = 0 
 
+# Hover Highlight State
+var highlighted_cells: Array[Vector2i] = []
+var highlight_color: Color = Color(1.0, 1.0, 1.0, 0.3)
+
 func _init() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -58,6 +62,13 @@ func _init() -> void:
 	
 	canvas.draw.connect(_on_canvas_draw)
 	canvas.gui_input.connect(_on_canvas_input)
+	
+	# Clear highlights when leaving the canvas
+	canvas.mouse_exited.connect(func():
+		_mouse_grid_pos = Vector2i(-9999, -9999)
+		highlighted_cells.clear()
+		canvas.queue_redraw()
+	)
 
 # ==============================================================================
 # MATH & LOGIC HELPERS
@@ -222,3 +233,77 @@ func draw_facing_arrow(grid_pos: Vector2i, footprint: Array, front_dir: Vector2i
 	var dir = (arrow_end - arrow_start).normalized()
 	canvas.draw_line(arrow_end, arrow_end + dir.rotated(PI * 0.75) * 15.0, color, 4.0)
 	canvas.draw_line(arrow_end, arrow_end + dir.rotated(-PI * 0.75) * 15.0, color, 4.0)
+
+
+# ==============================================================================
+# GRID UTILITIES
+# ==============================================================================
+func perform_flood_fill(grid: Dictionary, start_pos: Vector2i, erase: bool, new_val: Variant) -> void:
+	if not is_in_bounds(start_pos): return
+	
+	var target_val = grid.get(start_pos, null)
+	
+	# Prevent infinite loops if trying to fill with the exact same value!
+	if typeof(target_val) == typeof(new_val) and target_val == new_val:
+		if not erase and target_val != null: return
+		if erase and target_val == null: return
+		
+	var queue = [start_pos]
+	var visited = {start_pos: true}
+	var iteration_cap = 10000 # Safety net for infinite CENTERED canvases!
+	
+	while queue.size() > 0 and visited.size() < iteration_cap:
+		var cur = queue.pop_back()
+		
+		if erase: grid.erase(cur)
+		else: grid[cur] = new_val
+		
+		var neighbors = [
+			cur + Vector2i(1, 0), cur + Vector2i(-1, 0),
+			cur + Vector2i(0, 1), cur + Vector2i(0, -1)
+		]
+		
+		for n in neighbors:
+			if not is_in_bounds(n): continue
+			
+			if not visited.has(n):
+				var n_val = grid.get(n, null)
+				if typeof(n_val) == typeof(target_val) and n_val == target_val:
+					visited[n] = true
+					queue.append(n)
+					
+	canvas.queue_redraw()
+
+func get_flood_fill_area(grid: Dictionary, start_pos: Vector2i) -> Array[Vector2i]:
+	if not is_in_bounds(start_pos): return []
+	
+	var target_val = grid.get(start_pos, null)
+	var queue = [start_pos]
+	var visited = {start_pos: true}
+	var iteration_cap = 10000 
+	
+	while queue.size() > 0 and visited.size() < iteration_cap:
+		var cur = queue.pop_back()
+		
+		var neighbors = [
+			cur + Vector2i(1, 0), cur + Vector2i(-1, 0),
+			cur + Vector2i(0, 1), cur + Vector2i(0, -1)
+		]
+		
+		for n in neighbors:
+			if not is_in_bounds(n): continue
+			
+			if not visited.has(n):
+				var n_val = grid.get(n, null)
+				if typeof(n_val) == typeof(target_val) and n_val == target_val:
+					visited[n] = true
+					queue.append(n)
+					
+	var result: Array[Vector2i] = []
+	for v in visited.keys(): result.append(v)
+	return result
+
+func draw_highlights() -> void:
+	if highlighted_cells.is_empty(): return
+	for cell in highlighted_cells:
+		draw_cell_rect(cell, highlight_color)

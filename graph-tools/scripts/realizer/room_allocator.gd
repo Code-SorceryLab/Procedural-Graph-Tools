@@ -95,6 +95,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 					c_room["placed_entities"].append_array(wfc_payload["entities"])
 					
 					if emit.is_valid(): emit.call("WFC: Resolved Sockets (" + chosen_ref + ")")
+				else:
+					# --- LOG CONTRADICTION ---
+					var current_contras = realizer.get_meta("metric_wfc_contradictions") if realizer.has_meta("metric_wfc_contradictions") else 0
+					realizer.set_meta("metric_wfc_contradictions", current_contras + 1)
 			
 			# 1. Capacity Gatekeeper
 			# If the node has more connections than the room has doorways, it physically cannot work!

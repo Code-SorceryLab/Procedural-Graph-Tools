@@ -35,6 +35,8 @@ var _selected_atlas: Vector2i = Vector2i.ZERO
 var _picking_mode: int = 0 
 
 # --- STATE ---
+var _tool_dropdown: OptionButton
+var _active_tool: int = 0 # 0 = Pen, 1 = Fill
 var _active_brush: Brush = Brush.NONE
 var _tileset_tex: Texture2D
 var _tile_size: Vector2i = Vector2i(16, 16)
@@ -51,6 +53,7 @@ func _init() -> void:
 	title = "Custom Room Designer"
 	min_size = Vector2i(900, 650)
 	exclusive = true
+	transient = true
 	close_requested.connect(func(): hide())
 	
 	var main_vbox = VBoxContainer.new()
@@ -116,6 +119,22 @@ func _init() -> void:
 	# --- BRUSH TOOLBAR ---
 	var brush_toolbar = HBoxContainer.new()
 	main_vbox.add_child(brush_toolbar)
+	
+	# Add Tool Selector
+	var lbl_tool = Label.new(); lbl_tool.text = "Tool: "
+	brush_toolbar.add_child(lbl_tool)
+	
+	_tool_dropdown = OptionButton.new()
+	_tool_dropdown.add_item("Pen", 0)
+	_tool_dropdown.add_item("Fill", 1)
+	_tool_dropdown.item_selected.connect(func(idx): 
+		_active_tool = idx
+		painter.highlighted_cells.clear()
+		painter.canvas.queue_redraw()
+	)
+	brush_toolbar.add_child(_tool_dropdown)
+	brush_toolbar.add_child(VSeparator.new())
+	
 	var lbl_brush = Label.new(); lbl_brush.text = "Active Brush: "
 	brush_toolbar.add_child(lbl_brush)
 	
@@ -173,6 +192,7 @@ func _init() -> void:
 	_picker_window.title = "Pick Atlas Tile"
 	_picker_window.min_size = Vector2i(500, 500)
 	_picker_window.exclusive = true
+	_picker_window.transient = true
 	_picker_window.close_requested.connect(func(): _picker_window.hide())
 	_picker_window.hide()
 	
@@ -192,11 +212,7 @@ func _init() -> void:
 	main_vbox.add_child(painter)
 	
 	painter.cell_painted.connect(_on_cell_painted)
-	painter.cell_hovered.connect(func(pos): 
-		_mouse_grid_pos = pos
-		if _active_brush in [Brush.PLACE_STRUCTURE, Brush.PLACE_ENTITY, Brush.PLACE_WFC_SOCKET]: 
-			painter.canvas.queue_redraw()
-	)
+	painter.cell_hovered.connect(_on_cell_hovered)
 	painter.canvas.draw.connect(_on_canvas_draw)
 	
 	# --- BOTTOM BUTTONS ---
@@ -370,35 +386,84 @@ func _clear_base_tiles(r: Dictionary, pos: Vector2i, keep_keys: Array) -> void:
 		if not keep_keys.has(k) and r.has(k): r[k].erase(pos)
 
 # ==============================================================================
+# VIRTUAL GRID & HOVER HIGHLIGHTS
+# ==============================================================================
+func _get_target_grid(r: Dictionary, brush: Brush) -> Dictionary:
+	var grid = {}
+	if brush == Brush.TOGGLE_RESERVED:
+		for pos in r.get("reserved", []): grid[pos] = true
+	elif brush == Brush.DOORWAY:
+		for pos in r.get("doorways", []): grid[pos] = true
+	elif brush == Brush.PLACE_ENTITY:
+		for item in r.get("placed_entities", []): grid[item["pos"]] = item["id"]
+	else: 
+		# Base Tiles (Floors, Walls, Anchor)
+		if r.has("floors"): for pos in r["floors"]: grid[pos] = "floor"
+		if r.has("walls"): for pos in r["walls"]: grid[pos] = "wall"
+		if r.has("exact_floors"): for pos in r["exact_floors"]: grid[pos] = str(r["exact_floors"][pos]) + "_f"
+		if r.has("exact_walls"): for pos in r["exact_walls"]: grid[pos] = str(r["exact_walls"][pos]) + "_w"
+	return grid
+
+func _on_cell_hovered(pos: Vector2i) -> void:
+	_mouse_grid_pos = pos
+	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
+	var r = custom_rooms[_current_room_key]
+	
+	if pos.x < 0 or pos.y < 0 or pos.x >= r.get("width", 9) or pos.y >= r.get("height", 9):
+		painter.highlighted_cells.clear()
+	else:
+		var multi_tile = _active_brush in [Brush.PLACE_STRUCTURE, Brush.PLACE_WFC_SOCKET]
+		
+		if _active_tool == 1 and not multi_tile:
+			# Fill Tool: Highlight the entire contiguous region
+			var target_grid = _get_target_grid(r, _active_brush)
+			painter.highlighted_cells = painter.get_flood_fill_area(target_grid, pos)
+		else:
+			# Pen Tool: Highlight just the single cell under the cursor
+			painter.highlighted_cells = [pos]
+			
+	painter.canvas.queue_redraw()
+
+# ==============================================================================
 # PAINTER API USAGE
 # ==============================================================================
 func _on_cell_painted(pos: Vector2i, erase: bool, is_drag: bool) -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
 	var r = custom_rooms[_current_room_key]
 	
+	var multi_tile = _active_brush in [Brush.PLACE_STRUCTURE, Brush.PLACE_WFC_SOCKET]
+	var target_cells = [pos]
+	
+	if _active_tool == 1 and not multi_tile and not is_drag:
+		var target_grid = _get_target_grid(r, _active_brush)
+		target_cells = painter.get_flood_fill_area(target_grid, pos)
+		
+	if _active_tool == 1 and is_drag:
+		return # Prevents infinite spamming if holding click with Fill Tool
+		
+	for cell_pos in target_cells:
+		_apply_brush_to_cell(r, cell_pos, erase)
+		
+	painter.canvas.queue_redraw()
+
+func _apply_brush_to_cell(r: Dictionary, pos: Vector2i, erase: bool) -> void:
 	if erase:
 		if _active_brush == Brush.PLACE_WFC_SOCKET and r.has("sockets"):
-			# Let the user click ANYWHERE inside the 3x3 socket to erase it
 			for i in range(r["sockets"].size() - 1, -1, -1):
-				var s_pos = r["sockets"][i]
-				var s_rect = Rect2i(s_pos, Vector2i(3, 3))
-				if s_rect.has_point(pos):
-					r["sockets"].remove_at(i)
+				var s_rect = Rect2i(r["sockets"][i], Vector2i(3, 3))
+				if s_rect.has_point(pos): r["sockets"].remove_at(i)
 		elif _active_brush == Brush.PLACE_STRUCTURE and r.has("placed_structures"):
 			for i in range(r["placed_structures"].size() - 1, -1, -1):
-				if r["placed_structures"][i]["pos"] == pos:
-					r["placed_structures"].remove_at(i)
+				if r["placed_structures"][i]["pos"] == pos: r["placed_structures"].remove_at(i)
 		elif _active_brush == Brush.PLACE_ENTITY and r.has("placed_entities"):
 			for i in range(r["placed_entities"].size() - 1, -1, -1):
-				if r["placed_entities"][i]["pos"] == pos:
-					r["placed_entities"].remove_at(i)
+				if r["placed_entities"][i]["pos"] == pos: r["placed_entities"].remove_at(i)
 		elif _active_brush == Brush.TOGGLE_RESERVED and r.has("reserved"): r["reserved"].erase(pos)
 		elif _active_brush == Brush.DOORWAY and r.has("doorways"): r["doorways"].erase(pos)
 		elif _active_brush in [Brush.FLOOR_GENERIC, Brush.WALL_GENERIC, Brush.TILE_EXACT_FLOOR, Brush.TILE_EXACT_WALL]:
 			r["floors"].erase(pos); r["walls"].erase(pos)
 			if r.has("exact_floors"): r["exact_floors"].erase(pos)
 			if r.has("exact_walls"): r["exact_walls"].erase(pos)
-		painter.canvas.queue_redraw()
 		return
 		
 	if _active_brush == Brush.ANCHOR: r["anchor"] = pos
@@ -488,37 +553,27 @@ func _on_cell_painted(pos: Vector2i, erase: bool, is_drag: bool) -> void:
 		var valid = true
 		var new_rect = Rect2i(pos, Vector2i(3, 3))
 		
-		# 1. Check strict Room Bounds
-		if pos.x < 0 or pos.x + 2 >= r.get("width", 9) or pos.y < 0 or pos.y + 2 >= r.get("height", 9):
-			valid = false
+		if pos.x < 0 or pos.x + 2 >= r.get("width", 9) or pos.y < 0 or pos.y + 2 >= r.get("height", 9): valid = false
 			
-		# 2. Prevent overlapping with existing WFC Sockets
 		if valid and r.has("sockets"):
 			for s_pos in r["sockets"]:
-				if new_rect.intersects(Rect2i(s_pos, Vector2i(3, 3))):
-					valid = false; break
+				if new_rect.intersects(Rect2i(s_pos, Vector2i(3, 3))): valid = false; break
 					
-		# 3. Prevent overlapping with Reserved paths
 		if valid and r.has("reserved"):
 			for res_pos in r["reserved"]:
-				if new_rect.has_point(res_pos):
-					valid = false; break
+				if new_rect.has_point(res_pos): valid = false; break
 					
-		# 4. Prevent overlapping with existing Structures
 		if valid and r.has("placed_structures"):
 			for item in r["placed_structures"]:
 				var other_s = _available_structures.get(item["id"], {})
 				for opt in other_s.get("footprint", [Vector2i.ZERO]):
 					var struct_pt = item["pos"] + painter.rotate_point(opt, item["rot"])
-					if new_rect.has_point(struct_pt):
-						valid = false; break
+					if new_rect.has_point(struct_pt): valid = false; break
 				if not valid: break
 				
 		if valid:
 			if not r.has("sockets"): r["sockets"] = []
 			if not r["sockets"].has(pos): r["sockets"].append(pos)
-	
-	painter.canvas.queue_redraw()
 
 func _on_canvas_draw() -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
@@ -576,6 +631,29 @@ func _on_canvas_draw() -> void:
 	if r.has("placed_structures"):
 		for item in r["placed_structures"]: draw_struct.call(item["id"], item["pos"], item["rot"], 0.9)
 			
+	# --- GHOST PREVIEW FOR STANDARD BRUSHES ---
+	if painter.is_in_bounds(_mouse_grid_pos) and _active_tool == 0:
+		var ghost_pos = _mouse_grid_pos
+		if _active_brush == Brush.FLOOR_GENERIC:
+			painter.draw_cell_rect(ghost_pos, Color(0.2, 0.5, 0.3, 0.4))
+		elif _active_brush == Brush.WALL_GENERIC:
+			painter.draw_cell_rect(ghost_pos, Color(0.4, 0.4, 0.4, 0.4))
+		elif _active_brush == Brush.TILE_EXACT_FLOOR and _tileset_tex:
+			painter.draw_atlas_cell(ghost_pos, _tileset_tex, _selected_atlas, _tile_size)
+			# Add a subtle translucent tint over the atlas preview so it looks like a ghost
+			painter.draw_cell_rect(ghost_pos, Color(1, 1, 1, 0.3))
+		elif _active_brush == Brush.TILE_EXACT_WALL and _tileset_tex:
+			painter.draw_atlas_cell(ghost_pos, _tileset_tex, _selected_atlas, _tile_size)
+			painter.draw_cell_rect(ghost_pos, Color(1, 1, 1, 0.3))
+		elif _active_brush == Brush.DOORWAY:
+			painter.draw_cell_rect(ghost_pos, Color(0.9, 0.2, 0.2, 0.3))
+		elif _active_brush == Brush.TOGGLE_RESERVED:
+			var p_rect = painter.get_pixel_rect(ghost_pos)
+			painter.canvas.draw_line(p_rect.position, p_rect.end, Color(1, 0, 0, 0.4), 2.0)
+		elif _active_brush == Brush.ANCHOR:
+			var p_rect = painter.get_pixel_rect(ghost_pos)
+			painter.canvas.draw_circle(p_rect.get_center(), p_rect.size.x * 0.3, Color(1, 1, 0, 0.4))
+	
 	# --- GHOST PREVIEW STRUCTURE ---
 	if _active_brush == Brush.PLACE_STRUCTURE and _current_struct_id != "":
 		if painter.is_in_bounds(_mouse_grid_pos):
@@ -637,6 +715,10 @@ func _on_canvas_draw() -> void:
 			p_rect.size *= 3
 			painter.canvas.draw_rect(p_rect, fill_color)
 			painter.canvas.draw_rect(p_rect, border_color, false, 2.0)
+	
+	# --- RENDER FILL HIGHLIGHTS ---
+	if _active_tool == 1:
+		painter.draw_highlights()
 	
 
 # ==============================================================================

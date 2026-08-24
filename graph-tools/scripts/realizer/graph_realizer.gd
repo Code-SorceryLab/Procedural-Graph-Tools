@@ -107,6 +107,9 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	WallGenerator.generate(graph, self, params, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
 	
+	TexturalWFCPass.apply(self, params)
+	emit.call("Applying Organic Textural WFC")
+	
 	# --- Run a headless validation pass (delay_doors = false) ---
 	var val_results = GenerationValidator.run(grid, false, true, false, Callable(), Callable())
 	
@@ -121,6 +124,7 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		"rejected_custom_rooms": self.get_meta("metric_rejected_custom_rooms") if self.has_meta("metric_rejected_custom_rooms") else 0,
 		"sealed_doorways": self.get_meta("metric_doors_sealed") if self.has_meta("metric_doors_sealed") else 0,
 		"failed_routes": self.get_meta("metric_failed_routes") if self.has_meta("metric_failed_routes") else 0,
+		"wfc_contradictions": self.get_meta("metric_wfc_contradictions") if self.has_meta("metric_wfc_contradictions") else 0,
 	}
 	final_report["analytics"] = val_results
 	

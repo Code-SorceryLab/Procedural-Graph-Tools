@@ -40,12 +40,13 @@ var _tile_size: Vector2i = Vector2i(16, 16)
 var _available_entities: Dictionary = {} 
 var _mouse_grid_pos: Vector2i = Vector2i(-9999, -9999)
 
-var painter: GridCanvasPainter # [NEW] Replaces raw canvas!
+var painter: GridCanvasPainter
 
 func _init() -> void:
 	title = "WFC Module Designer (3x3 Chunks)"
 	min_size = Vector2i(850, 600)
 	exclusive = true
+	transient = true
 	close_requested.connect(func(): hide())
 	
 	var main_vbox = VBoxContainer.new()
@@ -137,6 +138,7 @@ func _init() -> void:
 	_picker_window.title = "Pick Atlas Tile"
 	_picker_window.min_size = Vector2i(500, 500)
 	_picker_window.exclusive = true
+	_picker_window.transient = true
 	_picker_window.close_requested.connect(func(): _picker_window.hide())
 	_picker_window.hide()
 	

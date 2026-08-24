@@ -4,7 +4,7 @@ extends ConfirmationDialog
 signal global_settings_changed(new_params: Dictionary)
 signal biome_settings_changed(new_biomes: Dictionary)
 signal spawn_decks_changed(new_decks: Dictionary)
-signal room_decks_changed(new_decks: Dictionary) # [NEW]
+signal room_decks_changed(new_decks: Dictionary)
 
 # --- DATA ---
 var global_params: Dictionary = {}
@@ -14,9 +14,10 @@ var scatter_sets: Dictionary = {}
 var custom_rooms: Dictionary = {} 
 
 var global_spawn_decks: Dictionary = {}
-var global_room_decks: Dictionary = {} # [NEW]
+var global_room_decks: Dictionary = {} 
 
 var current_biome_id: String = "" 
+var _wfc_palettes_cache: Array = []
 
 # --- UI REFS ---
 var biome_dropdown: OptionButton
@@ -31,14 +32,17 @@ var tab_spawn_decks: VBoxContainer
 var chk_override_shape: CheckBox
 var chk_override_routing: CheckBox
 var chk_override_spawn_decks: CheckBox
+var chk_override_wfc: CheckBox
 
 var inputs_shape: Dictionary = {}
 var inputs_routing: Dictionary = {}
+var inputs_wfc: Dictionary = {}
 
 var content_shape: VBoxContainer
 var content_routing: VBoxContainer
+var content_wfc: VBoxContainer
 
-# [NEW] Dual Tree State
+# Dual Tree State
 var _trees: Dictionary = {}
 var _settings_containers: Dictionary = {}
 var _current_deck_nodes: Dictionary = {"room": "", "spawn": ""}
@@ -70,13 +74,14 @@ func _init() -> void:
 	toggle_panel.add_theme_constant_override("margin_bottom", 5)
 	main_vbox.add_child(toggle_panel)
 	toggle_grid = GridContainer.new()
-	toggle_grid.columns = 3
+	toggle_grid.columns = 2 # [CHANGED] from 3 to 2 so the 4 toggles form a perfect 2x2 square
 	toggle_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toggle_panel.add_child(toggle_grid)
 	
 	chk_override_shape = _create_override_toggle(toggle_grid, "Override Shape & Rooms", _rebuild_shape_tab)
 	chk_override_routing = _create_override_toggle(toggle_grid, "Override Routing", _rebuild_routing_tab)
 	chk_override_spawn_decks = _create_override_toggle(toggle_grid, "Override Spawn Decks", _refresh_tree.bind("spawn"))
+	chk_override_wfc = _create_override_toggle(toggle_grid, "Override Textural WFC", _rebuild_wfc_tab)
 	
 	# 3. TABS
 	tab_container = TabContainer.new()
@@ -86,9 +91,13 @@ func _init() -> void:
 	tab_shape = _create_tab("Shape & Rooms")
 	tab_routing = _create_tab("Routing & CA")
 	tab_spawn_decks = _create_tab("Spawn Decks (Entities & Structures)")
+	var tab_wfc = _create_tab("Textural WFC")
 	
 	# Routing Tab
 	content_routing = _create_scroll_box(tab_routing)
+	
+	# WFC Tab [NEW]
+	content_wfc = _create_scroll_box(tab_wfc)
 	
 	# Shape Tab (Settings on top, Tree on bottom)
 	content_shape = VBoxContainer.new()
@@ -98,6 +107,8 @@ func _init() -> void:
 	
 	# Spawn Deck Tab
 	_build_deck_ui(tab_spawn_decks, "spawn")
+	
+	
 
 func _create_tab(title_str: String) -> VBoxContainer:
 	var margin = MarginContainer.new()
@@ -251,17 +262,21 @@ func _on_biome_selected(idx: int) -> void:
 		chk_override_shape.name = "override_shape"
 		chk_override_routing.name = "override_routing"
 		chk_override_spawn_decks.name = "override_spawn_decks"
+		chk_override_wfc.name = "override_wfc"
 		
 		chk_override_shape.set_pressed_no_signal(biome_overrides[current_biome_id].get("override_shape", false))
 		chk_override_routing.set_pressed_no_signal(biome_overrides[current_biome_id].get("override_routing", false))
 		chk_override_spawn_decks.set_pressed_no_signal(biome_overrides[current_biome_id].get("override_spawn_decks", false))
-		biome_overrides[current_biome_id]["override_enabled"] = chk_override_shape.button_pressed or chk_override_routing.button_pressed or chk_override_spawn_decks.button_pressed
+		chk_override_wfc.set_pressed_no_signal(biome_overrides[current_biome_id].get("override_wfc", false))
+		
+		biome_overrides[current_biome_id]["override_enabled"] = chk_override_shape.button_pressed or chk_override_routing.button_pressed or chk_override_spawn_decks.button_pressed or chk_override_wfc.button_pressed
 		
 		if not biome_overrides[current_biome_id].has("spawn_decks"): biome_overrides[current_biome_id]["spawn_decks"] = global_spawn_decks.duplicate(true)
 		if not biome_overrides[current_biome_id].has("room_decks"): biome_overrides[current_biome_id]["room_decks"] = global_room_decks.duplicate(true)
 	
 	_rebuild_shape_tab()
 	_rebuild_routing_tab()
+	_rebuild_wfc_tab()
 	_refresh_tree("spawn")
 	_refresh_tree("room")
 
@@ -280,7 +295,7 @@ func _set_biome_flag(key: String, val: bool) -> void:
 	if current_biome_id == "": return
 	if not biome_overrides.has(current_biome_id): biome_overrides[current_biome_id] = {}
 	biome_overrides[current_biome_id][key] = val
-	biome_overrides[current_biome_id]["override_enabled"] = chk_override_shape.button_pressed or chk_override_routing.button_pressed or chk_override_spawn_decks.button_pressed
+	biome_overrides[current_biome_id]["override_enabled"] = chk_override_shape.button_pressed or chk_override_routing.button_pressed or chk_override_spawn_decks.button_pressed or chk_override_wfc.button_pressed
 	
 	var selected_idx = biome_dropdown.selected
 	var raw_name = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE][current_biome_id]["name"]
@@ -315,9 +330,50 @@ func _rebuild_routing_tab() -> void:
 		{ "name": "corridor_erosion", "label": "Corridor Erosion", "type": TYPE_FLOAT, "default": _get_val("corridor_erosion", 0.0), "min": 0.0, "max": 0.9, "step": 0.05 },
 		{ "name": "ca_iterations", "label": "CA Smoothing Passes", "type": TYPE_INT, "default": _get_val("ca_iterations", 0), "min": 0, "max": 10 }
 	]
-	inputs_routing = SettingsUIBuilder.render_dynamic_section(content_routing, schema, _set_val)
+	
+	# --- Intercept the dropdown string and force it into an Integer ---
+	var intercept = func(k, v):
+		if k == "routing_mode":
+			var val = max(0, ["Organic (A*)", "Orthogonal (L-Path)"].find(v)) if typeof(v) == TYPE_STRING else int(v)
+			_set_val(k, val)
+		else:
+			_set_val(k, v)
+			
+	inputs_routing = SettingsUIBuilder.render_dynamic_section(content_routing, schema, intercept)
 	_set_inputs_disabled(inputs_routing, is_locked)
 
+
+func _rebuild_wfc_tab() -> void:
+	var is_locked = current_biome_id != "" and not chk_override_wfc.button_pressed
+	content_wfc.modulate = Color(1,1,1, 0.4 if is_locked else 1.0)
+	
+	SettingsUIBuilder.clear_ui(content_wfc)
+	
+	# Fetch all saved WFC patterns directly from the config manager
+	var palettes = ConfigManager.load_textural_palettes().keys()
+	_wfc_palettes_cache = ["None (Default Walls/Floors)"]
+	_wfc_palettes_cache.append_array(palettes)
+	
+	var hint_str = ",".join(_wfc_palettes_cache)
+	
+	# Find which index we are currently set to
+	var current_ref = _get_val("wfc_palette_ref", "")
+	var current_idx = max(0, _wfc_palettes_cache.find(current_ref))
+	
+	var schema = [
+		{ "name": "_wfc_palette_idx", "label": "Active Textural Palette", "type": TYPE_INT, "default": current_idx, "hint": "enum", "hint_string": hint_str }
+	]
+	
+	var intercept = func(k, v):
+		if k == "_wfc_palette_idx":
+			var idx = int(v) if typeof(v) != TYPE_STRING else max(0, _wfc_palettes_cache.find(v))
+			var ref_str = _wfc_palettes_cache[idx] if idx > 0 and idx < _wfc_palettes_cache.size() else ""
+			_set_val("wfc_palette_ref", ref_str)
+		else:
+			_set_val(k, v)
+			
+	inputs_wfc = SettingsUIBuilder.render_dynamic_section(content_wfc, schema, intercept)
+	_set_inputs_disabled(inputs_wfc, is_locked)
 # ==============================================================================
 # DUAL DECK LOGIC 
 # ==============================================================================

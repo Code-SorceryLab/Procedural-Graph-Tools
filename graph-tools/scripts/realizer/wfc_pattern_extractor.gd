@@ -1,74 +1,120 @@
 class_name WFCPatternExtractor
 extends RefCounted
 
-# Scans a sample grid and generates a dictionary of modules perfectly formatted for wfc_solver.gd
-static func extract(sample_grid: Dictionary, w: int, h: int, n: int, periodic: bool = true) -> Dictionary:
-	var patterns = {} # Raw String -> Module ID
-	var modules = {}  # Module ID -> WFC Module Data
+const CELL_EMPTY = Vector2i(-1, -1)
+const CELL_BOUNDARY = Vector2i(-2, -2)
+const CELL_GENERIC_FLOOR = Vector2i(-3, -3)
 
-	var max_x = w if periodic else w - n + 1
-	var max_y = h if periodic else h - n + 1
+# [CHANGED] Added allow_rotations and allow_reflections parameters
+static func extract(sample_grid: Dictionary, w: int, h: int, n: int, periodic: bool = true, base_fill_mode: int = 1, allow_rotations: bool = false, allow_reflections: bool = false) -> Dictionary:
+	var patterns = {} 
+	var modules = {}  
+
+	var min_x = 0 if periodic else -(n - 1)
+	var max_x = w if periodic else w
+	var min_y = 0 if periodic else -(n - 1)
+	var max_y = h if periodic else h
 
 	var p_idx = 0
 	
-	# Slide the NxN window over every pixel in the sample image
-	for y in range(max_y):
-		for x in range(max_x):
-			var pat = []
-			var exact_floors = {}
+	var get_cell = func(gx: int, gy: int) -> Vector2i:
+		if periodic:
+			gx = posmod(gx, w)
+			gy = posmod(gy, h)
+		else:
+			if gx < 0 or gx >= w or gy < 0 or gy >= h:
+				return CELL_BOUNDARY
+				
+		var pos = Vector2i(gx, gy)
+		if sample_grid.has(pos): return sample_grid[pos]
 			
-			# Extract the specific NxN block
+		match base_fill_mode:
+			1: return CELL_GENERIC_FLOOR
+			2: return CELL_BOUNDARY
+			_: return CELL_EMPTY
+
+	for y in range(min_y, max_y):
+		for x in range(min_x, max_x):
+			var base_pat = []
+			
 			for dy in range(n):
 				for dx in range(n):
-					var sx = (x + dx) % w if periodic else x + dx
-					var sy = (y + dy) % h if periodic else y + dy
-					
-					var cell = sample_grid.get(Vector2i(sx, sy), Vector2i(-1, -1)) # -1 is void
-					pat.append(cell)
-					exact_floors[Vector2i(dx, dy)] = cell
+					base_pat.append(get_cell.call(x + dx, y + dy))
 
-			var p_str = str(pat)
+			# --- [NEW] GENERATE SYMMETRY VARIANTS ---
+			var variants = [base_pat]
 			
-			# If we haven't seen this pattern before, catalog it and build its Edge Rules
-			if not patterns.has(p_str):
-				var mod_id = "pat_" + str(p_idx)
-				p_idx += 1
-				patterns[p_str] = mod_id
+			if allow_rotations:
+				var r1 = _rotate_pattern_90(base_pat, n)
+				var r2 = _rotate_pattern_90(r1, n)
+				var r3 = _rotate_pattern_90(r2, n)
+				variants.append_array([r1, r2, r3])
+				
+			if allow_reflections:
+				var flipped_variants = []
+				for v in variants:
+					flipped_variants.append(_reflect_pattern_x(v, n))
+				variants.append_array(flipped_variants)
+				
+			# Register all generated variants!
+			for v_pat in variants:
+				var p_str = str(v_pat)
+				if not patterns.has(p_str):
+					var mod_id = "pat_" + str(p_idx)
+					p_idx += 1
+					patterns[p_str] = mod_id
+					
+					var exact_floors = {}
+					for dy in range(n):
+						for dx in range(n):
+							exact_floors[Vector2i(dx, dy)] = v_pat[dy * n + dx]
 
-				modules[mod_id] = {
-					"weight": 0.0,
-					"edges": {
-						"N": _get_edge_string(pat, "N", n),
-						"E": _get_edge_string(pat, "E", n),
-						"S": _get_edge_string(pat, "S", n),
-						"W": _get_edge_string(pat, "W", n)
-					},
-					"exact_floors": exact_floors
-				}
+					modules[mod_id] = {
+						"weight": 0.0,
+						"edges": {
+							"N": _get_edge_string(v_pat, "N", n),
+							"E": _get_edge_string(v_pat, "E", n),
+							"S": _get_edge_string(v_pat, "S", n),
+							"W": _get_edge_string(v_pat, "W", n)
+						},
+						"exact_floors": exact_floors
+					}
 
-			# Increase the weight every time we see this pattern
-			modules[patterns[p_str]]["weight"] += 1.0
+				# Symmetrical patterns inherently gain higher weight (which is mathematically correct!)
+				modules[patterns[p_str]]["weight"] += 1.0
 
 	return modules
 
-# Converts the overlapping boundary of a pattern into a raw String for the Solver to match
 static func _get_edge_string(pat: Array, dir: String, n: int) -> String:
 	var edge = []
 	if dir == "N":
-		# The North plug is the top (N-1) rows
 		for y in range(n - 1):
 			for x in range(n): edge.append(pat[y * n + x])
 	elif dir == "S":
-		# The South plug is the bottom (N-1) rows
 		for y in range(1, n):
 			for x in range(n): edge.append(pat[y * n + x])
 	elif dir == "W":
-		# The West plug is the left (N-1) columns
 		for y in range(n):
 			for x in range(n - 1): edge.append(pat[y * n + x])
 	elif dir == "E":
-		# The East plug is the right (N-1) columns
 		for y in range(n):
 			for x in range(1, n): edge.append(pat[y * n + x])
 			
 	return str(edge)
+
+# --- [NEW] MATH HELPERS ---
+static func _rotate_pattern_90(pat: Array, n: int) -> Array:
+	var res = []
+	res.resize(n * n)
+	for y in range(n):
+		for x in range(n):
+			res[x * n + (n - 1 - y)] = pat[y * n + x]
+	return res
+
+static func _reflect_pattern_x(pat: Array, n: int) -> Array:
+	var res = []
+	res.resize(n * n)
+	for y in range(n):
+		for x in range(n):
+			res[y * n + (n - 1 - x)] = pat[y * n + x]
+	return res
