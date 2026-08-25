@@ -918,29 +918,6 @@ func load_new_graph(new_graph: Graph) -> void:
 	_center_camera_on_graph()
 	renderer.queue_redraw()
 
-func apply_strategy(strategy: GraphStrategy, params: Dictionary) -> void:
-	var existing_ids = {}
-	for id in graph.nodes: existing_ids[id] = true
-	_reset_local_state()
-
-	var batch = StrategyExecutor.execute(self, strategy, params)
-	
-	if batch and not batch._commands.is_empty():
-		_commit_command(batch)
-		
-		# The batch has mutated the actual Graph resource.
-		# Run the overarching integrity check and auto-repair!
-		var diagnostics = GraphValidator.validate(graph, true)
-		
-		# Print any repairs or warnings to the console so you know it worked
-		for msg in diagnostics:
-			if msg.begins_with("REPAIR") or "Sweep:" in msg:
-				print("[GraphValidator] ", msg)
-				
-		_center_camera_on_graph()
-	
-	StrategyExecutor.process_visualization(self, params, existing_ids)
-
 # --- PHYSICS / BUOYANCY API ---
 
 func set_buoyancy_active(active: bool) -> void:

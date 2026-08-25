@@ -2,7 +2,6 @@ class_name GraphToolSpawner
 extends GraphTool
 
 # Dependencies
-var _target_strategy: StrategyWalker
 var _drag_handler: GraphDragHandler
 
 # Mode State
@@ -14,21 +13,18 @@ var _current_mode: int = Mode.CREATE
 # ==============================================================================
 
 func enter() -> void:
-	if _ensure_strategy_active():
-		_drag_handler = GraphDragHandler.new(_editor)
-		
-		# Connect Signals
-		if not _drag_handler.clicked.is_connected(_on_click_action):
-			_drag_handler.clicked.connect(_on_click_action)
-		if not _drag_handler.box_selected.is_connected(_on_box_selection):
-			_drag_handler.box_selected.connect(_on_box_selection)
-			
-		# Connect Live Drag Feedback
-		if not _drag_handler.drag_updated.is_connected(_on_drag_update):
-			_drag_handler.drag_updated.connect(_on_drag_update)
-		
-		_current_mode = Mode.CREATE
-		_update_status_display()
+	_drag_handler = GraphDragHandler.new(_editor)
+	
+	# Connect Signals
+	if not _drag_handler.clicked.is_connected(_on_click_action):
+		_drag_handler.clicked.connect(_on_click_action)
+	if not _drag_handler.box_selected.is_connected(_on_box_selection):
+		_drag_handler.box_selected.connect(_on_box_selection)
+	if not _drag_handler.drag_updated.is_connected(_on_drag_update):
+		_drag_handler.drag_updated.connect(_on_drag_update)
+	
+	_current_mode = Mode.CREATE
+	_update_status_display()
 
 func exit() -> void:
 	_reset_visuals()
@@ -113,34 +109,31 @@ func _on_click_action(_pos: Vector2) -> void:
 		Mode.DELETE: _delete_agent_under_mouse()
 
 func _spawn_under_mouse() -> void:
-	if not _ensure_strategy_active(): return
 	var mouse_pos = _editor.get_global_mouse_position()
 	var id = _get_node_at_pos(mouse_pos)
 	
-	if id != "":
-		# 1. Create the temporary object
-		var agent = _target_strategy.create_agent_for_node(id, _editor.graph)
+	if id == "":
+		return
+	
+	# Create agent directly
+	var agent = _create_agent_for_node(id)
+	
+	if agent:
+		_editor.add_agent(agent)
 		
-		if agent:
-			# 2. Add via Editor (This queues CmdAddAgent, which CLONES the Agent for Undo/Redo!)
-			_editor.add_agent(agent)
+		var live_agent = _editor.graph.get_agent_by_uuid(agent.uuid)
+		if live_agent == null:
+			live_agent = agent
 			
-			# 3. Retrieve the ACTUAL agent that was injected into the live Graph!
-			var live_agent = _editor.graph.get_agent_by_uuid(agent.uuid)
-			if live_agent == null: 
-				live_agent = agent # Fallback just in case
-				
-			# 4. Select the LIVE agent so the Inspector modifies the real one
-			_editor.set_agent_selection([live_agent], true)
-			_update_markers()
-			
-			if _editor.has_signal("request_inspector_view"):
-				_editor.request_inspector_view.emit()
-			
-			_show_status("Agent Spawned!")
+		_editor.set_agent_selection([live_agent], true)
+		_update_markers()
+		
+		if _editor.has_signal("request_inspector_view"):
+			_editor.request_inspector_view.emit()
+		
+		_show_status("Agent Spawned!")
 
 func _select_agent_under_mouse() -> void:
-	if not _ensure_strategy_active(): return
 	
 	var is_shift = Input.is_key_pressed(KEY_SHIFT)
 	var is_ctrl = Input.is_key_pressed(KEY_CTRL)
@@ -195,7 +188,6 @@ func _select_agent_under_mouse() -> void:
 		_perform_deselect()
 
 func _delete_agent_under_mouse() -> void:
-	if not _ensure_strategy_active(): return
 	
 	# 1. Check Precision Hit
 	var global_mouse = _editor.get_global_mouse_position()
@@ -343,16 +335,22 @@ func _update_markers() -> void:
 	_editor.set_path_ends(agent_positions)
 	_editor.set_path_starts(agent_starts)
 
-func _ensure_strategy_active() -> bool:
-	if StrategyController.instance == null:
-		_show_status("Error: StrategyController not initialized.")
-		return false
+
+func _create_agent_for_node(node_id: String) -> AgentWalker:
+	if not _editor or not _editor.graph:
+		return null
+	if not _editor.graph.nodes.has(node_id):
+		return null
 	
-	StrategyController.instance.switch_to_strategy_type(StrategyWalker)
+	var graph = _editor.graph
+	var pos = graph.get_node_pos(node_id)
+	var uuid = GraphSerializer.generate_uuid()
+	var display_id = graph.get_next_display_id()
 	
-	if StrategyController.instance.current_strategy is StrategyWalker:
-		_target_strategy = StrategyController.instance.current_strategy
-		return true
+	# Use default step count from global spawn template
+	var steps = AgentWalker.spawn_template.get("steps", 15)
 	
-	_show_status("Error: Failed to switch to Agent Strategy.")
-	return false
+	var agent = AgentWalker.new(uuid, display_id, pos, node_id, steps)
+	agent.apply_template_defaults()  # Applies global behavior, movement, etc.
+	
+	return agent

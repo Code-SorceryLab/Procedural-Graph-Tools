@@ -11,3 +11,9 @@ func _ready() -> void:
 	# 1. Load Preferences from Disk
 	ConfigManager.load_config()
 	print("GamePlayer: All systems initialized.")
+	
+	
+	#print("documentation")
+	#var all_scripts = DocumentationTools.get_all_gd_files()
+	#for path in all_scripts:
+	#	print(path)

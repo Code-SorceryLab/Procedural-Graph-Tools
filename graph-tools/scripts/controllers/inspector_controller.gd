@@ -4,7 +4,6 @@ extends Node
 # --- REFERENCES ---
 @export_group("Core Systems")
 @export var graph_editor: GraphEditor
-@export var strategy_controller: StrategyController
 
 @export_group("UI Inspector Tab")
 @export var inspector_vbox: VBoxContainer    

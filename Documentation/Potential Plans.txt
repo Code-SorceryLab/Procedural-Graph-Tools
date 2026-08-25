@@ -17,11 +17,40 @@
 -bezier curves for custom edges.
 
 
+
+
+
+
+
+
+Experiment_controller, experiment_builder, experiment_runner
+
+Distribution_engine,
+generation_validator
+custom_room_designer_popup
+scatter_designer_popup
+biome_designer_popup
+grid_canvas_painter
+sidebar.gd ????
+ui_layout_controller
+generator_tab_view, timeline_tab_view, validation_tab_view
+
+documentation_tools
+
+wfcModuleDesignerPopup
+
+
+
+
+
+
+
+
 Transformations worth adding:
 
 -BranchByMetric 			(conditional logic holy crap)
 
-
+-CustomRoomTiles Bug when using procedural colours that when a custom room uses a tile that isn't actively being used by a biome mapped by the Tilemap popup, the custom room's tile is missing. 
 -FixCustomRoomDesigner SOFTLOCK (I was playing around with the active Brush dropdown (on the exact floor Tile option), and I opened up the "Pick Brush Tile" prompt, and clicked back and forth repeatedly, likely didn't fully close the other option first.
 
 Maybe the citation dependency feature (Big Task)
@@ -300,3 +329,74 @@ Suggested implementation path
     Later, add a WFC strategy that uses the graph as constraints to produce more organic, tile‑based layouts.
 
     The result can be previewed in a separate viewport or saved as a scene.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Master Plan: Dynamic Regeneration System
+1. The Vision
+
+The engine is evolving from a Static Map Generator (fire-and-forget) into a Continuous/Iterative Generation System (a living mathematical environment).
+The goal is to support two major paradigms:
+
+    Editor-Time Iteration: Designers can select specific nodes in the graph to "Reseed" (reroll layout/textures without changing flow) or seamlessly insert/delete nodes into an already-rasterized map without destroying the surrounding dungeon.
+
+    Runtime Shifting: Game logic can dynamically regenerate isolated chunks of the dungeon behind closed doors (e.g., non-Euclidean horror games), effectively turning the engine into an intelligent chunk-loader.
+
+2. Core Philosophy: Topological, not Spatial
+
+Regenerations are never based on drawing a raw 2D pixel box. They are based on Graph Nodes. The Graph remains the absolute "Source of Truth," and the Rasterizer is merely the "Renderer." If a room is to be regenerated, the target is the Node, ensuring custom rooms and layouts remain perfectly atomic.
+3. Key Technical Considerations
+
+    The Snapshot Architecture (Diff-Based Regeneration):
+    Instead of logging every micro-movement a designer makes, the engine takes a "Snapshot" of the graph upon a full rasterization. When the designer clicks "Apply Changes," the engine diffs the current graph against the Snapshot to isolate the Delta (new, moved, or deleted nodes) and regenerates only that specific mathematical gap.
+
+    The Graph-Aware VCR:
+    Currently, the VCR timeline only logs raster layers. To support partial regenerations that can be safely undone, VCR frames must become a tuple: [GraphSnapshot, GridSnapshot, Metadata].
+
+    Space Management & "Dirty Rects":
+    The GraphRealizer must be upgraded to accept a "Target Mask" (an array of Node IDs). When masked, it treats all unmasked, existing raster data as impenetrable fixed_pixels constraints. The EdgeRouter must seamlessly stitch new corridors into existing doorways.
+
+    Progression Constraint Pinning:
+    The ProgressionSolver must be upgraded to accept "Pre-existing Conditions". If regenerating a subgraph, the solver must know where existing locks/keys are so it doesn't break the critical path or spawn duplicates.
+
+4. Phased Roadmap
+
+    Phase 1: Realizer Bounding (The Math)
+    Upgrade GraphRealizer and its passes (e.g., RoomAllocator, EdgeRouter, TexturalWFCPass) to accept an optional array of target Nodes. Everything outside this array is treated as immutable concrete.
+
+    Phase 2: Snapshot & Diffing (State Management)
+    Implement the deep-copy Snapshot system in RealizerController. Establish visual indicators in the editor for nodes that are "Dirty" (out-of-sync with the rasterized grid).
+
+    Phase 3: Designer Tooling (Editor UI)
+    Introduce three distinct generation actions in the UI: Full Rasterize, Regenerate Selection (Reseed), and Apply Graph Delta.
+
+    Phase 4: Runtime API (Gameplay)
+    Expose a heavily threaded DynamicShift(node_mask, new_rules) function for runtime execution, alongside a memory-culling system to forget nodes left far behind the player.
+
+📂 5. Core Scripts Implicated
+
+    controllers/realizer_controller.gd: Needs massive refactoring to handle Snapshots, Graph diffing, and the updated VCR timeline.
+
+    realizer/core/graph_realizer.gd: Needs to accept Node Masks and pass "frozen grid" context to its children.
+
+    realizer/core/progression_solver.gd: Needs to accept "Pinned Constraints" to preserve playability during partial regenerations.
+
+    realizer/core/textural_wfc_pass.gd: Will heavily rely on fixed_pixels to merge new Textural WFC outputs seamlessly into frozen rooms.
+
+    core/editor/graph_history.gd: Must co-exist peacefully with the VCR Snapshot without corrupting the designer's undo/redo stack.
