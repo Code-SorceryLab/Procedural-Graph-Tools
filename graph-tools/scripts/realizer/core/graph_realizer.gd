@@ -144,8 +144,10 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	TexturalWFCPass.apply(self, params)
 	emit.call("Applying Organic Textural WFC")
 	
-	# --- Run a headless validation pass (delay_doors = false) ---
-	var val_results = GenerationValidator.run(grid, false, true, false, Callable(), Callable())
+	# --- Run a headless validation pass (full_explore = true, delay_doors = false) ---
+	var headless_validator = GenerationValidator.new(grid, true, false)
+	headless_validator.fast_forward()
+	var val_results = headless_validator.get_final_analytics()
 	
 	var final_report = {}
 	if self.has_meta("progression_report"):
@@ -161,6 +163,9 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		"wfc_contradictions": self.get_meta("metric_wfc_contradictions") if self.has_meta("metric_wfc_contradictions") else 0,
 	}
 	final_report["analytics"] = val_results
+	
+	# --- STASH THE BLAST RADIUS FOR THE VALIDATOR ---
+	self.set_meta("regen_dirty_rect", params.get("regen_dirty_rect", Rect2i()))
 	
 	self.set_meta("progression_report", final_report)
 	emit.call("Finalizing Analytics Report")

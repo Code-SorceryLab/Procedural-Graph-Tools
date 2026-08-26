@@ -14,6 +14,7 @@ var _realizer: GraphRealizer
 # --- STATE ---
 var _snapshots: Array[Dictionary] = []
 var _active_mapping: Dictionary = {} 
+var _validator_paint_counter: int = 0
 
 # --- VIEWS ---
 var _generator_tab: GeneratorTabView
@@ -45,9 +46,10 @@ func _ready() -> void:
 	_execution_manager.rasterization_finished.connect(_on_rasterization_finished)
 	
 	_execution_manager.validation_started.connect(_on_validation_started)
-	_execution_manager.validation_log.connect(func(msg): _validation_tab.append_log(msg))
-	_execution_manager.validation_flood.connect(_on_validation_flood)
-	_execution_manager.validation_finished.connect(func(): _validation_tab.set_running(false))
+	_execution_manager.validation_payload.connect(_on_validation_payload)
+	_execution_manager.validation_finished.connect(func(analytics): 
+		_validation_tab.set_state("IDLE")
+	)
 
 	_config_manager = RealizerConfigManager.new()
 	_config_manager.btn_preview_regen_requested.connect( _on_preview_regen_pressed)
@@ -81,9 +83,34 @@ func _ready() -> void:
 	tabs.add_child(_report_tab)
 	
 	_validation_tab = ValidationTabView.new()
-	_validation_tab.run_requested.connect(_on_validation_run_requested)
-	_validation_tab.stop_requested.connect(_on_validation_stop_requested)
+	_validation_tab.stop_requested.connect(_execution_manager.cancel_validation)
+	
+	# --- VCR ROUTING ---
+	_validation_tab.play_requested.connect(func(): 
+		if not _execution_manager.is_validation_running():
+			_on_validation_run_requested()
+		_execution_manager.set_val_state("PLAYING")
+		_validation_tab.set_state("PLAYING")
+	)
+	_validation_tab.pause_requested.connect(func(): 
+		_execution_manager.set_val_state("PAUSED")
+		_validation_tab.set_state("PAUSED")
+	)
+	_validation_tab.step_requested.connect(func(): 
+		if not _execution_manager.is_validation_running():
+			_on_validation_run_requested()
+		_execution_manager.set_val_state("STEP")
+	)
+	_validation_tab.skip_requested.connect(func(): 
+		if not _execution_manager.is_validation_running():
+			_on_validation_run_requested()
+		_execution_manager.set_val_state("FAST_FORWARD")
+	)
+	
+	_validation_tab.speed_changed.connect(func(v): _execution_manager.set_val_params(int(_validation_tab._slider_batch.value), int(v * 1000)))
+	_validation_tab.batch_size_changed.connect(func(v): _execution_manager.set_val_params(v, int(_validation_tab._slider_speed.value * 1000)))
 	_validation_tab.visualize_toggled.connect(_on_visualize_toggled) 
+	
 	tabs.add_child(_validation_tab)
 	
 	_generator_tab.build(_config_manager.custom_structures, _config_manager.global_params)
@@ -99,14 +126,24 @@ func _on_rasterize_pressed() -> void:
 	var exec_params = _config_manager.get_execution_params()
 	_execution_manager.run_rasterization(graph_editor.graph, exec_params, _config_manager.biome_params)
 
-func _on_rasterization_started() -> void:
-	_snapshots.clear()
-	_timeline_tab.clear()
-	_active_mapping.clear() 
+func _on_rasterization_started(is_partial: bool = false) -> void:
 	_report_tab.set_loading()
-	_validation_tab.clear_logs()
 	
-	_renderer.clear_overlays()
+	if is_partial:
+		# --- PHASE 2 PRESERVATION ---
+		# If we are regenerating, automatically PAUSE the validator instead of killing it!
+		if _execution_manager.is_validation_running():
+			_execution_manager.set_val_state("PAUSED")
+			_validation_tab.set_state("PAUSED")
+	else:
+		# --- FULL WIPE ---
+		_snapshots.clear()
+		_timeline_tab.clear()
+		_active_mapping.clear() 
+		_validation_tab.clear_logs()
+		_validation_tab.set_state("IDLE")
+		_renderer.clear_overlays()
+		
 	_tooltip_manager.is_active = false
 	_realizer = _execution_manager.current_realizer
 
@@ -242,29 +279,57 @@ func _on_rasterization_finished(realizer: GraphRealizer, report: Dictionary) -> 
 	
 	if not _snapshots.is_empty():
 		_renderer.render_overlays(_realizer, _snapshots[-1]["entities"], _config_manager.global_params, false)
-
-func _on_validation_run_requested(visualize: bool, full_explore: bool, delay_doors: bool) -> void:
-	if _execution_manager.is_rasterizing: return
-	if not _realizer or not _realizer.grid:
-		_validation_tab.append_log("[color=red]Error: Rasterize the graph first.[/color]")
-		return
 		
-	_execution_manager.run_validation(_realizer.grid, visualize, full_explore, delay_doors)
+	# --- [PHASE 2 INJECTION] ---
+	if _execution_manager.is_validation_running():
+		var dirty_rect = _realizer.get_meta("regen_dirty_rect") if _realizer.has_meta("regen_dirty_rect") else Rect2i()
+		_execution_manager.update_validation_grid(_realizer.grid, dirty_rect)
+
+func _on_validation_run_requested() -> void:
+	if _execution_manager.is_rasterizing: return
+	if not _realizer or not _realizer.grid: return
+	
+	var settings = _validation_tab.get_settings()
+	_execution_manager.start_validation(
+		_realizer.grid, 
+		settings["full_explore"], 
+		settings["delay_doors"], 
+		settings["batch_size"], 
+		int(settings["tick_speed"] * 1000)
+	)
 
 func _on_validation_started() -> void:
 	_validation_tab.clear_logs()
-	_validation_tab.set_running(true)
+	_validation_tab.set_state("PLAYING")
+	_validator_paint_counter = 0
 	for child in tile_map_layer.get_children():
-		if child.is_in_group("validator_overlay"): child.queue_free()
+		if child.is_in_group("validator_overlay") or child.is_in_group("validator_frontier"):
+			child.queue_free()
 
-func _on_validation_flood(cells: Array, color_index: int) -> void:
+func _on_validation_payload(payload: Dictionary) -> void:
+	for msg in payload["logs"]:
+		_validation_tab.append_log(msg)
+		
 	if not tile_map_layer or not tile_map_layer.tile_set: return
 	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
 	var is_vis = _validation_tab.is_visualize_on()
 	
-	for pos in cells:
+	# --- FULL REDRAW SUPPORT ---
+	# If the grid was regenerated, we must redraw the ENTIRE surviving puddle from scratch!
+	if payload.get("is_redraw", false):
+		_validator_paint_counter = 0
+		for child in tile_map_layer.get_children():
+			if child.is_in_group("validator_overlay") or child.is_in_group("validator_frontier"):
+				child.queue_free()
+	else:
+		# Otherwise, just clear the old glowing outline
+		for child in tile_map_layer.get_children():
+			if child.is_in_group("validator_frontier"): child.queue_free()
+		
+	# 2. Draw the new Puddle (Flood fill)
+	for pos in payload["newly_visited"]:
 		var rect = ColorRect.new()
-		var hue = fmod(0.55 + (color_index * 0.0005), 1.0)
+		var hue = fmod(0.55 + (_validator_paint_counter * 0.0005), 1.0)
 		rect.color = Color.from_hsv(hue, 0.8, 1.0, 0.4) 
 		rect.size = Vector2(cell_size, cell_size)
 		rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
@@ -272,6 +337,26 @@ func _on_validation_flood(cells: Array, color_index: int) -> void:
 		rect.visible = is_vis 
 		rect.add_to_group("validator_overlay")
 		tile_map_layer.add_child(rect)
+	
+	if payload["newly_visited"].size() > 0:
+		_validator_paint_counter += 1
+		
+	# 3. Draw the new Glowing Frontier
+	for pos in payload["frontier"]:
+		var outline = ReferenceRect.new()
+		outline.editor_only = false
+		outline.border_color = Color.CYAN
+		outline.border_width = 3.0
+		outline.size = Vector2(cell_size, cell_size)
+		outline.position = Vector2(pos.x * cell_size, pos.y * cell_size)
+		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		outline.visible = is_vis 
+		outline.add_to_group("validator_frontier")
+		tile_map_layer.add_child(outline)
+		
+	if payload["is_finished"]:
+		_validation_tab.set_state("IDLE")
+
 
 func _on_validation_stop_requested() -> void:
 	_execution_manager.cancel_validation()
@@ -286,16 +371,16 @@ func _on_visualize_toggled(is_on: bool) -> void:
 # ==============================================================================
 func _on_step_list_selected(index: int) -> void:
 	if _execution_manager.is_rasterizing: return 
+	
+	# --- [FIXED] Only assassinate the validator if the user MANUALLY clicks the timeline! ---
+	_execution_manager.cancel_validation()
+	_validation_tab.set_state("IDLE")
 	_jump_to_snapshot(index)
 
 func _jump_to_snapshot(index: int) -> void:
 	if _snapshots.is_empty() or _active_mapping.is_empty(): return
 	
-	_execution_manager.cancel_validation()
-	_validation_tab.set_running(false)
-	
 	index = clampi(index, 0, _snapshots.size() - 1)
-	
 	_timeline_tab.select_index(index)
 	var snapshot = _snapshots[index]
 	var mock_grid = GridData.new(snapshot["w"], snapshot["h"], _realizer.palette)
@@ -324,7 +409,7 @@ func _on_clear_pressed() -> void:
 	if _execution_manager.is_rasterizing: return
 	
 	_execution_manager.cancel_validation()
-	_validation_tab.set_running(false)
+	_validation_tab.set_state("IDLE")
 		
 	if tile_map_layer:
 		tile_map_layer.clear()
