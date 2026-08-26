@@ -80,15 +80,12 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		
 		var active_edge_id = str(pair[0]) + "_" + str(pair[1])
 		
-		#print("[EdgeRouter] Key: ", key, " active_id: ", active_edge_id, " in_target: ", target_edges.has(active_edge_id))
-		
 		# --- MASK CHECK ---
 		if is_regen and not target_edges.has(active_edge_id):
 			continue
 			
 		var node_u = graph.nodes[edge.u]
 		var node_v = graph.nodes[edge.v]
-		
 		
 		
 		# ======================================================================
@@ -261,15 +258,6 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 							return nid
 			return default_id
 		
-		
-		if is_regen:
-			print("[EdgeRouter] Processing edge: ", active_edge_id)
-			print("   Target? ", target_edges.has(active_edge_id))
-			print("   Node U: ", edge.u, " Node V: ", edge.v)
-			print("   Start: ", start_pos, " End: ", end_pos)
-			print("   Path found? ", not path.is_empty(), " Length: ", path.size())
-			if path.is_empty():
-				print("   PATH EMPTY! Potential block.")
 		
 		# --- 3. STAMP THE PATH ---
 		for i in range(path.size()):

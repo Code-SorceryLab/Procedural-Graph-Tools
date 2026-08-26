@@ -17,6 +17,11 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	var end_region = path_data["end_region"]
 	var spine_regions = path_data["spine_regions"]
 	
+	# --- [NEW] FETCH THE ARCHIVES ---
+	var archived_keys = map_data.get("archived_keys", [])
+	var archived_locks = map_data.get("archived_locks", {})
+	var newly_dropped_replacements = {}
+	
 	var accessible_regions = [start_region]
 	var visited_regions = { start_region: true }
 	var frontier_edges = []
@@ -70,6 +75,13 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	]
 	
 	var color_pool = master_colors.duplicate()
+	
+	# --- [NEW] PRUNE EXISTING COLORS ---
+	# Remove any surviving colors from the pool so we don't generate duplicate doors!
+	for p_id in archived_locks:
+		var c = archived_locks[p_id]
+		if color_pool.has(c): color_pool.erase(c)
+		
 	for i in range(color_pool.size() - 1, 0, -1):
 		var j = rng.randi() % (i + 1)
 		var temp = color_pool[i]
@@ -163,7 +175,15 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 		var forge_new_key = false
 		var lock_str = ""
 		
-		if is_end_finale:
+		# --- [NEW] ARCHIVE OVERRIDE ---
+		var existing_lock = archived_locks.get(p_id, "")
+		
+		if existing_lock != "":
+			lock_it = true
+			lock_str = existing_lock
+			forge_new_key = false # Do not pull a new color/tier!
+			
+		elif is_end_finale:
 			lock_it = true
 			forge_new_key = false
 			if critical_locks.size() > 0: lock_str = critical_locks[-1] 
@@ -186,7 +206,34 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					
 		if lock_it:
 			var placement_tag = "Critical Progression"
-			if forge_new_key:
+			var needs_key_drop = false
+			
+			if existing_lock != "":
+				# --- RESTORATION MODE ---
+				placement_tag = "Restored Vault" if is_vault else "Restored Critical"
+				
+				if is_vault and not vault_locks.has(lock_str): vault_locks.append(lock_str)
+				elif not is_vault and not critical_locks.has(lock_str): critical_locks.append(lock_str)
+				
+				if not safe_regions_for_lock.has(lock_str):
+					safe_regions_for_lock[lock_str] = accessible_regions.duplicate()
+					
+				# 1. Did the Main Key Survive?
+				var key_survived = false
+				for k in archived_keys:
+					if k["lock_str"] == lock_str and not "Shortcut" in k["placement_method"]:
+						key_survived = true
+						if k["region"] != -1: regions_with_keys[k["region"]] = true
+						break
+						
+				# 2. If it died, and we haven't already replaced it, Forge a Replacement!
+				if not key_survived and not newly_dropped_replacements.has(lock_str):
+					needs_key_drop = true
+					newly_dropped_replacements[lock_str] = true
+					placement_tag += " (Replacement Key)"
+					
+			elif forge_new_key:
+				# --- STANDARD NEW KEY MODE ---
 				if rng.randf() < key_style_ratio and color_pool.size() > 0:
 					lock_str = color_pool.pop_front()
 				else:
@@ -203,6 +250,10 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				else:
 					critical_locks.append(lock_str)
 					
+				needs_key_drop = true
+				
+			# --- THE KEY DROP ---
+			if needs_key_drop:
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
 				var chosen_region = SeedUtils.pick_random(target_pool, rng)
 				
@@ -213,7 +264,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 						regions_with_keys[chosen_region] = true
 						
 				if not key_dropped:
-					ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, "Fallback (Emergency)")
+					ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, placement_tag + " (Emergency)")
 					
 			if is_vault:
 				vaults_placed += 1

@@ -38,6 +38,10 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 	var pref_start = params.get("progression_preferred_start", "Any")
 	var pref_end = params.get("progression_preferred_end", "Any")
 	
+	# Fetch the Archives!
+	var archived_start = map_data.get("archived_start", -1)
+	var archived_end = map_data.get("archived_end", -1)
+	
 	var get_r_biomes = func(r_id):
 		var b_dict = {}
 		for pos in regions[r_id]:
@@ -45,29 +49,44 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 			if realizer.floor_to_semantic.has(cid): b_dict[realizer.floor_to_semantic[cid]] = true
 		return b_dict
 
+	# START REGION
 	var start_region = -1
 	var start_tag = "Fallback (Random)"
+	var need_spawn_start = true
 	
-	if pref_start != "Any":
-		var matches = valid_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
-		if matches.size() > 0:
-			start_region = SeedUtils.pick_random(matches, rng)
-			start_tag = "Preferred Biome"
+	# [NEW] Pre-existing Start Point Detection
+	if archived_start != -1 and valid_regions.has(archived_start):
+		start_region = archived_start
+		start_tag = "Preserved Spawn"
+		need_spawn_start = false # It physically survived, so skip stamping a duplicate!
+	else:
+		if pref_start != "Any":
+			var matches = valid_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
+			if matches.size() > 0:
+				start_region = SeedUtils.pick_random(matches, rng)
+				start_tag = "Preferred Biome"
+				
+		if start_region == -1: 
+			var multi_door = valid_regions.filter(func(r): return region_adj[r].size() > 1)
+			if multi_door.size() > 0:
+				start_region = SeedUtils.pick_random(multi_door, rng)
+				start_tag = "Fallback (Multi-Door)"
+			else:
+				start_region = SeedUtils.pick_random(valid_regions, rng)
+				start_tag = "Fallback (Leaf)"
 			
-	if start_region == -1: 
-		var multi_door = valid_regions.filter(func(r): return region_adj[r].size() > 1)
-		if multi_door.size() > 0:
-			start_region = SeedUtils.pick_random(multi_door, rng)
-			start_tag = "Fallback (Multi-Door)"
-		else:
-			start_region = SeedUtils.pick_random(valid_regions, rng)
-			start_tag = "Fallback (Leaf)"
-			
+	# END REGION
 	var end_candidates = valid_regions.filter(func(r): return r != start_region)
 	var end_region = -1
 	var end_tag = "Fallback (Random)"
+	var need_spawn_end = true
 	
-	if end_candidates.is_empty():
+	# [NEW] Pre-existing End Point Detection
+	if archived_end != -1 and valid_regions.has(archived_end) and (archived_end != start_region or valid_regions.size() == 1):
+		end_region = archived_end
+		end_tag = "Preserved Exit"
+		need_spawn_end = false # It physically survived!
+	elif end_candidates.is_empty():
 		end_region = start_region
 		end_tag = "Fallback (Single Room Graph)"
 	else:
@@ -91,8 +110,8 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 				end_region = SeedUtils.pick_random(end_candidates, rng)
 				end_tag = "Fallback Cycle Node"
 			
-	spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
-	if end_region != -1: spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
+	if need_spawn_start: spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
+	if need_spawn_end and end_region != -1: spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
 	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 

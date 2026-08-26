@@ -108,6 +108,40 @@ static func map_regions(realizer: GraphRealizer, emit: Callable = Callable()) ->
 				if not region_adj[r1].has(r2): region_adj[r1].append(r2)
 				if not region_adj[r2].has(r1): region_adj[r2].append(r1)
 
+	# ==========================================================================
+	# [NEW] ARCHAEOLOGY PASS: Record Surviving Progression Elements
+	# ==========================================================================
+	var archived_keys = []
+	var archived_locks = {}
+	var archived_start = -1
+	var archived_end = -1
+	
+	# 1. Scan for Surviving Standalone Entities
+	for pos in grid.entities:
+		var ent = grid.entities[pos]
+		var r_id = cell_to_region.get(pos, -1)
+		
+		if ent.get("type") == "key":
+			archived_keys.append({
+				"pos": pos,
+				"region": r_id,
+				"lock_str": ent.get("key_type", ""),
+				"placement_method": ent.get("placement_method", "Unknown") # E.g., "Critical Progression" vs "Shortcut"
+			})
+		elif ent.get("type") == "start_point":
+			archived_start = r_id
+		elif ent.get("type") == "end_point":
+			archived_end = r_id
+			
+	# 2. Scan for Surviving Locks on Portals
+	for p_id in portals:
+		# Just check the first tile of the portal to see if it carries a lock
+		var sample_pos = portals[p_id][0]
+		var ent = grid.entities.get(sample_pos, {})
+		if ent.has("lock_type") and ent.get("lock_type") != "":
+			archived_locks[p_id] = ent.get("lock_type")
+	# ==========================================================================
+
 	if emit.is_valid(): emit.call("Solver: Mapped Region Connectivity")
 
 	return {
@@ -115,5 +149,11 @@ static func map_regions(realizer: GraphRealizer, emit: Callable = Callable()) ->
 		"cell_to_region": cell_to_region,
 		"portals": portals,
 		"portal_connections": portal_connections,
-		"region_adj": region_adj
+		"region_adj": region_adj,
+		
+		# --- EXPORT ARCHIVE ---
+		"archived_keys": archived_keys,
+		"archived_locks": archived_locks,
+		"archived_start": archived_start,
+		"archived_end": archived_end
 	}
