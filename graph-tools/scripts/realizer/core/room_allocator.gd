@@ -38,6 +38,8 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var world_pos = graph.get_node_pos(node_id)
 		var grid_pos = realizer.world_to_grid(world_pos)
 		
+		node.custom_data["_grid_center"] = grid_pos
+		
 		# Biome Resolution
 		var effective_params = params.duplicate()
 		if biome_overrides.has(node.type):

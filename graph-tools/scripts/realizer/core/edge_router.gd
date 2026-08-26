@@ -80,6 +80,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		
 		var active_edge_id = str(pair[0]) + "_" + str(pair[1])
 		
+		#print("[EdgeRouter] Key: ", key, " active_id: ", active_edge_id, " in_target: ", target_edges.has(active_edge_id))
+		
 		# --- MASK CHECK ---
 		if is_regen and not target_edges.has(active_edge_id):
 			continue
@@ -87,30 +89,44 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		var node_u = graph.nodes[edge.u]
 		var node_v = graph.nodes[edge.v]
 		
+		
+		
 		# ======================================================================
 		# THE SKELETON KEY (Dynamic Wall Piercing)
 		# ======================================================================
 		var unlocked_walls = []
 		var unlock_node_walls = func(n: NodeData):
-			if n.custom_data.get("_is_custom_room", false): 
+			if n.custom_data.get("_is_custom_room", false):
 				var doors = n.custom_data.get("_custom_doorways", [])
+				var floor_id = realizer.semantic_floor_ids.get(n.type, default_floor_id)
 				for d_pos in doors:
-					# 1. Unlock the exact door
+					# 1. Unlock the exact door: make it walkable for A*
 					if grid.in_bounds_vec(d_pos) and astar.is_point_solid(d_pos):
 						astar.set_point_solid(d_pos, false)
-						astar.set_point_weight_scale(d_pos, 15.0) 
+						astar.set_point_weight_scale(d_pos, 15.0)
 						unlocked_walls.append(d_pos)
 						
-					# 2. [FIXED] Unlock the "Bunker Wall" directly outside the door!
+						# --- Actually unseal the grid tile ---
+						grid.set_cell(d_pos.x, d_pos.y, floor_id)
+						grid.cell_atlas_overrides.erase(d_pos)
+						realizer.room_cells[d_pos] = true
+						
+						# --- RESTORE FIREWALL ---
+						# If the old WallGenerator sealed this, it removed it from c_room_cells.
+						# We must restore it so thick corridors don't smash the doorframe!
+						var n_id = n.custom_data.get("_custom_room_id", "")
+						if n_id != "":
+							c_room_cells[d_pos] = n_id
+
+					# 2. Unlock the surrounding exterior walls (unchanged)
 					for dy in [-1, 0, 1]:
 						for dx in [-1, 0, 1]:
 							var pt = d_pos + Vector2i(dx, dy)
-							# Don't melt the Custom Room's actual internal walls, just the outside ones!
 							if grid.in_bounds_vec(pt) and astar.is_point_solid(pt) and not c_room_cells.has(pt):
 								astar.set_point_solid(pt, false)
 								astar.set_point_weight_scale(pt, 15.0)
 								unlocked_walls.append(pt)
-				return 
+				return
 				
 			var c = n.custom_data.get("_grid_center", Vector2i.ZERO)
 			var r = int(n.custom_data.get("room_radius", params.get("room_radius_max", 4))) + 2
@@ -125,13 +141,33 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		unlock_node_walls.call(node_u)
 		unlock_node_walls.call(node_v)
 		# ======================================================================
+		# --- [REGEN] TEMPORARILY CLEAR THE ENTIRE DIRTY RECT ---
+		# This guarantees that regenerated edges can always find a path,
+		# even if the old topology left behind high-weight or solid cells.
+		if is_regen and params.has("regen_dirty_rect"):
+			var dr: Rect2i = params["regen_dirty_rect"]
+			for y in range(dr.position.y, dr.position.y + dr.size.y):
+				for x in range(dr.position.x, dr.position.x + dr.size.x):
+					var pt = Vector2i(x, y)
+					if grid.in_bounds_vec(pt) and not c_room_cells.has(pt):
+						astar.set_point_solid(pt, false)
+						astar.set_point_weight_scale(pt, 1.0)
+		# ----------------------------------------------------------------
+
 
 		# --- SMART ENDPOINT RESOLUTION ---
 		var get_pts = func(n: NodeData) -> Array:
-			# If it's a Custom Room, expose its specific doorways!
+			# If it's a Custom Room, expose only the OPEN doorways
 			if n.custom_data.get("_is_custom_room", false):
 				var doors = n.custom_data.get("_custom_doorways", [])
-				if doors.size() > 0: return doors
+				var open_doors = []
+				for d in doors:
+					if grid.in_bounds_vec(d) and not astar.is_point_solid(d):
+						open_doors.append(d)
+				if open_doors.size() > 0:
+					return open_doors
+				# Fallback if no open door exists (should not normally happen)
+				return [n.custom_data.get("_grid_center", Vector2i.ZERO)]
 			# Otherwise, fallback to the center point
 			return [n.custom_data.get("_grid_center", Vector2i.ZERO)]
 			
@@ -225,6 +261,16 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 							return nid
 			return default_id
 		
+		
+		if is_regen:
+			print("[EdgeRouter] Processing edge: ", active_edge_id)
+			print("   Target? ", target_edges.has(active_edge_id))
+			print("   Node U: ", edge.u, " Node V: ", edge.v)
+			print("   Start: ", start_pos, " End: ", end_pos)
+			print("   Path found? ", not path.is_empty(), " Length: ", path.size())
+			if path.is_empty():
+				print("   PATH EMPTY! Potential block.")
+		
 		# --- 3. STAMP THE PATH ---
 		for i in range(path.size()):
 			var point = path[i]
@@ -252,6 +298,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 						if corner_cid == TilePalette.VOID_ID or not valid_floors.has(corner_cid):
 							var smart_id = get_smart_floor_id.call(corner_p, active_floor_id)
 							grid.set_cell(corner_p.x, corner_p.y, smart_id)
+							# --- CLEAR THE WALL TEXTURE ---
+							grid.cell_atlas_overrides.erase(corner_p)
 			# --------------------------------
 			
 			var offset_start = -int((corridor_thickness - 1) / 2.0)
@@ -279,6 +327,8 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 						if current_cid == TilePalette.VOID_ID or not valid_floors.has(current_cid):
 							var smart_id = get_smart_floor_id.call(p, active_floor_id)
 							grid.set_cell(p.x, p.y, smart_id)
+							# --- CLEAR THE WALL TEXTURE ---
+							grid.cell_atlas_overrides.erase(p)
 							
 						astar.set_point_weight_scale(p, 1.0)
 						

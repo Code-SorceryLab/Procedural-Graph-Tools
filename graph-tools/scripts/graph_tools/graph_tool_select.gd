@@ -409,7 +409,10 @@ func get_options_schema() -> Array:
 
 func apply_option(param_name: String, value: Variant) -> void:
 	if param_name == "selection_mode":
-		_selection_mode = int(value)
+		if typeof(value) == TYPE_STRING:
+			_selection_mode = 1 if value == "Lasso" else 0
+		else:
+			_selection_mode = int(value)
 # ==============================================================================
 # TRANSFORM BOUNDING BOX MATH
 # ==============================================================================

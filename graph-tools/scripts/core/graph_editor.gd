@@ -835,7 +835,7 @@ func new_graph() -> void:
 	
 	# [CRITICAL FIX] Force the active tool to _exit() and _enter() so it fetches the NEW graph reference!
 	if tool_manager:
-		tool_manager.set_active_tool(tool_manager.active_tool_id)
+		set_active_tool(tool_manager.active_tool_id)
 	
 	# 5. Emit signals to update the rest of the UI
 	graph_loaded.emit(graph)
@@ -913,7 +913,7 @@ func load_new_graph(new_graph: Graph) -> void:
 	renderer.selected_agent_ids_ref = selected_agent_ids # [FIXED] Keep in sync
 	
 	if tool_manager:
-		tool_manager.set_active_tool(tool_manager.active_tool_id)
+		set_active_tool(tool_manager.active_tool_id)
 		
 	_center_camera_on_graph()
 	renderer.queue_redraw()
