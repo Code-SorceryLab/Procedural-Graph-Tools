@@ -5,6 +5,10 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 	var grid = realizer.grid
 	var biome_overrides = params.get("biomes", {})
 	
+	# --- REGENERATION MASKS ---
+	var target_edges = params.get("regen_target_edges", [])
+	var is_regen = target_edges.size() > 0
+	
 	# Load Custom Room Firewall
 	var c_room_cells = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
 	
@@ -27,12 +31,16 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 	for y in range(grid.height):
 		for x in range(grid.width):
 			var pos = Vector2i(x, y)
+			var cell_id = grid.get_cell(x, y)
 			
 			# --- CUSTOM ROOM FIREWALL ---
-			# Make the physical walls of the room strictly impenetrable to the router!
 			if c_room_cells.has(pos) and not realizer.reserved_cells.has(pos):
 				astar.set_point_solid(pos, true) 
-			elif valid_floors.has(grid.get_cell(x, y)):
+			elif cell_id != TilePalette.VOID_ID and not valid_floors.has(cell_id):
+				# --- [NEW] SURVIVING WALL FIREWALL ---
+				# Completely solid. Corridors can NEVER shortcut through innocent rooms.
+				astar.set_point_solid(pos, true)
+			elif valid_floors.has(cell_id):
 				astar.set_point_weight_scale(pos, 1.0)
 			else:
 				astar.set_point_weight_scale(pos, 3.0)
@@ -70,9 +78,54 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 		if processed_edges.has(pair): continue
 		processed_edges[pair] = true
 		
+		var active_edge_id = str(pair[0]) + "_" + str(pair[1])
+		
+		# --- MASK CHECK ---
+		if is_regen and not target_edges.has(active_edge_id):
+			continue
+			
 		var node_u = graph.nodes[edge.u]
 		var node_v = graph.nodes[edge.v]
 		
+		# ======================================================================
+		# THE SKELETON KEY (Dynamic Wall Piercing)
+		# ======================================================================
+		var unlocked_walls = []
+		var unlock_node_walls = func(n: NodeData):
+			if n.custom_data.get("_is_custom_room", false): 
+				var doors = n.custom_data.get("_custom_doorways", [])
+				for d_pos in doors:
+					# 1. Unlock the exact door
+					if grid.in_bounds_vec(d_pos) and astar.is_point_solid(d_pos):
+						astar.set_point_solid(d_pos, false)
+						astar.set_point_weight_scale(d_pos, 15.0) 
+						unlocked_walls.append(d_pos)
+						
+					# 2. [FIXED] Unlock the "Bunker Wall" directly outside the door!
+					for dy in [-1, 0, 1]:
+						for dx in [-1, 0, 1]:
+							var pt = d_pos + Vector2i(dx, dy)
+							# Don't melt the Custom Room's actual internal walls, just the outside ones!
+							if grid.in_bounds_vec(pt) and astar.is_point_solid(pt) and not c_room_cells.has(pt):
+								astar.set_point_solid(pt, false)
+								astar.set_point_weight_scale(pt, 15.0)
+								unlocked_walls.append(pt)
+				return 
+				
+			var c = n.custom_data.get("_grid_center", Vector2i.ZERO)
+			var r = int(n.custom_data.get("room_radius", params.get("room_radius_max", 4))) + 2
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					var pt = Vector2i(c.x + dx, c.y + dy)
+					if grid.in_bounds_vec(pt) and astar.is_point_solid(pt) and not c_room_cells.has(pt):
+						astar.set_point_solid(pt, false)
+						astar.set_point_weight_scale(pt, 15.0) 
+						unlocked_walls.append(pt)
+						
+		unlock_node_walls.call(node_u)
+		unlock_node_walls.call(node_v)
+		# ======================================================================
+
 		# --- SMART ENDPOINT RESOLUTION ---
 		var get_pts = func(n: NodeData) -> Array:
 			# If it's a Custom Room, expose its specific doorways!
@@ -193,7 +246,10 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 					# Shield the corner from breaching a Custom Room wall
 					if not c_room_cells.has(corner_p):
 						realizer.critical_path_cells[corner_p] = true 
-						if grid.get_cell(corner_p.x, corner_p.y) == TilePalette.VOID_ID:
+						
+						# --- [FIXED] SMASH SURVIVING WALLS ---
+						var corner_cid = grid.get_cell(corner_p.x, corner_p.y)
+						if corner_cid == TilePalette.VOID_ID or not valid_floors.has(corner_cid):
 							var smart_id = get_smart_floor_id.call(corner_p, active_floor_id)
 							grid.set_cell(corner_p.x, corner_p.y, smart_id)
 			# --------------------------------
@@ -208,16 +264,26 @@ static func route(graph: Graph, realizer: GraphRealizer, default_floor_id: int, 
 						
 						# --- IMMUNITY SHIELD ---
 						# If the expanded thickness hits a Custom Room, block it!
-						# This prevents 3-wide hallways from melting custom walls, while 
-						# still allowing the 1-wide core point to hit the doorway.
 						if c_room_cells.has(p) and p != point:
 							continue
 							
 						realizer.critical_path_cells[p] = true 
 						
-						if grid.get_cell(p.x, p.y) == TilePalette.VOID_ID:
+						# --- Track Topology ---
+						if not realizer.cell_to_edges.has(p): realizer.cell_to_edges[p] = {}
+						realizer.cell_to_edges[p][active_edge_id] = true
+						# ----------------------------
+						
+						# --- [FIXED] SMASH SURVIVING WALLS ---
+						var current_cid = grid.get_cell(p.x, p.y)
+						if current_cid == TilePalette.VOID_ID or not valid_floors.has(current_cid):
 							var smart_id = get_smart_floor_id.call(p, active_floor_id)
 							grid.set_cell(p.x, p.y, smart_id)
+							
 						astar.set_point_weight_scale(p, 1.0)
 						
 			prev_point = point
+
+		# --- RE-LOCK THE FIREWALL ---
+		for pt in unlocked_walls:
+			astar.set_point_solid(pt, true)

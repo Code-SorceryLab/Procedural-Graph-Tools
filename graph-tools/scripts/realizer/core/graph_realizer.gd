@@ -17,16 +17,20 @@ var debug_path_id: int
 var semantic_floor_ids: Dictionary = {} 
 var semantic_wall_map: Dictionary = {} 
 
-#  The exact mathematical footprint of all corridors!
+#  The exact mathematical footprint of all corridors
 var critical_path_cells: Dictionary = {} 
-var reserved_cells: Dictionary = {} # Tracks multi-tile structures!
+var reserved_cells: Dictionary = {} # Tracks multi-tile structures
+
+# --- TOPOLOGY TRACKING ---
+var cell_to_nodes: Dictionary = {} # Vector2i -> Dictionary[String, bool] (Supports multiple nodes per cell)
+var cell_to_edges: Dictionary = {} # Vector2i -> Dictionary[String, bool]
 
 var room_cells: Dictionary = {} # Protects room interiors from being eroded
 var core_path_cells: Dictionary = {} # Protects the absolute center of the hallway
 var floor_to_semantic: Dictionary = {} # Maps a Tile ID back to its Biome Key
 var distance_field: Dictionary = {} # Stores Vector2i -> Int
 
-func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progress_callback: Callable = Callable()) -> GridData:
+func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progress_callback: Callable = Callable(), old_realizer: GraphRealizer = null) -> GridData:
 	var start_time = Time.get_ticks_msec() 
 	
 	_scale_factor = params.get("grid_scale", 50.0) 
@@ -36,13 +40,6 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	floor_id = palette.register_tile("Floor", { "walkable": true })
 	wall_id = palette.register_tile("Wall", { "walkable": false })
 	debug_path_id = palette.register_tile("DebugPath", { "walkable": true })
-	
-	critical_path_cells.clear()
-	reserved_cells.clear()
-	room_cells.clear()
-	core_path_cells.clear()
-	floor_to_semantic.clear()
-	distance_field.clear()
 	
 	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
 	for cat_key in node_cats:
@@ -57,12 +54,49 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	var bounds: Rect2 = stats.get("bounds", Rect2(0, 0, 100, 100))
 	_world_offset = bounds.position
 	
-	var grid_w = int(bounds.size.x / _scale_factor) + (_padding * 2)
-	var grid_h = int(bounds.size.y / _scale_factor) + (_padding * 2)
-	grid_w = max(10, grid_w)
-	grid_h = max(10, grid_h)
-	
-	grid = GridData.new(grid_w, grid_h, palette)
+	# ==========================================================================
+	# STATE INITIALIZATION (Blank vs. Regeneration)
+	# ==========================================================================
+	if old_realizer == null:
+		# --- FULL RASTERIZATION (Start from Scratch) ---
+		critical_path_cells.clear()
+		reserved_cells.clear()
+		room_cells.clear()
+		core_path_cells.clear()
+		distance_field.clear()
+		cell_to_nodes.clear()
+		cell_to_edges.clear()
+		
+		var grid_w = int(bounds.size.x / _scale_factor) + (_padding * 2)
+		var grid_h = int(bounds.size.y / _scale_factor) + (_padding * 2)
+		grid_w = max(10, grid_w)
+		grid_h = max(10, grid_h)
+		
+		grid = GridData.new(grid_w, grid_h, palette)
+	else:
+		# --- DYNAMIC REGENERATION (Clone the old state!) ---
+		grid = GridData.new(old_realizer.grid.width, old_realizer.grid.height, palette)
+		grid.cells = old_realizer.grid.cells.duplicate()
+		grid.cell_atlas_overrides = old_realizer.grid.cell_atlas_overrides.duplicate(true)
+		grid.entities = old_realizer.grid.entities.duplicate(true)
+		
+		critical_path_cells = old_realizer.critical_path_cells.duplicate()
+		reserved_cells = old_realizer.reserved_cells.duplicate()
+		room_cells = old_realizer.room_cells.duplicate()
+		core_path_cells = old_realizer.core_path_cells.duplicate()
+		distance_field = old_realizer.distance_field.duplicate()
+		cell_to_nodes = old_realizer.cell_to_nodes.duplicate(true)
+		cell_to_edges = old_realizer.cell_to_edges.duplicate(true)
+		
+		if old_realizer.has_meta("custom_room_cells"):
+			self.set_meta("custom_room_cells", old_realizer.get_meta("custom_room_cells").duplicate())
+			
+		# Carve out the exact Dirty Rect provided by the params
+		if params.has("regen_dirty_rect"):
+			var inf_nodes = params.get("regen_target_nodes", [])
+			var inf_edges = params.get("regen_target_edges", [])
+			DynamicRegenUtils.carve_dirty_rect(self, params["regen_dirty_rect"], inf_nodes, inf_edges)
+	# ==========================================================================
 	
 	var emit = func(step_name: String):
 		if progress_callback.is_valid():

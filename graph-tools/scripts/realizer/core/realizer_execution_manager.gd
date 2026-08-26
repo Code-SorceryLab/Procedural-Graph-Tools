@@ -21,7 +21,7 @@ var _validator_paint_counter: int = 0
 # ==============================================================================
 # RASTERIZATION THREADING
 # ==============================================================================
-func run_rasterization(graph: Graph, params: Dictionary, raw_biome_params: Dictionary) -> void:
+func run_rasterization(graph: Graph, params: Dictionary, raw_biome_params: Dictionary, old_realizer: GraphRealizer = null) -> void:
 	if is_rasterizing: return
 	if graph == null or graph.nodes.is_empty(): return
 	
@@ -34,24 +34,20 @@ func run_rasterization(graph: Graph, params: Dictionary, raw_biome_params: Dicti
 	current_realizer = GraphRealizer.new()
 	rasterization_started.emit()
 	
-	# Pass 1 & 2: Pre-calculate the distribution decks on the main thread
 	var seed_str = str(params.get("realizer_seed", "default"))
 	var global_room_decks = ConfigManager.load_room_decks()
-	
-	# --- [CHANGED] Use raw_biome_params here ---
 	var room_lists = DistributionEngine.generate_shopping_lists(graph, global_room_decks, raw_biome_params, seed_str, "room_decks")
 	params["room_shopping_lists"] = room_lists
 	
 	var global_spawn_decks = ConfigManager.load_spawn_decks()
-	
-	# --- [CHANGED] Use raw_biome_params here ---
 	var spawn_lists = DistributionEngine.generate_shopping_lists(graph, global_spawn_decks, raw_biome_params, seed_str, "spawn_decks")
 	
 	_raster_thread = Thread.new()
-	_raster_thread.start(_run_rasterization_thread.bind(current_realizer, graph, params, spawn_lists))
+	# --- [CHANGED] Pass old_realizer into the bind ---
+	_raster_thread.start(_run_rasterization_thread.bind(current_realizer, graph, params, spawn_lists, old_realizer))
 
-func _run_rasterization_thread(realizer: GraphRealizer, graph: Graph, params: Dictionary, shopping_lists: Dictionary) -> void:
-	realizer.realize(graph, params, shopping_lists, _on_snapshot_received)
+func _run_rasterization_thread(realizer: GraphRealizer, graph: Graph, params: Dictionary, shopping_lists: Dictionary, old_realizer: GraphRealizer) -> void:
+	realizer.realize(graph, params, shopping_lists, _on_snapshot_received, old_realizer)
 	call_deferred("_on_rasterization_finished", realizer)
 
 func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, atlas_overrides: Dictionary, w: int, h: int) -> void:

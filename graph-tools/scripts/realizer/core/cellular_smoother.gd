@@ -47,8 +47,15 @@ static func smooth(realizer: GraphRealizer, default_floor_id: int, params: Dicti
 	for i in range(max_global_iterations):
 		var new_cells = grid.cells.duplicate()
 		
-		for y in range(grid.height):
-			for x in range(grid.width):
+		# --- REGENERATION MASK ---
+		var search_rect = params.get("regen_dirty_rect", Rect2i(0, 0, grid.width, grid.height))
+		var start_y = max(0, search_rect.position.y)
+		var end_y = min(grid.height, search_rect.position.y + search_rect.size.y)
+		var start_x = max(0, search_rect.position.x)
+		var end_x = min(grid.width, search_rect.position.x + search_rect.size.x)
+		
+		for y in range(start_y, end_y):
+			for x in range(start_x, end_x):
 				var pos = Vector2i(x, y)
 				
 				# --- IMMUNITY CHECK ---

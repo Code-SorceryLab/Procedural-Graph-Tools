@@ -29,6 +29,10 @@ static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, 
 			var b_wall_id = semantic_wall_map.get(f_id, default_wall_id)
 			
 			for d_pos in doors:
+				# --- MASK CHECK ---
+				if params.has("regen_dirty_rect") and not params["regen_dirty_rect"].has_point(d_pos):
+					continue
+					
 				var is_used = false
 				
 				for dy in [-1, 0, 1]:
@@ -73,8 +77,15 @@ static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, 
 		if grid.palette.get_data(id).get("walkable", false):
 			valid_floors[id] = true
 			
-	for y in range(grid.height):
-		for x in range(grid.width):
+	# --- REGENERATION MASK ---
+	var search_rect = params.get("regen_dirty_rect", Rect2i(0, 0, grid.width, grid.height))
+	var start_y = max(0, search_rect.position.y)
+	var end_y = min(grid.height, search_rect.position.y + search_rect.size.y)
+	var start_x = max(0, search_rect.position.x)
+	var end_x = min(grid.width, search_rect.position.x + search_rect.size.x)
+			
+	for y in range(start_y, end_y):
+		for x in range(start_x, end_x):
 			var pos = Vector2i(x, y)
 			
 			if grid.get_cell(x, y) == TilePalette.VOID_ID:

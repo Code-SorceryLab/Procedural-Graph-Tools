@@ -6,7 +6,7 @@
 
 /scripts
 ├── algorithms/
-│ ├── analysis/ # Heavy graph-metric calculators
+│ ├── analysis/
 │ │ ├── analysis_chromatic.gd
 │ │ ├── analysis_entropy.gd
 │ │ ├── analysis_eulerian.gd
@@ -16,25 +16,14 @@
 │ │ ├── analysis_planarity.gd
 │ │ ├── analysis_spectral.gd
 │ │ └── analysis_tangles.gd
-│ ├── pathfinding/ # Pathfinding algorithm implementations
-│ │ ├── pathfinder_strategy.gd
+│ ├── pathfinding/
+│ │ ├── pathfinding_strategy.gd
 │ │ ├── pathfinder_a_star.gd
 │ │ ├── pathfinder_bfs.gd
 │ │ ├── pathfinder_dfs.gd
 │ │ ├── pathfinder_dijkstra.gd
 │ │ └── pathfinder_random.gd
-│ ├── procedural_generation/ # [LEGACY] Old strategy-based generation
-│ │ ├── graph_strategy.gd
-│ │ ├── strategy_biome_filler.gd
-│ │ ├── strategy_ca.gd
-│ │ ├── strategy_dag.gd
-│ │ ├── strategy_dla.gd
-│ │ ├── strategy_grammar.gd
-│ │ ├── strategy_grid.gd
-│ │ ├── strategy_mst.gd
-│ │ ├── strategy_polar.gd
-│ │ └── strategy_walker.gd
-│ └── transformations/ # Pipeline modifiers (current generation system)
+│ └── transformations/
 │ ├── graph_modifier.gd
 │ ├── trans_generate_dag.gd
 │ ├── trans_generate_grid.gd
@@ -57,9 +46,9 @@
 │ ├── trans_semantic_dag_locks.gd
 │ ├── trans_semantic_distance_to_edge_weights.gd
 │ └── trans_semantic_logic_gates.gd
-├── autoloads/ # Global singletons
+├── autoloads/
 │ └── signal_manager.gd
-├── commands/ # Undoable command objects
+├── commands/
 │ ├── graph_command.gd
 │ ├── cmd_add_agent.gd
 │ ├── cmd_add_node.gd
@@ -74,8 +63,8 @@
 │ ├── cmd_set_property.gd
 │ ├── cmd_update_agent.gd
 │ └── cmd_zone_edit.gd
-├── controllers/ # MVC controllers for panels/tabs
-│ ├── inspector/ # Inspector sub-panels
+├── controllers/
+│ ├── inspector/
 │ │ ├── inspector_strategy.gd
 │ │ ├── inspector_agent.gd
 │ │ ├── inspector_edge.gd
@@ -86,36 +75,34 @@
 │ ├── experiment_controller.gd
 │ ├── file_controller.gd
 │ ├── inspector_controller.gd
-│ ├── pipeline_controller.gd # Current generation pipeline controller
-│ ├── realizer_controller.gd # Rasterization controller
-│ ├── strategy_controller.gd # [LEGACY] Old strategy controller
+│ ├── pipeline_controller.gd
+│ ├── realizer_controller.gd
 │ ├── toolbar_controller.gd
 │ ├── topbar_controller.gd
 │ ├── ui_layout_controller.gd
 │ └── zone_controller.gd
-├── core/ # Core systems
-│ ├── agent_simulation/ # Agent-based simulation
+├── core/
+│ ├── agent_simulation/
 │ │ ├── agent_walker.gd
 │ │ ├── simulation.gd
 │ │ ├── agent_navigator.gd
 │ │ ├── agent_capability.gd
-│ │ ├── Behaviours/ # Agent “brain” scripts
+│ │ ├── behaviours/
 │ │ │ ├── agent_behaviour.gd
-│ │ │ ├── behaviours_standard.gd
 │ │ │ ├── behaviour_grow.gd
 │ │ │ ├── behaviour_manual.gd
 │ │ │ ├── behaviour_maze_gen.gd
-│ │ │ └── behaviour_solver.gd
-│ │ └── capabilities/ # Agent action abilities
+│ │ │ ├── behaviour_solver.gd
+│ │ │ └── behaviours_standard.gd
+│ │ └── capabilities/
 │ │ ├── cap_builder.gd
 │ │ ├── cap_inventory.gd
 │ │ ├── cap_motor.gd
 │ │ └── cap_painter.gd
-│ ├── editor/ # Editor-specific utilities
+│ ├── editor/
 │ │ ├── graph_history.gd
-│ │ ├── graph_tool_manager.gd
-│ │ └── strategy_executor.gd # [LEGACY] Used by old strategy system
-│ ├── physics_simulation/ # Physics-based layout
+│ │ └── graph_tool_manager.gd
+│ ├── physics_simulation/
 │ │ └── buoyancy_engine.gd
 │ ├── game_player.gd
 │ ├── graph.gd
@@ -125,7 +112,7 @@
 │ ├── graph_zone.gd
 │ ├── node_data.gd
 │ └── semantic_registry.gd
-├── graph_tools/ # Interactive editing tools
+├── graph_tools/
 │ ├── components/
 │ │ └── graph_drag_handler.gd
 │ ├── graph_tool.gd
@@ -140,49 +127,51 @@
 │ ├── graph_tool_spawner.gd
 │ ├── graph_tool_stamp.gd
 │ └── graph_tool_zone_brush.gd
-├── realizer/ # Rasterization pipeline
-│ ├── cellular_smoother.gd
-│ ├── distance_mapper.gd
-│ ├── distribution_engine.gd
-│ ├── edge_router.gd
-│ ├── entity_scatterer.gd
-│ ├── generation_validator.gd
-│ ├── graph_realizer.gd
-│ ├── grid_data.gd
-│ ├── path_eroder.gd
-│ ├── progression_solver.gd
-│ ├── room_allocator.gd
-│ ├── structure_placer.gd
-│ ├── textural_wfc_pass.gd
-│ ├── tile_palette.gd
-│ ├── tilemap_adapter.gd
-│ ├── wall_generator.gd
-│ ├── wfc_pattern_extractor.gd
-│ ├── wfc_solver.gd
-│ └── zone_decorator.gd
-├── ui/ # Reusable UI elements
-│ ├── rasterizer_views/ # Tab views for RealizerController
-│ │ ├── generator_tab_view.gd
-│ │ ├── report_tab_view.gd
-│ │ ├── timeline_tab_view.gd
-│ │ └── validation_tab_view.gd
-│ ├── algorithm_settings_popup.gd
+├── realizer/
+│ ├── core/
+│ │ ├── cellular_smoother.gd
+│ │ ├── distance_mapper.gd
+│ │ ├── distribution_engine.gd
+│ │ ├── edge_router.gd
+│ │ ├── entity_scatterer.gd
+│ │ ├── generation_validator.gd
+│ │ ├── graph_realizer.gd
+│ │ ├── grid_data.gd
+│ │ ├── path_eroder.gd
+│ │ ├── progression_solver.gd
+│ │ ├── room_allocator.gd
+│ │ ├── structure_placer.gd
+│ │ ├── textural_wfc_pass.gd
+│ │ ├── tile_palette.gd
+│ │ ├── tilemap_adapter.gd
+│ │ ├── wall_generator.gd
+│ │ ├── wfc_pattern_extractor.gd
+│ │ ├── wfc_solver.gd
+│ │ └── zone_decorator.gd
+│ └── ui/
 │ ├── biome_designer_popup.gd
 │ ├── biome_interaction_popup.gd
 │ ├── cosine_palette_editor.gd
 │ ├── custom_room_designer_popup.gd
-│ ├── grid_canvas_painter.gd
+│ ├── rasterizer_views/
+│ │ ├── generator_tab_view.gd
+│ │ ├── report_tab_view.gd
+│ │ ├── timeline_tab_view.gd
+│ │ └── validation_tab_view.gd
 │ ├── scatter_designer_popup.gd
-│ ├── semantic_data_editor.gd
-│ ├── settings_window.gd
-│ ├── sidebar.gd
 │ ├── structure_designer_popup.gd
 │ ├── tile_wfc_designer_popup.gd
 │ ├── tilemap_popup.gd
+│ └── wfc_module_designer_popup.gd
+├── ui/
+│ ├── algorithm_settings_popup.gd
+│ ├── grid_canvas_painter.gd
+│ ├── semantic_data_editor.gd
+│ ├── settings_window.gd
+│ ├── sidebar.gd
 │ ├── tool_button.gd
-│ ├── toolbar.gd
-│ └── wfcModuleDesignerPopup.gd
-└── utils/ # Miscellaneous helpers
+│ └── toolbar.gd
+└── utils/
 ├── config_manager.gd
 ├── documentation_tools.gd
 ├── experiment_builder.gd
@@ -224,29 +213,12 @@
 
 | Script | Description | Key Dependencies | Integrations |
 |--------|-------------|------------------|--------------|
-| `pathfinder_strategy.gd` | Base class for pathfinding algorithms. | RefCounted, Graph | All pathfinders inherit from it |
-| `pathfinder_a_star.gd` | A* search (heuristic). | `pathfinder_strategy` | `AgentNavigator._get_strategy` |
-| `pathfinder_bfs.gd` | Breadth-first search. | `pathfinder_strategy` | `AgentNavigator._get_strategy` |
-| `pathfinder_dfs.gd` | Depth-first search. | `pathfinder_strategy` | `AgentNavigator._get_strategy` |
-| `pathfinder_dijkstra.gd` | Dijkstra’s algorithm. | `pathfinder_strategy` | `AgentNavigator._get_strategy` |
-| `pathfinder_random.gd` | Random neighbour selection. | `pathfinder_strategy` | `AgentNavigator._get_strategy` |
-
-### Algorithms / Procedural Generation (LEGACY)
-
-> These scripts are retained for compatibility but are superseded by the pipeline modifier system (`algorithms/transformations/`).
-
-| Script | Description | Key Dependencies | Integrations |
-|--------|-------------|------------------|--------------|
-| `graph_strategy.gd` | Base class for legacy generation strategies. | Resource | `StrategyController` |
-| `strategy_biome_filler.gd` | Legacy biome flood fill. | `graph_strategy` | `StrategyController` |
-| `strategy_ca.gd` | Cellular automata generation. | `graph_strategy` | `StrategyController` |
-| `strategy_dag.gd` | DAG generation. | `graph_strategy` | `StrategyController` |
-| `strategy_dla.gd` | Diffusion-limited aggregation. | `graph_strategy` | `StrategyController` |
-| `strategy_grammar.gd` | Shape grammar generation. | `graph_strategy` | `StrategyController` |
-| `strategy_grid.gd` | Regular grid generation. | `graph_strategy` | `StrategyController` |
-| `strategy_mst.gd` | Minimum spanning tree generation. | `graph_strategy` | `StrategyController` |
-| `strategy_polar.gd` | Polar generation. | `graph_strategy` | `StrategyController` |
-| `strategy_walker.gd` | Walker agent generation. | `graph_strategy`, `AgentWalker` | `StrategyController`, `GraphToolSpawner` |
+| `pathfinding_strategy.gd` | Base class for pathfinding algorithms. | RefCounted, Graph | All pathfinders inherit from it |
+| `pathfinder_a_star.gd` | A* search (heuristic). | `pathfinding_strategy` | `AgentNavigator._get_strategy` |
+| `pathfinder_bfs.gd` | Breadth-first search. | `pathfinding_strategy` | `AgentNavigator._get_strategy` |
+| `pathfinder_dfs.gd` | Depth-first search. | `pathfinding_strategy` | `AgentNavigator._get_strategy` |
+| `pathfinder_dijkstra.gd` | Dijkstra’s algorithm. | `pathfinding_strategy` | `AgentNavigator._get_strategy` |
+| `pathfinder_random.gd` | Random neighbour selection. | `pathfinding_strategy` | `AgentNavigator._get_strategy` |
 
 ### Algorithms / Transformations (Pipeline System)
 
@@ -286,7 +258,7 @@
 | Script | Description | Key Dependencies | Integrations |
 |--------|-------------|------------------|--------------|
 | `graph_command.gd` | Abstract base class for all undoable commands. | RefCounted, Graph | All cmd_* classes |
-| `cmd_add_agent.gd` | Adds an agent. | `graph_command` | `GraphEditor.add_agent`, `StrategyWalker` |
+| `cmd_add_agent.gd` | Adds an agent. | `graph_command` | `GraphEditor.add_agent`, `GraphToolSpawner` |
 | `cmd_add_node.gd` | Adds a node. | `graph_command` | `GraphEditor.create_node`, `GraphRecorder` |
 | `cmd_add_zone.gd` | Adds a zone. | `graph_command` | `GraphEditor.add_zone` |
 | `cmd_batch.gd` | Composite command; groups multiple commands into one undo step. | `graph_command` | `GraphHistory`, `GraphEditor` |
@@ -297,7 +269,7 @@
 | `cmd_remove_agent.gd` | Removes an agent. | `graph_command` | `GraphEditor.remove_agent` |
 | `cmd_remove_zone.gd` | Removes a zone. | `graph_command` | `GraphEditor.remove_zone` |
 | `cmd_set_property.gd` | Generic property setter; refreshes brain on behavior changes. | `graph_command`, `SemanticRegistry` | `GraphEditor.set_*_property`, inspectors, controllers |
-| `cmd_update_agent.gd` | Restores agent state. | `graph_command` | `Simulation`, `StrategyWalker` |
+| `cmd_update_agent.gd` | Restores agent state. | `graph_command` | `Simulation` |
 | `cmd_zone_edit.gd` | Modifies zone cells. | `graph_command` | `GraphEditor.modify_zone_cells` |
 
 ### Controllers
@@ -316,7 +288,6 @@
 | `inspector_controller.gd` | Routes selection to inspectors; manages wizard. | `GraphEditor`, inspector strategies | Inspector panel |
 | `pipeline_controller.gd` | Primary generation pipeline manager; executes modifier stack. | `GraphModifier`, `GraphEditor` | Pipeline UI |
 | `realizer_controller.gd` | Rasterization controller; manages threads, timeline, validation, and tooltips. | `GraphRealizer`, `TileMapLayer`, tab views | Realizer UI |
-| `strategy_controller.gd` | [LEGACY] Old strategy selection and application. | `GraphEditor`, legacy strategies | Legacy Strategy tab |
 | `toolbar_controller.gd` | Tool bar UI. | `GraphEditor`, `GraphToolManager` | Main editor UI |
 | `topbar_controller.gd` | Top bar logic (menus, simulation controls). | `GraphEditor`, `GraphHistory` | Main editor UI |
 | `ui_layout_controller.gd` | Toggles visibility of left/right/top panels; Zen mode. | `GraphSettings`, `ConfigManager` | Main editor UI |
@@ -326,9 +297,9 @@
 
 | Script | Description | Key Dependencies | Integrations |
 |--------|-------------|------------------|--------------|
-| `agent_walker.gd` | Core agent class. | `AgentCapability`, `AgentBehavior`, `AgentNavigator` | `Simulation`, `StrategyWalker`, `AgentController`, inspectors |
+| `agent_walker.gd` | Core agent class. | `AgentCapability`, `AgentBehavior`, `AgentNavigator` | `Simulation`, `AgentController`, inspectors |
 | `simulation.gd` | Tick loop for agents. | `Graph`, `GraphRecorder`, `CmdUpdateAgent` | `GraphEditor` |
-| `agent_navigator.gd` | Static dispatcher for pathfinding. | `pathfinder_strategy` subclasses | `AgentWalker`, behaviours |
+| `agent_navigator.gd` | Static dispatcher for pathfinding. | `pathfinding_strategy` subclasses | `AgentWalker`, behaviours |
 | `agent_capability.gd` | Base class for agent capabilities. | RefCounted | `CapMotor`, `CapPainter`, etc. |
 | `agent_behaviour.gd` | Base class for agent brains. | RefCounted | All behaviours |
 | `behaviours_standard.gd` | Hold, Wander, Seek, Diagnostic. | `agent_behaviour` | `AgentWalker._refresh_brain` |
@@ -347,7 +318,6 @@
 |--------|-------------|------------------|--------------|
 | `graph_history.gd` | Undo/redo stack. | `GraphCommand`, `CmdBatch` | `GraphEditor` |
 | `graph_tool_manager.gd` | Tool factory and input routing. | `GraphTool` subclasses | `GraphEditor`, `toolbar_controller` |
-| `strategy_executor.gd` | [LEGACY] Runs legacy strategies. | `GraphStrategy`, `GraphRecorder` | `StrategyController` |
 
 ### Core – Physics
 
@@ -382,7 +352,7 @@
 | `graph_tool_paint.gd` | Brush for painting. | `graph_tool` | `GraphToolManager` |
 | `graph_tool_property_paint.gd` | Paint properties. | `graph_tool` | `GraphToolManager` |
 | `graph_tool_select.gd` | Select/move nodes. | `graph_tool`, `GraphDragHandler` | `GraphToolManager` |
-| `graph_tool_spawner.gd` | Spawn/select/delete agents. | `graph_tool`, `StrategyWalker` | `GraphToolManager` |
+| `graph_tool_spawner.gd` | Spawn/select/delete agents. Now directly creates agents using global template; no longer depends on legacy strategies. | `graph_tool`, `AgentWalker` | `GraphToolManager` |
 | `graph_tool_stamp.gd` | Paste prefab. | `graph_tool`, `GraphClipboard` | `GraphToolManager` |
 | `graph_tool_zone_brush.gd` | Paint zone cells. | `graph_tool` | `GraphToolManager` |
 
@@ -402,12 +372,12 @@
 | `progression_solver.gd` | Lock/key and region analysis. | `GraphRealizer`, `GridData` | Pipeline |
 | `room_allocator.gd` | Room stamping. | `GraphRealizer` | Pipeline |
 | `structure_placer.gd` | Places custom structures. | `GraphRealizer` | Pipeline |
-| `textural_wfc_pass.gd` | Overlapping WFC tile stamping. | `GraphRealizer`, `WFC` | Pipeline |
+| `textural_wfc_pass.gd` | Overlapping WFC tile stamping. | `GraphRealizer`, WFC | Pipeline |
 | `tile_palette.gd` | Tile ID registry. | – | `GridData` |
 | `tilemap_adapter.gd` | Paints grid to TileMapLayer. | `GridData`, `TileMapLayer` | `RealizerController` |
 | `wall_generator.gd` | Places walls. | `GraphRealizer` | Pipeline |
-| `wfc_pattern_extractor.gd` | Extracts patterns for overlapping WFC. | – | `TileWfcDesignerPopup`, `TexturalWFCPass` |
-| `wfc_solver.gd` | WFC solver. | – | `TexturalWFCPass`, `TileWfcDesignerPopup` |
+| `wfc_pattern_extractor.gd` | Extracts patterns for overlapping WFC. | – | `tile_wfc_designer_popup`, `textural_wfc_pass` |
+| `wfc_solver.gd` | WFC solver. | – | `textural_wfc_pass`, `tile_wfc_designer_popup` |
 | `zone_decorator.gd` | Biome interaction rules. | `GraphRealizer` | Pipeline |
 
 ### UI
@@ -417,7 +387,7 @@
 | `algorithm_settings_popup.gd` | Generic popup for settings. | `SettingsUIBuilder` | `InspectorAgent`, `RealizerController` |
 | `biome_designer_popup.gd` | Biome override editor. | `ConfigManager`, `SettingsUIBuilder` | `RealizerController` |
 | `biome_interaction_popup.gd` | Biome edge matrix editor. | `ConfigManager` | `RealizerController` |
-| `cosine_palette_editor.gd` | Cosine gradient editor. | – | `TileMappingPopup` |
+| `cosine_palette_editor.gd` | Cosine gradient editor. | – | `tilemap_popup` |
 | `custom_room_designer_popup.gd` | Custom room editor. | `GridCanvasPainter` | `RealizerController` |
 | `grid_canvas_painter.gd` | Reusable canvas painter. | Control | Multiple designer popups |
 | `rasterizer_views/generator_tab_view.gd` | Realizer settings tab. | `SettingsUIBuilder` | `RealizerController` |
@@ -433,7 +403,7 @@
 | `tilemap_popup.gd` | Tile mapping editor. | – | `RealizerController` |
 | `tool_button.gd` | Toolbar button. | – | `toolbar.gd` |
 | `toolbar.gd` | Toolbar container. | – | `GraphToolManager` |
-| `wfcModuleDesignerPopup.gd` | Chunk WFC module designer. | `GridCanvasPainter` | `RealizerController` |
+| `wfc_module_designer_popup.gd` | Chunk WFC module designer. | `GridCanvasPainter` | `RealizerController` |
 
 ### Utils
 

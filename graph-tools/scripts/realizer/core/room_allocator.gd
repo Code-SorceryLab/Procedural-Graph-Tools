@@ -12,6 +12,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 	var custom_rooms = params.get("custom_rooms", {})
 	var room_lists = params.get("room_shopping_lists", {}) # The Distribution Engine output
 	
+	# --- REGENERATION MASKS ---
+	var target_nodes = params.get("regen_target_nodes", [])
+	var is_regen = target_nodes.size() > 0
+	
 	# --- PHASE 1: PRE-CALCULATE & STAMP BASES ---
 	var room_data_cache: Array[Dictionary] = []
 	var metric_custom_rooms = 0 # Diagnostic tracker
@@ -76,6 +80,13 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var custom_room_stamped = false
 		
 		if chosen_type == "custom_room" and custom_rooms.has(chosen_ref):
+			# --- MASK CHECK ---
+			# If we are regenerating, and this node isn't infected, skip stamping it entirely!
+			# (Its metadata like _custom_doorways is already preserved on the node from the last run)
+			if is_regen and not target_nodes.has(node_id):
+				custom_room_stamped = true
+				continue
+				
 			var c_room = custom_rooms[chosen_ref].duplicate(true)
 			var anchor = c_room.get("anchor", Vector2i.ZERO)
 			
@@ -276,7 +287,12 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 						node.custom_data["_custom_room_rot"] = room_rot 
 						
 						var c_room_dict = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
-						for g_pos in room_cells: c_room_dict[g_pos] = node_id
+						for g_pos in room_cells: 
+							c_room_dict[g_pos] = node_id
+							# --- Track Topology ---
+							if not realizer.cell_to_nodes.has(g_pos): realizer.cell_to_nodes[g_pos] = {}
+							realizer.cell_to_nodes[g_pos][node_id] = true
+							
 						realizer.set_meta("custom_room_cells", c_room_dict)
 						
 						metric_custom_rooms += 1
@@ -302,23 +318,30 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			var pt = Vector2i(gx, gy)
 			if not c_room_dict.has(pt) and not realizer.reserved_cells.has(pt):
 				grid.set_cell(gx, gy, id)
+				# --- Track Topology ---
+				if not realizer.cell_to_nodes.has(pt): realizer.cell_to_nodes[pt] = {}
+				realizer.cell_to_nodes[pt][node_id] = true
+		
+		# --- MASK CHECK ---
+		var is_targeted = not is_regen or target_nodes.has(node_id)
 		
 		# Stamp Base Footprint
-		if shape == 1:
-			for dy in range(-radius, radius + 1):
-				for dx in range(-radius, radius + 1):
-					if dx * dx + dy * dy <= radius * radius:
+		if is_targeted:
+			if shape == 1:
+				for dy in range(-radius, radius + 1):
+					for dx in range(-radius, radius + 1):
+						if dx * dx + dy * dy <= radius * radius:
+							safe_set_cell.call(grid_pos.x + dx, grid_pos.y + dy, floor_id)
+			elif shape == 2:
+				for dy in range(-radius, radius + 1):
+					var progress = float(dy + radius) / (radius * 2.0)
+					var half_width = int(progress * radius)
+					for dx in range(-half_width, half_width + 1):
 						safe_set_cell.call(grid_pos.x + dx, grid_pos.y + dy, floor_id)
-		elif shape == 2:
-			for dy in range(-radius, radius + 1):
-				var progress = float(dy + radius) / (radius * 2.0)
-				var half_width = int(progress * radius)
-				for dx in range(-half_width, half_width + 1):
-					safe_set_cell.call(grid_pos.x + dx, grid_pos.y + dy, floor_id)
-		else:
-			for dy in range(-radius, radius + 1):
-				for dx in range(-radius, radius + 1):
-					safe_set_cell.call(grid_pos.x + dx, grid_pos.y + dy, floor_id)
+			else:
+				for dy in range(-radius, radius + 1):
+					for dx in range(-radius, radius + 1):
+						safe_set_cell.call(grid_pos.x + dx, grid_pos.y + dy, floor_id)
 		
 		node.custom_data["_grid_center"] = grid_pos
 
@@ -333,6 +356,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			
 			# RULE 2: BOTH rooms must explicitly allow merging
 			if not r1.allow_merging or not r2.allow_merging: continue
+			
+			# --- MASK CHECK ---
+			var bridge_targeted = not is_regen or target_nodes.has(r1.id) or target_nodes.has(r2.id)
+			if not bridge_targeted: continue
 			
 			var p1: Vector2i = r1.pos
 			var p2: Vector2i = r2.pos
@@ -366,6 +393,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 							var pt = Vector2i(x, y)
 							if not c_room_dict.has(pt) and not realizer.reserved_cells.has(pt):
 								grid.set_cell(x, y, r1.floor_id)
+								# --- rack Topology (Both nodes own this bridge) ---
+								if not realizer.cell_to_nodes.has(pt): realizer.cell_to_nodes[pt] = {}
+								realizer.cell_to_nodes[pt][r1.id] = true
+								realizer.cell_to_nodes[pt][r2.id] = true
 
 	# --- PHASE 3: LOG PROTECTED CELLS ---
 	for y in range(grid.height):

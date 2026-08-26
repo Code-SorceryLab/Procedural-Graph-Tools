@@ -23,7 +23,15 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary, sho
 	while node_ids.size() > 0:
 		shuffled_nodes.append(node_ids.pop_at(node_rng.randi() % node_ids.size()))
 			
+	# --- REGENERATION MASK ---
+	var target_nodes = params.get("regen_target_nodes", [])
+	var is_regen = target_nodes.size() > 0
+			
 	for node_id in shuffled_nodes:
+		# --- MASK CHECK ---
+		if is_regen and not target_nodes.has(node_id):
+			continue
+			
 		var node = graph.nodes[node_id]
 		var center = node.custom_data.get("_grid_center", Vector2i.ZERO)
 		if center == Vector2i.ZERO: continue

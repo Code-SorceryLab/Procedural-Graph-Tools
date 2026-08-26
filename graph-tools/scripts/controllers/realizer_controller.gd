@@ -50,11 +50,13 @@ func _ready() -> void:
 	_execution_manager.validation_finished.connect(func(): _validation_tab.set_running(false))
 
 	_config_manager = RealizerConfigManager.new()
+	_config_manager.btn_preview_regen_requested.connect( _on_preview_regen_pressed)
 	add_child(_config_manager)
 	_config_manager.setup()
 	
 	# 2. Connect Configuration Routing
 	_config_manager.rasterize_requested.connect(_on_rasterize_pressed)
+	_config_manager.regenerate_selection_requested.connect(_on_regenerate_selection_pressed)
 	_config_manager.clear_requested.connect(_on_clear_pressed)
 	_config_manager.mappings_changed.connect(func(): _active_mapping.clear())
 	_config_manager.overlays_need_redraw.connect(func():
@@ -107,6 +109,119 @@ func _on_rasterization_started() -> void:
 	_renderer.clear_overlays()
 	_tooltip_manager.is_active = false
 	_realizer = _execution_manager.current_realizer
+
+
+func _on_regenerate_selection_pressed() -> void:
+	if _execution_manager.is_rasterizing: return
+	if not graph_editor or not "graph" in graph_editor: return
+	
+	if _realizer == null or _realizer.grid == null:
+		print("Warning: Must perform a full Rasterization before regenerating a selection!")
+		return
+		
+	var selected_nodes = graph_editor.selected_nodes
+	var selected_edges_raw = graph_editor.selected_edges
+	
+	if selected_nodes.is_empty() and selected_edges_raw.is_empty():
+		print("Warning: Select nodes or edges in the Graph Editor to regenerate them.")
+		return
+		
+	# 1. Format the Input
+	var inf_nodes_dict = {}
+	var inf_edges_dict = {}
+	
+	for n in selected_nodes: inf_nodes_dict[n] = true
+	for pair in selected_edges_raw:
+		var sp = pair.duplicate(); sp.sort()
+		inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+		
+	var graph = graph_editor.graph
+		
+	# 2. TOPOLOGICAL INFECTION: If a Node is regenerating, its edges MUST regenerate,
+	# otherwise it becomes an island!
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	# 3. SPATIAL INFECTION: If another room/corridor physically merged with our targets, 
+	# they must be regenerated too to prevent visual shearing.
+	var shared_infection = DynamicRegenUtils.get_exact_overlapping_topology(_realizer, inf_nodes_dict.keys(), inf_edges_dict.keys())
+	for n in shared_infection["nodes"]: inf_nodes_dict[n] = true
+	for e in shared_infection["edges"]: inf_edges_dict[e] = true
+		
+	# 4. TOPOLOGICAL INFECTION (Pass 2): Auto-infect edges of any newly discovered spatial nodes
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	var final_nodes = inf_nodes_dict.keys()
+	var final_edges = inf_edges_dict.keys()
+	
+	# 5. Get the bounding box encompassing OLD raster and NEW graph positions
+	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph, final_nodes, final_edges)
+	
+	if dirty_rect.size == Vector2i.ZERO:
+		print("Warning: The selected elements are not currently rendered on the grid.")
+		return
+		
+	# 6. Pack Execution Params
+	var exec_params = _config_manager.get_execution_params()
+	exec_params["regen_dirty_rect"] = dirty_rect
+	exec_params["regen_target_nodes"] = final_nodes
+	exec_params["regen_target_edges"] = final_edges
+	
+	# 7. Execute! 
+	_execution_manager.run_rasterization(graph, exec_params, _config_manager.biome_params, _realizer)
+
+func _on_preview_regen_pressed() -> void:
+	if _execution_manager.is_rasterizing: return
+	if not graph_editor or _realizer == null: return
+	
+	_renderer.clear_debug_regen() # Clear old preview
+	var selected_nodes = graph_editor.selected_nodes
+	var selected_edges_raw = graph_editor.selected_edges
+	if selected_nodes.is_empty() and selected_edges_raw.is_empty(): return
+		
+	var inf_nodes_dict = {}
+	var inf_edges_dict = {}
+	for n in selected_nodes: inf_nodes_dict[n] = true
+	for pair in selected_edges_raw:
+		var sp = pair.duplicate(); sp.sort()
+		inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+		
+	var graph = graph_editor.graph
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	var shared_infection = DynamicRegenUtils.get_exact_overlapping_topology(_realizer, inf_nodes_dict.keys(), inf_edges_dict.keys())
+	for n in shared_infection["nodes"]: inf_nodes_dict[n] = true
+	for e in shared_infection["edges"]: inf_edges_dict[e] = true
+		
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	var final_nodes = inf_nodes_dict.keys()
+	var final_edges = inf_edges_dict.keys()
+	
+	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph, final_nodes, final_edges)
+	if dirty_rect.size == Vector2i.ZERO: return
+	
+	# Fetch the theoretical wipe map!
+	var wipe_map = DynamicRegenUtils.get_wipe_map(_realizer, dirty_rect, final_nodes, final_edges)
+	
+	# Draw it!
+	_renderer.draw_regen_preview(dirty_rect, wipe_map)
+
 
 func _on_snapshot_received(snapshot: Dictionary) -> void:
 	_snapshots.append(snapshot)

@@ -5,6 +5,8 @@ signal rasterize_requested()
 signal clear_requested()
 signal mappings_changed()
 signal overlays_need_redraw()
+signal regenerate_selection_requested()
+signal btn_preview_regen_requested()
 
 # --- POPUPS ---
 var _biome_designer: BiomeDesignerPopup
@@ -78,6 +80,8 @@ func setup() -> void:
 func handle_interaction(key: String, value: Variant) -> void:
 	match key:
 		"btn_rasterize": rasterize_requested.emit()
+		"btn_regenerate_selection": regenerate_selection_requested.emit()
+		"btn_preview_regen": btn_preview_regen_requested.emit()
 		"btn_clear": clear_requested.emit()
 		"btn_open_mapper": _mapping_popup.open(tileset_image_path, tileset_tile_size, atlas_mappings, procedural_flags, palette_params)
 		"btn_open_structure_designer": _structure_popup.open()

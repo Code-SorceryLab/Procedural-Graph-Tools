@@ -11,8 +11,16 @@ static func erode(realizer: GraphRealizer, params: Dictionary) -> void:
 	
 	var cells_to_destroy = []
 	
+	# --- REGENERATION MASK ---
+	var is_regen = params.has("regen_dirty_rect")
+	var dirty_rect = params.get("regen_dirty_rect", Rect2i())
+	
 	for cell in realizer.critical_path_cells:
-		# 1. Protect the 1-tile A* core path (Guarantees the map never breaks)
+		# --- MASK CHECK ---
+		if is_regen and not dirty_rect.has_point(cell):
+			continue
+			
+		# 1. Protect the 1-tile A* core path
 		if realizer.core_path_cells.has(cell): continue
 		# 2. Protect the room interiors
 		if realizer.room_cells.has(cell): continue

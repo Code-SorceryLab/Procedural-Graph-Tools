@@ -400,3 +400,6 @@ Regenerations are never based on drawing a raw 2D pixel box. They are based on G
     realizer/core/textural_wfc_pass.gd: Will heavily rely on fixed_pixels to merge new Textural WFC outputs seamlessly into frozen rooms.
 
     core/editor/graph_history.gd: Must co-exist peacefully with the VCR Snapshot without corrupting the designer's undo/redo stack.
+
+
+

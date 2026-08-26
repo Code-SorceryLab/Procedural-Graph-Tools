@@ -32,6 +32,9 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 	
 	var schema = [
 		{ "name": "btn_rasterize", "label": "Rasterize Graph", "type": TYPE_NIL, "hint": "action" },
+		{ "name": "btn_regenerate_selection", "label": "Regenerate Selection", "type": TYPE_NIL, "hint": "action" },
+		{ "name": "btn_preview_regen", "label": "Preview Affected Tiles", "type": TYPE_NIL, "hint": "action" },
+		
 		{ "name": "btn_clear", "label": "Clear TileMap", "type": TYPE_NIL, "hint": "action" },
 		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
 		

@@ -10,6 +10,7 @@ var _ghost_web_layer: Node2D
 var _ghost_tween: Tween
 var _door_centers_cache: Dictionary = {}
 var _key_centers_cache: Dictionary = {}
+var _debug_regen_layer: Node2D
 
 func setup(p_tile_map_layer: TileMapLayer, p_floor_source_id: int) -> void:
 	tile_map_layer = p_tile_map_layer
@@ -18,6 +19,10 @@ func setup(p_tile_map_layer: TileMapLayer, p_floor_source_id: int) -> void:
 	_ghost_web_layer = Node2D.new()
 	_ghost_web_layer.z_index = 5 # Float above all entities
 	tile_map_layer.add_child(_ghost_web_layer)
+	
+	_debug_regen_layer = Node2D.new()
+	_debug_regen_layer.z_index = 10 # Float above absolutely everything
+	tile_map_layer.add_child(_debug_regen_layer)
 
 func clear_overlays() -> void:
 	if not tile_map_layer: return
@@ -27,6 +32,7 @@ func clear_overlays() -> void:
 	if _ghost_web_layer:
 		for child in _ghost_web_layer.get_children():
 			child.queue_free()
+	clear_debug_regen()
 
 func _get_cached_texture(path: String) -> Texture2D:
 	if _texture_cache.has(path): return _texture_cache[path]
@@ -383,3 +389,44 @@ func draw_ghost_web(lock_str: String) -> void:
 	_ghost_web_layer.modulate.a = 0.2
 	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
 	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 0.2, 0.6).set_trans(Tween.TRANS_SINE)
+
+
+
+func clear_debug_regen() -> void:
+	if _debug_regen_layer:
+		for child in _debug_regen_layer.get_children():
+			child.queue_free()
+
+func draw_regen_preview(dirty_rect: Rect2i, wipe_map: Dictionary) -> void:
+	clear_debug_regen()
+	if not tile_map_layer.tile_set: return
+	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+
+	# 1. Draw Wiped Cells (Red)
+	for pt in wipe_map["wipe"]:
+		var cr = ColorRect.new()
+		cr.color = Color(1.0, 0.0, 0.0, 0.6) 
+		cr.size = Vector2(cell_size, cell_size)
+		cr.position = Vector2(pt) * cell_size
+		_debug_regen_layer.add_child(cr)
+
+	# 2. Draw Protected Cells (Green)
+	for pt in wipe_map["protected"]:
+		var cr = ColorRect.new()
+		cr.color = Color(0.0, 1.0, 0.0, 0.6) 
+		cr.size = Vector2(cell_size, cell_size)
+		cr.position = Vector2(pt) * cell_size
+		_debug_regen_layer.add_child(cr)
+		
+	# 3. Draw Dirty Rect Outline (Yellow)
+	var rect_lines = Line2D.new()
+	rect_lines.default_color = Color.YELLOW
+	rect_lines.width = 4.0
+	rect_lines.closed = true
+	var p = dirty_rect.position
+	var s = dirty_rect.size
+	rect_lines.add_point(Vector2(p.x, p.y) * cell_size)
+	rect_lines.add_point(Vector2(p.x + s.x, p.y) * cell_size)
+	rect_lines.add_point(Vector2(p.x + s.x, p.y + s.y) * cell_size)
+	rect_lines.add_point(Vector2(p.x, p.y + s.y) * cell_size)
+	_debug_regen_layer.add_child(rect_lines)
