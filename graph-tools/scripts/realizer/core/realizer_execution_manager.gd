@@ -24,6 +24,7 @@ var _pending_grid: GridData = null
 var _pending_dirty_rect: Rect2i = Rect2i()
 var _pending_re_explore: bool = false
 var _cancel_validation: bool = false
+var _active_validator: GenerationValidator = null
 
 # ==============================================================================
 # RASTERIZATION THREADING
@@ -46,11 +47,13 @@ func run_rasterization(graph: Graph, params: Dictionary, raw_biome_params: Dicti
 	rasterization_started.emit(is_partial)
 	
 	var seed_str = str(params.get("realizer_seed", "default"))
-	var global_room_decks = ConfigManager.load_room_decks()
+	
+	# --- Check for injected sandbox decks, fallback to disk ---
+	var global_room_decks = params.get("global_room_decks", ConfigManager.load_room_decks())
 	var room_lists = DistributionEngine.generate_shopping_lists(graph, global_room_decks, raw_biome_params, seed_str, "room_decks")
 	params["room_shopping_lists"] = room_lists
 	
-	var global_spawn_decks = ConfigManager.load_spawn_decks()
+	var global_spawn_decks = params.get("global_spawn_decks", ConfigManager.load_spawn_decks())
 	var spawn_lists = DistributionEngine.generate_shopping_lists(graph, global_spawn_decks, raw_biome_params, seed_str, "spawn_decks")
 	
 	_raster_thread = Thread.new()
@@ -125,12 +128,16 @@ func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i, re_explore: 
 	if _val_state != "IDLE": 
 		_pending_grid = new_grid
 		_pending_dirty_rect = dirty_rect
-		_pending_re_explore = re_explore # <--- Store it
+		_pending_re_explore = re_explore
 	_val_mutex.unlock()
 
 # --- THE BACKGROUND LOOP ---
 func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: bool) -> void:
 	var validator = GenerationValidator.new(grid, full_explore, delay_doors)
+	
+	_val_mutex.lock()
+	_active_validator = validator
+	_val_mutex.unlock()
 	
 	while true:
 		_val_mutex.lock()
@@ -174,6 +181,7 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 			
 	_val_mutex.lock()
 	_val_state = "IDLE"
+	_active_validator = null
 	_val_mutex.unlock()
 	call_deferred("_on_validation_finished", validator.get_final_analytics())
 
@@ -182,3 +190,12 @@ func _dispatch_payload(payload: Dictionary) -> void:
 
 func _on_validation_finished(analytics: Dictionary) -> void:
 	validation_finished.emit(analytics)
+
+# [PHASE 2] Fetch the temporal snapshot mid-run
+func get_temporal_snapshot() -> Dictionary:
+	_val_mutex.lock()
+	var snap = {}
+	if _active_validator != null:
+		snap = _active_validator.get_temporal_snapshot()
+	_val_mutex.unlock()
+	return snap

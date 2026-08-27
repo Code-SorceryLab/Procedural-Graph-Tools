@@ -55,6 +55,7 @@ var agent_breadcrumbs_ref: Array = []
 var show_solver_debug_overlay: bool = true
 var show_solver_key_inventory: bool = true
 var show_agent_breadcrumbs: bool = true
+var is_masking_trigger_ref: bool = false
 
 # --- STAMP PREVIEW VISUALS ---
 var stamp_preview_pos: Vector2 = Vector2.ZERO
@@ -241,6 +242,8 @@ func _draw_layer_edges() -> void:
 		elif cut_preview_edges.has(pair):
 			draw_color = Color(1.0, 0.2, 0.2, 0.8)
 			current_width += 2.0
+		elif is_masking_trigger_ref: # <--- DIM UNSELECTED EDGES IN MASK MODE
+			draw_color.a *= 0.15
 			
 		# --- 1. Handle Self-Loop (A -> A) ---
 		var midpoint = Vector2.ZERO
@@ -530,8 +533,13 @@ func _draw_layer_nodes() -> void:
 		if new_nodes_ref.has(id):
 			col = GraphSettings.COLOR_NEW_GENERATION
 			
+		# --- DIM UNSELECTED NODES IN MASK MODE ---
+		var is_selected = selected_nodes_ref.has(id)
+		if is_masking_trigger_ref and not is_selected:
+			col.a *= 0.15
+			
 		draw_circle(pos, node_radius, col)
-		draw_circle(pos, node_radius * 0.7, Color(0, 0, 0, 0.1))
+		draw_circle(pos, node_radius * 0.7, Color(0, 0, 0, 0.1 if not is_masking_trigger_ref or is_selected else 0.05))
 		
 		# Indicators
 		_draw_node_indicators(id, pos)

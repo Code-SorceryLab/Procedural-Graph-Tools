@@ -224,6 +224,17 @@ func get_redraw_payload() -> Dictionary:
 		"is_redraw": true # <--- Tells the Controller to do a full repaint
 	}
 
+func get_temporal_snapshot() -> Dictionary:
+	var anchor = Vector2i(-1, -1)
+	# The frontier (queue) is the leading edge. If empty, fallback to the last visited puddle tile.
+	if queue.size() > 0: anchor = queue[0]
+	elif visited.size() > 0: anchor = visited.keys()[-1]
+	
+	return {
+		"inventory": inventory.keys().duplicate(),
+		"anchor": anchor
+	}
+
 func _finish_validation() -> void:
 	is_finished = true
 	if found_end:

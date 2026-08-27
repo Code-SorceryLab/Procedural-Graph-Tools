@@ -4,6 +4,7 @@ class_name GraphEditor
 # --- SIGNALS ---
 signal graph_loaded(new_graph: Graph)
 signal selection_changed(selected_nodes: Array[String])
+signal trigger_mask_saved(trigger_id: String, nodes: Array, edges: Array)
 signal edge_selection_changed(selected_edges: Array)
 signal request_save_graph(graph: Graph)
 signal graph_modified
@@ -29,6 +30,9 @@ var tool_manager: GraphToolManager
 var is_picking_mode: bool = false
 var _pick_callback: Callable
 var _transaction_depth: int = 0
+var is_masking_trigger: bool = false
+var _active_mask_trigger_id: String = ""
+var _masking_banner: PanelContainer
 
 # File State
 var current_file_path: String = "" # Tracks the active save file!
@@ -204,7 +208,83 @@ func _unhandled_input(event: InputEvent) -> void:
 	tool_manager.handle_input(event)
 
 # ==============================================================================
-# 4. PUBLIC API FOR TOOLS
+# 4. TRIGGER MASKING OVERLAY
+# ==============================================================================
+
+func _setup_masking_banner() -> void:
+	var canvas = CanvasLayer.new()
+	canvas.layer = 100 # Float above absolutely everything
+	add_child(canvas)
+	
+	_masking_banner = PanelContainer.new()
+	_masking_banner.visible = false
+	
+	# Center it at the top of the screen
+	_masking_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.8, 0.3, 0.0, 0.9) # Bright warning orange!
+	style.set_corner_radius_all(8)
+	_masking_banner.add_theme_stylebox_override("panel", style)
+	
+	var hbox = HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	
+	var lbl = Label.new()
+	lbl.text = "Recording Target Mask for Trigger... Select Nodes & Edges."
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.add_theme_font_size_override("font_size", 16)
+	hbox.add_child(lbl)
+	
+	var btn_save = Button.new()
+	btn_save.text = "Save Mask"
+	btn_save.pressed.connect(func(): _finish_trigger_masking(true))
+	hbox.add_child(btn_save)
+	
+	var btn_cancel = Button.new()
+	btn_cancel.text = "Cancel"
+	btn_cancel.pressed.connect(func(): _finish_trigger_masking(false))
+	hbox.add_child(btn_cancel)
+	
+	margin.add_child(hbox)
+	_masking_banner.add_child(margin)
+	canvas.add_child(_masking_banner)
+
+func start_trigger_masking(trigger_id: String, existing_nodes: Array, existing_edges: Array) -> void:
+	if not _masking_banner: _setup_masking_banner()
+	
+	is_masking_trigger = true
+	_active_mask_trigger_id = trigger_id
+	_masking_banner.visible = true
+	
+	# Force the active tool to Select so they don't accidentally delete things!
+	set_active_tool(GraphSettings.Tool.SELECT)
+	
+	# Pre-load the trigger's existing selection into the editor!
+	# We format the string array to match the editor's typed array requirement.
+	var typed_nodes: Array[String] = []
+	for n in existing_nodes: typed_nodes.append(str(n))
+	set_selection_batch(typed_nodes, existing_edges)
+	
+	renderer.is_masking_trigger_ref = true
+	renderer.queue_redraw()
+
+func _finish_trigger_masking(save: bool) -> void:
+	is_masking_trigger = false
+	_masking_banner.visible = false
+	renderer.is_masking_trigger_ref = false
+	
+	if save:
+		trigger_mask_saved.emit(_active_mask_trigger_id, selected_nodes.duplicate(), selected_edges.duplicate())
+		
+	clear_selection()
+	renderer.queue_redraw()
+
+# ==============================================================================
+# 5. PUBLIC API FOR TOOLS
 # ==============================================================================
 
 func set_path_starts(ids: Array) -> void:
@@ -809,7 +889,7 @@ func set_debug_depth(enabled: bool) -> void:
 		renderer.queue_redraw()
 
 # ==============================================================================
-# 5. GENERAL API
+# 6. GENERAL API
 # ==============================================================================
 # Completely resets the editor context (Destroys Undo history, severs file connection)
 func new_graph() -> void:
@@ -996,7 +1076,7 @@ func apply_buoyancy_step() -> void:
 	if renderer: renderer.queue_redraw()
 
 # ==============================================================================
-# 6. INTERNAL HELPERS
+# 7. INTERNAL HELPERS
 # ==============================================================================
 
 func _reconstruct_state_from_ids() -> void:

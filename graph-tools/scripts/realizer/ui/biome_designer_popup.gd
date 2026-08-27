@@ -5,6 +5,10 @@ signal global_settings_changed(new_params: Dictionary)
 signal biome_settings_changed(new_biomes: Dictionary)
 signal spawn_decks_changed(new_decks: Dictionary)
 signal room_decks_changed(new_decks: Dictionary)
+signal trigger_settings_saved(trigger_id: String, trigger_data: Dictionary)
+
+
+
 
 # --- DATA ---
 var global_params: Dictionary = {}
@@ -19,6 +23,10 @@ var global_room_decks: Dictionary = {}
 var current_biome_id: String = "" 
 var _wfc_palettes_cache: Array = []
 
+var _is_trigger_mode: bool = false
+var _current_trigger_id: String = ""
+var _current_trigger_data: Dictionary = {}
+
 # --- UI REFS ---
 var biome_dropdown: OptionButton
 var toggle_panel: MarginContainer
@@ -28,6 +36,8 @@ var tab_container: TabContainer
 var tab_shape: VBoxContainer
 var tab_routing: VBoxContainer
 var tab_spawn_decks: VBoxContainer
+var tab_trigger: VBoxContainer
+var content_trigger: VBoxContainer
 
 var chk_override_shape: CheckBox
 var chk_override_routing: CheckBox
@@ -41,6 +51,9 @@ var inputs_wfc: Dictionary = {}
 var content_shape: VBoxContainer
 var content_routing: VBoxContainer
 var content_wfc: VBoxContainer
+
+
+
 
 # Dual Tree State
 var _trees: Dictionary = {}
@@ -92,6 +105,10 @@ func _init() -> void:
 	tab_routing = _create_tab("Routing & CA")
 	tab_spawn_decks = _create_tab("Spawn Decks (Entities & Structures)")
 	var tab_wfc = _create_tab("Textural WFC")
+	
+	# --- TRIGGER GLOBALS TAB ---
+	tab_trigger = _create_tab("Trigger Globals")
+	content_trigger = _create_scroll_box(tab_trigger)
 	
 	# Routing Tab
 	content_routing = _create_scroll_box(tab_routing)
@@ -210,6 +227,13 @@ func _build_deck_ui(parent: Control, deck_type: String) -> void:
 # LIFECYCLE & DATA
 # ==============================================================================
 func open(p_global_params: Dictionary) -> void:
+	_is_trigger_mode = false
+	title = "Biome & Generation Designer"
+	
+	# [FIXED] Fetch the MarginContainer (the direct child of the TabContainer)
+	var trigger_tab_margin = tab_trigger.get_parent()
+	tab_container.set_tab_hidden(tab_container.get_tab_idx_from_control(trigger_tab_margin), true)
+	
 	global_params = p_global_params.duplicate(true)
 	biome_overrides = ConfigManager.load_biome_overrides().duplicate(true)
 	global_spawn_decks = ConfigManager.load_spawn_decks().duplicate(true)
@@ -230,6 +254,55 @@ func open(p_global_params: Dictionary) -> void:
 	biome_dropdown.select(0)
 	_on_biome_selected(0)
 	popup_centered()
+
+func open_for_trigger(trigger_id: String, trigger_data: Dictionary) -> void:
+	_is_trigger_mode = true
+	_current_trigger_id = trigger_id
+	_current_trigger_data = trigger_data.duplicate(true)
+	
+	title = "Trigger Designer: " + trigger_data.get("name", "Trigger")
+	
+	# [FIXED] Fetch the MarginContainer (the direct child of the TabContainer)
+	var trigger_tab_margin = tab_trigger.get_parent()
+	tab_container.set_tab_hidden(tab_container.get_tab_idx_from_control(trigger_tab_margin), false)
+	
+	# Map the trigger's sandbox data into the UI
+	global_params = _current_trigger_data.get("global_overrides", {})
+	biome_overrides = _current_trigger_data.get("biome_overrides", {})
+	
+	# --- [FIXED] Load Decks from Sandbox if they exist, otherwise fallback to master ---
+	if _current_trigger_data.has("global_spawn_decks"):
+		global_spawn_decks = _current_trigger_data["global_spawn_decks"].duplicate(true)
+	else:
+		global_spawn_decks = ConfigManager.load_spawn_decks()
+		
+	if _current_trigger_data.has("global_room_decks"):
+		global_room_decks = _current_trigger_data["global_room_decks"].duplicate(true)
+	else:
+		global_room_decks = ConfigManager.load_room_decks()
+	
+	custom_structures = ConfigManager.load_structures()
+	scatter_sets = ConfigManager.load_scatter_sets()
+	custom_rooms = ConfigManager.load_custom_rooms()
+	
+	if global_room_decks.is_empty():
+		var p_id = "node_fallback"
+		global_room_decks[p_id] = { "id": p_id, "parent_id": "", "type": "pool", "name": "Standard Rooms", "mode": 0, "quota_min": 1, "quota_max": 1, "scope": 0 }
+	
+	_rebuild_trigger_tab()
+	_populate_biome_dropdown()
+	biome_dropdown.select(0)
+	_on_biome_selected(0)
+	popup_centered()
+
+func _rebuild_trigger_tab() -> void:
+	SettingsUIBuilder.clear_ui(content_trigger)
+	var schema = [
+		{ "name": "realizer_seed", "label": "Seed Override (Empty = Random)", "type": TYPE_STRING, "default": _get_val("realizer_seed", "") },
+		{ "name": "progression_enabled", "label": "Enable Progression & Locks", "type": TYPE_BOOL, "default": _get_val("progression_enabled", true) },
+		{ "name": "progression_max_locks", "label": "Max Locks", "type": TYPE_INT, "default": _get_val("progression_max_locks", 0), "min": 0, "max": 20 }
+	]
+	SettingsUIBuilder.render_dynamic_section(content_trigger, schema, _set_val)
 
 func _populate_biome_dropdown() -> void:
 	biome_dropdown.clear()
@@ -564,7 +637,16 @@ func _set_inputs_disabled(inputs: Dictionary, disabled: bool) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_VISIBILITY_CHANGED:
 		if not visible:
-			global_settings_changed.emit(global_params)
-			biome_settings_changed.emit(biome_overrides)
-			spawn_decks_changed.emit(global_spawn_decks)
-			room_decks_changed.emit(global_room_decks)
+			if _is_trigger_mode:
+				# Sandbox Mode: Package the edits back into the trigger payload!
+				_current_trigger_data["global_overrides"] = global_params
+				_current_trigger_data["biome_overrides"] = biome_overrides
+				_current_trigger_data["global_spawn_decks"] = global_spawn_decks
+				_current_trigger_data["global_room_decks"] = global_room_decks
+				trigger_settings_saved.emit(_current_trigger_id, _current_trigger_data)
+			else:
+				# Normal Mode: Save to Master Configurations
+				global_settings_changed.emit(global_params)
+				biome_settings_changed.emit(biome_overrides)
+				spawn_decks_changed.emit(global_spawn_decks)
+				room_decks_changed.emit(global_room_decks)

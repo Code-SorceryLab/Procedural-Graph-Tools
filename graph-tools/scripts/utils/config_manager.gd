@@ -624,3 +624,32 @@ static func load_textural_palettes() -> Dictionary:
 			p_data["sample_grid"] = new_grid
 			
 	return loaded
+
+# ==============================================================================
+# REGENERATION TRIGGERS
+# ==============================================================================
+
+static func save_regen_triggers(triggers: Dictionary) -> void:
+	var config = ConfigFile.new()
+	config.load(SETTINGS_PATH) # Preserve other settings
+	
+	if config.has_section("RegenTriggers"):
+		config.erase_section("RegenTriggers")
+		
+	for key in triggers:
+		config.set_value("RegenTriggers", key, triggers[key])
+		
+	var err = config.save(SETTINGS_PATH)
+	if err != OK: 
+		push_error("ConfigManager: Failed to save Regen Triggers.")
+
+static func load_regen_triggers() -> Dictionary:
+	var config = ConfigFile.new()
+	var err = config.load(SETTINGS_PATH)
+	var loaded_triggers = {}
+	
+	if err == OK and config.has_section("RegenTriggers"):
+		for key in config.get_section_keys("RegenTriggers"):
+			loaded_triggers[key] = config.get_value("RegenTriggers", key)
+			
+	return loaded_triggers

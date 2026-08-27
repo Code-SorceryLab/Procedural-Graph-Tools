@@ -12,15 +12,40 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	var region_adj = map_data["region_adj"]
 	var portals = map_data["portals"]
 	var portal_connections = map_data["portal_connections"]
+	var cell_to_region = map_data["cell_to_region"]
 	
 	var start_region = path_data["start_region"]
 	var end_region = path_data["end_region"]
 	var spine_regions = path_data["spine_regions"]
 	
-	# --- [NEW] FETCH THE ARCHIVES ---
+	# --- FETCH THE ARCHIVES ---
 	var archived_keys = map_data.get("archived_keys", [])
 	var archived_locks = map_data.get("archived_locks", {})
 	var newly_dropped_replacements = {}
+	
+	# --- [NEW] MAP THE PLAYER'S TEMPORAL WAKE ---
+	var temporal_state = params.get("temporal_state", {})
+	var player_anchor = temporal_state.get("anchor", Vector2i(-1, -1))
+	var player_region = start_region
+	var player_spine = { start_region: true }
+	
+	if player_anchor != Vector2i(-1, -1):
+		if cell_to_region.has(player_anchor):
+			player_region = cell_to_region[player_anchor]
+		else:
+			# If the exact anchor was destroyed, check a 3x3 area to find the room they were pushed into
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var n = player_anchor + Vector2i(dx, dy)
+					if cell_to_region.has(n):
+						player_region = cell_to_region[n]
+						break
+				if player_region != start_region: break
+				
+		if player_region != start_region:
+			var wake_path = ProgressionPathingAnalyst._find_spine_path(start_region, player_region, region_adj)
+			for r in wake_path: player_spine[r] = true
+			player_spine[player_region] = true
 	
 	var accessible_regions = [start_region]
 	var visited_regions = { start_region: true }
@@ -175,13 +200,20 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 		var forge_new_key = false
 		var lock_str = ""
 		
-		# --- [NEW] ARCHIVE OVERRIDE ---
+		# --- ARCHIVE OVERRIDE ---
 		var existing_lock = archived_locks.get(p_id, "")
+		var in_player_wake = player_spine.has(next_region)
 		
 		if existing_lock != "":
 			lock_it = true
 			lock_str = existing_lock
-			forge_new_key = false # Do not pull a new color/tier!
+			forge_new_key = false 
+			
+		elif in_player_wake:
+			# RULE 1: THE WAKE
+			# Never place a lock between the start and the player. If we do, the key 
+			# will be dropped behind them, trapping them inside their current room forever!
+			lock_it = false
 			
 		elif is_end_finale:
 			lock_it = true

@@ -15,12 +15,14 @@ var _realizer: GraphRealizer
 var _snapshots: Array[Dictionary] = []
 var _active_mapping: Dictionary = {} 
 var _validator_paint_counter: int = 0
+var _active_triggers: Dictionary = {}
 
 # --- VIEWS ---
 var _generator_tab: GeneratorTabView
 var _timeline_tab: TimelineTabView
 var _report_tab: ReportTabView
 var _validation_tab: ValidationTabView
+var _triggers_tab: TriggersTabView
 
 # --- MANAGERS ---
 var _tooltip_manager: RealizerTooltipManager
@@ -88,7 +90,26 @@ func _ready() -> void:
 	tabs.add_child(_report_tab)
 	
 	_validation_tab = ValidationTabView.new()
-	_validation_tab.stop_requested.connect(_execution_manager.cancel_validation)
+
+	# --- TRIGGERS TAB SETUP ---
+	_active_triggers = ConfigManager.load_regen_triggers()
+	_triggers_tab = TriggersTabView.new()
+	_triggers_tab.trigger_created.connect(_on_trigger_created)
+	_triggers_tab.trigger_deleted.connect(_on_trigger_deleted)
+	_triggers_tab.trigger_name_changed.connect(_on_trigger_name_changed)
+	_triggers_tab.trigger_edit_mask_requested.connect(_on_trigger_mask_requested)
+	_triggers_tab.trigger_test_requested.connect(_on_trigger_test_requested)
+	_triggers_tab.trigger_edit_settings_requested.connect(_on_trigger_edit_settings_requested)
+	_config_manager.trigger_settings_saved.connect(_on_trigger_settings_saved)
+	
+	
+	if graph_editor:
+		graph_editor.trigger_mask_saved.connect(_on_trigger_mask_saved)
+	
+	tabs.add_child(_triggers_tab)
+	_triggers_tab.build_list(_active_triggers)
+	
+	_generator_tab.build(_config_manager.custom_structures, _config_manager.global_params)
 	
 	# --- VCR ROUTING ---
 	_validation_tab.play_requested.connect(func(): 
@@ -220,6 +241,10 @@ func _on_regenerate_selection_pressed() -> void:
 	exec_params["regen_target_nodes"] = final_nodes
 	exec_params["regen_target_edges"] = final_edges
 	
+	# --- TEMPORAL STATE INJECTION ---
+	if _execution_manager.is_validation_running():
+		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
+		
 	# --- Validation Frontier Selection Warning ---
 	if _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
 		var dialog = ConfirmationDialog.new()
@@ -398,6 +423,111 @@ func _jump_to_snapshot(index: int) -> void:
 		
 	_renderer.render_overlays(_realizer, snapshot["entities"], _config_manager.global_params, _execution_manager.is_rasterizing)
 	_tooltip_manager.update_context(_realizer, _config_manager.biome_params)
+
+# ==============================================================================
+# TRIGGERS COMMAND CENTER
+# ==============================================================================
+func _on_trigger_created() -> void:
+	var new_id = "trig_" + str(Time.get_unix_time_from_system())
+	_active_triggers[new_id] = {
+		"name": "New Trigger",
+		"target_nodes": [],
+		"target_edges": [],
+		"global_overrides": {},
+		"biome_overrides": {}
+	}
+	ConfigManager.save_regen_triggers(_active_triggers)
+	_triggers_tab.build_list(_active_triggers)
+
+func _on_trigger_deleted(t_id: String) -> void:
+	_active_triggers.erase(t_id)
+	ConfigManager.save_regen_triggers(_active_triggers)
+	_triggers_tab.build_list(_active_triggers)
+
+func _on_trigger_name_changed(t_id: String, new_name: String) -> void:
+	if _active_triggers.has(t_id):
+		_active_triggers[t_id]["name"] = new_name
+		ConfigManager.save_regen_triggers(_active_triggers)
+
+func _on_trigger_mask_requested(t_id: String) -> void:
+	if not graph_editor or not _active_triggers.has(t_id): return
+	
+	# Fetch existing data so the editor can pre-highlight it!
+	var t_data = _active_triggers[t_id]
+	var nodes = t_data.get("target_nodes", [])
+	var edges = t_data.get("target_edges", [])
+	
+	graph_editor.start_trigger_masking(t_id, nodes, edges)
+
+func _on_trigger_mask_saved(t_id: String, nodes: Array, edges: Array) -> void:
+	if _active_triggers.has(t_id):
+		_active_triggers[t_id]["target_nodes"] = nodes
+		_active_triggers[t_id]["target_edges"] = edges
+		ConfigManager.save_regen_triggers(_active_triggers)
+		_triggers_tab.build_list(_active_triggers) # Refresh the UI label!
+
+func _on_trigger_test_requested(t_id: String) -> void:
+	if _execution_manager.is_rasterizing: return
+	if not graph_editor or not _realizer or not _realizer.grid:
+		print("Warning: Must perform a full Rasterization before testing a trigger!")
+		return
+		
+	if not _active_triggers.has(t_id): return
+	var t_data = _active_triggers[t_id]
+	
+	var final_nodes = t_data.get("target_nodes", [])
+	var final_edges = t_data.get("target_edges", [])
+	
+	if final_nodes.is_empty() and final_edges.is_empty():
+		print("Warning: Trigger has no assigned nodes or edges in its Mask.")
+		return
+		
+	# 1. Get the Dirty Rect (Validation Area)
+	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph_editor.graph, final_nodes, final_edges)
+	if dirty_rect.size == Vector2i.ZERO:
+		print("Warning: The trigger targets are not currently rendered on the grid.")
+		return
+		
+	# 2. Pack Base Execution Params
+	var exec_params = _config_manager.get_execution_params()
+	exec_params["regen_dirty_rect"] = dirty_rect
+	exec_params["regen_target_nodes"] = final_nodes
+	exec_params["regen_target_edges"] = final_edges
+	
+	# 3. MERGE TRIGGER OVERRIDES
+	# Apply Global Overrides (Seed, Locks, etc.)
+	var globals = t_data.get("global_overrides", {})
+	for k in globals: exec_params[k] = globals[k]
+		
+	# --- INJECT SANDBOXED DECKS ---
+	if t_data.has("global_spawn_decks"):
+		exec_params["global_spawn_decks"] = t_data["global_spawn_decks"]
+	if t_data.has("global_room_decks"):
+		exec_params["global_room_decks"] = t_data["global_room_decks"]
+		
+	# Apply Biome Overrides (Tile aesthetics, Room Shapes)
+	var trigger_biomes = t_data.get("biome_overrides", {})
+	var base_biomes = exec_params.get("biomes", {})
+	# The Trigger's custom biome rules completely overwrite the base rules for this payload!
+	for b_key in trigger_biomes:
+		base_biomes[b_key] = trigger_biomes[b_key]
+	exec_params["biomes"] = base_biomes
+	
+	# 4. Inject Temporal State (The Player's Memory & Wake)
+	if _execution_manager.is_validation_running():
+		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
+		
+	# 5. Fire!
+	_execution_manager.run_rasterization(graph_editor.graph, exec_params, _config_manager.biome_params, _realizer)
+
+func _on_trigger_edit_settings_requested(t_id: String) -> void:
+	if _active_triggers.has(t_id):
+		_config_manager.open_trigger_designer(t_id, _active_triggers[t_id])
+
+func _on_trigger_settings_saved(t_id: String, t_data: Dictionary) -> void:
+	if _active_triggers.has(t_id):
+		_active_triggers[t_id] = t_data
+		ConfigManager.save_regen_triggers(_active_triggers)
 
 # ==============================================================================
 # CLEANUP

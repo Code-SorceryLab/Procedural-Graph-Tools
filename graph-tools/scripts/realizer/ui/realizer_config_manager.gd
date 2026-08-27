@@ -7,6 +7,7 @@ signal mappings_changed()
 signal overlays_need_redraw()
 signal regenerate_selection_requested()
 signal btn_preview_regen_requested()
+signal trigger_settings_saved(trigger_id: String, trigger_data: Dictionary)
 
 # --- POPUPS ---
 var _biome_designer: BiomeDesignerPopup
@@ -67,6 +68,7 @@ func setup() -> void:
 	_biome_designer.biome_settings_changed.connect(func(b): biome_params = b; ConfigManager.save_biome_overrides(b))
 	_biome_designer.spawn_decks_changed.connect(func(d): ConfigManager.save_spawn_decks(d))
 	_biome_designer.room_decks_changed.connect(func(d): ConfigManager.save_room_decks(d))
+	_biome_designer.trigger_settings_saved.connect(func(t_id, data): trigger_settings_saved.emit(t_id, data))
 	
 	_custom_room_popup = CustomRoomDesignerPopup.new(); _custom_room_popup.hide(); add_child(_custom_room_popup)
 	_custom_room_popup.confirmed.connect(func(): custom_rooms = _custom_room_popup.custom_rooms.duplicate(true); ConfigManager.save_custom_rooms(custom_rooms))
@@ -160,3 +162,6 @@ func _build_filtered_biomes() -> Dictionary:
 			filtered[b_key] = clean_data
 			
 	return filtered
+
+func open_trigger_designer(trigger_id: String, trigger_data: Dictionary) -> void:
+	_biome_designer.open_for_trigger(trigger_id, trigger_data)
