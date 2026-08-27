@@ -12,6 +12,7 @@ signal stop_requested()
 signal settings_changed(full_explore: bool, delay_doors: bool)
 signal speed_changed(tick_rate_seconds: float)
 signal batch_size_changed(tiles_per_step: int)
+signal constant_speed_toggled(is_on: bool)
 signal visualize_toggled(is_on: bool)
 
 var _log_text: RichTextLabel
@@ -24,6 +25,7 @@ var _btn_stop: Button
 var _chk_visualize: CheckBox
 var _chk_full_explore: CheckBox
 var _chk_delay_doors: CheckBox
+var _chk_constant_speed: CheckBox
 
 var _slider_speed: HSlider
 var _slider_batch: HSlider
@@ -132,8 +134,16 @@ func _init() -> void:
 	_chk_delay_doors.text = "Exhaustive Exploration (Delay Doors)"
 	_chk_delay_doors.toggled.connect(func(_p): settings_changed.emit(_chk_full_explore.button_pressed, _chk_delay_doors.button_pressed))
 	
+	# --- CONSTANT SPEED TOGGLE ---
+	_chk_constant_speed = CheckBox.new()
+	_chk_constant_speed.text = "Constant Visual Expansion Rate"
+	_chk_constant_speed.button_pressed = false
+	_chk_constant_speed.tooltip_text = "Dynamically increases the batch size in open areas so the fluid expands at a constant visual speed."
+	_chk_constant_speed.toggled.connect(func(pressed): constant_speed_toggled.emit(pressed))
+	
 	options_vbox.add_child(_chk_full_explore)
 	options_vbox.add_child(_chk_delay_doors)
+	options_vbox.add_child(_chk_constant_speed)
 	vbox.add_child(options_vbox)
 	
 	var sep = HSeparator.new()
@@ -151,6 +161,15 @@ func _init() -> void:
 	_log_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log_text.text = "[color=gray]Ready to validate graph topology.[/color]"
 	scroll.add_child(_log_text)
+
+func _ready() -> void:
+	# Guarantee the tree is built before setting these, avoiding Godot's silent clamping bug!
+	_slider_speed.value = 0.05
+	_slider_batch.value = 10
+	
+	# Trigger the UI labels to match
+	_lbl_speed.text = "Tick Speed: %.2fs" % _slider_speed.value
+	_lbl_batch.text = "Tiles Per Step: %d" % _slider_batch.value
 
 func append_log(msg: String) -> void:
 	if msg != "": _log_text.text += "\n" + msg
@@ -184,7 +203,8 @@ func get_settings() -> Dictionary:
 		"full_explore": _chk_full_explore.button_pressed,
 		"delay_doors": _chk_delay_doors.button_pressed,
 		"batch_size": int(_slider_batch.value),
-		"tick_speed": float(_slider_speed.value)
+		"tick_speed": float(_slider_speed.value),
+		"constant_speed": _chk_constant_speed.button_pressed
 	}
 
 func is_visualize_on() -> bool:

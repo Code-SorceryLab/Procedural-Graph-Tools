@@ -100,14 +100,21 @@ func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i()) -> void:
 # ==============================================================================
 # THE VCR ENGINE
 # ==============================================================================
-func step(batch_size: int = 1) -> Dictionary:
+func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 	newly_visited.clear()
 	log_messages.clear()
 	
 	if is_finished: return get_payload()
 	
+	# --- [FIXED] CONSTANT RADIAL EXPANSION ---
+	var target_steps = batch_size
+	if constant_speed and queue.size() > 0:
+		# Process exactly 1 layer of the frontier per tick. 
+		# This ignores the batch slider and strictly relies on the Speed slider!
+		target_steps = queue.size()
+	
 	var steps_taken = 0
-	while steps_taken < batch_size:
+	while steps_taken < target_steps:
 		# --- Exhaustive Exploration Trigger ---
 		if queue.is_empty():
 			if pending_unlocks.size() > 0:

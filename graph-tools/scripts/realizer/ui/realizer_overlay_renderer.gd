@@ -1,8 +1,16 @@
 class_name RealizerOverlayRenderer
-extends Node
+extends Node2D
 
 var tile_map_layer: TileMapLayer
 var floor_source_id: int = 0
+var cell_size: float = 50.0
+
+# --- RENDER LISTS (GPU Batching) ---
+var _show_path: bool = false
+var _crit_path: Array = []
+var _footprints: Array = []
+var _sprites: Array = []
+var _labels: Array = []
 
 # --- STATE & CACHES ---
 var _texture_cache: Dictionary = {}
@@ -12,26 +20,41 @@ var _door_centers_cache: Dictionary = {}
 var _key_centers_cache: Dictionary = {}
 var _debug_regen_layer: Node2D
 
+var _active_ghost_lock: String = ""
+var _debug_wipe_map: Dictionary = {}
+var _debug_dirty_rect: Rect2i = Rect2i()
+
 func setup(p_tile_map_layer: TileMapLayer, p_floor_source_id: int) -> void:
 	tile_map_layer = p_tile_map_layer
 	floor_source_id = p_floor_source_id
 	
+	# --- Force crisp nearest-neighbor filtering for all drawn textures ---
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	
+	# Add THIS renderer to the tree to handle Entities & Critical Paths
+	z_index = 1
+	tile_map_layer.add_child(self)
+	
+	# Add dedicated sub-canvases for specific effects
 	_ghost_web_layer = Node2D.new()
-	_ghost_web_layer.z_index = 5 # Float above all entities
+	_ghost_web_layer.z_index = 5 
+	_ghost_web_layer.draw.connect(_on_ghost_web_draw)
 	tile_map_layer.add_child(_ghost_web_layer)
 	
 	_debug_regen_layer = Node2D.new()
-	_debug_regen_layer.z_index = 10 # Float above absolutely everything
+	_debug_regen_layer.z_index = 10 
+	_debug_regen_layer.draw.connect(_on_debug_regen_draw)
 	tile_map_layer.add_child(_debug_regen_layer)
 
 func clear_overlays() -> void:
-	if not tile_map_layer: return
-	for child in tile_map_layer.get_children():
-		if child.is_in_group("realizer_entity") or child.is_in_group("realizer_critical_path") or child.is_in_group("validator_overlay"):
-			child.queue_free()
-	if _ghost_web_layer:
-		for child in _ghost_web_layer.get_children():
-			child.queue_free()
+	_crit_path.clear()
+	_footprints.clear()
+	_sprites.clear()
+	_labels.clear()
+	queue_redraw()
+	
+	_active_ghost_lock = ""
+	_ghost_web_layer.queue_redraw()
 	clear_debug_regen()
 
 func _get_cached_texture(path: String) -> Texture2D:
@@ -138,33 +161,27 @@ func rebuild_dynamic_tileset_and_mapping(realizer: GraphRealizer, custom_rooms: 
 	return active_mapping
 
 # ==============================================================================
-# ENTITY & CRITICAL PATH RENDERING
+# ENTITY & CRITICAL PATH RENDERING (GPU OPTIMIZED)
 # ==============================================================================
-# --- [CHANGED] Added is_rasterizing flag to signature
 func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dictionary, is_rasterizing: bool = false) -> void:
-	clear_overlays() # Safely clears old groups
+	_crit_path.clear()
+	_footprints.clear()
+	_sprites.clear()
+	_labels.clear()
 			
 	if not tile_map_layer.tile_set: return
-	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+	cell_size = float(tile_map_layer.tile_set.tile_size.x)
 	
-	# A. Render Critical Path Overlays
-	var show_path = params.get("debug_routing", false)
-	
-	# --- [FIXED] THREAD SAFETY GUARD ---
-	# We strictly forbid reading the realizer's dictionaries while the background thread is mutating them!
-	if realizer and not is_rasterizing: 
-		for pos in realizer.critical_path_cells:
-			var rect = ColorRect.new()
-			rect.color = Color(1.0, 0.0, 1.0, 0.4)
-			rect.size = Vector2(cell_size, cell_size) 
-			rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
-			rect.visible = show_path
-			rect.add_to_group("realizer_critical_path")
-			tile_map_layer.add_child(rect)
+	# A. Route Critical Path
+	_show_path = params.get("debug_routing", false)
+	if realizer and not is_rasterizing and _show_path:
+		_crit_path = realizer.critical_path_cells.keys()
 
 	# B. Master Visibility Check
 	var master_vis = params.get("show_entities", true)
-	if not master_vis: return
+	if not master_vis: 
+		queue_redraw()
+		return
 	
 	_door_centers_cache.clear()
 	_key_centers_cache.clear()
@@ -209,7 +226,6 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 		var entity_data = entities[pos]
 		var e_type = entity_data.get("type", "generic_entity")
 		
-		# 1. Route the exact toggles based on Entity Type
 		var show_sprite = false
 		var show_footprint = false
 		
@@ -222,211 +238,179 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 		elif e_type in ["start_point", "end_point"]:
 			if not params.get("show_endpoints", true): continue
 			show_footprint = true
-		else: # Scatter Sets & Generic
+		else: 
 			show_sprite = params.get("show_scatter_sprites", true)
 			show_footprint = params.get("show_scatter_footprints", true)
 
 		var tex_path = entity_data.get("texture_path", "")
 		var has_sprite = (tex_path != "")
 		
-		# 2. Render Visual Sprites (Structures & Scatter Sets)
+		# 1. Package Visual Sprites
 		if has_sprite and show_sprite:
 			var tex = _get_cached_texture(tex_path)
 			if tex:
-				var sprite = Sprite2D.new()
-				sprite.texture = tex
-				
 				var t_off = entity_data.get("texture_offset", Vector2.ZERO)
 				var t_scale = entity_data.get("texture_scale", Vector2.ONE)
-				var t_filter = entity_data.get("texture_filter", 0)
-				var rot_idx = entity_data.get("rot", 0)
-				
 				var base_scale_x = cell_size / tex.get_size().x
 				var base_scale_y = cell_size / tex.get_size().y
-				sprite.scale = Vector2(base_scale_x * t_scale.x, base_scale_y * t_scale.y)
-				sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if t_filter == 0 else CanvasItem.TEXTURE_FILTER_LINEAR
-				sprite.rotation = rot_idx * (PI / 2.0)
 				
-				sprite.position = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
-				sprite.offset = (t_off * cell_size) / sprite.scale
-				sprite.z_index = 1
-				sprite.add_to_group("realizer_entity")
-				tile_map_layer.add_child(sprite)
+				_sprites.append({
+					"tex": tex, 
+					"pos": Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0)),
+					"scale": Vector2(base_scale_x * t_scale.x, base_scale_y * t_scale.y),
+					"rot": entity_data.get("rot", 0) * (PI / 2.0),
+					"offset": t_off * cell_size
+				})
 
-		# 3. Render Hitboxes & Indicators
+		# 2. Package Hitboxes & Indicators
 		if show_footprint or (show_sprite and not has_sprite):
 			if e_type == "structure":
 				var struct_color = entity_data.get("color", Color(0.2, 0.6, 1.0, 0.7))
-				var footprint_world = entity_data.get("footprint_world", [])
-				for pt in footprint_world:
-					var pt_rect = ColorRect.new()
-					pt_rect.color = struct_color
-					pt_rect.size = Vector2(cell_size, cell_size)
-					pt_rect.position = Vector2(pt.x * cell_size, pt.y * cell_size)
-					pt_rect.add_to_group("realizer_entity")
-					tile_map_layer.add_child(pt_rect)
+				for pt in entity_data.get("footprint_world", []):
+					_footprints.append({ "rect": Rect2(Vector2(pt) * cell_size, Vector2(cell_size, cell_size)), "color": struct_color })
 			else:
-				var rect = ColorRect.new()
-				var label_to_add = null 
+				var r_color = Color(1.0, 0.8, 0.0, 0.4)
+				var label_text = ""
+				var label_pos = Vector2.ZERO
+				var is_key = false
 				var pid = -1 
 				
 				if e_type == "door":
 					var l_type = entity_data.get("lock_type", "Unlocked")
 					if l_type == "Unlocked": 
-						rect.color = Color(0.8, 0.5, 0.2, 0.9)
+						r_color = Color(0.8, 0.5, 0.2, 0.9)
 					elif l_type.begins_with("Tier "): 
-						rect.color = Color(0.35, 0.35, 0.35, 0.9) # Darker Iron for Contrast
-						
-						# Run exactly once per door clump
+						r_color = Color(0.35, 0.35, 0.35, 0.9) 
 						pid = entity_data.get("portal_id", -1)
 						if pid != -1 and not drawn_door_labels.has(pid):
 							drawn_door_labels[pid] = true
-							
-							label_to_add = Label.new()
-							label_to_add.text = l_type.trim_prefix("Tier ")
-							label_to_add.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-							label_to_add.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-							label_to_add.add_theme_color_override("font_color", Color.WHITE)
-							label_to_add.add_theme_color_override("font_outline_color", Color.BLACK)
-							label_to_add.add_theme_constant_override("outline_size", 16)
-							label_to_add.add_theme_font_size_override("font_size", 100)
+							label_text = l_type.trim_prefix("Tier ")
+							var center_grid = portal_centers[pid]
+							label_pos = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
 					else: 
-						rect.color = Color.from_string(l_type, Color(0.8, 0.5, 0.2, 0.9))
+						r_color = Color.from_string(l_type, Color(0.8, 0.5, 0.2, 0.9))
 						
-				elif e_type == "start_point": rect.color = Color(0.2, 1.0, 0.2, 0.9)
-				elif e_type == "end_point": rect.color = Color(1.0, 0.2, 0.2, 0.9)
+				elif e_type == "start_point": r_color = Color(0.2, 1.0, 0.2, 0.9)
+				elif e_type == "end_point": r_color = Color(1.0, 0.2, 0.2, 0.9)
+				elif e_type == "fringe": r_color = Color(0.2, 0.9, 0.2, 0.8)
 				elif e_type == "key":
-					rect.color = Color.BLACK
-					var inner_rect = ColorRect.new()
-					
+					r_color = Color.BLACK
+					is_key = true
 					var k_col = entity_data.get("key_type", "Red")
+					var inner_c = Color.WHITE
+					
 					if k_col.begins_with("Tier "): 
-						inner_rect.color = Color.WHITE
-						
-						label_to_add = Label.new()
-						label_to_add.text = k_col.trim_prefix("Tier ")
-						label_to_add.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-						label_to_add.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-						label_to_add.add_theme_color_override("font_color", Color.BLACK)
-						label_to_add.add_theme_font_size_override("font_size", 100) 
+						label_text = k_col.trim_prefix("Tier ")
+						label_pos = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
 					else: 
-						inner_rect.color = Color.from_string(k_col, Color.WHITE)
+						inner_c = Color.from_string(k_col, Color.WHITE)
 						
-					rect.add_child(inner_rect)
-				elif e_type == "fringe": rect.color = Color(0.2, 0.9, 0.2, 0.8)
-				else: rect.color = entity_data.get("color", Color(1.0, 0.8, 0.0, 0.4))
-				
-				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point"] else (0.4 if e_type == "fringe" else 0.5))
-				rect.size = Vector2(cell_size * s_mult, cell_size * s_mult)
-				var center_offset = (cell_size - rect.size.x) / 2.0
-				rect.position = Vector2(pos.x * cell_size + center_offset, pos.y * cell_size + center_offset)
-				
-				if rect.get_child_count() > 0 and rect.get_child(0) is ColorRect:
-					var inner = rect.get_child(0)
+					var s_mult = 0.5
 					var b_size = max(1.0, cell_size * 0.06) 
-					inner.position = Vector2(b_size, b_size)
-					inner.size = rect.size - Vector2(b_size * 2, b_size * 2)
-
-				rect.add_to_group("realizer_entity")
-				tile_map_layer.add_child(rect)
+					var out_size = cell_size * s_mult
+					var offset = (cell_size - out_size) / 2.0
+					_footprints.append({ "rect": Rect2(Vector2(pos.x * cell_size + offset + b_size, pos.y * cell_size + offset + b_size), Vector2(out_size - (b_size*2), out_size - (b_size*2))), "color": inner_c })
+					
+				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point"] else (0.4 if e_type == "fringe" else 0.5))
+				var out_size = cell_size * s_mult
+				var offset = (cell_size - out_size) / 2.0
+				_footprints.insert(0, { "rect": Rect2(Vector2(pos.x * cell_size + offset, pos.y * cell_size + offset), Vector2(out_size, out_size)), "color": r_color })
 				
-				if label_to_add:
-					label_to_add.size = Vector2(200, 200) 
-					if e_type == "key":
-						label_to_add.scale = rect.size / 200.0
-						label_to_add.position = rect.position
-					else: 
-						label_to_add.scale = Vector2(cell_size, cell_size) / 200.0
-						var center_grid = portal_centers[pid]
-						var center_world = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
-						label_to_add.position = center_world - (label_to_add.size * label_to_add.scale / 2.0)
-						
-					label_to_add.z_index = 2
-					label_to_add.add_to_group("realizer_entity")
-					tile_map_layer.add_child(label_to_add)
+				if label_text != "":
+					_labels.append({ "text": label_text, "pos": label_pos, "is_key": is_key })
+					
+	queue_redraw()
+
+
+func _draw() -> void:
+	if _show_path:
+		for pt in _crit_path:
+			draw_rect(Rect2(Vector2(pt) * cell_size, Vector2(cell_size, cell_size)), Color(1.0, 0.0, 1.0, 0.4))
+			
+	for fp in _footprints:
+		draw_rect(fp["rect"], fp["color"])
+		
+	for s in _sprites:
+		draw_set_transform(s["pos"], s["rot"], s["scale"])
+		draw_texture(s["tex"], -s["tex"].get_size() / 2.0 + (s["offset"] / s["scale"]))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		
+	var font = ThemeDB.fallback_font
+	for l in _labels:
+		var scale_factor = cell_size / 200.0 if not l["is_key"] else (cell_size * 0.5) / 200.0
+		var color = Color.WHITE if not l["is_key"] else Color.BLACK
+		var outline_color = Color.BLACK if not l["is_key"] else Color.TRANSPARENT
+		var y_nudge = Vector2(0, font.get_ascent(100) / 2.0)
+		
+		draw_set_transform(l["pos"], 0.0, Vector2(scale_factor, scale_factor))
+		if outline_color != Color.TRANSPARENT: draw_string_outline(font, y_nudge, l["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 100, 16, outline_color)
+		draw_string(font, y_nudge, l["text"], HORIZONTAL_ALIGNMENT_CENTER, -1, 100, color)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		
 
 # ==============================================================================
 # GHOST WEB RENDERING
 # ==============================================================================
 func draw_ghost_web(lock_str: String) -> void:
-	if not _ghost_web_layer: return
-	for child in _ghost_web_layer.get_children():
-		child.queue_free()
+	_active_ghost_lock = lock_str
+	_ghost_web_layer.queue_redraw()
+	
+	if _active_ghost_lock == "" or _active_ghost_lock == "Unlocked": return
 		
-	if lock_str == "" or lock_str == "Unlocked": return
-	
-	var key_positions = _key_centers_cache.get(lock_str, [])
-	var door_positions = _door_centers_cache.get(lock_str, [])
-	
-	if key_positions.is_empty() or door_positions.is_empty(): return
-	
-	var web_color = Color.WHITE
-	if not lock_str.begins_with("Tier "):
-		web_color = Color.from_string(lock_str, Color.WHITE)
-		
-	for k_pos in key_positions:
-		for d_pos in door_positions:
-			var line = Line2D.new()
-			line.add_point(k_pos)
-			line.add_point(d_pos)
-			line.width = 6.0
-			line.default_color = web_color
-			line.modulate.a = 0.5
-			line.antialiased = true
-			
-			var core = Line2D.new()
-			core.add_point(k_pos)
-			core.add_point(d_pos)
-			core.width = 2.0
-			core.default_color = Color.WHITE
-			core.antialiased = true
-			
-			line.add_child(core)
-			_ghost_web_layer.add_child(line)
-			
 	if _ghost_tween: _ghost_tween.kill()
 	_ghost_tween = create_tween().set_loops()
 	_ghost_web_layer.modulate.a = 0.2
 	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
 	_ghost_tween.tween_property(_ghost_web_layer, "modulate:a", 0.2, 0.6).set_trans(Tween.TRANS_SINE)
 
+func _on_ghost_web_draw() -> void:
+	if _active_ghost_lock == "" or _active_ghost_lock == "Unlocked": return
+	
+	var key_positions = _key_centers_cache.get(_active_ghost_lock, [])
+	var door_positions = _door_centers_cache.get(_active_ghost_lock, [])
+	
+	if key_positions.is_empty() or door_positions.is_empty(): return
+	
+	var web_color = Color.WHITE
+	if not _active_ghost_lock.begins_with("Tier "):
+		web_color = Color.from_string(_active_ghost_lock, Color.WHITE)
+		
+	for k_pos in key_positions:
+		for d_pos in door_positions:
+			_ghost_web_layer.draw_line(k_pos, d_pos, Color(web_color, 0.5), 6.0, true)
+			_ghost_web_layer.draw_line(k_pos, d_pos, Color.WHITE, 2.0, true)
 
 
+
+# ==============================================================================
+# DEBUG REGEN PREVIEW
+# ==============================================================================
 func clear_debug_regen() -> void:
-	if _debug_regen_layer:
-		for child in _debug_regen_layer.get_children():
-			child.queue_free()
+	_debug_dirty_rect = Rect2i()
+	_debug_wipe_map.clear()
+	if _debug_regen_layer: _debug_regen_layer.queue_redraw()
 
 func draw_regen_preview(dirty_rect: Rect2i, wipe_map: Dictionary) -> void:
-	clear_debug_regen()
-	if not tile_map_layer.tile_set: return
-	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
+	_debug_dirty_rect = dirty_rect
+	_debug_wipe_map = wipe_map
+	_debug_regen_layer.queue_redraw()
 
-	# 1. Draw Wiped Cells (Red)
-	for pt in wipe_map["wipe"]:
-		var cr = ColorRect.new()
-		cr.color = Color(1.0, 0.0, 0.0, 0.6) 
-		cr.size = Vector2(cell_size, cell_size)
-		cr.position = Vector2(pt) * cell_size
-		_debug_regen_layer.add_child(cr)
-
-	# 2. Draw Protected Cells (Green)
-	for pt in wipe_map["protected"]:
-		var cr = ColorRect.new()
-		cr.color = Color(0.0, 1.0, 0.0, 0.6) 
-		cr.size = Vector2(cell_size, cell_size)
-		cr.position = Vector2(pt) * cell_size
-		_debug_regen_layer.add_child(cr)
+func _on_debug_regen_draw() -> void:
+	if _debug_dirty_rect.size == Vector2i.ZERO: return
+	
+	for pt in _debug_wipe_map.get("wipe", []):
+		_debug_regen_layer.draw_rect(Rect2(Vector2(pt) * cell_size, Vector2(cell_size, cell_size)), Color(1.0, 0.0, 0.0, 0.6))
 		
-	# 3. Draw Dirty Rect Outline (Yellow)
-	var rect_lines = Line2D.new()
-	rect_lines.default_color = Color.YELLOW
-	rect_lines.width = 4.0
-	rect_lines.closed = true
-	var p = dirty_rect.position
-	var s = dirty_rect.size
-	rect_lines.add_point(Vector2(p.x, p.y) * cell_size)
-	rect_lines.add_point(Vector2(p.x + s.x, p.y) * cell_size)
-	rect_lines.add_point(Vector2(p.x + s.x, p.y + s.y) * cell_size)
-	rect_lines.add_point(Vector2(p.x, p.y + s.y) * cell_size)
-	_debug_regen_layer.add_child(rect_lines)
+	for pt in _debug_wipe_map.get("protected", []):
+		_debug_regen_layer.draw_rect(Rect2(Vector2(pt) * cell_size, Vector2(cell_size, cell_size)), Color(0.0, 1.0, 0.0, 0.6))
+		
+	var p = _debug_dirty_rect.position
+	var s = _debug_dirty_rect.size
+	var points = PackedVector2Array([
+		Vector2(p.x, p.y) * cell_size,
+		Vector2(p.x + s.x, p.y) * cell_size,
+		Vector2(p.x + s.x, p.y + s.y) * cell_size,
+		Vector2(p.x, p.y + s.y) * cell_size,
+		Vector2(p.x, p.y) * cell_size
+	])
+	_debug_regen_layer.draw_polyline(points, Color.YELLOW, 4.0)

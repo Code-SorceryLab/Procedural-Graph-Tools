@@ -19,6 +19,7 @@ var _val_mutex: Mutex = Mutex.new()
 var _val_state: String = "IDLE" # PLAYING, PAUSED, STEP, FAST_FORWARD
 var _val_batch: int = 10
 var _val_speed_ms: int = 50
+var _val_constant_speed: bool = false
 var _pending_grid: GridData = null
 var _pending_dirty_rect: Rect2i = Rect2i()
 var _cancel_validation: bool = false
@@ -85,7 +86,7 @@ func cancel_validation() -> void:
 		_validator_thread.wait_to_finish()
 	_val_state = "IDLE"
 
-func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int) -> void:
+func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int, constant_speed: bool) -> void:
 	if is_rasterizing or grid == null: return
 	cancel_validation()
 	
@@ -94,7 +95,9 @@ func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, bat
 	_val_state = "PLAYING"
 	_val_batch = batch_size
 	_val_speed_ms = speed_ms
+	_val_constant_speed = constant_speed
 	_pending_grid = null
+	_pending_dirty_rect = Rect2i()
 	_val_mutex.unlock()
 	
 	validation_started.emit()
@@ -108,10 +111,11 @@ func set_val_state(new_state: String) -> void:
 	if not _cancel_validation and _val_state != "IDLE": _val_state = new_state
 	_val_mutex.unlock()
 
-func set_val_params(batch: int, speed_ms: int) -> void:
+func set_val_params(batch: int, speed_ms: int, constant_speed: bool) -> void:
 	_val_mutex.lock()
 	_val_batch = batch
 	_val_speed_ms = speed_ms
+	_val_constant_speed = constant_speed
 	_val_mutex.unlock()
 
 # [PHASE 2] Inject a new grid mid-validation!
@@ -134,6 +138,7 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 		var state = _val_state
 		var batch = _val_batch
 		var speed = _val_speed_ms
+		var is_const = _val_constant_speed
 		var p_grid = _pending_grid
 		var p_rect = _pending_dirty_rect
 		_pending_grid = null
@@ -153,7 +158,7 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 			
 		# Process Execution
 		if state == "PLAYING" or state == "STEP":
-			var payload = validator.step(batch)
+			var payload = validator.step(batch, is_const)
 			call_deferred("_dispatch_payload", payload)
 			if state == "PLAYING": OS.delay_msec(speed)
 			

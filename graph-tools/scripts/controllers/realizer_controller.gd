@@ -27,12 +27,17 @@ var _tooltip_manager: RealizerTooltipManager
 var _renderer: RealizerOverlayRenderer
 var _execution_manager: RealizerExecutionManager
 var _config_manager: RealizerConfigManager
+var _validator_visualizer: ValidatorVisualizer
 
 func _ready() -> void:
 	# 1. Initialize Sub-Managers
 	_renderer = RealizerOverlayRenderer.new()
-	add_child(_renderer)
 	_renderer.setup(tile_map_layer, floor_source_id)
+	
+	# --- ADD THE VISUALIZER ---
+	_validator_visualizer = ValidatorVisualizer.new()
+	_validator_visualizer.z_index = 2 # Float above the floor, below the entities
+	tile_map_layer.add_child(_validator_visualizer)
 	
 	_tooltip_manager = RealizerTooltipManager.new()
 	add_child(_tooltip_manager)
@@ -107,8 +112,11 @@ func _ready() -> void:
 		_execution_manager.set_val_state("FAST_FORWARD")
 	)
 	
-	_validation_tab.speed_changed.connect(func(v): _execution_manager.set_val_params(int(_validation_tab._slider_batch.value), int(v * 1000)))
-	_validation_tab.batch_size_changed.connect(func(v): _execution_manager.set_val_params(v, int(_validation_tab._slider_speed.value * 1000)))
+	_validation_tab.speed_changed.connect(func(v): _execution_manager.set_val_params(int(_validation_tab._slider_batch.value), int(v * 1000), _validation_tab.get_settings()["constant_speed"]))
+	_validation_tab.batch_size_changed.connect(func(v): _execution_manager.set_val_params(v, int(_validation_tab._slider_speed.value * 1000), _validation_tab.get_settings()["constant_speed"]))
+	
+	# Add the live toggle connection:
+	_validation_tab.constant_speed_toggled.connect(func(is_on): _execution_manager.set_val_params(int(_validation_tab._slider_batch.value), int(_validation_tab._slider_speed.value * 1000), is_on))
 	_validation_tab.visualize_toggled.connect(_on_visualize_toggled) 
 	
 	tabs.add_child(_validation_tab)
@@ -142,6 +150,7 @@ func _on_rasterization_started(is_partial: bool = false) -> void:
 		_active_mapping.clear() 
 		_validation_tab.clear_logs()
 		_validation_tab.set_state("IDLE")
+		_validator_visualizer.clear()
 		_renderer.clear_overlays()
 		
 	_tooltip_manager.is_active = false
@@ -211,7 +220,28 @@ func _on_regenerate_selection_pressed() -> void:
 	exec_params["regen_target_nodes"] = final_nodes
 	exec_params["regen_target_edges"] = final_edges
 	
-	# 7. Execute! 
+	# --- Validation Frontier Selection Warning ---
+	if _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
+		var dialog = ConfirmationDialog.new()
+		dialog.title = "Validator Relocation Warning"
+		dialog.dialog_text = "The selected regeneration area physically overlaps the paused Validator's explored fluid.\n\nContinuing will force the Validator to evaporate the fluid inside the blast radius and relocate its frontier.\n\nDo you want to proceed?"
+		dialog.get_ok_button().text = "Regenerate Anyway"
+		
+		# If they click OK, we resume the execution!
+		dialog.confirmed.connect(func():
+			_execution_manager.run_rasterization(graph, exec_params, _config_manager.biome_params, _realizer)
+			dialog.queue_free()
+		)
+		
+		# If they click Cancel, we quietly destroy the dialog and do nothing.
+		dialog.canceled.connect(func(): dialog.queue_free())
+		
+		# Attach the popup to the UI safely and halt the function
+		ui_container.add_child(dialog) 
+		dialog.popup_centered()
+		return 
+		
+	# 7. Execute Normally (No overlap detected, or Validator is idle!)
 	_execution_manager.run_rasterization(graph, exec_params, _config_manager.biome_params, _realizer)
 
 func _on_preview_regen_pressed() -> void:
@@ -295,64 +325,32 @@ func _on_validation_run_requested() -> void:
 		settings["full_explore"], 
 		settings["delay_doors"], 
 		settings["batch_size"], 
-		int(settings["tick_speed"] * 1000)
+		int(settings["tick_speed"] * 1000),
+		settings["constant_speed"]
 	)
 
 func _on_validation_started() -> void:
 	_validation_tab.clear_logs()
 	_validation_tab.set_state("PLAYING")
 	_validator_paint_counter = 0
-	for child in tile_map_layer.get_children():
-		if child.is_in_group("validator_overlay") or child.is_in_group("validator_frontier"):
-			child.queue_free()
+	
+	# Pass the correct tile size to the visualizer
+	if tile_map_layer.tile_set:
+		_validator_visualizer.cell_size = float(tile_map_layer.tile_set.tile_size.x)
+	_validator_visualizer.clear()
 
 func _on_validation_payload(payload: Dictionary) -> void:
 	for msg in payload["logs"]:
 		_validation_tab.append_log(msg)
 		
-	if not tile_map_layer or not tile_map_layer.tile_set: return
-	var cell_size = float(tile_map_layer.tile_set.tile_size.x)
-	var is_vis = _validation_tab.is_visualize_on()
-	
-	# --- FULL REDRAW SUPPORT ---
-	# If the grid was regenerated, we must redraw the ENTIRE surviving puddle from scratch!
 	if payload.get("is_redraw", false):
 		_validator_paint_counter = 0
-		for child in tile_map_layer.get_children():
-			if child.is_in_group("validator_overlay") or child.is_in_group("validator_frontier"):
-				child.queue_free()
+		_validator_visualizer.full_redraw(payload["newly_visited"], payload["frontier"])
 	else:
-		# Otherwise, just clear the old glowing outline
-		for child in tile_map_layer.get_children():
-			if child.is_in_group("validator_frontier"): child.queue_free()
+		_validator_visualizer.update_visualization(payload["newly_visited"], payload["frontier"], _validator_paint_counter)
 		
-	# 2. Draw the new Puddle (Flood fill)
-	for pos in payload["newly_visited"]:
-		var rect = ColorRect.new()
-		var hue = fmod(0.55 + (_validator_paint_counter * 0.0005), 1.0)
-		rect.color = Color.from_hsv(hue, 0.8, 1.0, 0.4) 
-		rect.size = Vector2(cell_size, cell_size)
-		rect.position = Vector2(pos.x * cell_size, pos.y * cell_size)
-		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rect.visible = is_vis 
-		rect.add_to_group("validator_overlay")
-		tile_map_layer.add_child(rect)
-	
 	if payload["newly_visited"].size() > 0:
 		_validator_paint_counter += 1
-		
-	# 3. Draw the new Glowing Frontier
-	for pos in payload["frontier"]:
-		var outline = ReferenceRect.new()
-		outline.editor_only = false
-		outline.border_color = Color.CYAN
-		outline.border_width = 3.0
-		outline.size = Vector2(cell_size, cell_size)
-		outline.position = Vector2(pos.x * cell_size, pos.y * cell_size)
-		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		outline.visible = is_vis 
-		outline.add_to_group("validator_frontier")
-		tile_map_layer.add_child(outline)
 		
 	if payload["is_finished"]:
 		_validation_tab.set_state("IDLE")
@@ -362,9 +360,7 @@ func _on_validation_stop_requested() -> void:
 	_execution_manager.cancel_validation()
 
 func _on_visualize_toggled(is_on: bool) -> void:
-	if tile_map_layer:
-		for child in tile_map_layer.get_children():
-			if child.is_in_group("validator_overlay"): child.visible = is_on
+	_validator_visualizer.set_visible_state(is_on)
 
 # ==============================================================================
 # TIMELINE / VCR RENDERER
@@ -410,6 +406,7 @@ func _on_clear_pressed() -> void:
 	
 	_execution_manager.cancel_validation()
 	_validation_tab.set_state("IDLE")
+	_validator_visualizer.clear()
 		
 	if tile_map_layer:
 		tile_map_layer.clear()
