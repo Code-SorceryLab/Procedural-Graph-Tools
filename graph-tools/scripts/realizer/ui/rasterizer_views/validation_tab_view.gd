@@ -26,6 +26,7 @@ var _chk_visualize: CheckBox
 var _chk_full_explore: CheckBox
 var _chk_delay_doors: CheckBox
 var _chk_constant_speed: CheckBox
+var _chk_re_explore: CheckBox
 
 var _slider_speed: HSlider
 var _slider_batch: HSlider
@@ -134,6 +135,13 @@ func _init() -> void:
 	_chk_delay_doors.text = "Exhaustive Exploration (Delay Doors)"
 	_chk_delay_doors.toggled.connect(func(_p): settings_changed.emit(_chk_full_explore.button_pressed, _chk_delay_doors.button_pressed))
 	
+	# --- RE-EXPLORATION TOGGLE ---
+	_chk_re_explore = CheckBox.new()
+	_chk_re_explore.text = "Re-explore on Regeneration (Amnesia)"
+	_chk_re_explore.button_pressed = false
+	_chk_re_explore.tooltip_text = "When the grid regenerates, the Validator forgets its puddle and drops a single pin at its current location to re-explore the graph, keeping its inventory intact."
+	
+	
 	# --- CONSTANT SPEED TOGGLE ---
 	_chk_constant_speed = CheckBox.new()
 	_chk_constant_speed.text = "Constant Visual Expansion Rate"
@@ -141,9 +149,12 @@ func _init() -> void:
 	_chk_constant_speed.tooltip_text = "Dynamically increases the batch size in open areas so the fluid expands at a constant visual speed."
 	_chk_constant_speed.toggled.connect(func(pressed): constant_speed_toggled.emit(pressed))
 	
+
 	options_vbox.add_child(_chk_full_explore)
 	options_vbox.add_child(_chk_delay_doors)
+	options_vbox.add_child(_chk_re_explore)
 	options_vbox.add_child(_chk_constant_speed)
+	
 	vbox.add_child(options_vbox)
 	
 	var sep = HSeparator.new()
@@ -204,7 +215,8 @@ func get_settings() -> Dictionary:
 		"delay_doors": _chk_delay_doors.button_pressed,
 		"batch_size": int(_slider_batch.value),
 		"tick_speed": float(_slider_speed.value),
-		"constant_speed": _chk_constant_speed.button_pressed
+		"constant_speed": _chk_constant_speed.button_pressed,
+		"re_explore": _chk_re_explore.button_pressed
 	}
 
 func is_visualize_on() -> bool:

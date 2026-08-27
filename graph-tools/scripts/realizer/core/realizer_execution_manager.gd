@@ -22,6 +22,7 @@ var _val_speed_ms: int = 50
 var _val_constant_speed: bool = false
 var _pending_grid: GridData = null
 var _pending_dirty_rect: Rect2i = Rect2i()
+var _pending_re_explore: bool = false
 var _cancel_validation: bool = false
 
 # ==============================================================================
@@ -119,11 +120,12 @@ func set_val_params(batch: int, speed_ms: int, constant_speed: bool) -> void:
 	_val_mutex.unlock()
 
 # [PHASE 2] Inject a new grid mid-validation!
-func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i) -> void:
+func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i, re_explore: bool) -> void:
 	_val_mutex.lock()
 	if _val_state != "IDLE": 
 		_pending_grid = new_grid
 		_pending_dirty_rect = dirty_rect
+		_pending_re_explore = re_explore # <--- Store it
 	_val_mutex.unlock()
 
 # --- THE BACKGROUND LOOP ---
@@ -141,6 +143,7 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 		var is_const = _val_constant_speed
 		var p_grid = _pending_grid
 		var p_rect = _pending_dirty_rect
+		var p_re_explore = _pending_re_explore
 		_pending_grid = null
 		
 		# Auto-pause after single-fire commands
@@ -150,7 +153,7 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 		
 		# Apply Dimensional Shift if requested
 		if p_grid != null:
-			validator.update_world(p_grid, p_rect) 
+			validator.update_world(p_grid, p_rect, p_re_explore)
 			call_deferred("_dispatch_payload", validator.get_redraw_payload())
 			
 		if validator.is_finished:

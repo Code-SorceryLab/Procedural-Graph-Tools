@@ -44,58 +44,75 @@ func _init(initial_grid: GridData, p_full_explore: bool, p_delay_doors: bool) ->
 # ==============================================================================
 # THE DIMENSIONAL SHIFT (Phase 2 Survival)
 # ==============================================================================
-func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i()) -> void:
+func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i(), re_explore: bool = false) -> void:
 	_parse_entities_and_floors(new_grid)
 	
-	# 1. Prune the Puddle (Visited Cells)
-	# Evaporate tiles that are no longer valid floors, OR were caught in the blast radius!
+	# 1. Calculate what survived the blast (Standard Evaporation)
 	var surviving_visited = {}
 	for pt in visited:
 		var evaporated = false
 		if not valid_floors.has(pt): evaporated = true
 		if dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt): evaporated = true
-		
-		if not evaporated:
-			surviving_visited[pt] = true
-	visited = surviving_visited
-	
-	# 2. Prune the Frontier (Queue)
+		if not evaporated: surviving_visited[pt] = true
+			
 	var surviving_queue_map = {}
 	for pt in queue:
 		var evaporated = false
 		if not valid_floors.has(pt): evaporated = true
 		if dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt): evaporated = true
-		if surviving_visited.has(pt): evaporated = true # Don't queue tiles that are already safely visited
-		
-		if not evaporated:
-			surviving_queue_map[pt] = true
+		if surviving_visited.has(pt): evaporated = true 
+		if not evaporated: surviving_queue_map[pt] = true
 			
-	# 3. RE-IGNITE THE FRONTIER
-	# If the puddle was sheared cleanly by the dirty rect, the surviving tiles on the border 
-	# must be woken up so they pour back into the newly generated room!
-	for pt in visited.keys():
-		for d in ortho:
-			var n = pt + d
-			if valid_floors.has(n) and not visited.has(n):
-				surviving_queue_map[pt] = true # Wake up the border tile!
+	# --- [NEW] FEATURE 3: AMNESIA PROTOCOL ---
+	if re_explore:
+		var anchor = Vector2i(-1, -1)
+		
+		# Grab the MOST RECENT step the fluid took that survived the blast
+		var visited_keys = visited.keys()
+		for i in range(visited_keys.size() - 1, -1, -1):
+			if surviving_visited.has(visited_keys[i]):
+				anchor = visited_keys[i]
 				break
 				
-	queue = surviving_queue_map.keys()
-	
-	# 4. Prune Pending Unlocks
-	var surviving_pending = []
-	for pt in pending_unlocks:
-		if valid_floors.has(pt) and doors_in_world.has(pt) and not (dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt)):
-			surviving_pending.append(pt)
-	pending_unlocks = surviving_pending
-	
-	# 5. Prune Stuck Doors
-	for k in stuck_doors.keys():
-		var surviving_stuck = []
-		for pt in stuck_doors[k]:
+		# Fallbacks just in case the player was completely annihilated
+		if anchor == Vector2i(-1, -1) and surviving_queue_map.size() > 0: anchor = surviving_queue_map.keys()[0]
+		if anchor == Vector2i(-1, -1): anchor = start_pos 
+			
+		# TOTAL AMNESIA (But keep the inventory!)
+		visited.clear()
+		queue.clear()
+		stuck_doors.clear() # Clear memory of locked doors so we discover them again!
+		pending_unlocks.clear()
+		
+		# DROP THE PIN
+		if valid_floors.has(anchor):
+			queue.append(anchor)
+			visited[anchor] = true
+			log_messages.append("[color=orange]Re-exploration triggered! Dropped pin at current position: " + str(anchor) + "[/color]")
+			
+	else:
+		# --- STANDARD RE-IGNITION PROTOCOL ---
+		visited = surviving_visited
+		for pt in visited.keys():
+			for d in ortho:
+				var n = pt + d
+				if valid_floors.has(n) and not visited.has(n):
+					surviving_queue_map[pt] = true 
+					break
+		queue = surviving_queue_map.keys()
+		
+		var surviving_pending = []
+		for pt in pending_unlocks:
 			if valid_floors.has(pt) and doors_in_world.has(pt) and not (dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt)):
-				surviving_stuck.append(pt)
-		stuck_doors[k] = surviving_stuck
+				surviving_pending.append(pt)
+		pending_unlocks = surviving_pending
+		
+		for k in stuck_doors.keys():
+			var surviving_stuck = []
+			for pt in stuck_doors[k]:
+				if valid_floors.has(pt) and doors_in_world.has(pt) and not (dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt)):
+					surviving_stuck.append(pt)
+			stuck_doors[k] = surviving_stuck
 
 # ==============================================================================
 # THE VCR ENGINE

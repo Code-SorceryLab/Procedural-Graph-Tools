@@ -313,7 +313,8 @@ func _on_rasterization_finished(realizer: GraphRealizer, report: Dictionary) -> 
 	# --- [PHASE 2 INJECTION] ---
 	if _execution_manager.is_validation_running():
 		var dirty_rect = _realizer.get_meta("regen_dirty_rect") if _realizer.has_meta("regen_dirty_rect") else Rect2i()
-		_execution_manager.update_validation_grid(_realizer.grid, dirty_rect)
+		var re_explore = _validation_tab.get_settings().get("re_explore", false)
+		_execution_manager.update_validation_grid(_realizer.grid, dirty_rect, re_explore)
 
 func _on_validation_run_requested() -> void:
 	if _execution_manager.is_rasterizing: return
