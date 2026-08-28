@@ -37,10 +37,47 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 	# --- 2. Resolve Start and End Points ---
 	var pref_start = params.get("progression_preferred_start", "Any")
 	var pref_end = params.get("progression_preferred_end", "Any")
+	var cell_to_region = map_data.get("cell_to_region", {})
 	
-	# Fetch the Archives!
-	var archived_start = map_data.get("archived_start", -1)
-	var archived_end = map_data.get("archived_end", -1)
+	# ==========================================================================
+	# PHYSICAL GROUND TRUTH & ARCHIVE RECOVERY
+	# ==========================================================================
+	var existing_start_pos = Vector2i(-1, -1)
+	var existing_end_pos = Vector2i(-1, -1)
+	
+	for pos in grid.entities:
+		var type = grid.entities[pos].get("type", "")
+		if type == "start_point": existing_start_pos = pos
+		elif type == "end_point": existing_end_pos = pos
+
+	# If the entity was vaporized by the dirty rect, we recover its old coordinate!
+	var archived_start_pos = params.get("_archived_start_pos", Vector2i(-1, -1))
+	var archived_end_pos = params.get("_archived_end_pos", Vector2i(-1, -1))
+
+	# Helper to find the nearest surviving Region ID from an old coordinate
+	var get_region_from_pos = func(pos: Vector2i) -> int:
+		if pos == Vector2i(-1, -1): return -1
+		# Spiral search up to 5 tiles away in case the exact pixel became a wall
+		for radius in range(6):
+			for dy in range(-radius, radius + 1):
+				for dx in range(-radius, radius + 1):
+					var p = pos + Vector2i(dx, dy)
+					if cell_to_region.has(p): return cell_to_region[p]
+		return -1
+
+	var recovered_start_region = get_region_from_pos.call(archived_start_pos)
+	var recovered_end_region = get_region_from_pos.call(archived_end_pos)
+
+	# Helper: Ensure a region ACTUALLY has room for an entity!
+	var is_region_spawnable = func(r_id: int) -> bool:
+		if not regions.has(r_id): return false
+		for pos in regions[r_id]:
+			if not realizer.reserved_cells.has(pos) and not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
+				return true
+		return false
+
+	var spawnable_regions = valid_regions.filter(func(r): return is_region_spawnable.call(r))
+	if spawnable_regions.is_empty(): spawnable_regions = valid_regions # Absolute fallback
 	
 	var get_r_biomes = func(r_id):
 		var b_dict = {}
@@ -49,43 +86,56 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 			if realizer.floor_to_semantic.has(cid): b_dict[realizer.floor_to_semantic[cid]] = true
 		return b_dict
 
+	# ==========================================================================
 	# START REGION
+	# ==========================================================================
 	var start_region = -1
 	var start_tag = "Fallback (Random)"
 	var need_spawn_start = true
 	
-	# [NEW] Pre-existing Start Point Detection
-	if archived_start != -1 and valid_regions.has(archived_start):
-		start_region = archived_start
+	if existing_start_pos != Vector2i(-1, -1) and cell_to_region.has(existing_start_pos):
+		# 1. GROUND TRUTH: The entity safely survived the blast radius!
+		start_region = cell_to_region[existing_start_pos]
 		start_tag = "Preserved Spawn"
-		need_spawn_start = false # It physically survived, so skip stamping a duplicate!
+		need_spawn_start = false
+	elif recovered_start_region != -1 and valid_regions.has(recovered_start_region) and is_region_spawnable.call(recovered_start_region):
+		# 2. RECOVERY: The entity was vaporized, but we found the new room built in its place!
+		start_region = recovered_start_region
+		start_tag = "Recovered Spawn"
+		need_spawn_start = true
 	else:
+		# 3. FALLBACK: Pick a new room from SPAWNABLE regions!
 		if pref_start != "Any":
-			var matches = valid_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
+			var matches = spawnable_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
 			if matches.size() > 0:
 				start_region = SeedUtils.pick_random(matches, rng)
 				start_tag = "Preferred Biome"
 				
 		if start_region == -1: 
-			var multi_door = valid_regions.filter(func(r): return region_adj[r].size() > 1)
+			var multi_door = spawnable_regions.filter(func(r): return region_adj[r].size() > 1)
 			if multi_door.size() > 0:
 				start_region = SeedUtils.pick_random(multi_door, rng)
 				start_tag = "Fallback (Multi-Door)"
 			else:
-				start_region = SeedUtils.pick_random(valid_regions, rng)
+				start_region = SeedUtils.pick_random(spawnable_regions, rng)
 				start_tag = "Fallback (Leaf)"
 			
+	# ==========================================================================
 	# END REGION
-	var end_candidates = valid_regions.filter(func(r): return r != start_region)
+	# ==========================================================================
+	var end_candidates = spawnable_regions.filter(func(r): return r != start_region)
 	var end_region = -1
 	var end_tag = "Fallback (Random)"
 	var need_spawn_end = true
 	
-	# [NEW] Pre-existing End Point Detection
-	if archived_end != -1 and valid_regions.has(archived_end) and (archived_end != start_region or valid_regions.size() == 1):
-		end_region = archived_end
+	if existing_end_pos != Vector2i(-1, -1) and cell_to_region.has(existing_end_pos) and (cell_to_region[existing_end_pos] != start_region or valid_regions.size() == 1):
+		end_region = cell_to_region[existing_end_pos]
 		end_tag = "Preserved Exit"
-		need_spawn_end = false # It physically survived!
+		need_spawn_end = false
+	elif recovered_end_region != -1 and valid_regions.has(recovered_end_region) and is_region_spawnable.call(recovered_end_region) and (recovered_end_region != start_region or valid_regions.size() == 1):
+		end_region = recovered_end_region
+		end_tag = "Recovered Exit"
+		need_spawn_end = true
 	elif end_candidates.is_empty():
 		end_region = start_region
 		end_tag = "Fallback (Single Room Graph)"
@@ -110,8 +160,18 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 				end_region = SeedUtils.pick_random(end_candidates, rng)
 				end_tag = "Fallback Cycle Node"
 			
-	if need_spawn_start: spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
-	if need_spawn_end and end_region != -1: spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
+	# --- EXECUTIONS ---
+	print("--- [DEBUG: PROGRESSION SOLVER] ---")
+	print("Start Region ID: ", start_region, " | Need Spawn: ", need_spawn_start)
+	if need_spawn_start: 
+		var s_success = spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
+		print("  -> Start Point Placement Success: ", s_success)
+		
+	print("End Region ID: ", end_region, " | Need Spawn: ", need_spawn_end)
+	if need_spawn_end and end_region != -1: 
+		var e_success = spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
+		print("  -> End Point Placement Success: ", e_success)
+	print("-----------------------------------")
 	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 
@@ -143,10 +203,32 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 # Shared Utility for PathingAnalyst and Locker
 static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator, placement_method: String = "default") -> bool:
 	var valid_cells = []
+	var total_cells = 0
+	var blocked_reserved = 0
+	var blocked_critical = 0
+	var blocked_entity = 0
+	
 	for r_id in valid_region_ids:
-		for pos in regions[r_id]:
-			if not realizer.reserved_cells.has(pos) and not realizer.critical_path_cells.has(pos) and not realizer.grid.entities.has(pos):
+		if not regions.has(r_id):
+			print("  [WARNING] Region ID ", r_id, " not found in regions dictionary!")
+			continue
+			
+		var reg_cells = regions[r_id]
+		total_cells += reg_cells.size()
+		
+		for pos in reg_cells:
+			if realizer.reserved_cells.has(pos):
+				blocked_reserved += 1
+			elif realizer.critical_path_cells.has(pos):
+				blocked_critical += 1
+			elif realizer.grid.entities.has(pos):
+				blocked_entity += 1
+			else:
 				valid_cells.append(pos)
+				
+	print("  [", e_type, "] Scanning Regions: ", valid_region_ids)
+	print("    Total Cells: ", total_cells, " | Valid: ", valid_cells.size())
+	print("    Blocked by -> Reserved (Custom Rooms/Structs): ", blocked_reserved, " | Critical (Corridors): ", blocked_critical, " | Entities: ", blocked_entity)
 			
 	if valid_cells.size() > 0:
 		var chosen = SeedUtils.pick_random(valid_cells, rng)
@@ -158,6 +240,7 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 		}
 		realizer.reserved_cells[chosen] = true
 		return true
+		
 	return false
 
 static func _find_spine_path(start: int, end: int, adj: Dictionary) -> Array:

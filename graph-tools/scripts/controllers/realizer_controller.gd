@@ -177,6 +177,107 @@ func _on_rasterization_started(is_partial: bool = false) -> void:
 	_tooltip_manager.is_active = false
 	_realizer = _execution_manager.current_realizer
 
+# ==============================================================================
+# REGENERATION PIPELINE (DRY REFACTOR)
+# ==============================================================================
+
+func _calculate_infected_topology(initial_nodes: Array, initial_edges: Array) -> Dictionary:
+	var inf_nodes_dict = {}
+	var inf_edges_dict = {}
+	for n in initial_nodes: inf_nodes_dict[n] = true
+	for e in initial_edges: inf_edges_dict[e] = true
+	
+	var graph = graph_editor.graph
+	
+	# Pass 1: Topological (Infect immediate edges)
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	# Pass 2: Spatial (Infect unselected nodes that physically overlap)
+	var shared_infection = DynamicRegenUtils.get_exact_overlapping_topology(_realizer, inf_nodes_dict.keys(), inf_edges_dict.keys())
+	for n in shared_infection["nodes"]: inf_nodes_dict[n] = true
+	for e in shared_infection["edges"]: inf_edges_dict[e] = true
+		
+	# Pass 3: Topological (Infect edges of the newly discovered spatial nodes)
+	for edge_key in graph.edge_store:
+		var edge = graph.edge_store[edge_key]
+		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
+			var sp = [edge.u, edge.v]; sp.sort()
+			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+			
+	return {
+		"nodes": inf_nodes_dict.keys(),
+		"edges": inf_edges_dict.keys()
+	}
+
+func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, trigger_data: Dictionary = {}) -> void:
+	# 1. Expand the topology to find the true blast radius
+	var infected = _calculate_infected_topology(initial_nodes, initial_edges)
+	var final_nodes = infected["nodes"]
+	var final_edges = infected["edges"]
+	
+	var graph = graph_editor.graph
+	
+	# 2. Get the Dirty Rect
+	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph, final_nodes, final_edges)
+	if dirty_rect.size == Vector2i.ZERO:
+		print("Warning: The targeted elements are not currently rendered on the grid.")
+		return
+		
+	# 3. Pack Base Execution Params
+	var exec_params = _config_manager.get_execution_params()
+	exec_params["regen_dirty_rect"] = dirty_rect
+	exec_params["regen_target_nodes"] = final_nodes
+	exec_params["regen_target_edges"] = final_edges
+	
+	var raw_biomes = _config_manager.biome_params.duplicate(true)
+	
+	# 4. MERGE TRIGGER OVERRIDES (If provided)
+	if not trigger_data.is_empty():
+		var globals = trigger_data.get("global_overrides", {})
+		for k in globals: exec_params[k] = globals[k]
+			
+		if trigger_data.has("global_spawn_decks"):
+			exec_params["global_spawn_decks"] = trigger_data["global_spawn_decks"]
+		if trigger_data.has("global_room_decks"):
+			exec_params["global_room_decks"] = trigger_data["global_room_decks"]
+			
+		var trigger_biomes = trigger_data.get("biome_overrides", {})
+		var base_biomes = exec_params.get("biomes", {})
+		
+		# Merge trigger sandbox edits into the engine's dictionaries!
+		for b_key in trigger_biomes:
+			base_biomes[b_key] = trigger_biomes[b_key]
+			raw_biomes[b_key] = trigger_biomes[b_key] 
+			
+		exec_params["biomes"] = base_biomes
+	
+	# 5. Inject Temporal State (The Player's Memory)
+	if _execution_manager.is_validation_running():
+		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
+		
+	# 6. Validation Frontier Selection Warning (Oracle Warning)
+	if _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
+		var dialog = ConfirmationDialog.new()
+		dialog.title = "Validator Relocation Warning"
+		dialog.dialog_text = "The selected regeneration area physically overlaps the paused Validator's explored fluid.\n\nContinuing will force the Validator to evaporate the fluid inside the blast radius and relocate its frontier.\n\nDo you want to proceed?"
+		dialog.get_ok_button().text = "Regenerate Anyway"
+		
+		dialog.confirmed.connect(func():
+			_execution_manager.run_rasterization(graph, exec_params, raw_biomes, _realizer)
+			dialog.queue_free()
+		)
+		dialog.canceled.connect(func(): dialog.queue_free())
+		
+		ui_container.add_child(dialog) 
+		dialog.popup_centered()
+		return 
+		
+	# 7. Execute Normally
+	_execution_manager.run_rasterization(graph, exec_params, raw_biomes, _realizer)
 
 func _on_regenerate_selection_pressed() -> void:
 	if _execution_manager.is_rasterizing: return
@@ -193,81 +294,13 @@ func _on_regenerate_selection_pressed() -> void:
 		print("Warning: Select nodes or edges in the Graph Editor to regenerate them.")
 		return
 		
-	# 1. Format the Input
-	var inf_nodes_dict = {}
-	var inf_edges_dict = {}
-	
-	for n in selected_nodes: inf_nodes_dict[n] = true
+	# Convert raw edge arrays to string keys
+	var initial_edges = []
 	for pair in selected_edges_raw:
 		var sp = pair.duplicate(); sp.sort()
-		inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+		initial_edges.append(str(sp[0]) + "_" + str(sp[1]))
 		
-	var graph = graph_editor.graph
-		
-	# 2. TOPOLOGICAL INFECTION: If a Node is regenerating, its edges MUST regenerate,
-	# otherwise it becomes an island!
-	for edge_key in graph.edge_store:
-		var edge = graph.edge_store[edge_key]
-		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
-			var sp = [edge.u, edge.v]; sp.sort()
-			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
-			
-	# 3. SPATIAL INFECTION: If another room/corridor physically merged with our targets, 
-	# they must be regenerated too to prevent visual shearing.
-	var shared_infection = DynamicRegenUtils.get_exact_overlapping_topology(_realizer, inf_nodes_dict.keys(), inf_edges_dict.keys())
-	for n in shared_infection["nodes"]: inf_nodes_dict[n] = true
-	for e in shared_infection["edges"]: inf_edges_dict[e] = true
-		
-	# 4. TOPOLOGICAL INFECTION (Pass 2): Auto-infect edges of any newly discovered spatial nodes
-	for edge_key in graph.edge_store:
-		var edge = graph.edge_store[edge_key]
-		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
-			var sp = [edge.u, edge.v]; sp.sort()
-			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
-			
-	var final_nodes = inf_nodes_dict.keys()
-	var final_edges = inf_edges_dict.keys()
-	
-	# 5. Get the bounding box encompassing OLD raster and NEW graph positions
-	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph, final_nodes, final_edges)
-	
-	if dirty_rect.size == Vector2i.ZERO:
-		print("Warning: The selected elements are not currently rendered on the grid.")
-		return
-		
-	# 6. Pack Execution Params
-	var exec_params = _config_manager.get_execution_params()
-	exec_params["regen_dirty_rect"] = dirty_rect
-	exec_params["regen_target_nodes"] = final_nodes
-	exec_params["regen_target_edges"] = final_edges
-	
-	# --- TEMPORAL STATE INJECTION ---
-	if _execution_manager.is_validation_running():
-		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
-		
-	# --- Validation Frontier Selection Warning ---
-	if _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
-		var dialog = ConfirmationDialog.new()
-		dialog.title = "Validator Relocation Warning"
-		dialog.dialog_text = "The selected regeneration area physically overlaps the paused Validator's explored fluid.\n\nContinuing will force the Validator to evaporate the fluid inside the blast radius and relocate its frontier.\n\nDo you want to proceed?"
-		dialog.get_ok_button().text = "Regenerate Anyway"
-		
-		# If they click OK, we resume the execution!
-		dialog.confirmed.connect(func():
-			_execution_manager.run_rasterization(graph, exec_params, _config_manager.biome_params, _realizer)
-			dialog.queue_free()
-		)
-		
-		# If they click Cancel, we quietly destroy the dialog and do nothing.
-		dialog.canceled.connect(func(): dialog.queue_free())
-		
-		# Attach the popup to the UI safely and halt the function
-		ui_container.add_child(dialog) 
-		dialog.popup_centered()
-		return 
-		
-	# 7. Execute Normally (No overlap detected, or Validator is idle!)
-	_execution_manager.run_rasterization(graph, exec_params, _config_manager.biome_params, _realizer)
+	_execute_partial_regeneration(selected_nodes.duplicate(), initial_edges)
 
 func _on_preview_regen_pressed() -> void:
 	if _execution_manager.is_rasterizing: return
@@ -278,40 +311,17 @@ func _on_preview_regen_pressed() -> void:
 	var selected_edges_raw = graph_editor.selected_edges
 	if selected_nodes.is_empty() and selected_edges_raw.is_empty(): return
 		
-	var inf_nodes_dict = {}
-	var inf_edges_dict = {}
-	for n in selected_nodes: inf_nodes_dict[n] = true
+	var initial_edges = []
 	for pair in selected_edges_raw:
 		var sp = pair.duplicate(); sp.sort()
-		inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
+		initial_edges.append(str(sp[0]) + "_" + str(sp[1]))
 		
-	var graph = graph_editor.graph
-	for edge_key in graph.edge_store:
-		var edge = graph.edge_store[edge_key]
-		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
-			var sp = [edge.u, edge.v]; sp.sort()
-			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
-			
-	var shared_infection = DynamicRegenUtils.get_exact_overlapping_topology(_realizer, inf_nodes_dict.keys(), inf_edges_dict.keys())
-	for n in shared_infection["nodes"]: inf_nodes_dict[n] = true
-	for e in shared_infection["edges"]: inf_edges_dict[e] = true
-		
-	for edge_key in graph.edge_store:
-		var edge = graph.edge_store[edge_key]
-		if inf_nodes_dict.has(edge.u) or inf_nodes_dict.has(edge.v):
-			var sp = [edge.u, edge.v]; sp.sort()
-			inf_edges_dict[str(sp[0]) + "_" + str(sp[1])] = true
-			
-	var final_nodes = inf_nodes_dict.keys()
-	var final_edges = inf_edges_dict.keys()
+	var infected = _calculate_infected_topology(selected_nodes, initial_edges)
 	
-	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph, final_nodes, final_edges)
+	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph_editor.graph, infected["nodes"], infected["edges"])
 	if dirty_rect.size == Vector2i.ZERO: return
 	
-	# Fetch the theoretical wipe map!
-	var wipe_map = DynamicRegenUtils.get_wipe_map(_realizer, dirty_rect, final_nodes, final_edges)
-	
-	# Draw it!
+	var wipe_map = DynamicRegenUtils.get_wipe_map(_realizer, dirty_rect, infected["nodes"], infected["edges"])
 	_renderer.draw_regen_preview(dirty_rect, wipe_map)
 
 
@@ -475,50 +485,14 @@ func _on_trigger_test_requested(t_id: String) -> void:
 	if not _active_triggers.has(t_id): return
 	var t_data = _active_triggers[t_id]
 	
-	var final_nodes = t_data.get("target_nodes", [])
-	var final_edges = t_data.get("target_edges", [])
+	var initial_nodes = t_data.get("target_nodes", [])
+	var initial_edges = t_data.get("target_edges", [])
 	
-	if final_nodes.is_empty() and final_edges.is_empty():
+	if initial_nodes.is_empty() and initial_edges.is_empty():
 		print("Warning: Trigger has no assigned nodes or edges in its Mask.")
 		return
 		
-	# 1. Get the Dirty Rect (Validation Area)
-	var dirty_rect = DynamicRegenUtils.get_dirty_rect(_realizer, graph_editor.graph, final_nodes, final_edges)
-	if dirty_rect.size == Vector2i.ZERO:
-		print("Warning: The trigger targets are not currently rendered on the grid.")
-		return
-		
-	# 2. Pack Base Execution Params
-	var exec_params = _config_manager.get_execution_params()
-	exec_params["regen_dirty_rect"] = dirty_rect
-	exec_params["regen_target_nodes"] = final_nodes
-	exec_params["regen_target_edges"] = final_edges
-	
-	# 3. MERGE TRIGGER OVERRIDES
-	# Apply Global Overrides (Seed, Locks, etc.)
-	var globals = t_data.get("global_overrides", {})
-	for k in globals: exec_params[k] = globals[k]
-		
-	# --- INJECT SANDBOXED DECKS ---
-	if t_data.has("global_spawn_decks"):
-		exec_params["global_spawn_decks"] = t_data["global_spawn_decks"]
-	if t_data.has("global_room_decks"):
-		exec_params["global_room_decks"] = t_data["global_room_decks"]
-		
-	# Apply Biome Overrides (Tile aesthetics, Room Shapes)
-	var trigger_biomes = t_data.get("biome_overrides", {})
-	var base_biomes = exec_params.get("biomes", {})
-	# The Trigger's custom biome rules completely overwrite the base rules for this payload!
-	for b_key in trigger_biomes:
-		base_biomes[b_key] = trigger_biomes[b_key]
-	exec_params["biomes"] = base_biomes
-	
-	# 4. Inject Temporal State (The Player's Memory & Wake)
-	if _execution_manager.is_validation_running():
-		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
-		
-	# 5. Fire!
-	_execution_manager.run_rasterization(graph_editor.graph, exec_params, _config_manager.biome_params, _realizer)
+	_execute_partial_regeneration(initial_nodes, initial_edges, t_data)
 
 func _on_trigger_edit_settings_requested(t_id: String) -> void:
 	if _active_triggers.has(t_id):

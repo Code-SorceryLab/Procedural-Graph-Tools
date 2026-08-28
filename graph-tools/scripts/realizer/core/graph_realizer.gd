@@ -75,6 +75,12 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		grid = GridData.new(grid_w, grid_h, palette)
 	else:
 		# --- DYNAMIC REGENERATION (Clone the old state!) ---
+		# Stash the vital entities BEFORE the wipe map deletes them!
+		for pos in old_realizer.grid.entities:
+			var type = old_realizer.grid.entities[pos].get("type", "")
+			if type == "start_point": params["_archived_start_pos"] = pos
+			elif type == "end_point": params["_archived_end_pos"] = pos
+			
 		grid = GridData.new(old_realizer.grid.width, old_realizer.grid.height, palette)
 		grid.cells = old_realizer.grid.cells.duplicate()
 		grid.cell_atlas_overrides = old_realizer.grid.cell_atlas_overrides.duplicate(true)

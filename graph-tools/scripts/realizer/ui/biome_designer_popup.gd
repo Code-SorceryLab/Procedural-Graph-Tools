@@ -262,15 +262,13 @@ func open_for_trigger(trigger_id: String, trigger_data: Dictionary) -> void:
 	
 	title = "Trigger Designer: " + trigger_data.get("name", "Trigger")
 	
-	# [FIXED] Fetch the MarginContainer (the direct child of the TabContainer)
 	var trigger_tab_margin = tab_trigger.get_parent()
 	tab_container.set_tab_hidden(tab_container.get_tab_idx_from_control(trigger_tab_margin), false)
 	
-	# Map the trigger's sandbox data into the UI
+	# 1. MAP SANDBOX DATA (The Trigger's local memory)
 	global_params = _current_trigger_data.get("global_overrides", {})
 	biome_overrides = _current_trigger_data.get("biome_overrides", {})
 	
-	# --- [FIXED] Load Decks from Sandbox if they exist, otherwise fallback to master ---
 	if _current_trigger_data.has("global_spawn_decks"):
 		global_spawn_decks = _current_trigger_data["global_spawn_decks"].duplicate(true)
 	else:
@@ -281,10 +279,12 @@ func open_for_trigger(trigger_id: String, trigger_data: Dictionary) -> void:
 	else:
 		global_room_decks = ConfigManager.load_room_decks()
 	
+	# 2. LOAD READ-ONLY REFERENCES (So dropdowns work)
 	custom_structures = ConfigManager.load_structures()
 	scatter_sets = ConfigManager.load_scatter_sets()
 	custom_rooms = ConfigManager.load_custom_rooms()
 	
+	# 3. FALLBACKS & UI SETUP
 	if global_room_decks.is_empty():
 		var p_id = "node_fallback"
 		global_room_decks[p_id] = { "id": p_id, "parent_id": "", "type": "pool", "name": "Standard Rooms", "mode": 0, "quota_min": 1, "quota_max": 1, "scope": 0 }
