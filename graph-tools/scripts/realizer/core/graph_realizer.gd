@@ -147,7 +147,7 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	WallGenerator.generate(graph, self, params, wall_id, semantic_wall_map) 
 	emit.call("Generating Outer Walls")
 	
-	TexturalWFCPass.apply(self, params)
+	TexturalWFCPass.apply(self, params, emit)
 	emit.call("Applying Organic Textural WFC")
 	
 	# --- Run a headless validation pass (full_explore = true, delay_doors = false) ---

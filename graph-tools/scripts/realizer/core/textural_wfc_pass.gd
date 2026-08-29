@@ -1,7 +1,7 @@
 class_name TexturalWFCPass
 extends RefCounted
 
-static func apply(realizer: GraphRealizer, params: Dictionary) -> void:
+static func apply(realizer: GraphRealizer, params: Dictionary, emit: Callable = Callable()) -> void:
 	var grid = realizer.grid
 	var biomes = params.get("biomes", {})
 	var patterns = params.get("tile_wfc_patterns", {})
@@ -134,5 +134,8 @@ static func apply(realizer: GraphRealizer, params: Dictionary) -> void:
 			print("[WFC Debug] Palette %s | Fallback cells: %d" % [palette_ref, fallback_used])
 					
 		print("[WFC Timer] Palette %s | Total: %d us" % [palette_ref, Time.get_ticks_usec() - t_total_start])
+		if emit.is_valid():
+		# Snapshot the current state under a region-specific name
+			emit.call("Textural WFC: " + palette_ref)
 	
 	realizer.set_meta("metric_wfc_contradictions", metric_wfc_contradictions)
