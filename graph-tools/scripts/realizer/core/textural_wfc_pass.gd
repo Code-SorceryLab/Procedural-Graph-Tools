@@ -40,35 +40,41 @@ static func apply(realizer: GraphRealizer, params: Dictionary) -> void:
 	
 	# 2. Run the 1x1 Overlapping Solver for each territory!
 	for palette_ref in wfc_tasks:
+		var t_total_start = Time.get_ticks_usec()
 		var target_cells = wfc_tasks[palette_ref]
 		var p_data = patterns[palette_ref]
 		var n_size = p_data.get("n_size", 3)
-		
+
 		var valid_targets = {}
 		for pos in target_cells: valid_targets[pos] = true
-		
+
 		# --- PREPARE VARIABLES ---
 		var is_seamless = p_data.get("seamless", false)
 		var base_fill_mode = p_data.get("base_fill", 1)
 		var wall_aware = p_data.get("wall_aware", true)
 		var allow_rots = p_data.get("rotations", false)
 		var allow_refs = p_data.get("reflections", false)
-		
+
+		var t_extract_start = Time.get_ticks_usec()
 		var modules = WFCPatternExtractor.extract(
-			p_data.get("sample_grid", {}), 
-			p_data.get("width", 10), p_data.get("height", 10), 
+			p_data.get("sample_grid", {}),
+			p_data.get("width", 10), p_data.get("height", 10),
 			n_size, is_seamless, base_fill_mode, allow_rots, allow_refs
 		)
+		var t_extract_end = Time.get_ticks_usec()
+		print("[WFC Timer] Palette %s | Extract: %d us" % [palette_ref, t_extract_end - t_extract_start])
+
 		
+
 		# --- FIXED WALL CONSTRAINTS ---
 		var expanded_sockets = {}
 		var fixed_pixels = {}
-		
+
 		for pos in target_cells:
 			for dy in range(-n_size + 1, 1):
 				for dx in range(-n_size + 1, 1):
 					expanded_sockets[pos + Vector2i(dx, dy)] = true
-					
+
 		if wall_aware:
 			for s_pos in expanded_sockets:
 				for dy in range(n_size):
@@ -76,53 +82,57 @@ static func apply(realizer: GraphRealizer, params: Dictionary) -> void:
 						var world_pt = s_pos + Vector2i(dx, dy)
 						if not valid_targets.has(world_pt):
 							fixed_pixels[world_pt] = WFCPatternExtractor.CELL_BOUNDARY
-							
-		# Run the Solver
+
+		# --- DEBUG: Coverage before solve ---
+		print("[WFC Debug] Palette %s | Interior cells: %d | Expanded sockets: %d" % [
+			palette_ref, target_cells.size(), expanded_sockets.size()
+		])
+
+		var t_solve_start = Time.get_ticks_usec()
 		var payload = WFCSolver.resolve(expanded_sockets.keys(), rng, modules, 1, fixed_pixels)
+		var t_solve_end = Time.get_ticks_usec()
+		print("[WFC Timer] Palette %s | Solve: %d us" % [palette_ref, t_solve_end - t_solve_start])
+		
+		
+		# --- DEBUG: Coverage after solve ---
+		var generated_exact = 0
+		if payload.has("exact_floors"):
+			generated_exact = payload["exact_floors"].size()
+		print("[WFC Debug] Palette %s | Generated exact cells: %d" % [palette_ref, generated_exact])
 		
 		# 3. Stamp the resulting exact atlas tiles onto the floor!
-		if payload.is_empty():
-			metric_wfc_contradictions += 1
+		var stamped_cells = {}
+		if payload.has("exact_floors"):
+			for pt in payload["exact_floors"]:
+				if not valid_targets.has(pt):
+					continue
+				if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt):
+					continue
+
+				var atlas_coord = payload["exact_floors"][pt]
+				if atlas_coord.x < 0 or atlas_coord.y < 0:
+					continue
+
+				grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), atlas_coord)
+				stamped_cells[pt] = true
+
+		# Fill any remaining valid interior cells with the fallback tile if needed
+		if stamped_cells.size() < target_cells.size():
 			if p_data.get("fallback_mode", 0) == 1:
 				var f_atlas = p_data.get("fallback_atlas", Vector2i.ZERO)
 				for pt in target_cells:
-					# [PROTECTION] We skip stamping over custom rooms!
-					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt): continue
+					if stamped_cells.has(pt):
+						continue
+					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt):
+						continue
 					grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), f_atlas)
-		else:
-			if payload.has("exact_floors"):
-				for pt in payload["exact_floors"]:
-					if not valid_targets.has(pt): continue 
+			# Mode 0: leave base floor as is
+			var fallback_used = 0
+			for pt in target_cells:
+				if not stamped_cells.has(pt) and not (c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt)):
+					fallback_used += 1
+			print("[WFC Debug] Palette %s | Fallback cells: %d" % [palette_ref, fallback_used])
 					
-					# [PROTECTION] We skip stamping over custom rooms!
-					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt): continue
-					
-					var atlas_coord = payload["exact_floors"][pt]
-					if atlas_coord.x < 0 or atlas_coord.y < 0: continue
-					
-					grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), atlas_coord)
-		
-		# 3. Stamp the resulting exact atlas tiles onto the floor!
-		if payload.is_empty():
-			metric_wfc_contradictions += 1
-			if p_data.get("fallback_mode", 0) == 1:
-				var f_atlas = p_data.get("fallback_atlas", Vector2i.ZERO)
-				for pt in target_cells:
-					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt): continue
-					grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), f_atlas)
-		else:
-			if payload.has("exact_floors"):
-				for pt in payload["exact_floors"]:
-					if not valid_targets.has(pt): continue # Protects the walls!
-					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt): continue
-					
-					var atlas_coord = payload["exact_floors"][pt]
-					
-					# --- [NEW] SAFETY FILTER ---
-					# If the pattern tries to stamp a Wall (-2), a Generic Floor (-3), 
-					# or an unpainted gap (-1), we simply leave the base tile alone!
-					if atlas_coord.x < 0 or atlas_coord.y < 0: continue
-					
-					grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), atlas_coord)
-					
+		print("[WFC Timer] Palette %s | Total: %d us" % [palette_ref, Time.get_ticks_usec() - t_total_start])
+	
 	realizer.set_meta("metric_wfc_contradictions", metric_wfc_contradictions)

@@ -603,16 +603,33 @@ func _on_generate_preview() -> void:
 	
 	var payload = WFCSolver.resolve(sockets, rng, modules, 1, fixed_pixels)
 	
-	# 4. Parse Results
+		# 4. Parse Results with Fallback & Contradiction Handling
 	_preview_grid.clear()
-	if payload.is_empty():
-		for pos in sockets: _preview_grid[pos] = Vector2i(-99, -99)
+	var fallback_mode = p.get("fallback_mode", 0)
+	var fallback_atlas = p.get("fallback_atlas", Vector2i.ZERO)
+	var has_generated = false
+
+	if payload.has("exact_floors"):
+		for pt in payload["exact_floors"]:
+			if valid_targets.has(pt):
+				has_generated = true
+				break
+
+	if has_generated:
+		# Partial or full success: stamp generated tiles, then fill gaps with fallback/generic
+		for pt in valid_targets:
+			if payload["exact_floors"].has(pt):
+				_preview_grid[pt] = payload["exact_floors"][pt]
+			else:
+				if fallback_mode == 1 and fallback_atlas.x >= 0 and fallback_atlas.y >= 0:
+					_preview_grid[pt] = fallback_atlas
+				else:
+					_preview_grid[pt] = WFCPatternExtractor.CELL_GENERIC_FLOOR
 	else:
-		if payload.has("exact_floors"):
-			for pt in payload["exact_floors"]:
-				if valid_targets.has(pt): # Only draw the interior floor
-					_preview_grid[pt] = payload["exact_floors"][pt]
-				
+		# Full contradiction: mark all interior cells as error red
+		for pt in valid_targets:
+			_preview_grid[pt] = Vector2i(-99, -99)
+
 	preview_painter.canvas.queue_redraw()
 
 # --- RIGHT PANEL (PREVIEW) PAINTING ---
