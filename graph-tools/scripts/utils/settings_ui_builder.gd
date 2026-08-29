@@ -242,8 +242,10 @@ static func _create_dropdown(setting: Dictionary) -> OptionButton:
 		
 	for i in range(options.size()):
 		opt.add_item(str(options[i]), i)
-		# [NEW] Store the actual string/value so we can retrieve it instead of the integer ID
-		opt.set_item_metadata(i, options[i]) 
+		# Only store string metadata if this dropdown explicitly wants string return.
+		# Otherwise, leave metadata empty (integer index semantics).
+		if setting.get("return_string", false):
+			opt.set_item_metadata(i, options[i])
 		
 	if setting.get("mixed", false):
 		opt.add_separator()
@@ -260,7 +262,11 @@ static func _create_dropdown(setting: Dictionary) -> OptionButton:
 					break
 		else:
 			opt.selected = int(default_val)
-		
+
+	# Store the return_string preference on the OptionButton so that
+	# connect_live_updates and collect_params can respect it later.
+	opt.set_meta("return_string", setting.get("return_string", false))
+
 	return opt
 
 static func _create_vector2(setting: Dictionary) -> HBoxContainer:
@@ -309,10 +315,14 @@ static func collect_params(active_inputs: Dictionary) -> Dictionary:
 		if control is SpinBox: params[key] = control.value
 		elif control is CheckBox: params[key] = control.button_pressed
 		elif control is OptionButton:
-			# Try to return the String metadata; otherwise fallback to the integer index
-			var meta = control.get_item_metadata(control.selected)
-			if meta != null: params[key] = meta
-			else: params[key] = control.selected
+			if control.get_meta("return_string", false):
+				var meta = control.get_item_metadata(control.selected)
+				if meta != null:
+					params[key] = meta
+				else:
+					params[key] = control.selected
+			else:
+				params[key] = control.selected
 		elif control is LineEdit: params[key] = control.text 
 		elif control is ColorPickerButton: params[key] = control.color
 		elif control is HBoxContainer:
@@ -330,11 +340,15 @@ static func connect_live_updates(active_inputs: Dictionary, callback: Callable) 
 		elif control is CheckBox:
 			control.toggled.connect(func(val): callback.call(key, val))
 		elif control is OptionButton:
-			# Pass the metadata on live update
-			control.item_selected.connect(func(idx): 
-				var meta = control.get_item_metadata(idx)
-				if meta != null: callback.call(key, meta)
-				else: callback.call(key, idx)
+			control.item_selected.connect(func(idx):
+				if control.get_meta("return_string", false):
+					var meta = control.get_item_metadata(idx)
+					if meta != null:
+						callback.call(key, meta)
+					else:
+						callback.call(key, idx)
+				else:
+					callback.call(key, idx)
 			)
 		elif control is LineEdit:
 			control.text_changed.connect(func(val): callback.call(key, val))

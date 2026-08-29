@@ -161,17 +161,17 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 				end_tag = "Fallback Cycle Node"
 			
 	# --- EXECUTIONS ---
-	print("--- [DEBUG: PROGRESSION SOLVER] ---")
-	print("Start Region ID: ", start_region, " | Need Spawn: ", need_spawn_start)
+	#print("--- [DEBUG: PROGRESSION SOLVER] ---")
+	#print("Start Region ID: ", start_region, " | Need Spawn: ", need_spawn_start)
 	if need_spawn_start: 
 		var s_success = spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag)
-		print("  -> Start Point Placement Success: ", s_success)
+		#print("  -> Start Point Placement Success: ", s_success)
 		
-	print("End Region ID: ", end_region, " | Need Spawn: ", need_spawn_end)
+	#print("End Region ID: ", end_region, " | Need Spawn: ", need_spawn_end)
 	if need_spawn_end and end_region != -1: 
 		var e_success = spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag)
-		print("  -> End Point Placement Success: ", e_success)
-	print("-----------------------------------")
+		#print("  -> End Point Placement Success: ", e_success)
+	#print("-----------------------------------")
 	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 
@@ -226,9 +226,9 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 			else:
 				valid_cells.append(pos)
 				
-	print("  [", e_type, "] Scanning Regions: ", valid_region_ids)
-	print("    Total Cells: ", total_cells, " | Valid: ", valid_cells.size())
-	print("    Blocked by -> Reserved (Custom Rooms/Structs): ", blocked_reserved, " | Critical (Corridors): ", blocked_critical, " | Entities: ", blocked_entity)
+	#print("  [", e_type, "] Scanning Regions: ", valid_region_ids)
+	#print("    Total Cells: ", total_cells, " | Valid: ", valid_cells.size())
+	#print("    Blocked by -> Reserved (Custom Rooms/Structs): ", blocked_reserved, " | Critical (Corridors): ", blocked_critical, " | Entities: ", blocked_entity)
 			
 	if valid_cells.size() > 0:
 		var chosen = SeedUtils.pick_random(valid_cells, rng)

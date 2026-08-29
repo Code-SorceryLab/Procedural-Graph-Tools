@@ -1,132 +1,131 @@
-# Godot Procedural Graph Generator
+# Graph Editor & Procedural Dungeon Laboratory
 
-A modular, node-based procedural generation research platform built in Godot 4. This tool utilizes a **Controller-Component Architecture**, the **Strategy Pattern**, and the **Command Pattern** to layer various algorithms (Behavior-Based Walkers, Cellular Automata, Minimum Spanning Trees) for the generation, filtering, and analysis of graph structures.
-
-It is designed for determinism and traceability, allowing developers to inspect the provenance of every node, experiment with layering destructive and non-destructive algorithms, and safely undo/redo complex operations.
-
-## AI Usage Disclaimer
-This project, including the codebase and this documentation, was developed with the assistance of an AI thought partner (Google Gemini). All architectural decisions, logic verification, and implementation details were reviewed and refined by the human developer, Charon.
+A unified environment for **graph authoring**, **procedural generation**, **agent simulation**, **rasterization**, and **analytical research**. Designed for both game developers and academic researchers, this tool bridges the gap between abstract graph theory and playable dungeon layouts.
 
 ---
 
-## ⚙️ Workflow Features
+## Overview
 
-### The "Grow" Workflow
-* **Generate Button:** Executes the strategy logic. If the strategy is a **Generator**, it clears the graph first. If it is a **Decorator**, it applies to the current graph.
-* **Grow (+) Button:** Forces an additive execution. It instructs the strategy to append to the current graph regardless of its default behavior (useful for attaching a Walker path to a Grid).
+This application lets you:
 
-### Robust Undo/Redo
-* **Transaction-Based History:** Supports robust undo/redo for complex actions. A single "Undo" step can revert an entire brush stroke, a generated algorithm, or a bulk edit.
-* **Atomic Toggle:** Users can switch to "Atomic Mode" in settings to undo actions one-by-one (e.g., undoing a single pixel of a brush stroke) for granular control.
-* **Smart Camera:** The system intelligently decides when to refocus the camera (e.g., after generating a new dungeon) versus when to keep it static (e.g., undoing a minor paint action).
+- **Edit graphs** with a full suite of interactive tools and undoable commands.
+- **Compose procedural generation pipelines** from modular, deterministic transformations.
+- **Simulate agents** with behaviors, inventories, and lock‑and‑key mechanics.
+- **Rasterize graphs into tilemaps** with custom rooms, biomes, structures, and progression systems.
+- **Analyze graphs** using both lightweight and heavy mathematical metrics.
+- **Batch experiment** across parameter sweeps with reproducible seeds.
 
-### Persistence (Serialization v1.3)
-Located in the **File** tab.
-* **Database-Style Saving:** The system serializes the graph as a comprehensive database, preserving **Meta-Data**, **Agent History**, and **Semantic Data**.
-* **Property Schema:** The save file includes a `schema` header that defines custom data fields created by the user (e.g., "is_magma": bool). This allows the Inspector to reconstruct the UI for custom properties automatically upon loading.
-* **Smart Edge Saving:** Automatically detects symmetry. Identical `A->B` and `B->A` edges are saved as single "Bi-Directional" connections, while asymmetric weights/data are saved as distinct "Directed" edges.
-* **Dynamic Legends:** The save file includes a metadata header defining the specific **Room Types** (IDs, Names, and Colors) used in that specific dungeon.
+All data is stored in a custom canonical graph model and serialized to JSON, GraphML, or GEXF.
 
 ---
 
-## 🏗️ Technical Architecture
+## Core Features
 
-### Controller-Component Pattern
-The application is composed of distinct, modular controllers. Each subsystem is an independent Node within the scene tree.
+### 1. Graph Editing & Interaction
 
-* **StrategyController:** Manages the execution of generation algorithms using the **SettingsUIBuilder** to dynamically generate parameter interfaces.
-* **AgentController:** Handles the lifecycle, simulation ticks, and visual synchronization of autonomous `AgentWalker` entities.
-* **InspectorController:** Handles the real-time observation of node/edge/agent data, supporting **Multi-Selection** and **Mixed Value** editing.
-* **FileController:** Manages the Gatekeeper logic (unsaved changes protection) and JSON serialization.
-* **GraphEditor:** The central facade that coordinates the visual renderer, data model, and Command history.
+- Full graph authoring with tools for nodes, edges, zones, and agents.
+- Advanced selection: rectangle, lasso, multi‑select, zone‑based, and agent selection.
+- Transform nodes with move, scale, and rotate handles.
+- **Undo/redo for every mutation** via a command pipeline.
+- Clipboard operations and prefab stamping.
+- Zone system for geographic and logical grouping with traversal rules.
+- Contextual hover tooltips for nodes, edges, agents, and zones.
 
-### Core Data Model: "Semantic Graph"
-The graph utilizes a **Hybrid Storage Model** to support advanced navigation features and arbitrary game logic.
-* **Adjacency Lists:** Used for high-speed traversals (A*, BFS) and connectivity checks.
-* **Semantic Dictionary (Custom Data):** * **Nodes:** Support arbitrary tags (e.g., `is_magma`, `loot_tier`) via a `custom_data` dictionary.
-    * **Edges:** Store rich data dictionaries allowing for Logic Properties (e.g., `lock_level`, `type="Door"`) alongside standard Weights.
+![A portion of a radially shaped graph is selected and dragged.](Documentation/images/BasicGraphEditing.png?raw=true "Graph Editing")
+A portion of a radially shaped graph is selected and dragged.
 
-### Command Pattern & Simulation
-To support safe Undo/Redo alongside complex algorithms, the system uses a dual-layer approach:
-* **GraphRecorder:** A wrapper that intercepts algorithm operations. It runs the simulation logic instantly (so Walkers can "see" the grid) but captures the *intent* as `GraphCommand` objects.
-* **Buffered Reality:** Strategies like "Walker Batch" utilize a virtual buffer to pre-calculate IDs, ensuring deterministic generation even when spawning hundreds of agents simultaneously.
+### 2. Procedural Generation Pipeline
 
-### Namespaced ID System (Traceability)
-Nodes are identified by structured strings indicating their origin, ensuring research-grade determinism.
+- Stack‑based modifier system for building complex generation recipes.
+- Built‑in modifiers:
+  - **Generators**: Grid, Polar, DAG, Scale‑Free
+  - **Topology**: Braid, CA, Connect Components, DLA, Edge Subdivide, Flow Direct, Fuse Nodes, Grammar, MST, Prune Leaves, Walker Agents
+  - **Geometry**: Jitter, Buoyancy Relax
+  - **Semantic**: Biome Flood Fill, DAG Locks, Distance‑to‑Edge Weights, Logic Gates
+- Save and load pipeline presets as JSON.
+- Threaded background execution with live progress.
+- Deterministic seeds for every step.
 
-* **Grid Strategy:** `grid:x:y` (e.g., `grid:5:10`)
-* **Walker Strategy:** `walk:ticket_id:step_index` (e.g., `walk:5:42`). Uses a persistent "Ticket Counter" to ensure Agent IDs never duplicate or reset, even after reloading from disk.
-* **Manual Placement:** `man:sequence_id` (e.g., `man:5`)
+![The pipeline in effect. Note how the jitter step only affects nodes produced by the diffusion aggregation step, resulting in targeted transformation control.](Documentation/images/PipelineExample.png?raw=true "Pipeline Example")
+The pipeline in effect. Note how the jitter step only affects nodes produced by the diffusion aggregation step, resulting in targeted transformation control.
+
+### 3. Agent Simulation & Behavior
+
+- **AgentWalker** core: identity, state, history, inventory, and local RNG.
+- Behavior modes: Hold, Wander, Grow, Seek, Maze Generation, Solver, Manual.
+- Capabilities: Motor, Painter, Builder, Inventory.
+- Simulation loop with speed control and undoable state changes.
+- Lock‑and‑key logic using edge `requires` and node `items`.
+- Agent spawner tool with direct manipulation and manual control.
+
+### 4. Rasterizer & Tilemap Generation
+
+- Full pipeline from rooms to walls, including:
+  - Room allocation and merging
+  - Corridor routing (organic or orthogonal)
+  - Cellular smoothing and erosion
+  - Zone decoration and distance mapping
+  - Structure placement and entity scattering
+  - Progression solving (lock & key distribution)
+  - Textural WFC overlays
+- **Custom room designer** with exact tiles, doorways, reserved paths, and embedded structures.
+- **Structure & scatter sets** with weighted distribution.
+- **Biome overrides** for shapes, routing, CA, spawn decks, and WFC palettes.
+- **Progression solver** that ensures solvability, with optional vaults and shortcuts.
+- **Dynamic regeneration** of selected nodes/edges while preserving surrounding context.
+- **Timeline & VCR** to step through each rasterization pass.
+- **Headless validation** with flood‑fill reachability and lock simulation.
+
+![Rasterization example using a base graph for topology. Note that different colour nodes can house different biome settings, allowing for diverse generations.](Documentation/images/RasterExample.png?raw=true "Rasterization Example")
+Rasterization example using a base graph for topology. Note that different colour nodes can house different biome settings, allowing for diverse generations.
+
+
+### 5. Analysis & Metrics
+
+- Topological metrics: density, components, planarity, articulation points, bridges, betweenness, k‑core, spectral, entropy.
+- Spatial metrics: bounds, area, cell usage.
+- Agent metrics: spawn/completion, steps, rates.
+- Markov flow analysis.
+- Zone metrics.
+- Heavy algorithms: chromatic number, longest path, Eulerian, Louvain, treewidth.
+- Formatted report dashboard with export to TXT/CSV.
+
+### 6. Semantic System & Customization
+
+- SemanticRegistry for categories and properties with display modes (hidden, label, badge).
+- Custom data editor with protection for core items.
+- Property painting tools for nodes and edges.
+- Persistent storage for all user definitions and overrides.
+
+### 7. File Management & Interchange
+
+- Save/load graphs in JSON, GraphML, and GEXF.
+- Prefab workflow for reusing subgraphs.
+- Pipeline recipe import/export.
+- Experiment CSV export.
+
+### 8. UI/UX & Editor Environment
+
+- Customizable panels with Zen mode and persistent layout.
+- Toolbar and topbar with menus and simulation controls.
+- Context‑sensitive inspectors for nodes, edges, agents, and zones.
+- Dedicated rasterizer tabs: Generator, Timeline, Report, Validator.
+
+### 9. Research & Reproducibility
+
+- Deterministic seeds across all systems.
+- Batch experiment runner with multi‑threaded execution.
+- Headless validation for automatic solvability checks.
 
 ---
 
-## 🎮 Interaction & Controls
 
-### Camera & Navigation
-* **Pan:** Hold Middle Mouse Button and drag.
-* **Zoom:** Mouse Wheel Up or Down.
-* **Focus Graph:** Press `F` to center the camera on all existing nodes.
+## Getting Started
 
-### Unified Editor Tools
-Tools are selected via the top Toolbar. All tools are integrated with the Undo system.
-
-* **Select Tool:** Click to select, drag to move. Supports **Node, Edge, and Agent Selection**. Use Shift/Ctrl modifiers for Box Selection or Multi-Select.
-* **Add Node Tool:** Left Click to place a manual node.
-* **Connect Tool:** Click and drag between two nodes to create an edge.
-* **Delete Tool:** Click a node/agent to remove it.
-* **Paint Tool:** Click and drag to rapidly draw nodes (Snake style). Auto-connects to the previous node in the stroke.
-* **Knife Cut:** Click and drag a line to sever all edges it crosses.
-* **Type Brush:** Paint semantic data (e.g., "Enemy", "Spawn") onto existing nodes. Right-click to cycle through the Legend.
-* **Agent Spawner:** Click to Place down Agents, select them, or delete them. Right-click to cycle through modes.
-
-### Inspector & Analysis
-The right-hand sidebar features a context-aware Inspector tab generated by the `SettingsUIBuilder`.
-
-* **Dynamic Property System (No-Code):** Users can define new custom data fields (e.g., "Health", "TeamID") via the **Property Wizard**. These definitions are saved to a global registry, and the Inspector automatically generates UI inputs (Checkboxes, Color Pickers, SpinBoxes) for them.
-* **Schema Management:** Includes a management tab to list, delete, and **Purge** (deep clean) custom definitions from the graph data.
-* **Multi-Selection:** Supports selecting 50+ items at once. The Inspector intelligently detects **Mixed Values** (e.g., different weights) and allows for bulk unification.
-* **Walker Live-Edit:** * Modify Agent configurations (Goal, Speed, Pathfinding Algo) in real-time.
-    * View Read-Only statistics like **Steps Taken** vs **Step Limit**.
-    * Toggle **Endless Mode** (Step Limit: -1) for continuous simulation.
+<!-- TODO: Add basic instructions for running the project, loading a sample graph, and generating a raster dungeon. -->
 
 ---
 
-## 🛠️ Generation Strategies
+## License
 
-Strategies are selected via the **Generation** tab.
-
-### 1. Grid Layout (Generator)
-Creates a Cartesian grid of nodes. Parameters: Width, Height.
-
-### 2. Autonomous Agents (Walker Simulation)
-Spawns persistent agents driven by a **Modular Brain System**.
-* **Behaviors:** Agents use specific logic modules: `BehaviorSeek` (A* pathing), `BehaviorGrow` (Expansion), `BehaviorWander` (Random).
-* **Decorators:** Logic can be wrapped, e.g., `BehaviorDecoratorPaint` allows an agent to change tile types as it walks.
-* **Persistence:** Agents retain full history and state between ticks, allowing for "Pause and Resume" workflows.
-
-### 3. Diffusion Limited Aggregation (Generator)
-Simulates organic growth by spawning particles that stick to existing clusters. Parameters: Particles, Box Spawning Toggle.
-
-### 4. Polar Wedges (Generator)
-Generates a radial structure divided into angular sectors. Useful for creating hub-and-spoke layouts or circular arenas.
-
-### 5. Cellular Automata (Generator/Decorator)
-Applies simulation rules (e.g., Game of Life, Cave Growth) to smooth out noise or create organic clusters within a grid.
-
-### 6. Minimum Spanning Tree (Decorator)
-Applies Kruskal's or Prim's algorithm to the existing graph structure to remove cycles.
-
-### 7. Analyze Rooms (Analyzer)
-Performs a Breadth-First Search (BFS) to calculate node depth and topology (Dead Ends, Corridors, Junctions).
-
----
-
-## 🧪 Testing & Verification
-
-This project includes a dedicated **Test Runner** (`tests/TestRunner.tscn`) to validate core architectural pillars.
-
-### Coverage Matrix
-* **Data Integrity:** Verifies ID state reconstruction and "Hybrid ID" persistence after loading `.json` files.
-* **Strategy Logic:** Proves that Generators clear the board while Decorators append correctly.
-* **Algorithm Safety:** Regression tests for edge cases (e.g., MST clearing edges, DLA bounds).
-* **Undo/Redo:** (Implicit) The architecture is verified by the GraphRecorder's ability to accurately reconstruct simulation states.
+<!-- TODO: Add license information. -->

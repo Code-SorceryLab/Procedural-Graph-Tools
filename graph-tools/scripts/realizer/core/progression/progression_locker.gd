@@ -252,13 +252,18 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					
 				# 1. Did the Main Key Survive?
 				var key_survived = false
-				for k in archived_keys:
-					if k["lock_str"] == lock_str and not "Shortcut" in k["placement_method"]:
-						key_survived = true
-						if k["region"] != -1: regions_with_keys[k["region"]] = true
-						break
+				var player_inventory = temporal_state.get("inventory", []) # Fetch Inventory
+				
+				if player_inventory.has(lock_str): # The Pocket Check
+					key_survived = true
+				else:
+					for k in archived_keys:
+						if k["lock_str"] == lock_str and not "Shortcut" in k["placement_method"]:
+							key_survived = true
+							if k["region"] != -1: regions_with_keys[k["region"]] = true
+							break
 						
-				# 2. If it died, and we haven't already replaced it, Forge a Replacement!
+				# 2. If it died, and we haven't already replaced it, Forge a Replacement
 				if not key_survived and not newly_dropped_replacements.has(lock_str):
 					needs_key_drop = true
 					newly_dropped_replacements[lock_str] = true
@@ -287,6 +292,14 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			# --- THE KEY DROP ---
 			if needs_key_drop:
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
+				
+				# --- THE FORWARD STASH ---
+				# If the player is mid-run, do not drop new keys behind them in their wake!
+				if player_region != start_region:
+					var forward_pool = target_pool.filter(func(r): return not player_spine.has(r))
+					if forward_pool.size() > 0: 
+						target_pool = forward_pool
+						
 				var chosen_region = SeedUtils.pick_random(target_pool, rng)
 				
 				var key_dropped = false

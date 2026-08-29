@@ -66,8 +66,8 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false },
 		
 		{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },
-		{ "name": "progression_preferred_start", "label": "Preferred Spawn Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options },
-		{ "name": "progression_preferred_end", "label": "Preferred Exit Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options },
+		{ "name": "progression_preferred_start", "label": "Preferred Spawn Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options, "return_string": true },
+		{ "name": "progression_preferred_end", "label": "Preferred Exit Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options, "return_string": true },
 		
 		{ "name": "sep_prog", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "progression_enabled", "label": "Generate Locks & Keys", "type": TYPE_BOOL, "default": true },
