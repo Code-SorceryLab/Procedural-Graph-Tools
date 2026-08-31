@@ -151,7 +151,8 @@ static func build_and_export(realizer: GraphRealizer, params: Dictionary, map_da
 	for r in regions:
 		if region_adj[r].size() == 1:
 			leaf_regions_export[r] = true
-			
+	
+	realizer.set_meta("progression_map_data", map_data)
 	realizer.set_meta("leaf_regions", leaf_regions_export)
 	realizer.set_meta("cell_to_area", cell_to_area)
 	realizer.set_meta("cell_to_region", cell_to_region)

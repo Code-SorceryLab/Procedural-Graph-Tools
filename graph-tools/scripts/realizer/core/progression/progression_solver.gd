@@ -19,3 +19,6 @@ static func analyze(realizer: GraphRealizer, params: Dictionary, emit: Callable 
 
 	# 4. The Archivist: Export Metadata & JSON Report
 	ProgressionReportBuilder.build_and_export(realizer, params, map_data, path_data, locker_data)
+	
+	
+	

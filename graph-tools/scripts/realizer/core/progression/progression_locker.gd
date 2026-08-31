@@ -101,7 +101,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	
 	var color_pool = master_colors.duplicate()
 	
-	# --- [NEW] PRUNE EXISTING COLORS ---
+	# --- PRUNE EXISTING COLORS ---
 	# Remove any surviving colors from the pool so we don't generate duplicate doors!
 	for p_id in archived_locks:
 		var c = archived_locks[p_id]
@@ -112,7 +112,25 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 		var temp = color_pool[i]
 		color_pool[i] = color_pool[j]
 		color_pool[j] = temp
-		
+	
+	# --- PROGRESSION TRIGGER POOL ---
+	var active_triggers = params.get("regen_triggers", {})
+	var consumed_triggers = params.get("temporal_state", {}).get("consumed_triggers", [])
+	
+	var prog_trigger_pool = []
+	for t_id in active_triggers:
+		if active_triggers[t_id].get("placement_mode", 1) == 2:
+			prog_trigger_pool.append(t_id)
+			
+	# Remove any triggers that are already guarding restored locks, so we don't reuse them
+	for p_id in archived_locks:
+		var c = archived_locks[p_id]
+		if c.begins_with("TemporalLock_"):
+			var t_id = c.replace("TemporalLock_", "")
+			if prog_trigger_pool.has(t_id):
+				prog_trigger_pool.erase(t_id)
+	
+	
 	var current_tier = 0
 	var critical_locks = []
 	var vault_locks = []
@@ -270,8 +288,12 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					placement_tag += " (Replacement Key)"
 					
 			elif forge_new_key:
+				# --- TEMPORAL OVERRIDE ---
+				if prog_trigger_pool.size() > 0:
+					var t_id = prog_trigger_pool.pop_front()
+					lock_str = "TemporalLock_" + t_id
 				# --- STANDARD NEW KEY MODE ---
-				if rng.randf() < key_style_ratio and color_pool.size() > 0:
+				elif rng.randf() < key_style_ratio and color_pool.size() > 0:
 					lock_str = color_pool.pop_front()
 				else:
 					var tier_jump = 1
@@ -294,22 +316,89 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
 				
 				# --- THE FORWARD STASH ---
-				# If the player is mid-run, do not drop new keys behind them in their wake!
 				if player_region != start_region:
 					var forward_pool = target_pool.filter(func(r): return not player_spine.has(r))
 					if forward_pool.size() > 0: 
 						target_pool = forward_pool
 						
-				var chosen_region = SeedUtils.pick_random(target_pool, rng)
+				var is_temporal = lock_str.begins_with("TemporalLock_")
+				var trigger_id = lock_str.replace("TemporalLock_", "") if is_temporal else ""
 				
-				var key_dropped = false
-				if chosen_region != null:
-					if ProgressionPathingAnalyst.spawn_marker([chosen_region], "key", lock_str, regions, realizer, rng, placement_tag):
-						key_dropped = true
-						regions_with_keys[chosen_region] = true
+				# ==============================================================
+				# THE WITHHOLDING: DROP TRIGGER INSTEAD OF KEY
+				# ==============================================================
+				if is_temporal and not consumed_triggers.has(trigger_id):
+					var t_data = active_triggers.get(trigger_id, {})
+					var t_globals = t_data.get("global_overrides", {})
+					
+					var pref_biome = str(t_globals.get("pref_biome", "Any"))
+					if pref_biome == "0": pref_biome = "Any"
+					var pref_topo = int(t_globals.get("pref_topology", 0))
+					var min_depth = int(t_globals.get("min_depth", 0))
+					var depth_map = path_data.get("region_depth", {})
+					
+					# --- [FIX] Define the biome reader for the Locker ---
+					var get_r_biomes = func(r_id: int) -> Dictionary:
+						var b_dict = {}
+						if regions.has(r_id):
+							for pos in regions[r_id]:
+								var cid = grid.get_cell(pos.x, pos.y)
+								if realizer.floor_to_semantic.has(cid): 
+									b_dict[realizer.floor_to_semantic[cid]] = true
+						return b_dict
+					# ----------------------------------------------------
+					
+					var filtered_regions = []
+					for r in target_pool:
+						if pref_biome != "Any" and not get_r_biomes.call(r).has(pref_biome): continue
 						
-				if not key_dropped:
-					ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, placement_tag + " (Emergency)")
+						var doors = region_adj.get(r, []).size()
+						if pref_topo == 1 and doors > 1: continue # Want Leaf
+						if pref_topo == 2 and doors <= 1: continue # Want Spine
+						if min_depth > 0 and depth_map.get(r, 0) < min_depth: continue
+						
+						filtered_regions.append(r)
+						
+					var final_pool = filtered_regions if filtered_regions.size() > 0 else target_pool
+					var chosen_region = SeedUtils.pick_random(final_pool, rng)
+					
+					if chosen_region != null:
+						# Inline Trigger Placement
+						var valid_cells = []
+						for pos in regions[chosen_region]:
+							if not realizer.reserved_cells.has(pos) and not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
+								valid_cells.append(pos)
+								
+						if valid_cells.size() > 0:
+							var pt = SeedUtils.pick_random(valid_cells, rng)
+							grid.entities[pt] = {
+								"type": "trigger",
+								"trigger_id": trigger_id,
+								"name": t_data.get("name", "Temporal Trigger"),
+								"placement_method": "Progression Gate"
+							}
+							realizer.reserved_cells[pt] = true
+							regions_with_keys[chosen_region] = true
+							if emit.is_valid(): emit.call("Solver: Placed Progression Trigger (" + t_data.get("name", "Temporal") + ")")
+							
+				# ==============================================================
+				# STANDARD KEY DROP (Or Post-Pull Temporal Key)
+				# ==============================================================
+				else:
+					var chosen_region = SeedUtils.pick_random(target_pool, rng)
+					var key_dropped = false
+					
+					# If it's a temporal key, change the display name so the player knows what it is!
+					var key_drop_subtype = lock_str
+					var key_drop_display = "Temporal Key" if is_temporal else lock_str
+					
+					if chosen_region != null:
+						if ProgressionPathingAnalyst.spawn_marker([chosen_region], "key", key_drop_subtype, regions, realizer, rng, placement_tag, key_drop_display):
+							key_dropped = true
+							regions_with_keys[chosen_region] = true
+							
+					if not key_dropped:
+						ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, placement_tag + " (Emergency)")
 					
 			if is_vault:
 				vaults_placed += 1

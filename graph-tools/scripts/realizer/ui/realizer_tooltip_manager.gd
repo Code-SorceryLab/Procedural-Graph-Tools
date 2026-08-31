@@ -134,6 +134,15 @@ func _input(event: InputEvent) -> void:
 		elif e_type == "door": 
 			entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
 			new_hover_lock = ent.get("lock_type", "") 
+		elif e_type == "trigger":
+			# --- TEMPORAL HIGHLIGHTING ---
+			var t_id = ent.get("trigger_id", "")
+			entity_str = "\n[Trigger] : " + ent.get("name", "Lever")
+			var p_method = ent.get("placement_method", "")
+			if p_method != "": entity_str += " [" + p_method + "]"
+			
+			# Map this trigger to its corresponding temporal doors
+			new_hover_lock = "TemporalLock_" + t_id
 		else:
 			var req = ent.get("key_type", "")
 			if req != "": 

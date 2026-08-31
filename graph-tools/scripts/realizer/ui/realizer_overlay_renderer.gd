@@ -211,6 +211,15 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 				var k_world = Vector2(p) * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
 				_key_centers_cache[k_type].append(k_world)
 				
+		# --- TRICK THE CACHE INTO CONNECTING TRIGGERS TO DOORS ---
+		elif e_type == "trigger":
+			var t_id = entities[p].get("trigger_id", "")
+			if t_id != "":
+				var k_type = "TemporalLock_" + t_id
+				if not _key_centers_cache.has(k_type): _key_centers_cache[k_type] = []
+				var k_world = Vector2(p) * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
+				_key_centers_cache[k_type].append(k_world)
+				
 	for pid in portal_centers:
 		var center_grid = portal_centers[pid] / float(portal_counts[pid])
 		var center_world = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
@@ -290,6 +299,15 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 							label_text = l_type.trim_prefix("Tier ")
 							var center_grid = portal_centers[pid]
 							label_pos = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
+					# --- TEMPORAL DOOR STYLING ---
+					elif l_type.begins_with("TemporalLock_"):
+						r_color = Color.FUCHSIA # Match the Trigger Color
+						pid = entity_data.get("portal_id", -1)
+						if pid != -1 and not drawn_door_labels.has(pid):
+							drawn_door_labels[pid] = true
+							label_text = "T-Gate" # Distinct visual tag
+							var center_grid = portal_centers[pid]
+							label_pos = center_grid * cell_size + Vector2(cell_size / 2.0, cell_size / 2.0)
 					else: 
 						r_color = Color.from_string(l_type, Color(0.8, 0.5, 0.2, 0.9))
 						
@@ -304,6 +322,11 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 					
 					if k_col.begins_with("Tier "): 
 						label_text = k_col.trim_prefix("Tier ")
+						label_pos = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
+					# --- TEMPORAL KEY STYLING ---
+					elif k_col.begins_with("TemporalLock_"):
+						inner_c = Color.FUCHSIA
+						label_text = "T-Key"
 						label_pos = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
 					else: 
 						inner_c = Color.from_string(k_col, Color.WHITE)
@@ -380,7 +403,10 @@ func _on_ghost_web_draw() -> void:
 	if key_positions.is_empty() or door_positions.is_empty(): return
 	
 	var web_color = Color.WHITE
-	if not _active_ghost_lock.begins_with("Tier "):
+	# --- OVERRIDE GHOST WEB COLOR FOR TEMPORAL LOCKS ---
+	if _active_ghost_lock.begins_with("TemporalLock_"):
+		web_color = Color.FUCHSIA
+	elif not _active_ghost_lock.begins_with("Tier "):
 		web_color = Color.from_string(_active_ghost_lock, Color.WHITE)
 		
 	for k_pos in key_positions:

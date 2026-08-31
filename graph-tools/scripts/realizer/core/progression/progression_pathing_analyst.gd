@@ -201,7 +201,7 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 	}
 
 # Shared Utility for PathingAnalyst and Locker
-static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator, placement_method: String = "default") -> bool:
+static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator, placement_method: String = "default", display_name: String = "") -> bool:
 	var valid_cells = []
 	var total_cells = 0
 	var blocked_reserved = 0
@@ -235,7 +235,7 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 		realizer.grid.entities[chosen] = {
 			"type": e_type,
 			"key_type": subtype if e_type == "key" else "",
-			"name": subtype + " Key" if e_type == "key" else subtype,
+			"name": display_name if display_name != "" else (subtype + " Key" if e_type == "key" else subtype),
 			"placement_method": placement_method
 		}
 		realizer.reserved_cells[chosen] = true

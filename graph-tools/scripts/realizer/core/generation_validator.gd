@@ -173,6 +173,7 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 				triggers_in_world.erase(t_pos)
 				consumed_triggers[hit_trigger_id] = true
 				
+				
 				# --- THE ANCHOR FIX ---
 				# Collapse the fluid's leading edge perfectly onto the trigger tile!
 				queue.clear()
@@ -221,21 +222,10 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 			visited[n] = true
 			queue.append(n)
 			
+						
 			if keys_in_world.has(n):
-				var k_type = keys_in_world[n]
-				if not inventory.has(k_type):
-					inventory[k_type] = true
-					log_messages.append("[color=yellow]Found Key: " + k_type + "[/color]")
-					
-					if stuck_doors.has(k_type):
-						var unlocked_count = stuck_doors[k_type].size()
-						if delay_doors:
-							pending_unlocks.append_array(stuck_doors[k_type])
-							log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)! (Queued)[/color]")
-						else:
-							queue.append_array(stuck_doors[k_type])
-							log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)![/color]")
-						stuck_doors.erase(k_type)
+				# --- USE HELPER ---
+				_acquire_key(keys_in_world[n])
 						
 			# --- TRIGGER DETECTION ---
 			if triggers_in_world.has(n):
@@ -250,8 +240,8 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 					triggers_in_world.erase(n)
 					consumed_triggers[hit_trigger_id] = true 
 					
+					
 					# --- THE ANCHOR FIX ---
-					#print("[DEBUG] Trigger activated at tile: ", n)
 					last_trigger_pos = n
 					
 					log_messages.append("[color=fuchsia]Trigger Activated! Shifting Dimensions...[/color]")
@@ -375,3 +365,23 @@ func get_final_analytics() -> Dictionary:
 		"permanently_locked": stuck_doors.keys(),
 		"unreachable_entities": unreachable
 	}
+
+func _acquire_key(k_type: String) -> void:
+	if not inventory.has(k_type):
+		inventory[k_type] = true
+		
+		# Give Temporal keys a distinct log color!
+		if k_type.begins_with("TemporalLock_"):
+			log_messages.append("[color=fuchsia]Acquired Temporal Key: " + k_type + "[/color]")
+		else:
+			log_messages.append("[color=yellow]Found Key: " + k_type + "[/color]")
+		
+		if stuck_doors.has(k_type):
+			var unlocked_count = stuck_doors[k_type].size()
+			if delay_doors:
+				pending_unlocks.append_array(stuck_doors[k_type])
+				log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)! (Queued)[/color]")
+			else:
+				queue.append_array(stuck_doors[k_type])
+				log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)![/color]")
+			stuck_doors.erase(k_type)
