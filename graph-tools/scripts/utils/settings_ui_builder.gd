@@ -123,6 +123,7 @@ static func clear_ui(container: Control) -> void:
 
 static func _create_standard_row(parent: Control, setting: Dictionary, control: Control) -> void:
 	var row = HBoxContainer.new()
+	row.name = "row_" + setting["name"] # Name the row for easy fetching
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(row)
 	

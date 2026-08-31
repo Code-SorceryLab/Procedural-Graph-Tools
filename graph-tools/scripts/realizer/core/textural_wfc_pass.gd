@@ -23,6 +23,11 @@ static func apply(realizer: GraphRealizer, params: Dictionary, emit: Callable = 
 			var cell_id = grid.get_cell(x, y)
 			if cell_id == TilePalette.VOID_ID: continue
 			
+			# --- [NEW] SMART TARGETING ---
+			# If this cell already has an atlas override, it survived the wipe!
+			# We completely exclude it from the target list to drastically speed up generation.
+			if grid.cell_atlas_overrides.has(pos): continue
+			
 			var cat_key = ""
 			if realizer.floor_to_semantic.has(cell_id):
 				cat_key = realizer.floor_to_semantic[cell_id]
@@ -55,18 +60,16 @@ static func apply(realizer: GraphRealizer, params: Dictionary, emit: Callable = 
 		var allow_rots = p_data.get("rotations", false)
 		var allow_refs = p_data.get("reflections", false)
 
-		var t_extract_start = Time.get_ticks_usec()
+		#var t_extract_start = Time.get_ticks_usec()
 		var modules = WFCPatternExtractor.extract(
 			p_data.get("sample_grid", {}),
 			p_data.get("width", 10), p_data.get("height", 10),
 			n_size, is_seamless, base_fill_mode, allow_rots, allow_refs
 		)
-		var t_extract_end = Time.get_ticks_usec()
-		print("[WFC Timer] Palette %s | Extract: %d us" % [palette_ref, t_extract_end - t_extract_start])
+		#var t_extract_end = Time.get_ticks_usec()
+		#print("[WFC Timer] Palette %s | Extract: %d us" % [palette_ref, t_extract_end - t_extract_start])
 
-		
-
-		# --- FIXED WALL CONSTRAINTS ---
+		# --- [NEW] FIXED CONSTRAINTS (Seamless Boundary Blending) ---
 		var expanded_sockets = {}
 		var fixed_pixels = {}
 
@@ -75,30 +78,38 @@ static func apply(realizer: GraphRealizer, params: Dictionary, emit: Callable = 
 				for dx in range(-n_size + 1, 1):
 					expanded_sockets[pos + Vector2i(dx, dy)] = true
 
-		if wall_aware:
-			for s_pos in expanded_sockets:
-				for dy in range(n_size):
-					for dx in range(n_size):
-						var world_pt = s_pos + Vector2i(dx, dy)
-						if not valid_targets.has(world_pt):
-							fixed_pixels[world_pt] = WFCPatternExtractor.CELL_BOUNDARY
+		for s_pos in expanded_sockets:
+			for dy in range(n_size):
+				for dx in range(n_size):
+					var world_pt = s_pos + Vector2i(dx, dy)
+					
+					# Ignore cells we are actively trying to generate
+					if valid_targets.has(world_pt): continue
+					
+					# --- SEAMLESS STITCHING ---
+					# If the cell physically survived the regeneration wipe, it acts as a hard anchor!
+					# The WFC algorithm MUST collapse the new floor to match these exact pixels.
+					if grid.cell_atlas_overrides.has(world_pt):
+						fixed_pixels[world_pt] = grid.cell_atlas_overrides[world_pt]
+					elif wall_aware:
+						# Otherwise, if it's empty void or a wall, it is a boundary constraint
+						fixed_pixels[world_pt] = WFCPatternExtractor.CELL_BOUNDARY
 
 		# --- DEBUG: Coverage before solve ---
-		print("[WFC Debug] Palette %s | Interior cells: %d | Expanded sockets: %d" % [
-			palette_ref, target_cells.size(), expanded_sockets.size()
-		])
+		#print("[WFC Debug] Palette %s | Interior cells: %d | Expanded sockets: %d" % [
+			#palette_ref, target_cells.size(), expanded_sockets.size()
+		#])
 
 		var t_solve_start = Time.get_ticks_usec()
 		var payload = WFCSolver.resolve(expanded_sockets.keys(), rng, modules, 1, fixed_pixels)
 		var t_solve_end = Time.get_ticks_usec()
-		print("[WFC Timer] Palette %s | Solve: %d us" % [palette_ref, t_solve_end - t_solve_start])
-		
+		#print("[WFC Timer] Palette %s | Solve: %d us" % [palette_ref, t_solve_end - t_solve_start])
 		
 		# --- DEBUG: Coverage after solve ---
 		var generated_exact = 0
 		if payload.has("exact_floors"):
 			generated_exact = payload["exact_floors"].size()
-		print("[WFC Debug] Palette %s | Generated exact cells: %d" % [palette_ref, generated_exact])
+		#print("[WFC Debug] Palette %s | Generated exact cells: %d" % [palette_ref, generated_exact])
 		
 		# 3. Stamp the resulting exact atlas tiles onto the floor!
 		var stamped_cells = {}
@@ -126,16 +137,15 @@ static func apply(realizer: GraphRealizer, params: Dictionary, emit: Callable = 
 					if c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt):
 						continue
 					grid.set_cell_atlas(pt.x, pt.y, grid.get_cell(pt.x, pt.y), f_atlas)
-			# Mode 0: leave base floor as is
+			
 			var fallback_used = 0
 			for pt in target_cells:
 				if not stamped_cells.has(pt) and not (c_room_cells.has(pt) and grid.cell_atlas_overrides.has(pt)):
 					fallback_used += 1
-			print("[WFC Debug] Palette %s | Fallback cells: %d" % [palette_ref, fallback_used])
+			#print("[WFC Debug] Palette %s | Fallback cells: %d" % [palette_ref, fallback_used])
 					
-		print("[WFC Timer] Palette %s | Total: %d us" % [palette_ref, Time.get_ticks_usec() - t_total_start])
+		#print("[WFC Timer] Palette %s | Total: %d us" % [palette_ref, Time.get_ticks_usec() - t_total_start])
 		if emit.is_valid():
-		# Snapshot the current state under a region-specific name
 			emit.call("Textural WFC: " + palette_ref)
 	
 	realizer.set_meta("metric_wfc_contradictions", metric_wfc_contradictions)

@@ -27,6 +27,7 @@ var _chk_full_explore: CheckBox
 var _chk_delay_doors: CheckBox
 var _chk_constant_speed: CheckBox
 var _chk_re_explore: CheckBox
+var _chk_auto_accept: CheckBox 
 
 var _slider_speed: HSlider
 var _slider_batch: HSlider
@@ -141,6 +142,12 @@ func _init() -> void:
 	_chk_re_explore.button_pressed = false
 	_chk_re_explore.tooltip_text = "When the grid regenerates, the Validator forgets its puddle and drops a single pin at its current location to re-explore the graph, keeping its inventory intact."
 	
+	# --- AUTO-ACCEPT POPUP TOGGLE ---
+	_chk_auto_accept = CheckBox.new()
+	_chk_auto_accept.text = "Auto-Accept Regen Warnings (Oracle)"
+	_chk_auto_accept.button_pressed = false
+	_chk_auto_accept.tooltip_text = "Automatically confirms the Oracle Relocation warning when a Trigger fires or when regenerating over the Validator fluid."
+	options_vbox.add_child(_chk_auto_accept)
 	
 	# --- CONSTANT SPEED TOGGLE ---
 	_chk_constant_speed = CheckBox.new()
@@ -216,7 +223,8 @@ func get_settings() -> Dictionary:
 		"batch_size": int(_slider_batch.value),
 		"tick_speed": float(_slider_speed.value),
 		"constant_speed": _chk_constant_speed.button_pressed,
-		"re_explore": _chk_re_explore.button_pressed
+		"re_explore": _chk_re_explore.button_pressed,
+		"auto_accept_warnings": _chk_auto_accept.button_pressed
 	}
 
 func is_visualize_on() -> bool:

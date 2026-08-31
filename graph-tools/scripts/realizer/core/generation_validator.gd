@@ -9,6 +9,9 @@ var start_pos: Vector2i = Vector2i(-1, -1)
 var end_pos: Vector2i = Vector2i(-1, -1)
 var keys_in_world: Dictionary = {}
 var doors_in_world: Dictionary = {}
+var triggers_in_world: Dictionary = {} 
+var hit_trigger_id: String = "" # Tracks if we hit one this frame
+var last_trigger_pos: Vector2i = Vector2i(-1, -1)
 var blocked_cells: Dictionary = {} 
 var valid_floors: Dictionary = {}
 var total_walkable: int = 0
@@ -17,8 +20,10 @@ var total_walkable: int = 0
 var queue: Array = []
 var visited: Dictionary = {}
 var inventory: Dictionary = {}
+var consumed_triggers: Dictionary = {} # The player's memory of pulled levers
 var stuck_doors: Dictionary = {} 
 var pending_unlocks: Array = []
+var pending_triggers: Array = [] # Queue for delayed triggers
 
 var is_finished: bool = false
 var found_end: bool = false
@@ -63,33 +68,50 @@ func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i(), re_explore:
 		if surviving_visited.has(pt): evaporated = true 
 		if not evaporated: surviving_queue_map[pt] = true
 			
-	# --- [NEW] FEATURE 3: AMNESIA PROTOCOL ---
+	# --- FEATURE 3: AMNESIA PROTOCOL ---
 	if re_explore:
 		var anchor = Vector2i(-1, -1)
-		
-		# Grab the MOST RECENT step the fluid took that survived the blast
-		var visited_keys = visited.keys()
-		for i in range(visited_keys.size() - 1, -1, -1):
-			if surviving_visited.has(visited_keys[i]):
-				anchor = visited_keys[i]
-				break
-				
-		# Fallbacks just in case the player was completely annihilated
-		if anchor == Vector2i(-1, -1) and surviving_queue_map.size() > 0: anchor = surviving_queue_map.keys()[0]
-		if anchor == Vector2i(-1, -1): anchor = start_pos 
-			
-		# TOTAL AMNESIA (But keep the inventory!)
+
+		# --- TRIGGER PREFERENCE ---
+		if last_trigger_pos != Vector2i(-1, -1):
+			if valid_floors.has(last_trigger_pos):
+				anchor = last_trigger_pos
+			else:
+				# Try a small radial search (10 tiles) instead of entire map
+				var best_dist = 999999.0
+				for pt in valid_floors:
+					var d = pt.distance_squared_to(last_trigger_pos)
+					if d < best_dist:
+						best_dist = d
+						anchor = pt
+			# Clear the memory after use
+			last_trigger_pos = Vector2i(-1, -1)
+
+		# --- ORIGINAL FALLBACK (unchanged) ---
+		if anchor == Vector2i(-1, -1):
+			# Grab the MOST RECENT step the fluid took that survived the blast
+			var visited_keys = visited.keys()
+			for i in range(visited_keys.size() - 1, -1, -1):
+				if surviving_visited.has(visited_keys[i]):
+					anchor = visited_keys[i]
+					break
+			# Fallbacks just in case the player was completely annihilated
+			if anchor == Vector2i(-1, -1) and surviving_queue_map.size() > 0:
+				anchor = surviving_queue_map.keys()[0]
+			if anchor == Vector2i(-1, -1):
+				anchor = start_pos
+
+		# --- TOTAL AMNESIA (keep inventory) ---
 		visited.clear()
 		queue.clear()
-		stuck_doors.clear() # Clear memory of locked doors so we discover them again!
+		stuck_doors.clear()
 		pending_unlocks.clear()
-		
-		# DROP THE PIN
+
+		# --- DROP THE PIN ---
 		if valid_floors.has(anchor):
 			queue.append(anchor)
 			visited[anchor] = true
 			log_messages.append("[color=orange]Re-exploration triggered! Dropped pin at current position: " + str(anchor) + "[/color]")
-			
 	else:
 		# --- STANDARD RE-IGNITION PROTOCOL ---
 		visited = surviving_visited
@@ -107,6 +129,13 @@ func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i(), re_explore:
 				surviving_pending.append(pt)
 		pending_unlocks = surviving_pending
 		
+		# --- Protect Pending Triggers ---
+		var surviving_triggers = []
+		for pt in pending_triggers:
+			if valid_floors.has(pt) and triggers_in_world.has(pt) and not (dirty_rect.size != Vector2i.ZERO and dirty_rect.has_point(pt)):
+				surviving_triggers.append(pt)
+		pending_triggers = surviving_triggers
+		
 		for k in stuck_doors.keys():
 			var surviving_stuck = []
 			for pt in stuck_doors[k]:
@@ -120,25 +149,40 @@ func update_world(new_grid: GridData, dirty_rect: Rect2i = Rect2i(), re_explore:
 func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 	newly_visited.clear()
 	log_messages.clear()
+	hit_trigger_id = "" 
 	
 	if is_finished: return get_payload()
 	
-	# --- [FIXED] CONSTANT RADIAL EXPANSION ---
 	var target_steps = batch_size
 	if constant_speed and queue.size() > 0:
-		# Process exactly 1 layer of the frontier per tick. 
-		# This ignores the batch slider and strictly relies on the Speed slider!
 		target_steps = queue.size()
 	
 	var steps_taken = 0
 	while steps_taken < target_steps:
-		# --- Exhaustive Exploration Trigger ---
+		# --- EXHAUSTIVE EXPLORATION TRIGGER ---
 		if queue.is_empty():
 			if pending_unlocks.size() > 0:
 				queue.append_array(pending_unlocks)
 				log_messages.append("[color=magenta]Area exhausted. Progressing through " + str(pending_unlocks.size()) + " delayed door(s)...[/color]")
 				pending_unlocks.clear()
-				break # Pause visually after opening delayed doors
+				break 
+			elif pending_triggers.size() > 0:
+				# --- DELAYED TRIGGER ACTIVATION ---
+				var t_pos = pending_triggers.pop_front()
+				hit_trigger_id = triggers_in_world[t_pos]
+				triggers_in_world.erase(t_pos)
+				consumed_triggers[hit_trigger_id] = true
+				
+				# --- THE ANCHOR FIX ---
+				# Collapse the fluid's leading edge perfectly onto the trigger tile!
+				queue.clear()
+				queue.append(t_pos)
+				visited[t_pos] = true
+				newly_visited.append(t_pos)
+				#print("[DEBUG] Trigger activated at tile: ", t_pos)
+				last_trigger_pos = t_pos
+				log_messages.append("[color=fuchsia]All paths exhausted. Activating Trigger: " + hit_trigger_id + "[/color]")
+				break
 			else:
 				_finish_validation()
 				break
@@ -187,12 +231,36 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 						var unlocked_count = stuck_doors[k_type].size()
 						if delay_doors:
 							pending_unlocks.append_array(stuck_doors[k_type])
-							log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)! (Queued for later)[/color]")
+							log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)! (Queued)[/color]")
 						else:
 							queue.append_array(stuck_doors[k_type])
 							log_messages.append("[color=cyan]Unlocked " + str(unlocked_count) + " " + k_type + " door(s)![/color]")
 						stuck_doors.erase(k_type)
 						
+			# --- TRIGGER DETECTION ---
+			if triggers_in_world.has(n):
+				# If "Exhaustive Mode" is on, push it to the back of the line!
+				if delay_doors and not pending_triggers.has(n):
+					pending_triggers.append(n)
+					visited[n] = true # Mark as seen so we don't infinitely re-queue it
+					continue 
+				elif not delay_doors:
+					# Instant Mode
+					hit_trigger_id = triggers_in_world[n]
+					triggers_in_world.erase(n)
+					consumed_triggers[hit_trigger_id] = true 
+					
+					# --- THE ANCHOR FIX ---
+					#print("[DEBUG] Trigger activated at tile: ", n)
+					last_trigger_pos = n
+					
+					log_messages.append("[color=fuchsia]Trigger Activated! Shifting Dimensions...[/color]")
+					break
+					
+		# --- HALT THE BATCH ---
+		if hit_trigger_id != "":
+			break
+			
 	return get_payload()
 
 func fast_forward() -> Dictionary:
@@ -210,13 +278,14 @@ func get_payload() -> Dictionary:
 		"frontier": queue.duplicate(), # For drawing the glowing outline
 		"logs": log_messages.duplicate(),
 		"is_playable": found_end,
-		"inventory": inventory.keys()
+		"inventory": inventory.keys(),
+		"hit_trigger": hit_trigger_id # Tell the thread we hit a trigger
 	}
 
 func get_redraw_payload() -> Dictionary:
 	return {
 		"is_finished": is_finished,
-		"newly_visited": visited.keys(), # <--- Dumps ALL surviving history
+		"newly_visited": visited.keys(), # Dumps ALL surviving history
 		"frontier": queue.duplicate(),
 		"logs": ["[color=cyan]Validator adapted to new topology.[/color]"],
 		"is_playable": found_end,
@@ -232,6 +301,7 @@ func get_temporal_snapshot() -> Dictionary:
 	
 	return {
 		"inventory": inventory.keys().duplicate(),
+		"consumed_triggers": consumed_triggers.keys().duplicate(), # Export the memory
 		"anchor": anchor
 	}
 
@@ -248,6 +318,7 @@ func _parse_entities_and_floors(new_grid: GridData) -> void:
 	grid = new_grid
 	keys_in_world.clear()
 	doors_in_world.clear()
+	triggers_in_world.clear()
 	blocked_cells.clear()
 	valid_floors.clear()
 	total_walkable = 0
@@ -262,6 +333,7 @@ func _parse_entities_and_floors(new_grid: GridData) -> void:
 		elif e_type == "end_point": end_pos = pos
 		elif e_type == "key": keys_in_world[pos] = e.get("key_type")
 		elif e_type == "door": doors_in_world[pos] = e.get("lock_type", "Unlocked")
+		elif e_type == "trigger": triggers_in_world[pos] = e.get("trigger_id", "")
 		elif e_type == "structure":
 			var footprint = e.get("footprint_world", [])
 			if e.get("is_solid", true):
@@ -273,6 +345,7 @@ func _parse_entities_and_floors(new_grid: GridData) -> void:
 			if grid.palette.get_data(id).get("walkable", false) and not blocked_cells.has(Vector2i(x, y)):
 				valid_floors[Vector2i(x, y)] = true
 				total_walkable += 1
+
 
 func get_final_analytics() -> Dictionary:
 	var missed_keys = []

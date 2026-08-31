@@ -36,6 +36,16 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "btn_preview_regen", "label": "Preview Affected Tiles", "type": TYPE_NIL, "hint": "action" },
 		
 		{ "name": "btn_clear", "label": "Clear TileMap", "type": TYPE_NIL, "hint": "action" },
+		
+		# --- MODULAR REGENERATION LAYERS ---
+		{ "name": "sep_regen", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "regen_layer_geometry", "label": "Rebuild Base Geometry", "type": TYPE_BOOL, "default": true },
+		{ "name": "regen_layer_progression", "label": "Rebuild Progression", "type": TYPE_BOOL, "default": true },
+		{ "name": "regen_layer_structures", "label": "Rebuild Structures", "type": TYPE_BOOL, "default": true },
+		{ "name": "regen_layer_entities", "label": "Rebuild Scatter & Entities", "type": TYPE_BOOL, "default": true },
+		{ "name": "regen_layer_textures", "label": "Rebuild Textures (WFC)", "type": TYPE_BOOL, "default": true },
+		# -----------------------------------------
+		
 		{ "name": "sep_1", "type": TYPE_NIL, "hint": "separator" },
 		
 		{ "name": "btn_open_mapper", "label": "Open Visual Tile Mapper", "type": TYPE_NIL, "hint": "action" },

@@ -135,23 +135,48 @@ static func get_wipe_map(realizer: GraphRealizer, dirty_rect: Rect2i, infected_n
 	return {"wipe": cells_to_wipe, "protected": protected_cells}
 
 
-static func carve_dirty_rect(realizer: GraphRealizer, dirty_rect: Rect2i, infected_nodes: Array, infected_edges: Array) -> void:
+static func carve_dirty_rect(realizer: GraphRealizer, params: Dictionary, dirty_rect: Rect2i, infected_nodes: Array, infected_edges: Array) -> void:
 	var map = get_wipe_map(realizer, dirty_rect, infected_nodes, infected_edges)
+	
+	# Fetch the toggles (defaulting to true so manual scripts don't break)
+	var wipe_geo = params.get("regen_layer_geometry", true)
+	var wipe_prog = params.get("regen_layer_progression", true)
+	var wipe_struct = params.get("regen_layer_structures", true)
+	var wipe_ents = params.get("regen_layer_entities", true)
+	var wipe_tex = params.get("regen_layer_textures", true)
 	
 	for pt in map["wipe"]:
 		if not realizer.grid.in_bounds_vec(pt): continue
 		
-		realizer.grid.set_cell(pt.x, pt.y, TilePalette.VOID_ID)
-		realizer.grid.cell_atlas_overrides.erase(pt)
-		realizer.grid.entities.erase(pt)
-		realizer.critical_path_cells.erase(pt)
-		realizer.reserved_cells.erase(pt)
-		realizer.room_cells.erase(pt)
-		realizer.core_path_cells.erase(pt)
-		realizer.distance_field.erase(pt)
-		realizer.cell_to_nodes.erase(pt)
-		realizer.cell_to_edges.erase(pt)
-		
-		if realizer.has_meta("custom_room_cells"):
-			var c_rooms = realizer.get_meta("custom_room_cells")
-			c_rooms.erase(pt)
+		# --- 1. BASE GEOMETRY ---
+		if wipe_geo:
+			realizer.grid.set_cell(pt.x, pt.y, TilePalette.VOID_ID)
+			realizer.critical_path_cells.erase(pt)
+			realizer.room_cells.erase(pt)
+			realizer.core_path_cells.erase(pt)
+			realizer.distance_field.erase(pt)
+			realizer.cell_to_nodes.erase(pt)
+			realizer.cell_to_edges.erase(pt)
+			realizer.reserved_cells.erase(pt) # Always clear reservations if the floor is gone
+			if realizer.has_meta("custom_room_cells"):
+				var c_rooms = realizer.get_meta("custom_room_cells")
+				c_rooms.erase(pt)
+				
+		# --- 2. TEXTURES (WFC) ---
+		if wipe_tex:
+			realizer.grid.cell_atlas_overrides.erase(pt)
+			
+		# --- 3. ENTITIES & STRUCTURES ---
+		if realizer.grid.entities.has(pt):
+			var e_type = realizer.grid.entities[pt].get("type", "")
+			var delete_ent = false
+			
+			# If the floor is gone, everything sitting on it dies. Otherwise, respect the toggles!
+			if wipe_geo: delete_ent = true
+			elif wipe_prog and e_type in ["start_point", "end_point", "key", "door"]: delete_ent = true
+			elif wipe_struct and e_type == "structure": delete_ent = true
+			elif wipe_ents and e_type in ["scatter_set", "trigger", "fringe"]: delete_ent = true
+			
+			if delete_ent:
+				realizer.grid.entities.erase(pt)
+				realizer.reserved_cells.erase(pt) # Free up the footprint for the new placements

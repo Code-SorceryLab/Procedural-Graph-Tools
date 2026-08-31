@@ -5,9 +5,11 @@ signal rasterization_started(is_partial: bool)
 signal snapshot_ready(snapshot: Dictionary)
 signal rasterization_finished(realizer: GraphRealizer, report: Dictionary)
 
+
 signal validation_started()
 signal validation_payload(payload: Dictionary)
 signal validation_finished(analytics: Dictionary)
+signal validation_trigger_hit(trigger_id: String)
 
 var current_realizer: GraphRealizer
 var is_rasterizing: bool = false
@@ -124,6 +126,7 @@ func set_val_params(batch: int, speed_ms: int, constant_speed: bool) -> void:
 
 # [PHASE 2] Inject a new grid mid-validation!
 func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i, re_explore: bool) -> void:
+	print("[DEBUG] update_validation_grid called. re_explore = ", re_explore, " dirty_rect = ", dirty_rect)
 	_val_mutex.lock()
 	if _val_state != "IDLE": 
 		_pending_grid = new_grid
@@ -170,6 +173,12 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 		if state == "PLAYING" or state == "STEP":
 			var payload = validator.step(batch, is_const)
 			call_deferred("_dispatch_payload", payload)
+			# --- AUTOMATIC PAUSE ON TRIGGER ---
+			if payload.get("hit_trigger", "") != "":
+				_val_mutex.lock()
+				_val_state = "PAUSED" # Force the thread to pause
+				_val_mutex.unlock()
+				call_deferred("emit_signal", "validation_trigger_hit", payload["hit_trigger"])
 			if state == "PLAYING": OS.delay_msec(speed)
 			
 		elif state == "FAST_FORWARD":

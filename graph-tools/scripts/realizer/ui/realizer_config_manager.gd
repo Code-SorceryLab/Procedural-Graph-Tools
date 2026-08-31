@@ -8,6 +8,7 @@ signal overlays_need_redraw()
 signal regenerate_selection_requested()
 signal btn_preview_regen_requested()
 signal trigger_settings_saved(trigger_id: String, trigger_data: Dictionary)
+signal exact_node_requested()
 
 # --- POPUPS ---
 var _biome_designer: BiomeDesignerPopup
@@ -27,6 +28,7 @@ var wfc_modules: Dictionary = {}
 var tile_wfc_patterns: Dictionary = {}
 var custom_structures: Dictionary = {} 
 var scatter_sets: Dictionary = {}
+var active_triggers: Dictionary = {}
 var procedural_flags: Dictionary = {}
 var palette_params: Dictionary = {}
 var atlas_mappings: Dictionary = { "default_floor": Vector2i(0, 0), "default_wall": Vector2i(1, 0) }
@@ -42,6 +44,7 @@ func setup() -> void:
 	custom_rooms = ConfigManager.load_custom_rooms()
 	wfc_modules = ConfigManager.load_wfc_modules()
 	tile_wfc_patterns = ConfigManager.load_textural_palettes()
+	active_triggers = ConfigManager.load_regen_triggers()
 	
 	var saved_data = ConfigManager.load_rasterizer_mappings()
 	if saved_data.has("mappings") and not saved_data["mappings"].is_empty(): atlas_mappings.merge(saved_data["mappings"], true)
@@ -69,6 +72,7 @@ func setup() -> void:
 	_biome_designer.spawn_decks_changed.connect(func(d): ConfigManager.save_spawn_decks(d))
 	_biome_designer.room_decks_changed.connect(func(d): ConfigManager.save_room_decks(d))
 	_biome_designer.trigger_settings_saved.connect(func(t_id, data): trigger_settings_saved.emit(t_id, data))
+	_biome_designer.action_requested.connect(_on_biome_designer_action)
 	
 	_custom_room_popup = CustomRoomDesignerPopup.new(); _custom_room_popup.hide(); add_child(_custom_room_popup)
 	_custom_room_popup.confirmed.connect(func(): custom_rooms = _custom_room_popup.custom_rooms.duplicate(true); ConfigManager.save_custom_rooms(custom_rooms))
@@ -133,6 +137,7 @@ func get_execution_params() -> Dictionary:
 	p["tile_wfc_patterns"] = tile_wfc_patterns
 	p["scatter_sets"] = scatter_sets
 	p["biomes"] = _build_filtered_biomes()
+	p["regen_triggers"] = active_triggers
 	return p
 
 func _build_filtered_biomes() -> Dictionary:
@@ -165,3 +170,13 @@ func _build_filtered_biomes() -> Dictionary:
 
 func open_trigger_designer(trigger_id: String, trigger_data: Dictionary) -> void:
 	_biome_designer.open_for_trigger(trigger_id, trigger_data)
+
+func _on_biome_designer_action(action_key: String) -> void:
+	if action_key == "btn_pick_exact_node":
+		# Broadcast the request up to the Controller!
+		exact_node_requested.emit()
+
+func inject_exact_node(node_id: String) -> void:
+	# Receive the answer from the Controller and pass it down to the Popup!
+	if _biome_designer:
+		_biome_designer.inject_exact_node(node_id)

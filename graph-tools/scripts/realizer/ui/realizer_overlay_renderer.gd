@@ -232,6 +232,9 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 		if e_type == "structure":
 			show_sprite = params.get("show_struct_sprites", true)
 			show_footprint = params.get("show_struct_footprints", true)
+		elif e_type in ["door", "key", "fringe", "trigger"]:
+			if not params.get("show_progression", true): continue
+			show_footprint = true
 		elif e_type in ["door", "key", "fringe"]:
 			if not params.get("show_progression", true): continue
 			show_footprint = true
@@ -310,8 +313,13 @@ func render_overlays(realizer: GraphRealizer, entities: Dictionary, params: Dict
 					var out_size = cell_size * s_mult
 					var offset = (cell_size - out_size) / 2.0
 					_footprints.append({ "rect": Rect2(Vector2(pos.x * cell_size + offset + b_size, pos.y * cell_size + offset + b_size), Vector2(out_size - (b_size*2), out_size - (b_size*2))), "color": inner_c })
-					
-				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point"] else (0.4 if e_type == "fringe" else 0.5))
+				
+				elif e_type == "trigger":
+					r_color = Color.FUCHSIA
+					label_text = entity_data.get("name", "Trigger")
+					label_pos = Vector2(pos.x * cell_size + (cell_size / 2.0), pos.y * cell_size + (cell_size / 2.0))
+				
+				var s_mult = 1.0 if e_type == "door" else (0.8 if e_type in ["start_point", "end_point", "trigger"] else (0.4 if e_type == "fringe" else 0.5))
 				var out_size = cell_size * s_mult
 				var offset = (cell_size - out_size) / 2.0
 				_footprints.insert(0, { "rect": Rect2(Vector2(pos.x * cell_size + offset, pos.y * cell_size + offset), Vector2(out_size, out_size)), "color": r_color })

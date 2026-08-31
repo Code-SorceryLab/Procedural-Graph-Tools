@@ -101,7 +101,8 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		if params.has("regen_dirty_rect"):
 			var inf_nodes = params.get("regen_target_nodes", [])
 			var inf_edges = params.get("regen_target_edges", [])
-			DynamicRegenUtils.carve_dirty_rect(self, params["regen_dirty_rect"], inf_nodes, inf_edges)
+			# [FIXED] Pass the params dictionary so it can read the toggles!
+			DynamicRegenUtils.carve_dirty_rect(self, params, params["regen_dirty_rect"], inf_nodes, inf_edges)
 	# ==========================================================================
 	
 	var emit = func(step_name: String):
@@ -117,38 +118,50 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	# --- PIPELINE EXECUTION ---
 	emit.call("Start: Base Initialization")
 	
-	RoomAllocator.allocate(graph, self, floor_id, params, emit)
-	emit.call("Room Allocation")
+	# Fetch execution toggles 
+	# (If this is a fresh initial generation, force ALL layers to build!)
+	var is_regen = (old_realizer != null)
+	var do_geo = not is_regen or params.get("regen_layer_geometry", true)
+	var do_prog = not is_regen or params.get("regen_layer_progression", true)
+	var do_struct = not is_regen or params.get("regen_layer_structures", true)
+	var do_ents = not is_regen or params.get("regen_layer_entities", true)
+	var do_tex = not is_regen or params.get("regen_layer_textures", true)
 	
-	EdgeRouter.route(graph, self, floor_id, params)
-	emit.call("Edge Routing")
-	
-	CellularSmoother.smooth(self, floor_id, params)
-	emit.call("Cellular Smoothing")
-	
-	PathEroder.erode(self, params)
-	emit.call("Path Erosion")
-	
-	ZoneDecorator.decorate(self, params)
-	emit.call("Applying Zone Decor")
-	
-	DistanceMapper.map(self)
-	emit.call("Mapping Distance Fields")
-	
-	StructurePlacer.place(graph, self, params, shopping_lists)
-	emit.call("Placing Structures")
-	
-	ProgressionSolver.analyze(self, params, emit) 
-	emit.call("Progression Analysis Complete")
-	
-	EntityScatterer.scatter(graph, self, params, shopping_lists)
-	emit.call("Scattering Props & Entities")
-	
-	WallGenerator.generate(graph, self, params, wall_id, semantic_wall_map) 
-	emit.call("Generating Outer Walls")
-	
-	TexturalWFCPass.apply(self, params, emit)
-	emit.call("Applying Organic Textural WFC")
+	if do_geo:
+		RoomAllocator.allocate(graph, self, floor_id, params, emit)
+		emit.call("Room Allocation")
+		EdgeRouter.route(graph, self, floor_id, params)
+		emit.call("Edge Routing")
+		CellularSmoother.smooth(self, floor_id, params)
+		emit.call("Cellular Smoothing")
+		PathEroder.erode(self, params)
+		emit.call("Path Erosion")
+		ZoneDecorator.decorate(self, params)
+		emit.call("Applying Zone Decor")
+		DistanceMapper.map(self)
+		emit.call("Mapping Distance Fields")
+		
+	if do_struct:
+		StructurePlacer.place(graph, self, params, shopping_lists)
+		emit.call("Placing Structures")
+		
+	if do_prog:
+		ProgressionSolver.analyze(self, params, emit) 
+		emit.call("Progression Analysis Complete")
+		
+	if do_ents:
+		EntityScatterer.scatter(graph, self, params, shopping_lists)
+		emit.call("Scattering Props & Entities")
+		TriggerPlacer.place(graph, self, params)
+		emit.call("Placing Temporal Triggers")
+		
+	if do_geo:
+		WallGenerator.generate(graph, self, params, wall_id, semantic_wall_map) 
+		emit.call("Generating Outer Walls")
+		
+	if do_tex:
+		TexturalWFCPass.apply(self, params, emit)
+		emit.call("Applying Organic Textural WFC")
 	
 	# --- Run a headless validation pass (full_explore = true, delay_doors = false) ---
 	var headless_validator = GenerationValidator.new(grid, true, false)

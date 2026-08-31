@@ -6,7 +6,7 @@ signal biome_settings_changed(new_biomes: Dictionary)
 signal spawn_decks_changed(new_decks: Dictionary)
 signal room_decks_changed(new_decks: Dictionary)
 signal trigger_settings_saved(trigger_id: String, trigger_data: Dictionary)
-
+signal action_requested(action_key: String)
 
 
 
@@ -161,6 +161,10 @@ func _create_scroll_box(parent: Control) -> VBoxContainer:
 	scroll.add_child(vbox)
 	return vbox
 
+func inject_exact_node(node_id: String) -> void:
+	_set_val("exact_node_id", node_id)
+	_rebuild_trigger_tab() # Refresh UI to trigger the visual dimming
+
 # ==============================================================================
 # DUAL DECK UI SETUP
 # ==============================================================================
@@ -297,12 +301,67 @@ func open_for_trigger(trigger_id: String, trigger_data: Dictionary) -> void:
 
 func _rebuild_trigger_tab() -> void:
 	SettingsUIBuilder.clear_ui(content_trigger)
-	var schema = [
+	
+	# Fetch biomes for the dropdown dynamically
+	var biome_options = ["Any"]
+	if SemanticRegistry.categories.has(SemanticRegistry.TARGET_NODE):
+		for key in SemanticRegistry.categories[SemanticRegistry.TARGET_NODE].keys():
+			biome_options.append(key)
+			
+	# --- SECTION 1: PLACEMENT CONSTRAINTS ---
+	var sec_placement = SettingsUIBuilder.create_collapsible_section(content_trigger, "Placement & Generation Rules", true)
+	var schema_placement = [
 		{ "name": "realizer_seed", "label": "Seed Override (Empty = Random)", "type": TYPE_STRING, "default": _get_val("realizer_seed", "") },
-		{ "name": "progression_enabled", "label": "Enable Progression & Locks", "type": TYPE_BOOL, "default": _get_val("progression_enabled", true) },
-		{ "name": "progression_max_locks", "label": "Max Locks", "type": TYPE_INT, "default": _get_val("progression_max_locks", 0), "min": 0, "max": 20 }
+		
+		{ "name": "sep_p1", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "lbl_p1", "label": "Priority 1: Absolute Target Override", "type": TYPE_NIL, "hint": "read_only" },
+		{ "name": "exact_node_id", "label": "↳ Exact Node ID", "type": TYPE_STRING, "default": _get_val("exact_node_id", "") },
+		{ "name": "btn_pick_exact_node", "label": "🎯 Fetch Selected Graph Node", "type": TYPE_NIL, "hint": "action" },
+		
+		{ "name": "sep_p2", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "lbl_p2", "label": "Priority 2: Search Area Filter", "type": TYPE_NIL, "hint": "read_only" },
+		{ "name": "confine_to_mask", "label": "↳ Confine to Editor Mask", "type": TYPE_BOOL, "default": _get_val("confine_to_mask", true) },
+		
+		{ "name": "sep_p3", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "lbl_p3", "label": "Priority 3: Topological Filters", "type": TYPE_NIL, "hint": "read_only" },
+		{ "name": "pref_biome", "label": "↳ Preferred Biome", "type": TYPE_STRING, "default": _get_val("pref_biome", "Any"), "hint": "enum", "options": biome_options, "return_string": true },
+		{ "name": "pref_topology", "label": "↳ Topology Role", "type": TYPE_INT, "default": _get_val("pref_topology", 0), "hint": "enum", "hint_string": "Any,Leaf Node (Dead End),Spine Node (Main Path)" },
+		{ "name": "min_depth", "label": "↳ Minimum Depth", "type": TYPE_INT, "default": _get_val("min_depth", 0), "min": 0, "max": 20 },
+		
+		{ "name": "sep_p4", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "lbl_p4", "label": "Priority 4: Micro Room Placements", "type": TYPE_NIL, "hint": "read_only" },
+		{ "name": "wall_affinity", "label": "↳ Wall Affinity", "type": TYPE_INT, "default": _get_val("wall_affinity", 0), "hint": "enum", "hint_string": "Any,Against Wall,Center of Room" },
+		{ "name": "require_clearance", "label": "↳ Require 1-Tile Clearance", "type": TYPE_BOOL, "default": _get_val("require_clearance", true) }
 	]
-	SettingsUIBuilder.render_dynamic_section(content_trigger, schema, _set_val)
+	SettingsUIBuilder.render_dynamic_section(sec_placement, schema_placement, _set_val)
+	
+	# --- SECTION 2: REGENERATION PIPELINE LAYERS ---
+	var sec_layers = SettingsUIBuilder.create_collapsible_section(content_trigger, "Regeneration Pipeline Layers", true)
+	var schema_layers = [
+		{ "name": "regen_layer_geometry", "label": "Rebuild Base Geometry", "type": TYPE_BOOL, "default": _get_val("regen_layer_geometry", true) },
+		{ "name": "regen_layer_progression", "label": "Rebuild Progression", "type": TYPE_BOOL, "default": _get_val("regen_layer_progression", true) },
+		{ "name": "regen_layer_structures", "label": "Rebuild Structures", "type": TYPE_BOOL, "default": _get_val("regen_layer_structures", true) },
+		{ "name": "regen_layer_entities", "label": "Rebuild Scatter & Entities", "type": TYPE_BOOL, "default": _get_val("regen_layer_entities", true) },
+		{ "name": "regen_layer_textures", "label": "Rebuild Textures (WFC)", "type": TYPE_BOOL, "default": _get_val("regen_layer_textures", true) }
+	]
+	SettingsUIBuilder.render_dynamic_section(sec_layers, schema_layers, _set_val)
+	
+	_apply_waterfall_dimming()
+
+
+
+func _apply_waterfall_dimming() -> void:
+	var has_exact_node = _get_val("exact_node_id", "") != ""
+	
+	var dim_row = func(key: String, is_dimmed: bool):
+		# Use find_child to pierce through the new collapsible container hierarchy
+		var row = content_trigger.find_child("row_" + key, true, false)
+		if row: row.modulate = Color(1, 1, 1, 0.4 if is_dimmed else 1.0)
+			
+	dim_row.call("confine_to_mask", has_exact_node)
+	dim_row.call("pref_biome", has_exact_node)
+	dim_row.call("pref_topology", has_exact_node)
+	dim_row.call("min_depth", has_exact_node)
 
 func _populate_biome_dropdown() -> void:
 	biome_dropdown.clear()
@@ -359,10 +418,26 @@ func _get_val(key: String, default_val: Variant) -> Variant:
 	return global_params.get(key, default_val)
 
 func _set_val(key: String, val: Variant) -> void:
+	# Catch action buttons and route them to the Controller
+	if typeof(val) == TYPE_BOOL and val == true and key.begins_with("btn_"):
+		action_requested.emit(key)
+		return
+		
 	if current_biome_id == "": global_params[key] = val
 	else:
 		if not biome_overrides.has(current_biome_id): biome_overrides[current_biome_id] = {}
 		biome_overrides[current_biome_id][key] = val
+		
+	# Instantly update visual dimming if the user types in a Node ID
+	if key == "exact_node_id" and _is_trigger_mode:
+		_apply_waterfall_dimming()
+		
+	# --- INSTANT LIVE SYNC ---
+	# Tell the Controller about the change immediately so Test Fire is perfectly accurate!
+	if _is_trigger_mode:
+		_current_trigger_data["global_overrides"] = global_params
+		_current_trigger_data["biome_overrides"] = biome_overrides
+		trigger_settings_saved.emit(_current_trigger_id, _current_trigger_data)
 
 func _set_biome_flag(key: String, val: bool) -> void:
 	if current_biome_id == "": return

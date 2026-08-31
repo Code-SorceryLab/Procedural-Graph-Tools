@@ -54,6 +54,7 @@ func _ready() -> void:
 	
 	_execution_manager.validation_started.connect(_on_validation_started)
 	_execution_manager.validation_payload.connect(_on_validation_payload)
+	_execution_manager.validation_trigger_hit.connect(_on_validation_trigger_hit)
 	_execution_manager.validation_finished.connect(func(analytics): 
 		_validation_tab.set_state("IDLE")
 	)
@@ -67,6 +68,7 @@ func _ready() -> void:
 	_config_manager.rasterize_requested.connect(_on_rasterize_pressed)
 	_config_manager.regenerate_selection_requested.connect(_on_regenerate_selection_pressed)
 	_config_manager.clear_requested.connect(_on_clear_pressed)
+	_config_manager.exact_node_requested.connect(_on_exact_node_requested)
 	_config_manager.mappings_changed.connect(func(): _active_mapping.clear())
 	_config_manager.overlays_need_redraw.connect(func():
 		if not _snapshots.is_empty() and tile_map_layer:
@@ -97,6 +99,7 @@ func _ready() -> void:
 	_triggers_tab.trigger_created.connect(_on_trigger_created)
 	_triggers_tab.trigger_deleted.connect(_on_trigger_deleted)
 	_triggers_tab.trigger_name_changed.connect(_on_trigger_name_changed)
+	_triggers_tab.trigger_mode_changed.connect(_on_trigger_mode_changed)
 	_triggers_tab.trigger_edit_mask_requested.connect(_on_trigger_mask_requested)
 	_triggers_tab.trigger_test_requested.connect(_on_trigger_test_requested)
 	_triggers_tab.trigger_edit_settings_requested.connect(_on_trigger_edit_settings_requested)
@@ -153,6 +156,9 @@ func _on_rasterize_pressed() -> void:
 	if not tile_map_layer: return
 	
 	var exec_params = _config_manager.get_execution_params()
+	# --- [NEW] OVERRIDE WITH LIVE UI DATA ---
+	exec_params["regen_triggers"] = _active_triggers.duplicate(true) 
+	
 	_execution_manager.run_rasterization(graph_editor.graph, exec_params, _config_manager.biome_params)
 
 func _on_rasterization_started(is_partial: bool = false) -> void:
@@ -233,6 +239,9 @@ func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, t
 	exec_params["regen_target_nodes"] = final_nodes
 	exec_params["regen_target_edges"] = final_edges
 	
+	# --- OVERRIDE WITH LIVE UI DATA ---
+	exec_params["regen_triggers"] = _active_triggers.duplicate(true)
+	
 	var raw_biomes = _config_manager.biome_params.duplicate(true)
 	
 	# 4. MERGE TRIGGER OVERRIDES (If provided)
@@ -260,7 +269,10 @@ func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, t
 		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
 		
 	# 6. Validation Frontier Selection Warning (Oracle Warning)
-	if _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
+	var val_settings = _validation_tab.get_settings()
+	var auto_accept = val_settings.get("auto_accept_warnings", false)
+	
+	if not auto_accept and _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
 		var dialog = ConfirmationDialog.new()
 		dialog.title = "Validator Relocation Warning"
 		dialog.dialog_text = "The selected regeneration area physically overlaps the paused Validator's explored fluid.\n\nContinuing will force the Validator to evaporate the fluid inside the blast radius and relocate its frontier.\n\nDo you want to proceed?"
@@ -349,6 +361,8 @@ func _on_rasterization_finished(realizer: GraphRealizer, report: Dictionary) -> 
 	if _execution_manager.is_validation_running():
 		var dirty_rect = _realizer.get_meta("regen_dirty_rect") if _realizer.has_meta("regen_dirty_rect") else Rect2i()
 		var re_explore = _validation_tab.get_settings().get("re_explore", false)
+		print("[DEBUG] Rasterization finished. re_explore = ", re_explore)
+		
 		_execution_manager.update_validation_grid(_realizer.grid, dirty_rect, re_explore)
 
 func _on_validation_run_requested() -> void:
@@ -391,6 +405,12 @@ func _on_validation_payload(payload: Dictionary) -> void:
 	if payload["is_finished"]:
 		_validation_tab.set_state("IDLE")
 
+func _on_validation_trigger_hit(t_id: String) -> void:
+	# 1. Sync the UI State
+	_validation_tab.set_state("PAUSED")
+	
+	# 2. Automate the regeneration exactly as if the user clicked "Test"
+	_on_trigger_test_requested(t_id)
 
 func _on_validation_stop_requested() -> void:
 	_execution_manager.cancel_validation()
@@ -441,6 +461,7 @@ func _on_trigger_created() -> void:
 	var new_id = "trig_" + str(Time.get_unix_time_from_system())
 	_active_triggers[new_id] = {
 		"name": "New Trigger",
+		"placement_mode": 1,
 		"target_nodes": [],
 		"target_edges": [],
 		"global_overrides": {},
@@ -458,6 +479,12 @@ func _on_trigger_name_changed(t_id: String, new_name: String) -> void:
 	if _active_triggers.has(t_id):
 		_active_triggers[t_id]["name"] = new_name
 		ConfigManager.save_regen_triggers(_active_triggers)
+
+func _on_trigger_mode_changed(t_id: String, new_mode: int) -> void:
+	if _active_triggers.has(t_id):
+		_active_triggers[t_id]["placement_mode"] = new_mode
+		ConfigManager.save_regen_triggers(_active_triggers)
+		#_triggers_tab.build_list(_active_triggers)
 
 func _on_trigger_mask_requested(t_id: String) -> void:
 	if not graph_editor or not _active_triggers.has(t_id): return
@@ -502,6 +529,13 @@ func _on_trigger_settings_saved(t_id: String, t_data: Dictionary) -> void:
 	if _active_triggers.has(t_id):
 		_active_triggers[t_id] = t_data
 		ConfigManager.save_regen_triggers(_active_triggers)
+
+func _on_exact_node_requested() -> void:
+	if graph_editor and graph_editor.selected_nodes.size() > 0:
+		var selected_node = graph_editor.selected_nodes[0]
+		_config_manager.inject_exact_node(selected_node)
+	else:
+		print("Warning: Select a node in the Graph Editor first!")
 
 # ==============================================================================
 # CLEANUP
