@@ -59,6 +59,15 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	var safe_regions_for_lock = {}
 	var region_prereqs = { start_region: [] }
 	
+	# --- ANTI-CYCLE DEPENDENCY GRAPH ---
+	var lock_dependencies = {} 
+	for k in archived_keys:
+		var l_str = k.get("lock_str", "")
+		var k_reg = k.get("region", -1)
+		if l_str != "" and k_reg != -1:
+			if not lock_dependencies.has(l_str): lock_dependencies[l_str] = []
+			lock_dependencies[l_str].append(k_reg)
+	
 	var populate_frontier = func(r_id):
 		for p_id in portal_connections:
 			if processed_portals.has(p_id): continue
@@ -144,18 +153,25 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			unvisited_leaves += 1
 
 	while frontier_edges.size() > 0:
-		var e_idx = rng.randi() % frontier_edges.size()
-		var edge = frontier_edges[e_idx]
+		# --- TOPOLOGICAL SORT (Spine First, Then Branches by Depth) ---
+		var frontier_depth_map = path_data.get("region_depth", {})
+		var e_idx = -1
+		var best_score = 999999
 		
-		if edge["dest"] == end_region and frontier_edges.size() > 1:
-			var found_other = false
-			for i in range(frontier_edges.size()):
-				if frontier_edges[i]["dest"] != end_region:
-					e_idx = i
-					edge = frontier_edges[i]
-					found_other = true
-					break
-					
+		for i in range(frontier_edges.size()):
+			var edge = frontier_edges[i]
+			var d = frontier_depth_map.get(edge["source"], 0)
+			var is_spine = spine_regions.has(edge["dest"])
+			var score = d if is_spine else (d + 1000) # Force branches to wait
+			
+			if edge["dest"] == end_region and frontier_edges.size() > 1:
+				score += 5000 # Save finale for last
+				
+			if score < best_score:
+				best_score = score
+				e_idx = i
+				
+		var edge = frontier_edges[e_idx]
 		frontier_edges.remove_at(e_idx)
 		
 		var p_id = edge["p_id"]
@@ -213,7 +229,21 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 		if is_vault and empty_stash_spots.size() == 0 and vault_locks.size() == 0:
 			is_vault = false
 			vault_tag = ""
-				
+		
+		# ==============================================================
+		# ANTI-CYCLE FILTER (Recursive Dependency Trace)
+		# ==============================================================
+		var check_cycle = func(check_r_id: int, target_lock: String, visited_locks: Dictionary, self_ref: Callable) -> bool:
+			var prereqs = region_prereqs.get(check_r_id, [])
+			if prereqs.has(target_lock): return true
+			for req_lock in prereqs:
+				if visited_locks.has(req_lock): continue
+				visited_locks[req_lock] = true
+				for key_reg in lock_dependencies.get(req_lock, []):
+					if self_ref.call(key_reg, target_lock, visited_locks, self_ref):
+						return true
+			return false
+		
 		var lock_it = false
 		var forge_new_key = false
 		var lock_str = ""
@@ -270,15 +300,21 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					
 				# 1. Did the Main Key Survive?
 				var key_survived = false
-				var player_inventory = temporal_state.get("inventory", []) # Fetch Inventory
+				var player_inventory = temporal_state.get("inventory", []) 
 				
-				if player_inventory.has(lock_str): # The Pocket Check
+				if player_inventory.has(lock_str): 
 					key_survived = true
 				else:
 					for k in archived_keys:
 						if k["lock_str"] == lock_str and not "Shortcut" in k["placement_method"]:
-							key_survived = true
-							if k["region"] != -1: regions_with_keys[k["region"]] = true
+							var k_reg = k["region"]
+							if k_reg != -1:
+								# --- REJECT IF STRANDED BY TEMPORAL SHIFT ---
+								if not check_cycle.call(k_reg, lock_str, {}, check_cycle):
+									key_survived = true
+									regions_with_keys[k_reg] = true
+								else:
+									if emit.is_valid(): emit.call("Solver: Archived Key Rejected (Cycle Prevented)")
 							break
 						
 				# 2. If it died, and we haven't already replaced it, Forge a Replacement
@@ -315,11 +351,18 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			if needs_key_drop:
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
 				
-				# --- THE FORWARD STASH ---
 				if player_region != start_region:
 					var forward_pool = target_pool.filter(func(r): return not player_spine.has(r))
-					if forward_pool.size() > 0: 
-						target_pool = forward_pool
+					if forward_pool.size() > 0: target_pool = forward_pool
+						
+				# --- FILTER CYCLES ---
+				var safe_pool = []
+				for r in target_pool:
+					if not check_cycle.call(r, lock_str, {}, check_cycle):
+						safe_pool.append(r)
+						
+				if safe_pool.size() > 0: target_pool = safe_pool
+				else: target_pool = [start_region] # Absolute mathematical fallback
 						
 				var is_temporal = lock_str.begins_with("TemporalLock_")
 				var trigger_id = lock_str.replace("TemporalLock_", "") if is_temporal else ""
@@ -379,6 +422,11 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 							}
 							realizer.reserved_cells[pt] = true
 							regions_with_keys[chosen_region] = true
+							
+							# Update Dependency Graph
+							if not lock_dependencies.has(lock_str): lock_dependencies[lock_str] = []
+							lock_dependencies[lock_str].append(chosen_region)
+							
 							if emit.is_valid(): emit.call("Solver: Placed Progression Trigger (" + t_data.get("name", "Temporal") + ")")
 							
 				# ==============================================================
@@ -396,6 +444,10 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 						if ProgressionPathingAnalyst.spawn_marker([chosen_region], "key", key_drop_subtype, regions, realizer, rng, placement_tag, key_drop_display):
 							key_dropped = true
 							regions_with_keys[chosen_region] = true
+							
+							# Update Dependency Graph
+							if not lock_dependencies.has(lock_str): lock_dependencies[lock_str] = []
+							lock_dependencies[lock_str].append(chosen_region)
 							
 					if not key_dropped:
 						ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, placement_tag + " (Emergency)")

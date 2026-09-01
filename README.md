@@ -75,6 +75,8 @@ The pipeline in effect. Note how the jitter step only affects nodes produced by 
 - **Dynamic regeneration** of selected nodes/edges while preserving surrounding context.
 - **Timeline & VCR** to step through each rasterization pass.
 - **Headless validation** with flood‑fill reachability and lock simulation.
+- **Trigger‑Based Regeneration** – Placeable world triggers that cause targeted regeneration of selected nodes/edges, preserving the surrounding topology while dynamically altering the dungeon.
+- **Temporally Aware Progression** – Locks and keys that adapt to the player’s current location and inventory across regenerations; some locks require trigger activation before their key is even placed, creating evolving, replayable progression puzzles.
 
 ![Rasterization example using a base graph for topology. Note that different colour nodes can house different biome settings, allowing for diverse generations.](Documentation/images/RasterExample.png?raw=true "Rasterization Example")
 Rasterization example using a base graph for topology. Note that different colour nodes can house different biome settings, allowing for diverse generations.
@@ -116,7 +118,7 @@ Rasterization example using a base graph for topology. Note that different colou
 - Deterministic seeds across all systems.
 - Batch experiment runner with multi‑threaded execution.
 - Headless validation for automatic solvability checks.
-
+- Dynamic validation – The validator acts as a persistent player simulation that survives world regenerations, re‑exploring from the trigger location and maintaining inventory/explored state.
 ---
 
 

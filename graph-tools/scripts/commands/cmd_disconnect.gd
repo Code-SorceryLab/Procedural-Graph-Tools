@@ -22,26 +22,19 @@ func undo() -> void:
 
 	if _old_data.is_empty():
 		_graph.add_edge(_u, _v, _old_weight, _was_directed)
-	else:
-		var direction = _old_data.get("direction", 0)
-		var weight = _old_data.get("weight", _old_weight)
-		var custom = _old_data.get("custom", {})
+		return
 
-		if direction == 0:  # Bi‑directional
-			_graph.add_edge(_u, _v, weight, false, custom)
-		elif direction == 1:  # canonical u → v
-			# Determine which endpoint is the canonical "u"
-			var canonical_u = _old_data.get("u", _u)
-			if canonical_u == _u:
-				_graph.add_edge(_u, _v, weight, true, custom)
-			else:
-				_graph.add_edge(_v, _u, weight, true, custom)
-		elif direction == 2:  # canonical v → u
-			var canonical_u = _old_data.get("u", _u)
-			if canonical_u == _u:
-				_graph.add_edge(_v, _u, weight, true, custom)
-			else:
-				_graph.add_edge(_u, _v, weight, true, custom)
+	var weight = _old_data.get("weight", _old_weight)
+	var custom = _old_data.get("custom", {})
+
+	if _was_directed:
+		# Restore the exact one-way edge that was removed
+		var u = _old_data.get("u", _u)
+		var v = _old_data.get("v", _v)
+		_graph.add_edge(u, v, weight, true, custom)
+	else:
+		# Restore the original bidirectional edge
+		_graph.add_edge(_u, _v, weight, false, custom)
 
 func get_name() -> String:
 	return "Disconnect Nodes"

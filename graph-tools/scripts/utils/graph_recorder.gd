@@ -166,18 +166,32 @@ func remove_node(id: String) -> void:
 func remove_edge(a: String, b: String, directed: bool = false) -> void:
 	var edge_key = get_edge_key(a, b)
 	var full_record = {}
+	var reverse_record = {}
+
 	if edge_store.has(edge_key):
 		full_record = edge_store[edge_key].duplicate(true)
 
+	# If undirected, also capture the reverse direction
+	if not directed:
+		var rev_key = get_edge_key(b, a)
+		if edge_store.has(rev_key):
+			reverse_record = edge_store[rev_key].duplicate(true)
+
 	var w = get_edge_weight(a, b)
 	super.remove_edge(a, b, directed)
-	
+
 	# Remove from footprint
 	var pair = [a, b]
 	pair.sort()
 	touched_edges.erase(pair)
-	
-	var cmd = CmdDisconnect.new(_target_graph, a, b, w, directed, full_record)
+
+	# Pass a composite snapshot to CmdDisconnect
+	var snapshot = {
+		"fwd": full_record,
+		"rev": reverse_record,
+		"was_directed": directed
+	}
+	var cmd = CmdDisconnect.new(_target_graph, a, b, w, directed, snapshot)
 	recorded_commands.append(cmd)
 
 func set_node_type(id: String, new_type: String) -> void: 
