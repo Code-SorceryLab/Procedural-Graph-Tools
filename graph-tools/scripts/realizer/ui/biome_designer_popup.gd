@@ -311,6 +311,7 @@ func _rebuild_trigger_tab() -> void:
 	# --- SECTION 1: PLACEMENT CONSTRAINTS ---
 	var sec_placement = SettingsUIBuilder.create_collapsible_section(content_trigger, "Placement & Generation Rules", true)
 	var schema_placement = [
+		{ "name": "max_uses", "label": "Max Uses (-1 = Endless)", "type": TYPE_INT, "default": _get_val("max_uses", 1), "min": -1, "max": 99 },
 		{ "name": "realizer_seed", "label": "Seed Override (Empty = Random)", "type": TYPE_STRING, "default": _get_val("realizer_seed", "") },
 		
 		{ "name": "sep_p1", "type": TYPE_NIL, "hint": "separator" },

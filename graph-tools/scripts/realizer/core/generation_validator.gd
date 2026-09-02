@@ -33,11 +33,22 @@ var ortho = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
 var newly_visited: Array = []
 var log_messages: Array = []
 
-func _init(initial_grid: GridData, p_full_explore: bool, p_delay_doors: bool) -> void:
+# --- CHECKPOINT VARIABLES ---
+var ignore_triggers: bool = false
+var override_start_pos: Vector2i = Vector2i(-1, -1)
+
+func _init(initial_grid: GridData, p_full_explore: bool, p_delay_doors: bool, p_override_start: Vector2i = Vector2i(-1, -1), p_ignore_triggers: bool = false) -> void:
 	full_explore = p_full_explore
 	delay_doors = p_delay_doors
+	override_start_pos = p_override_start
+	ignore_triggers = p_ignore_triggers
+	
 	_parse_entities_and_floors(initial_grid)
 	
+	# Apply Checkpoint Override!
+	if override_start_pos != Vector2i(-1, -1) and valid_floors.has(override_start_pos):
+		start_pos = override_start_pos
+		
 	if start_pos != Vector2i(-1, -1):
 		queue.append(start_pos)
 		visited[start_pos] = true
@@ -169,20 +180,32 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 			elif pending_triggers.size() > 0:
 				# --- DELAYED TRIGGER ACTIVATION ---
 				var t_pos = pending_triggers.pop_front()
-				hit_trigger_id = triggers_in_world[t_pos]
-				triggers_in_world.erase(t_pos)
-				consumed_triggers[hit_trigger_id] = true
+				var t_data = triggers_in_world[t_pos]
+				var t_id = t_data["id"]
+				var max_uses = t_data["max_uses"]
+				var uses = consumed_triggers.get(t_id, 0)
 				
+				# If somehow exhausted while in the queue, skip it!
+				if ignore_triggers or (max_uses != -1 and uses >= max_uses):
+					visited[t_pos] = true
+					queue.append(t_pos)
+					continue
+					
+				hit_trigger_id = t_id
+				triggers_in_world.erase(t_pos)
+				
+				# Increment the player's frequency memory
+				consumed_triggers[hit_trigger_id] = uses + 1
 				
 				# --- THE ANCHOR FIX ---
-				# Collapse the fluid's leading edge perfectly onto the trigger tile!
 				queue.clear()
 				queue.append(t_pos)
 				visited[t_pos] = true
 				newly_visited.append(t_pos)
-				#print("[DEBUG] Trigger activated at tile: ", t_pos)
 				last_trigger_pos = t_pos
-				log_messages.append("[color=fuchsia]All paths exhausted. Activating Trigger: " + hit_trigger_id + "[/color]")
+				
+				var use_str = " (" + str(uses + 1) + "/" + (str(max_uses) if max_uses != -1 else "∞") + ")"
+				log_messages.append("[color=fuchsia]All paths exhausted. Activating Trigger: " + hit_trigger_id + use_str + "[/color]")
 				break
 			else:
 				_finish_validation()
@@ -229,23 +252,32 @@ func step(batch_size: int = 1, constant_speed: bool = false) -> Dictionary:
 						
 			# --- TRIGGER DETECTION ---
 			if triggers_in_world.has(n):
-				# If "Exhaustive Mode" is on, push it to the back of the line!
+				var t_data = triggers_in_world[n]
+				var t_id = t_data["id"]
+				var max_uses = t_data["max_uses"]
+				var uses = consumed_triggers.get(t_id, 0)
+				
+				# --- THE IGNORANCE / EXHAUSTION PROTOCOL ---
+				# If we are ignoring triggers for a background test, OR it's fully exhausted, just walk over it!
+				if ignore_triggers or (max_uses != -1 and uses >= max_uses):
+					visited[n] = true
+					queue.append(n)
+					triggers_in_world.erase(n)
+					continue 
+					
+				# --- ACTIVE TRIGGER ---
 				if delay_doors and not pending_triggers.has(n):
 					pending_triggers.append(n)
-					visited[n] = true # Mark as seen so we don't infinitely re-queue it
+					visited[n] = true 
 					continue 
 				elif not delay_doors:
 					# Instant Mode
-					hit_trigger_id = triggers_in_world[n]
+					hit_trigger_id = t_id
 					triggers_in_world.erase(n)
-					consumed_triggers[hit_trigger_id] = true 
-					
+					consumed_triggers[hit_trigger_id] = uses + 1 
 					
 					# --- THE ANCHOR FIX ---
 					last_trigger_pos = n
-					
-					log_messages.append("[color=fuchsia]Trigger Activated! Shifting Dimensions...[/color]")
-					break
 					
 		# --- HALT THE BATCH ---
 		if hit_trigger_id != "":
@@ -291,9 +323,15 @@ func get_temporal_snapshot() -> Dictionary:
 	
 	return {
 		"inventory": inventory.keys().duplicate(),
-		"consumed_triggers": consumed_triggers.keys().duplicate(), # Export the memory
+		"consumed_triggers": consumed_triggers.duplicate(), 
 		"anchor": anchor
 	}
+
+func load_temporal_state(state: Dictionary) -> void:
+	if state.has("inventory"):
+		for k in state["inventory"]: inventory[k] = true
+	if state.has("consumed_triggers"):
+		consumed_triggers = state["consumed_triggers"].duplicate()
 
 func _finish_validation() -> void:
 	is_finished = true
@@ -323,7 +361,7 @@ func _parse_entities_and_floors(new_grid: GridData) -> void:
 		elif e_type == "end_point": end_pos = pos
 		elif e_type == "key": keys_in_world[pos] = e.get("key_type")
 		elif e_type == "door": doors_in_world[pos] = e.get("lock_type", "Unlocked")
-		elif e_type == "trigger": triggers_in_world[pos] = e.get("trigger_id", "")
+		elif e_type == "trigger": triggers_in_world[pos] = { "id": e.get("trigger_id", ""), "max_uses": e.get("max_uses", 1) }
 		elif e_type == "structure":
 			var footprint = e.get("footprint_world", [])
 			if e.get("is_solid", true):

@@ -268,17 +268,29 @@ func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, t
 	if _execution_manager.is_validation_running():
 		exec_params["temporal_state"] = _execution_manager.get_temporal_snapshot()
 		
-	# 6. Validation Frontier Selection Warning (Oracle Warning)
+	# 6. Temporal Regeneration Warning (Oracle Warning)
 	var val_settings = _validation_tab.get_settings()
 	var auto_accept = val_settings.get("auto_accept_warnings", false)
 	
-	if not auto_accept and _execution_manager.is_validation_running() and _validator_visualizer.intersects_rect(dirty_rect):
+	if not auto_accept:
 		var dialog = ConfirmationDialog.new()
-		dialog.title = "Validator Relocation Warning"
-		dialog.dialog_text = "The selected regeneration area physically overlaps the paused Validator's explored fluid.\n\nContinuing will force the Validator to evaporate the fluid inside the blast radius and relocate its frontier.\n\nDo you want to proceed?"
-		dialog.get_ok_button().text = "Regenerate Anyway"
+		dialog.title = "Regeneration Impending"
+		
+		var intersects = _validator_visualizer != null and _validator_visualizer.intersects_rect(dirty_rect)
+		var msg = "A Regeneration Trigger has been activated. The engine is preparing to physically regenerate the targeted regions."
+		
+		if intersects:
+			msg += "\n\n[WARNING] The affected region overlaps the Validator's current explored fluid! Continuing will evaporate the fluid inside this zone and force the Validator to relocate its frontier."
+			
+		msg += "\n\nDo you want to proceed with the regeneration?"
+		
+		dialog.dialog_text = msg
+		dialog.get_ok_button().text = "Regenerate"
+		dialog.get_cancel_button().text = "Ignore Trigger"
 		
 		dialog.confirmed.connect(func():
+			print("[Debug] Trigger overrides: ", trigger_data.get("global_overrides", {}))
+			print("[Debug] exec_params regen_layer_progression: ", exec_params.get("regen_layer_progression", "MISSING"))
 			_execution_manager.run_rasterization(graph, exec_params, raw_biomes, _realizer)
 			dialog.queue_free()
 		)
@@ -286,9 +298,11 @@ func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, t
 		
 		ui_container.add_child(dialog) 
 		dialog.popup_centered()
-		return 
+		return
 		
 	# 7. Execute Normally
+	print("[Debug] Trigger overrides: ", trigger_data.get("global_overrides", {}))
+	print("[Debug] exec_params regen_layer_progression: ", exec_params.get("regen_layer_progression", "MISSING"))
 	_execution_manager.run_rasterization(graph, exec_params, raw_biomes, _realizer)
 
 func _on_regenerate_selection_pressed() -> void:
@@ -526,9 +540,22 @@ func _on_trigger_edit_settings_requested(t_id: String) -> void:
 		_config_manager.open_trigger_designer(t_id, _active_triggers[t_id])
 
 func _on_trigger_settings_saved(t_id: String, t_data: Dictionary) -> void:
-	if _active_triggers.has(t_id):
-		_active_triggers[t_id] = t_data
-		ConfigManager.save_regen_triggers(_active_triggers)
+	if not _active_triggers.has(t_id): return
+
+	var existing = _active_triggers[t_id]
+
+	# Merge top-level keys
+	for k in t_data:
+		if k == "global_overrides" or k == "biome_overrides":
+			if not existing.has(k): existing[k] = {}
+			for sub_key in t_data[k]:
+				existing[k][sub_key] = t_data[k][sub_key]
+		else:
+			existing[k] = t_data[k]
+
+	_active_triggers[t_id] = existing
+	ConfigManager.save_regen_triggers(_active_triggers)
+	_triggers_tab.build_list(_active_triggers)  # optional refresh
 
 func _on_exact_node_requested() -> void:
 	if graph_editor and graph_editor.selected_nodes.size() > 0:

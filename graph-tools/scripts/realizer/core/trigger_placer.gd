@@ -27,7 +27,21 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 			start_pos = pos
 			
 	var temporal_state = params.get("temporal_state", {})
-	var consumed = temporal_state.get("consumed_triggers", [])
+	# [FIX] Treat as Frequency Dictionary
+	var consumed = temporal_state.get("consumed_triggers", {}) 
+
+	for t_id in triggers:
+		var t_data = triggers[t_id]
+		var t_globals = t_data.get("global_overrides", {})
+		
+		# --- FREQUENCY CHECK ---
+		var max_uses = t_data.get("max_uses", 1)
+		var uses = consumed.get(t_id, 0)
+		
+		# If the trigger is fully exhausted, skip spawning it
+		if max_uses != -1 and uses >= max_uses: continue 
+		
+		if existing_triggers.get(t_id, 0) >= t_data.get("max_instances", 1): continue
 	
 	# ==========================================================================
 	# REGION MAPPING (The Ground Truth)
@@ -173,7 +187,8 @@ static func place(graph: Graph, realizer: GraphRealizer, params: Dictionary) -> 
 				"type": "trigger",
 				"trigger_id": t_id,
 				"name": t_data.get("name", "Unknown Trigger"),
-				"placement_method": "local"
+				"placement_method": "local",
+				"max_uses": t_data.get("max_uses", 1)
 			}
 			realizer.reserved_cells[chosen] = true
 			existing_triggers[t_id] = existing_triggers.get(t_id, 0) + 1

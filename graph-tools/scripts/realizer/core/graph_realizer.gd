@@ -146,8 +146,10 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 		emit.call("Placing Structures")
 		
 	if do_prog:
-		ProgressionSolver.analyze(self, params, emit) 
-		emit.call("Progression Analysis Complete")
+		print("[GraphRealizer] Progression pass triggered. is_regen = ", is_regen)
+		ProgressionSolver.analyze(self, params, emit)
+	else:
+		print("[GraphRealizer] Progression pass SKIPPED. regen_layer_progression = ", params.get("regen_layer_progression", true))
 		
 	if do_ents:
 		EntityScatterer.scatter(graph, self, params, shopping_lists)

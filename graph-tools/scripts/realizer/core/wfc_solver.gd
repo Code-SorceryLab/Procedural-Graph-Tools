@@ -78,7 +78,7 @@ static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Diction
 			
 		if allowed.is_empty():
 			var snap = get_fixed_snapshot.call(s_pos)
-			print("[WFC Contradiction] Socket %s has no valid modules during init. Fixed constraints: %s" % [s_pos, snap])
+			#print("[WFC Contradiction] Socket %s has no valid modules during init. Fixed constraints: %s" % [s_pos, snap])
 			domains[s_pos] = []
 			continue
 
@@ -109,7 +109,7 @@ static func resolve(sockets: Array, rng: RandomNumberGenerator, modules: Diction
 		if domains[s_pos].is_empty():
 			# Contradiction: stop collapsing further.
 			var snap = get_fixed_snapshot.call(s_pos)
-			print("[WFC Contradiction] Socket %s became empty during collapse. Fixed constraints: %s" % [s_pos, snap])
+			#print("[WFC Contradiction] Socket %s became empty during collapse. Fixed constraints: %s" % [s_pos, snap])
 			break
 
 		# Weighted random collapse

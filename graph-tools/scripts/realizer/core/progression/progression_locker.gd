@@ -110,6 +110,8 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	
 	var color_pool = master_colors.duplicate()
 	
+	
+	
 	# --- PRUNE EXISTING COLORS ---
 	# Remove any surviving colors from the pool so we don't generate duplicate doors!
 	for p_id in archived_locks:
@@ -124,13 +126,16 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 	
 	# --- PROGRESSION TRIGGER POOL ---
 	var active_triggers = params.get("regen_triggers", {})
-	var consumed_triggers = params.get("temporal_state", {}).get("consumed_triggers", [])
+	var consumed_triggers = params.get("temporal_state", {}).get("consumed_triggers", {})
 	
 	var prog_trigger_pool = []
 	for t_id in active_triggers:
 		if active_triggers[t_id].get("placement_mode", 1) == 2:
 			prog_trigger_pool.append(t_id)
-			
+	
+	#print("[Locker] prog_trigger_pool IDs: ", prog_trigger_pool)
+	#print("[Locker] consumed_triggers keys: ", consumed_triggers.keys() if typeof(consumed_triggers) == TYPE_DICTIONARY else consumed_triggers)
+	
 	# Remove any triggers that are already guarding restored locks, so we don't reuse them
 	for p_id in archived_locks:
 		var c = archived_locks[p_id]
@@ -139,7 +144,8 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			if prog_trigger_pool.has(t_id):
 				prog_trigger_pool.erase(t_id)
 	
-	
+
+	#print("[Locker] prog_trigger_pool after pruning: ", prog_trigger_pool)
 	var current_tier = 0
 	var critical_locks = []
 	var vault_locks = []
@@ -249,6 +255,10 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 		var lock_str = ""
 		
 		# --- ARCHIVE OVERRIDE ---
+		
+		#if archived_locks.has(p_id):
+			#print("[Locker] Portal %d has archived lock: %s" % [p_id, archived_locks[p_id]])
+		
 		var existing_lock = archived_locks.get(p_id, "")
 		var in_player_wake = player_spine.has(next_region)
 		
@@ -256,6 +266,8 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			lock_it = true
 			lock_str = existing_lock
 			forge_new_key = false 
+			
+			
 			
 		elif in_player_wake:
 			# RULE 1: THE WAKE
@@ -289,6 +301,9 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			var needs_key_drop = false
 			
 			if existing_lock != "":
+				
+
+				
 				# --- RESTORATION MODE ---
 				placement_tag = "Restored Vault" if is_vault else "Restored Critical"
 				
@@ -302,27 +317,61 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				var key_survived = false
 				var player_inventory = temporal_state.get("inventory", []) 
 				
+				var is_temporal = lock_str.begins_with("TemporalLock_")
+				var trigger_id = lock_str.replace("TemporalLock_", "") if is_temporal else ""
+				
+				
+				# (Assuming consumed_triggers is now a Dictionary. If not, use .has(trigger_id))
+				var uses = consumed_triggers.get(trigger_id, 0) if typeof(consumed_triggers) == TYPE_DICTIONARY else (1 if consumed_triggers.has(trigger_id) else 0)
+				var withholds_key = (is_temporal and uses == 0)
+				#print("[Locker] lock_str=%s | trigger_id=%s | uses=%d | withholds_key=%s" % [lock_str, trigger_id, uses, withholds_key])
+				#print("[Locker] Restoring lock: ", lock_str, " | is_temporal: ", is_temporal, " | trigger_id: ", trigger_id)
+				#print("[Locker] consumed_triggers.get(trigger_id,0): ", consumed_triggers.get(trigger_id, 0))
+				#print("[Locker] withholds_key: ", withholds_key)
+				#print("[Locker] player_inventory.has(lock_str): ", player_inventory.has(lock_str))
+				#print("[Locker] key_survived initial: ", key_survived)
+				
 				if player_inventory.has(lock_str): 
 					key_survived = true
 				else:
-					for k in archived_keys:
-						if k["lock_str"] == lock_str and not "Shortcut" in k["placement_method"]:
-							var k_reg = k["region"]
-							if k_reg != -1:
-								# --- REJECT IF STRANDED BY TEMPORAL SHIFT ---
-								if not check_cycle.call(k_reg, lock_str, {}, check_cycle):
-									key_survived = true
-									regions_with_keys[k_reg] = true
-								else:
-									if emit.is_valid(): emit.call("Solver: Archived Key Rejected (Cycle Prevented)")
-							break
+					# --- [FIX] PHYSICAL GRID SWEEP ---
+					# Directly check what entities safely survived the Dirty Rect!
+					var surviving_region = -1
+					for pos in grid.entities:
+						var e = grid.entities[pos]
+						if withholds_key:
+							if e.get("type") == "trigger" and e.get("trigger_id") == trigger_id:
+								#print("[Locker] Found surviving trigger for lock ", lock_str, " at ", pos)
+								surviving_region = cell_to_region.get(pos, -1)
+								break
+						else:
+							if e.get("type") == "key" and e.get("key_type") == lock_str and not "Shortcut" in e.get("placement_method", ""):
+								#print("[Locker] Found surviving key for lock ", lock_str, " at ", pos)
+								surviving_region = cell_to_region.get(pos, -1)
+								break
+								
+					if surviving_region != -1:
+						var cycle_result = check_cycle.call(surviving_region, lock_str, {}, check_cycle)
+						#print("[Locker] cycle_result for surviving_region %d: %s" % [surviving_region, cycle_result])
+						if not cycle_result:
+							key_survived = true
+							regions_with_keys[surviving_region] = true
+							#print("[Locker] key_survived set to true after sweep")
+						else:
+							#print("[Locker] key_survived remains false (cycle prevented)")
+							if emit.is_valid(): emit.call("Solver: Surviving Key/Trigger Rejected (Cycle Prevented)")
 						
 				# 2. If it died, and we haven't already replaced it, Forge a Replacement
 				if not key_survived and not newly_dropped_replacements.has(lock_str):
 					needs_key_drop = true
 					newly_dropped_replacements[lock_str] = true
 					placement_tag += " (Replacement Key)"
-					
+				#print("[Locker] After replacement check: key_survived=%s | needs_key_drop=%s | newly_dropped_has=%s" % [
+					#key_survived,
+					#needs_key_drop,
+					#newly_dropped_replacements.has(lock_str)
+				#])
+				#print("[Locker] restoration: key_survived=%s | needs_key_drop=%s | newly_dropped=%s" % [key_survived, needs_key_drop, newly_dropped_replacements.has(lock_str)])
 			elif forge_new_key:
 				# --- TEMPORAL OVERRIDE ---
 				if prog_trigger_pool.size() > 0:
@@ -350,7 +399,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			# --- THE KEY DROP ---
 			if needs_key_drop:
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
-				
+				#print("[Locker] Entered key drop block for lock_str=%s | target_pool=%s" % [lock_str, target_pool])
 				if player_region != start_region:
 					var forward_pool = target_pool.filter(func(r): return not player_spine.has(r))
 					if forward_pool.size() > 0: target_pool = forward_pool
@@ -367,10 +416,13 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				var is_temporal = lock_str.begins_with("TemporalLock_")
 				var trigger_id = lock_str.replace("TemporalLock_", "") if is_temporal else ""
 				
+				
+				#print("[Locker] key drop decision: lock_str=%s | is_temporal=%s | trigger_id=%s | consumed=%d" % [lock_str, is_temporal, trigger_id, consumed_triggers.get(trigger_id, 0) if typeof(consumed_triggers) == TYPE_DICTIONARY else -1])
 				# ==============================================================
 				# THE WITHHOLDING: DROP TRIGGER INSTEAD OF KEY
 				# ==============================================================
-				if is_temporal and not consumed_triggers.has(trigger_id):
+				# Check if uses == 0 (Never pulled)
+				if is_temporal and consumed_triggers.get(trigger_id, 0) == 0:
 					var t_data = active_triggers.get(trigger_id, {})
 					var t_globals = t_data.get("global_overrides", {})
 					
@@ -380,7 +432,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					var min_depth = int(t_globals.get("min_depth", 0))
 					var depth_map = path_data.get("region_depth", {})
 					
-					# --- [FIX] Define the biome reader for the Locker ---
+					# --- Define the biome reader for the Locker ---
 					var get_r_biomes = func(r_id: int) -> Dictionary:
 						var b_dict = {}
 						if regions.has(r_id):
@@ -435,7 +487,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				else:
 					var chosen_region = SeedUtils.pick_random(target_pool, rng)
 					var key_dropped = false
-					
+					#print("[Locker] standard drop for %s | chosen_region=%d | target_pool_size=%d" % [lock_str, chosen_region, target_pool.size()])
 					# If it's a temporal key, change the display name so the player knows what it is!
 					var key_drop_subtype = lock_str
 					var key_drop_display = "Temporal Key" if is_temporal else lock_str
@@ -450,7 +502,10 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 							lock_dependencies[lock_str].append(chosen_region)
 							
 					if not key_dropped:
+						#print("[Locker] spawn_marker failed for %s. Attempting emergency drop." % lock_str)
 						ProgressionPathingAnalyst.spawn_marker(accessible_regions, "key", lock_str, regions, realizer, rng, placement_tag + " (Emergency)")
+					#if is_temporal:
+						#print("lock_str: ", lock_str, ", key_dropped: ", key_dropped)
 					
 			if is_vault:
 				vaults_placed += 1
