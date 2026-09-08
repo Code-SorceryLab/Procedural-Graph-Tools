@@ -324,12 +324,6 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				# (Assuming consumed_triggers is now a Dictionary. If not, use .has(trigger_id))
 				var uses = consumed_triggers.get(trigger_id, 0) if typeof(consumed_triggers) == TYPE_DICTIONARY else (1 if consumed_triggers.has(trigger_id) else 0)
 				var withholds_key = (is_temporal and uses == 0)
-				#print("[Locker] lock_str=%s | trigger_id=%s | uses=%d | withholds_key=%s" % [lock_str, trigger_id, uses, withholds_key])
-				#print("[Locker] Restoring lock: ", lock_str, " | is_temporal: ", is_temporal, " | trigger_id: ", trigger_id)
-				#print("[Locker] consumed_triggers.get(trigger_id,0): ", consumed_triggers.get(trigger_id, 0))
-				#print("[Locker] withholds_key: ", withholds_key)
-				#print("[Locker] player_inventory.has(lock_str): ", player_inventory.has(lock_str))
-				#print("[Locker] key_survived initial: ", key_survived)
 				
 				if player_inventory.has(lock_str): 
 					key_survived = true
@@ -341,24 +335,19 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 						var e = grid.entities[pos]
 						if withholds_key:
 							if e.get("type") == "trigger" and e.get("trigger_id") == trigger_id:
-								#print("[Locker] Found surviving trigger for lock ", lock_str, " at ", pos)
 								surviving_region = cell_to_region.get(pos, -1)
 								break
 						else:
 							if e.get("type") == "key" and e.get("key_type") == lock_str and not "Shortcut" in e.get("placement_method", ""):
-								#print("[Locker] Found surviving key for lock ", lock_str, " at ", pos)
 								surviving_region = cell_to_region.get(pos, -1)
 								break
 								
 					if surviving_region != -1:
 						var cycle_result = check_cycle.call(surviving_region, lock_str, {}, check_cycle)
-						#print("[Locker] cycle_result for surviving_region %d: %s" % [surviving_region, cycle_result])
 						if not cycle_result:
 							key_survived = true
 							regions_with_keys[surviving_region] = true
-							#print("[Locker] key_survived set to true after sweep")
 						else:
-							#print("[Locker] key_survived remains false (cycle prevented)")
 							if emit.is_valid(): emit.call("Solver: Surviving Key/Trigger Rejected (Cycle Prevented)")
 						
 				# 2. If it died, and we haven't already replaced it, Forge a Replacement
@@ -366,12 +355,7 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 					needs_key_drop = true
 					newly_dropped_replacements[lock_str] = true
 					placement_tag += " (Replacement Key)"
-				#print("[Locker] After replacement check: key_survived=%s | needs_key_drop=%s | newly_dropped_has=%s" % [
-					#key_survived,
-					#needs_key_drop,
-					#newly_dropped_replacements.has(lock_str)
-				#])
-				#print("[Locker] restoration: key_survived=%s | needs_key_drop=%s | newly_dropped=%s" % [key_survived, needs_key_drop, newly_dropped_replacements.has(lock_str)])
+
 			elif forge_new_key:
 				# --- TEMPORAL OVERRIDE ---
 				if prog_trigger_pool.size() > 0:
@@ -399,7 +383,6 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 			# --- THE KEY DROP ---
 			if needs_key_drop:
 				var target_pool = empty_branches if empty_branches.size() > 0 else empty_stash_spots
-				#print("[Locker] Entered key drop block for lock_str=%s | target_pool=%s" % [lock_str, target_pool])
 				if player_region != start_region:
 					var forward_pool = target_pool.filter(func(r): return not player_spine.has(r))
 					if forward_pool.size() > 0: target_pool = forward_pool
@@ -417,7 +400,6 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				var trigger_id = lock_str.replace("TemporalLock_", "") if is_temporal else ""
 				
 				
-				#print("[Locker] key drop decision: lock_str=%s | is_temporal=%s | trigger_id=%s | consumed=%d" % [lock_str, is_temporal, trigger_id, consumed_triggers.get(trigger_id, 0) if typeof(consumed_triggers) == TYPE_DICTIONARY else -1])
 				# ==============================================================
 				# THE WITHHOLDING: DROP TRIGGER INSTEAD OF KEY
 				# ==============================================================
@@ -487,7 +469,6 @@ static func distribute_locks(realizer: GraphRealizer, params: Dictionary, map_da
 				else:
 					var chosen_region = SeedUtils.pick_random(target_pool, rng)
 					var key_dropped = false
-					#print("[Locker] standard drop for %s | chosen_region=%d | target_pool_size=%d" % [lock_str, chosen_region, target_pool.size()])
 					# If it's a temporal key, change the display name so the player knows what it is!
 					var key_drop_subtype = lock_str
 					var key_drop_display = "Temporal Key" if is_temporal else lock_str

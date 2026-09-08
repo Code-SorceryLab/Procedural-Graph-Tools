@@ -44,51 +44,6 @@ static var available_modifiers: Array[Script] = [
 	SemanticLogicGates
 ]
 
-# Centralized definitions for UI Tooltips
-const PARAM_TOOLTIPS = {
-	"common": {
-		"width": "The horizontal size of the generation area in grid cells.",
-		"height": "The vertical size of the generation area in grid cells.",
-		"steps": "The total number of steps or nodes to generate.",
-		"merge": "If enabled, new nodes will connect to existing ones when they overlap.\nIf disabled, they will layer on top."
-	},
-	"ca": {
-		"fill": "The percentage (0-100) of the grid that starts as solid walls.\n45% is the standard for cave generation.",
-		"iter": "The number of smoothing passes to apply.\nMore iterations create smoother walls and larger chambers."
-	},
-	"dla": {
-		"particles": "The total number of particles to spawn and aggregate.",
-		"box_spawn": "If enabled, particles spawn from the bounding box edges.\nIf disabled, they spawn in a circle.",
-		"gravity": "The strength of the pull towards the center (0.0 - 1.0).\nHigher values create dense, compact clusters.\nLower values create branching, coral-like structures. \nLower gravity is also less performant."
-	},
-	"polar": {
-		"wedges": "The number of angular sectors to divide the circle into.\nExample: 6 creates a Hexagon, 4 creates a Square/Diamond.",
-		"radius": "The number of concentric rings extending outward from the center.",
-		"jitter": "Adds random noise to node positions, making the structure look more organic/ruined.",
-		"amount": "The maximum pixel distance a node can be displaced from its perfect grid position."
-	},
-	"walker": {
-		"steps": "The total number of nodes (steps) the agent will walk.",
-		"branch": "If enabled when 'Growing', the walker picks a random starting point from existing nodes.\nIf disabled, it continues from the last created node.",
-		"mode": "Grow: Creates new nodes in the void.\nPaint: Traverses existing nodes and changes their type.",
-		"count": "Number of independent walkers simulating simultaneously.",
-		"paint_type": "The RoomType applied to NEW walkers. Use the Inspector to modify existing active walkers.",
-	},
-	"biome_filler": {
-		"description": "Scatters random seeds across the graph and runs a Multi-Source Breadth-First Search (Graph Voronoi) to flood-fill semantic types.\nBiomes expand outward strictly along connected edges, colliding at natural chokepoints to create organic zones.",
-		"seed_count": "How many starting points to drop into the graph before expanding. More seeds result in smaller, more fractured zones.",
-		"allow_biome": "Includes this semantic type in the randomized palette. If multiple seeds roll the same type and collide, they seamlessly merge into a larger macro-biome."
-	},
-	"mst": {
-		"range": "Multiplier for the search radius (relative to Cell Size).\n2.0 connects immediate neighbors.\n5.0 jumps gaps to connect distant islands.",
-		"braid": "The percentage (0-100) of 'rejected' connections to restore.\n0% = Perfect Maze (One path).\n20% = Loopy dungeon with multiple routes.",
-		"algo": "Choose the Algorithm:\n\nKRUSKAL (Default): Extremely fast. Connects shortest edges first globally.\n\nPRIM: Slower on large graphs. Grows radially from a single point. Can create more 'river-like' branching.",
-		
-	},
-	"grammar": {
-		"active_rule": "The specific rewrite rule to apply to the graph.\nEach rule looks for a specific pattern of nodes and edges, and transforms them."
-	}
-}
 
 # ==============================================================================
 # 3. RENDERER VISUALS
@@ -166,8 +121,8 @@ static var TOOL_DATA: Dictionary = {
 	Tool.PAINT:      { "name": "Paint",      "action": "tool_paint",   "icon_path": "res://assets/icons/tool_paint.png" },
 	Tool.TYPE_PAINT: { "name": "Type Brush", "action": "tool_type",    "icon_path": "res://assets/icons/tool_type_paint.png" },
 	Tool.SPAWN:      { "name": "Agent Spawner", "action": "tool_spawn", "icon_path": "res://assets/icons/tool_agent.png"},
-	Tool.ZONE_BRUSH:      { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": "res://assets/icons/tool_zone_brush.png"},
-	Tool.CONTROL:      { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": "res://assets/icons/tool_control.png"},
+	Tool.ZONE_BRUSH: { "name": "Zone Brush", "action": "tool_zone_brush", "icon_path": "res://assets/icons/tool_zone_brush.png"},
+	Tool.CONTROL:    { "name": "Agent Controller", "action": "tool_agent_control", "icon_path": "res://assets/icons/tool_control.png"},
 	Tool.STAMP:      { "name": "Stamp", "action": "tool_stamp", "icon_path": "res://assets/icons/tool_stamp.png"}
 }
 

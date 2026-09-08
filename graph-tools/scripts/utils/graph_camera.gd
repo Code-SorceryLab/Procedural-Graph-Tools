@@ -2,7 +2,7 @@ extends Camera2D
 class_name GraphCamera
 
 @export var zoom_speed: float = 0.1
-@export var min_zoom: float = 0.2
+@export var min_zoom: float = 0.1
 @export var max_zoom: float = 5.0
 
 var _is_panning: bool = false

@@ -27,6 +27,7 @@ var _pending_dirty_rect: Rect2i = Rect2i()
 var _pending_re_explore: bool = false
 var _cancel_validation: bool = false
 var _active_validator: GenerationValidator = null
+var _current_params: Dictionary = {} # Cache for background testing
 
 # ==============================================================================
 # RASTERIZATION THREADING
@@ -38,9 +39,10 @@ func run_rasterization(graph: Graph, params: Dictionary, raw_biome_params: Dicti
 	# --- [FIXED] PRESERVE THE VALIDATOR ON PARTIAL REGEN ---
 	var is_partial = (old_realizer != null)
 	if not is_partial:
-		cancel_validation() # Only kill it if we are starting from scratch!
+		cancel_validation() # Only kill it if we are starting from scratch
 		
 	is_rasterizing = true
+	_current_params = params.duplicate(true) # Save for analytics later
 	
 	if _raster_thread and _raster_thread.is_started():
 		_raster_thread.wait_to_finish()
@@ -75,6 +77,58 @@ func _on_rasterization_finished(realizer: GraphRealizer) -> void:
 	is_rasterizing = false
 	
 	var report = realizer.get_meta("progression_report") if realizer.has_meta("progression_report") else {}
+	
+	# ==========================================================================
+	# MULTI-POINT BACKGROUND VALIDATION
+	# ==========================================================================
+	if realizer.grid != null:
+		var multi_report = []
+		var t_state = _current_params.get("temporal_state", {})
+		var starting_inv = t_state.get("inventory", [])
+		
+		# 1. BASE RUN (Spawn Point)
+		var base_val = GenerationValidator.new(realizer.grid, true, false, Vector2i(-1, -1), true)
+		if t_state.size() > 0: base_val.load_temporal_state(t_state)
+		base_val.fast_forward()
+		var base_analytics = base_val.get_final_analytics()
+		base_analytics["checkpoint_name"] = "Spawn Point"
+		base_analytics["initial_inventory"] = starting_inv
+		multi_report.append(base_analytics)
+		
+		# 2. TEMPORAL ANCHOR
+		var anchor = t_state.get("anchor", Vector2i(-1, -1))
+		if anchor != Vector2i(-1, -1):
+			var anchor_val = GenerationValidator.new(realizer.grid, true, false, anchor, true)
+			anchor_val.load_temporal_state(t_state)
+			anchor_val.fast_forward()
+			var anchor_analytics = anchor_val.get_final_analytics()
+			anchor_analytics["checkpoint_name"] = "Temporal Anchor (Post-Shift)"
+			anchor_analytics["initial_inventory"] = starting_inv
+			multi_report.append(anchor_analytics)
+			
+		# 3. SURVIVING CHECKPOINTS (All other pulled triggers)
+		var consumed = t_state.get("consumed_triggers", {})
+		for t_id in consumed:
+			var trigger_pos = Vector2i(-1, -1)
+			var trigger_name = t_id
+			for pos in realizer.grid.entities:
+				var e = realizer.grid.entities[pos]
+				if e.get("type") == "trigger" and e.get("trigger_id") == t_id:
+					trigger_pos = pos
+					trigger_name = e.get("name", t_id)
+					break
+					
+			if trigger_pos != Vector2i(-1, -1) and trigger_pos != anchor:
+				var cp_val = GenerationValidator.new(realizer.grid, true, false, trigger_pos, true)
+				cp_val.load_temporal_state(t_state)
+				cp_val.fast_forward()
+				var cp_analytics = cp_val.get_final_analytics()
+				cp_analytics["checkpoint_name"] = "Checkpoint: " + trigger_name
+				cp_analytics["initial_inventory"] = starting_inv
+				multi_report.append(cp_analytics)
+				
+		report["multi_point_analytics"] = multi_report
+
 	rasterization_finished.emit(realizer, report)
 
 # ==============================================================================
@@ -92,7 +146,7 @@ func cancel_validation() -> void:
 		_validator_thread.wait_to_finish()
 	_val_state = "IDLE"
 
-func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int, constant_speed: bool) -> void:
+func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int, constant_speed: bool, override_start_pos: Vector2i = Vector2i(-1, -1), ignore_triggers: bool = false) -> void:
 	if is_rasterizing or grid == null: return
 	cancel_validation()
 	
@@ -109,7 +163,7 @@ func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, bat
 	validation_started.emit()
 	
 	_validator_thread = Thread.new()
-	_validator_thread.start(_run_validation_thread.bind(grid, full_explore, delay_doors))
+	_validator_thread.start(_run_validation_thread.bind(grid, full_explore, delay_doors, override_start_pos, ignore_triggers))
 
 # --- VCR CONTROLS (Thread Safe) ---
 func set_val_state(new_state: String) -> void:
@@ -135,13 +189,18 @@ func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i, re_explore: 
 	_val_mutex.unlock()
 
 # --- THE BACKGROUND LOOP ---
-func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: bool) -> void:
-	var validator = GenerationValidator.new(grid, full_explore, delay_doors)
+func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: bool, override_start: Vector2i, ignore_triggers: bool) -> void:
+	var validator = GenerationValidator.new(grid, full_explore, delay_doors, override_start, ignore_triggers)
 	
 	_val_mutex.lock()
 	_active_validator = validator
+	var t_state = _current_params.get("temporal_state", {})
 	_val_mutex.unlock()
 	
+	# --- [NEW] INJECT PLAYER MEMORY ---
+	if t_state.size() > 0:
+		validator.load_temporal_state(t_state)
+		
 	while true:
 		_val_mutex.lock()
 		if _cancel_validation: 

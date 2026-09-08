@@ -270,9 +270,9 @@ func _execute_partial_regeneration(initial_nodes: Array, initial_edges: Array, t
 		
 	# 6. Temporal Regeneration Warning (Oracle Warning)
 	var val_settings = _validation_tab.get_settings()
-	var auto_accept = val_settings.get("auto_accept_warnings", false)
+	var trigger_mode = val_settings.get("trigger_handling", 0)
 	
-	if not auto_accept:
+	if trigger_mode == 0:
 		var dialog = ConfirmationDialog.new()
 		dialog.title = "Regeneration Impending"
 		
@@ -384,13 +384,17 @@ func _on_validation_run_requested() -> void:
 	if not _realizer or not _realizer.grid: return
 	
 	var settings = _validation_tab.get_settings()
+	var ignore_triggers = (settings["trigger_handling"] == 2) # Mode 2 is Ignore
+	
 	_execution_manager.start_validation(
 		_realizer.grid, 
 		settings["full_explore"], 
 		settings["delay_doors"], 
 		settings["batch_size"], 
 		int(settings["tick_speed"] * 1000),
-		settings["constant_speed"]
+		settings["constant_speed"],
+		Vector2i(-1, -1), # override_start_pos (Default)
+		ignore_triggers   # Pass the ignore flag!
 	)
 
 func _on_validation_started() -> void:

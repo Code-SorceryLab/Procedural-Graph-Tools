@@ -27,7 +27,7 @@ var _chk_full_explore: CheckBox
 var _chk_delay_doors: CheckBox
 var _chk_constant_speed: CheckBox
 var _chk_re_explore: CheckBox
-var _chk_auto_accept: CheckBox 
+var _opt_trigger_handling: OptionButton
 
 var _slider_speed: HSlider
 var _slider_batch: HSlider
@@ -142,12 +142,23 @@ func _init() -> void:
 	_chk_re_explore.button_pressed = false
 	_chk_re_explore.tooltip_text = "When the grid regenerates, the Validator forgets its puddle and drops a single pin at its current location to re-explore the graph, keeping its inventory intact."
 	
-	# --- AUTO-ACCEPT POPUP TOGGLE ---
-	_chk_auto_accept = CheckBox.new()
-	_chk_auto_accept.text = "Auto-Accept Regen Warnings (Oracle)"
-	_chk_auto_accept.button_pressed = false
-	_chk_auto_accept.tooltip_text = "Automatically confirms the Oracle Relocation warning when a Trigger fires or when regenerating over the Validator fluid."
-	options_vbox.add_child(_chk_auto_accept)
+	# --- TEMPORAL TRIGGER HANDLING DROPDOWN ---
+	var trigger_vbox = VBoxContainer.new()
+	var lbl_trigger = Label.new()
+	lbl_trigger.text = "Temporal Trigger Handling:"
+	lbl_trigger.tooltip_text = "Determines how the Validator reacts when stepping on a Temporal Trigger."
+	
+	_opt_trigger_handling = OptionButton.new()
+	_opt_trigger_handling.add_item("Warn & Pause (Popup)", 0)
+	_opt_trigger_handling.add_item("Auto-Accept (Shift Dimensions)", 1)
+	_opt_trigger_handling.add_item("Ignore (Bypass Triggers)", 2)
+	_opt_trigger_handling.selected = 0
+	_opt_trigger_handling.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_opt_trigger_handling.tooltip_text = "Warn: Halts to ask permission.\nAuto-Accept: Instantly shifts dimensions.\nIgnore: Validator walks over triggers without activating them (used for background layout proving)."
+	
+	trigger_vbox.add_child(lbl_trigger)
+	trigger_vbox.add_child(_opt_trigger_handling)
+	options_vbox.add_child(trigger_vbox)
 	
 	# --- CONSTANT SPEED TOGGLE ---
 	_chk_constant_speed = CheckBox.new()
@@ -224,7 +235,7 @@ func get_settings() -> Dictionary:
 		"tick_speed": float(_slider_speed.value),
 		"constant_speed": _chk_constant_speed.button_pressed,
 		"re_explore": _chk_re_explore.button_pressed,
-		"auto_accept_warnings": _chk_auto_accept.button_pressed
+		"trigger_handling": _opt_trigger_handling.selected # 0: Warn, 1: Auto, 2: Ignore
 	}
 
 func is_visualize_on() -> bool:
