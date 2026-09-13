@@ -1,6 +1,8 @@
 class_name ReportTabView
 extends MarginContainer
 
+signal export_image_requested()
+
 var _folders_vbox: VBoxContainer
 var _current_report_raw: String = ""
 
@@ -36,6 +38,12 @@ func _init() -> void:
 	btn_export.text = "Export .txt"
 	btn_export.pressed.connect(_on_export_pressed)
 	toolbar.add_child(btn_export)
+	
+	# --- IMAGE EXPORT BUTTON ---
+	var btn_export_img = Button.new()
+	btn_export_img.text = "Export Image (.png)"
+	btn_export_img.pressed.connect(func(): export_image_requested.emit())
+	toolbar.add_child(btn_export_img)
 	
 	main_vbox.add_child(HSeparator.new())
 
@@ -142,6 +150,15 @@ func _format_metadata(meta: Dictionary) -> String:
 	var s = ""
 	s += "  Seed: %s\n" % meta.get("seed", "Unknown")
 	s += "  Rasterization Time: %d ms\n" % meta.get("time_ms", 0)
+	
+	# --- RENDER THE SLOWEST STEPS ---
+	var slowest = meta.get("slowest_steps", [])
+	if not slowest.is_empty():
+		s += "\n[b]Top 5 Slowest Steps[/b]\n"
+		for step in slowest:
+			var dur = step["duration"]
+			var color = "red" if dur > 500 else ("orange" if dur > 100 else "gray")
+			s += "  %s: [color=%s]%d ms[/color]\n" % [step["name"], color, dur]
 	
 	var c_rooms = meta.get("custom_rooms_placed", 0)
 	var rej_rooms = meta.get("rejected_custom_rooms", 0)

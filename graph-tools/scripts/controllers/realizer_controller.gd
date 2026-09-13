@@ -81,7 +81,7 @@ func _ready() -> void:
 	ui_container.add_child(tabs)
 	
 	_generator_tab = GeneratorTabView.new()
-	_generator_tab.interaction_triggered.connect(_config_manager.handle_interaction) # <--- Direct Routing!
+	_generator_tab.interaction_triggered.connect(_config_manager.handle_interaction)
 	tabs.add_child(_generator_tab)
 	
 	_timeline_tab = TimelineTabView.new()
@@ -89,6 +89,7 @@ func _ready() -> void:
 	tabs.add_child(_timeline_tab)
 	
 	_report_tab = ReportTabView.new()
+	_report_tab.export_image_requested.connect(_on_export_image_requested)
 	tabs.add_child(_report_tab)
 	
 	_validation_tab = ValidationTabView.new()
@@ -354,7 +355,9 @@ func _on_preview_regen_pressed() -> void:
 func _on_snapshot_received(snapshot: Dictionary) -> void:
 	_snapshots.append(snapshot)
 	var idx = _snapshots.size() - 1
-	_timeline_tab.add_snapshot(snapshot["name"])
+	
+	# [FIX] Pass the duration
+	_timeline_tab.add_snapshot(snapshot["name"], snapshot.get("duration", 0)) 
 	
 	if _active_mapping.is_empty():
 		_active_mapping = _renderer.rebuild_dynamic_tileset_and_mapping(_execution_manager.current_realizer, _config_manager.custom_rooms, _config_manager.atlas_mappings, _config_manager.tileset_image_path, _config_manager.tileset_tile_size, _config_manager.procedural_flags, _config_manager.palette_params)
@@ -378,13 +381,35 @@ func _on_rasterization_finished(realizer: GraphRealizer, report: Dictionary) -> 
 		print("[DEBUG] Rasterization finished. re_explore = ", re_explore)
 		
 		_execution_manager.update_validation_grid(_realizer.grid, dirty_rect, re_explore)
+	
+	# --- POPULATE VALIDATOR CHECKPOINTS ---
+	if _realizer and _realizer.grid:
+		var t_state = _execution_manager._current_params.get("temporal_state", {}) if "temporal_state" in _execution_manager._current_params else {}
+		var anchor = t_state.get("anchor", Vector2i(-1, -1))
+		var available_triggers = []
+		
+		# Sweeps the grid for any surviving triggers
+		for pos in _realizer.grid.entities:
+			var e = _realizer.grid.entities[pos]
+			if e.get("type") == "trigger":
+				available_triggers.append({
+					"name": e.get("name", e.get("trigger_id", "Unknown")), 
+					"pos": pos
+				})
+				
+		_validation_tab.update_checkpoints(anchor, available_triggers)
 
 func _on_validation_run_requested() -> void:
 	if _execution_manager.is_rasterizing: return
 	if not _realizer or not _realizer.grid: return
 	
 	var settings = _validation_tab.get_settings()
-	var ignore_triggers = (settings["trigger_handling"] == 2) # Mode 2 is Ignore
+	var ignore_triggers = (settings.get("trigger_handling", 0) == 2)
+	
+	# Extract Checkpoint position
+	var cp_meta = settings.get("checkpoint_meta")
+	var start_pos = cp_meta["pos"] if cp_meta != null else Vector2i(-1, -1)
+	var use_memory = settings.get("use_memory", true)
 	
 	_execution_manager.start_validation(
 		_realizer.grid, 
@@ -393,8 +418,9 @@ func _on_validation_run_requested() -> void:
 		settings["batch_size"], 
 		int(settings["tick_speed"] * 1000),
 		settings["constant_speed"],
-		Vector2i(-1, -1), # override_start_pos (Default)
-		ignore_triggers   # Pass the ignore flag!
+		start_pos,
+		ignore_triggers,
+		use_memory  # <--- Pass the new flag!
 	)
 
 func _on_validation_started() -> void:
@@ -472,6 +498,30 @@ func _jump_to_snapshot(index: int) -> void:
 	_renderer.render_overlays(_realizer, snapshot["entities"], _config_manager.global_params, _execution_manager.is_rasterizing)
 	_tooltip_manager.update_context(_realizer, _config_manager.biome_params)
 
+
+# ==============================================================================
+# IMAGE EXPORT
+# ==============================================================================
+
+func _on_export_image_requested() -> void:
+	if _execution_manager.is_rasterizing: return
+
+	# Lock UI to prevent changes during the screenshot loop
+	_set_ui_locked(true) 
+
+	var exporter = MapExporter.new()
+	add_child(exporter)
+
+	exporter.export_finished.connect(func(success):
+		_set_ui_locked(false)
+		exporter.queue_free()
+		if success:
+			print("Map Image Exported Successfully!")
+	)
+
+	# Pass 1.0 for 1:1 pixel scale. (Pass 0.5 if you want smaller file sizes!)
+	exporter.begin_export(tile_map_layer, 1.0)
+	
 # ==============================================================================
 # TRIGGERS COMMAND CENTER
 # ==============================================================================
@@ -588,3 +638,22 @@ func _on_clear_pressed() -> void:
 	_timeline_tab.clear()
 	_report_tab.clear()
 	_validation_tab.clear_logs()
+
+# ==============================================================================
+# UI STATE MANAGEMENT
+# ==============================================================================
+func _set_ui_locked(locked: bool) -> void:
+	# Using PROCESS_MODE_DISABLED completely ignores all mouse clicks, 
+	# dragging, and keyboard shortcuts for these nodes and all their children.
+	if locked:
+		ui_container.process_mode = Node.PROCESS_MODE_DISABLED
+		ui_container.modulate = Color(0.6, 0.6, 0.6, 1.0) # Visually dim the UI
+		if graph_editor:
+			graph_editor.process_mode = Node.PROCESS_MODE_DISABLED
+			graph_editor.modulate = Color(0.6, 0.6, 0.6, 1.0)
+	else:
+		ui_container.process_mode = Node.PROCESS_MODE_INHERIT
+		ui_container.modulate = Color.WHITE
+		if graph_editor:
+			graph_editor.process_mode = Node.PROCESS_MODE_INHERIT
+			graph_editor.modulate = Color.WHITE

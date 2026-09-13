@@ -103,7 +103,11 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 			var inf_edges = params.get("regen_target_edges", [])
 			# [FIXED] Pass the params dictionary so it can read the toggles!
 			DynamicRegenUtils.carve_dirty_rect(self, params, params["regen_dirty_rect"], inf_nodes, inf_edges)
+	
 	# ==========================================================================
+	# Pass by reference using an Array so the lambda can mutate the outer state!
+	var _time_tracker = [Time.get_ticks_msec()]
+	var step_timings = [] # Tracks every step's duration
 	
 	var emit = func(step_name: String):
 		if progress_callback.is_valid():
@@ -111,8 +115,14 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 			var entities_copy = grid.entities.duplicate(true)
 			var atlas_copy = grid.cell_atlas_overrides.duplicate(true)
 			
-			# Add atlas_copy to the parameters
-			progress_callback.call_deferred(step_name, cells_copy, entities_copy, atlas_copy, grid.width, grid.height)
+			var now = Time.get_ticks_msec()
+			var duration = now - _time_tracker[0]
+			_time_tracker[0] = now 
+			
+			step_timings.append({"name": step_name, "duration": duration})
+			
+			# Add duration to the parameters
+			progress_callback.call_deferred(step_name, cells_copy, entities_copy, atlas_copy, grid.width, grid.height, duration)
 			OS.delay_msec(150)
 			
 	# --- PIPELINE EXECUTION ---
@@ -174,9 +184,14 @@ func realize(graph: Graph, params: Dictionary, shopping_lists: Dictionary, progr
 	if self.has_meta("progression_report"):
 		final_report = self.get_meta("progression_report")
 		
+	# --- SORT & GRAB THE TOP 5 SLOWEST STEPS ---
+	step_timings.sort_custom(func(a, b): return a["duration"] > b["duration"])
+	var slowest_steps = step_timings.slice(0, min(5, step_timings.size()))
+	
 	final_report["meta"] = {
 		"seed": params.get("realizer_seed", "default"),
 		"time_ms": Time.get_ticks_msec() - start_time,
+		"slowest_steps": slowest_steps,
 		"custom_rooms_placed": self.get_meta("metric_custom_rooms") if self.has_meta("metric_custom_rooms") else 0,
 		"rejected_custom_rooms": self.get_meta("metric_rejected_custom_rooms") if self.has_meta("metric_rejected_custom_rooms") else 0,
 		"sealed_doorways": self.get_meta("metric_doors_sealed") if self.has_meta("metric_doors_sealed") else 0,

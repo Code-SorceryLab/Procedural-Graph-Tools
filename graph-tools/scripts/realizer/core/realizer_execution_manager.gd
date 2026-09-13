@@ -67,8 +67,16 @@ func _run_rasterization_thread(realizer: GraphRealizer, graph: Graph, params: Di
 	realizer.realize(graph, params, shopping_lists, _on_snapshot_received, old_realizer)
 	call_deferred("_on_rasterization_finished", realizer)
 
-func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, atlas_overrides: Dictionary, w: int, h: int) -> void:
-	var snap = { "name": step_name, "cells": cells, "entities": entities, "atlas_overrides": atlas_overrides, "w": w, "h": h }
+func _on_snapshot_received(step_name: String, cells: PackedInt32Array, entities: Dictionary, atlas_overrides: Dictionary, w: int, h: int, duration_ms: int = 0) -> void:
+	var snap = { 
+		"name": step_name, 
+		"cells": cells, 
+		"entities": entities, 
+		"atlas_overrides": atlas_overrides, 
+		"w": w, 
+		"h": h,
+		"duration": duration_ms
+	}
 	snapshot_ready.emit(snap)
 
 func _on_rasterization_finished(realizer: GraphRealizer) -> void:
@@ -146,7 +154,7 @@ func cancel_validation() -> void:
 		_validator_thread.wait_to_finish()
 	_val_state = "IDLE"
 
-func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int, constant_speed: bool, override_start_pos: Vector2i = Vector2i(-1, -1), ignore_triggers: bool = false) -> void:
+func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, batch_size: int, speed_ms: int, constant_speed: bool, override_start_pos: Vector2i = Vector2i(-1, -1), ignore_triggers: bool = false, use_memory: bool = true) -> void:
 	if is_rasterizing or grid == null: return
 	cancel_validation()
 	
@@ -163,7 +171,7 @@ func start_validation(grid: GridData, full_explore: bool, delay_doors: bool, bat
 	validation_started.emit()
 	
 	_validator_thread = Thread.new()
-	_validator_thread.start(_run_validation_thread.bind(grid, full_explore, delay_doors, override_start_pos, ignore_triggers))
+	_validator_thread.start(_run_validation_thread.bind(grid, full_explore, delay_doors, override_start_pos, ignore_triggers, use_memory))
 
 # --- VCR CONTROLS (Thread Safe) ---
 func set_val_state(new_state: String) -> void:
@@ -189,7 +197,7 @@ func update_validation_grid(new_grid: GridData, dirty_rect: Rect2i, re_explore: 
 	_val_mutex.unlock()
 
 # --- THE BACKGROUND LOOP ---
-func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: bool, override_start: Vector2i, ignore_triggers: bool) -> void:
+func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: bool, override_start: Vector2i, ignore_triggers: bool, use_memory: bool) -> void:
 	var validator = GenerationValidator.new(grid, full_explore, delay_doors, override_start, ignore_triggers)
 	
 	_val_mutex.lock()
@@ -197,8 +205,8 @@ func _run_validation_thread(grid: GridData, full_explore: bool, delay_doors: boo
 	var t_state = _current_params.get("temporal_state", {})
 	_val_mutex.unlock()
 	
-	# --- [NEW] INJECT PLAYER MEMORY ---
-	if t_state.size() > 0:
+	# --- INJECT PLAYER MEMORY ---
+	if use_memory and t_state.size() > 0:
 		validator.load_temporal_state(t_state)
 		
 	while true:

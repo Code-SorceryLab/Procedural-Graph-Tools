@@ -469,7 +469,23 @@ func get_edge_at_position(pos: Vector2, max_dist: float = 10.0) -> Array:
 # Get spatial grid stats for debugging
 func get_spatial_stats() -> Dictionary:
 	_ensure_spatial_grid()
-	return _spatial_grid.get_stats()
+	var stats = _spatial_grid.get_stats()
+	
+	# --- [FIX] DYNAMIC BOUNDS RECALCULATION ---
+	# 1. Calculate the exact, tight bounding box of the current nodes
+	var bounds = Rect2()
+	var first = true
+	for id in nodes:
+		var pos = nodes[id].position
+		if first:
+			bounds = Rect2(pos, Vector2.ZERO)
+			first = false
+		else:
+			bounds = bounds.expand(pos)
+			
+		
+	stats["bounds"] = bounds
+	return stats
 
 # Clear all nodes (update to handle spatial grid)
 func clear() -> void:

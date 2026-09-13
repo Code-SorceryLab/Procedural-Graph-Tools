@@ -28,6 +28,8 @@ var _chk_delay_doors: CheckBox
 var _chk_constant_speed: CheckBox
 var _chk_re_explore: CheckBox
 var _opt_trigger_handling: OptionButton
+var _opt_checkpoint: OptionButton
+var _chk_use_memory: CheckBox
 
 var _slider_speed: HSlider
 var _slider_batch: HSlider
@@ -150,11 +152,11 @@ func _init() -> void:
 	
 	_opt_trigger_handling = OptionButton.new()
 	_opt_trigger_handling.add_item("Warn & Pause (Popup)", 0)
-	_opt_trigger_handling.add_item("Auto-Accept (Shift Dimensions)", 1)
+	_opt_trigger_handling.add_item("Auto-Accept (Regenerate)", 1)
 	_opt_trigger_handling.add_item("Ignore (Bypass Triggers)", 2)
 	_opt_trigger_handling.selected = 0
 	_opt_trigger_handling.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_opt_trigger_handling.tooltip_text = "Warn: Halts to ask permission.\nAuto-Accept: Instantly shifts dimensions.\nIgnore: Validator walks over triggers without activating them (used for background layout proving)."
+	_opt_trigger_handling.tooltip_text = "Warn: Halts to ask permission.\nAuto-Accept: Instantly regenerates.\nIgnore: Validator walks over triggers without activating them (used for background layout proving)."
 	
 	trigger_vbox.add_child(lbl_trigger)
 	trigger_vbox.add_child(_opt_trigger_handling)
@@ -167,11 +169,35 @@ func _init() -> void:
 	_chk_constant_speed.tooltip_text = "Dynamically increases the batch size in open areas so the fluid expands at a constant visual speed."
 	_chk_constant_speed.toggled.connect(func(pressed): constant_speed_toggled.emit(pressed))
 	
+	var sep_cp = HSeparator.new()
+	
+	
+	var cp_hbox = HBoxContainer.new()
+	var lbl_cp = Label.new()
+	lbl_cp.text = "Start Validation From:"
+	
+	_opt_checkpoint = OptionButton.new()
+	_opt_checkpoint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_opt_checkpoint.add_item("Spawn Point", 0)
+	_opt_checkpoint.set_item_metadata(0, {"type": "spawn", "pos": Vector2i(-1, -1)})
+	
+	cp_hbox.add_child(lbl_cp)
+	cp_hbox.add_child(_opt_checkpoint)
+	
+	_chk_use_memory = CheckBox.new()
+	_chk_use_memory.text = "Load Temporal Memory (Inventory)"
+	_chk_use_memory.button_pressed = true
+	_chk_use_memory.tooltip_text = "If enabled, the Validator will start with the keys it held prior to the last regeneration."
+	
 
 	options_vbox.add_child(_chk_full_explore)
 	options_vbox.add_child(_chk_delay_doors)
 	options_vbox.add_child(_chk_re_explore)
 	options_vbox.add_child(_chk_constant_speed)
+	
+	options_vbox.add_child(sep_cp)
+	options_vbox.add_child(cp_hbox)
+	options_vbox.add_child(_chk_use_memory)
 	
 	vbox.add_child(options_vbox)
 	
@@ -227,6 +253,22 @@ func set_state(state: String) -> void:
 			_btn_skip.disabled = false
 			_btn_stop.disabled = false
 
+func update_checkpoints(anchor: Vector2i, triggers: Array) -> void:
+	_opt_checkpoint.clear()
+	_opt_checkpoint.add_item("Spawn Point", 0)
+	_opt_checkpoint.set_item_metadata(0, {"type": "spawn", "pos": Vector2i(-1, -1)})
+	
+	var idx = 1
+	if anchor != Vector2i(-1, -1):
+		_opt_checkpoint.add_item("Temporal Anchor (Post-Shift)", idx)
+		_opt_checkpoint.set_item_metadata(idx, {"type": "anchor", "pos": anchor})
+		idx += 1
+		
+	for t in triggers:
+		_opt_checkpoint.add_item("Checkpoint: " + t["name"], idx)
+		_opt_checkpoint.set_item_metadata(idx, {"type": "trigger", "pos": t["pos"]})
+		idx += 1
+
 func get_settings() -> Dictionary:
 	return {
 		"full_explore": _chk_full_explore.button_pressed,
@@ -235,7 +277,9 @@ func get_settings() -> Dictionary:
 		"tick_speed": float(_slider_speed.value),
 		"constant_speed": _chk_constant_speed.button_pressed,
 		"re_explore": _chk_re_explore.button_pressed,
-		"trigger_handling": _opt_trigger_handling.selected # 0: Warn, 1: Auto, 2: Ignore
+		"trigger_handling": _opt_trigger_handling.selected, # 0: Warn, 1: Auto, 2: Ignore
+		"checkpoint_meta": _opt_checkpoint.get_item_metadata(_opt_checkpoint.selected),
+		"use_memory": _chk_use_memory.button_pressed
 	}
 
 func is_visualize_on() -> bool:

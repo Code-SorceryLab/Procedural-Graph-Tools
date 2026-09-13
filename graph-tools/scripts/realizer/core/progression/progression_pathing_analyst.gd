@@ -68,12 +68,14 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 	var recovered_start_region = get_region_from_pos.call(archived_start_pos)
 	var recovered_end_region = get_region_from_pos.call(archived_end_pos)
 
-	# Helper: Ensure a region ACTUALLY has room for an entity!
+	# Helper: Ensure a region has a safe, contiguous chunk of at least 4 free tiles!
 	var is_region_spawnable = func(r_id: int) -> bool:
-		if not regions.has(r_id): return false
-		for pos in regions[r_id]:
-			if not realizer.reserved_cells.has(pos) and not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
-				return true
+		var safe_chunk = _get_safe_cells_for_region(r_id, regions, realizer)
+		var free_count = 0
+		for pos in safe_chunk:
+			if not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
+				free_count += 1
+				if free_count >= 4: return true # Requires at least 4 viable placement spots!
 		return false
 
 	var spawnable_regions = valid_regions.filter(func(r): return is_region_spawnable.call(r))
@@ -203,36 +205,21 @@ static func analyze_paths(realizer: GraphRealizer, params: Dictionary, map_data:
 # Shared Utility for PathingAnalyst and Locker
 static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: String, regions: Dictionary, realizer: GraphRealizer, rng: RandomNumberGenerator, placement_method: String = "default", display_name: String = "") -> bool:
 	var valid_cells = []
-	var total_cells = 0
-	var blocked_reserved = 0
-	var blocked_critical = 0
-	var blocked_entity = 0
+	var grid = realizer.grid
 	
 	for r_id in valid_region_ids:
 		if not regions.has(r_id):
 			print("  [WARNING] Region ID ", r_id, " not found in regions dictionary!")
 			continue
 			
-		var reg_cells = regions[r_id]
-		total_cells += reg_cells.size()
-		
-		for pos in reg_cells:
-			if realizer.reserved_cells.has(pos):
-				blocked_reserved += 1
-			elif realizer.critical_path_cells.has(pos):
-				blocked_critical += 1
-			elif realizer.grid.entities.has(pos):
-				blocked_entity += 1
-			else:
+		var safe_chunk = _get_safe_cells_for_region(r_id, regions, realizer)
+		for pos in safe_chunk:
+			if not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
 				valid_cells.append(pos)
 				
-	#print("  [", e_type, "] Scanning Regions: ", valid_region_ids)
-	#print("    Total Cells: ", total_cells, " | Valid: ", valid_cells.size())
-	#print("    Blocked by -> Reserved (Custom Rooms/Structs): ", blocked_reserved, " | Critical (Corridors): ", blocked_critical, " | Entities: ", blocked_entity)
-			
 	if valid_cells.size() > 0:
 		var chosen = SeedUtils.pick_random(valid_cells, rng)
-		realizer.grid.entities[chosen] = {
+		grid.entities[chosen] = {
 			"type": e_type,
 			"key_type": subtype if e_type == "key" else "",
 			"name": display_name if display_name != "" else (subtype + " Key" if e_type == "key" else subtype),
@@ -267,3 +254,41 @@ static func _find_spine_path(start: int, end: int, adj: Dictionary) -> Array:
 		current = parent.get(current, -1)
 	path.reverse()
 	return path
+
+static func _get_safe_cells_for_region(r_id: int, regions: Dictionary, realizer: GraphRealizer) -> Array:
+	var reg_cells = regions.get(r_id, [])
+	var unblocked = {}
+	for pos in reg_cells:
+		if not realizer.reserved_cells.has(pos):
+			unblocked[pos] = true
+			
+	if unblocked.is_empty(): return []
+	
+	var visited = {}
+	var largest_chunk = []
+	var ortho = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+	
+	for start_pos in unblocked:
+		if visited.has(start_pos): continue
+		
+		var current_chunk = []
+		var queue = [start_pos]
+		visited[start_pos] = true
+		
+		while queue.size() > 0:
+			var curr = queue.pop_front()
+			current_chunk.append(curr)
+			
+			for d in ortho:
+				var n = curr + d
+				if unblocked.has(n) and not visited.has(n):
+					# Treat doors as solid walls to prevent crossing into other regions!
+					if realizer.grid.entities.has(n) and realizer.grid.entities[n].get("type") == "door":
+						continue
+					visited[n] = true
+					queue.append(n)
+					
+		if current_chunk.size() > largest_chunk.size():
+			largest_chunk = current_chunk
+			
+	return largest_chunk

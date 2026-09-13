@@ -153,7 +153,10 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 						for d_idx in range(test_doors.size()):
 							var door_pos = test_doors[d_idx]
 							var d_dir = Vector2(door_pos - grid_pos).normalized()
-							var dist = Vector2(target).distance_squared_to(Vector2(door_pos))
+							
+							# --- [FIX] LINEAR DISTANCE ---
+							# Prevents exponential distance explosion on large graphs!
+							var dist = Vector2(target).distance_to(Vector2(door_pos))
 							
 							# --- DIRECTIONAL PENALTY ---
 							# If the doorway points AWAY from the neighbor, apply a massive penalty!

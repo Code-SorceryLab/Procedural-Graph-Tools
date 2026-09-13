@@ -3,12 +3,10 @@ extends RefCounted
 
 static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, default_wall_id: int, semantic_wall_map: Dictionary = {}) -> void:
 	var grid = realizer.grid
-	var walls_to_build: Dictionary = {} 
-	
 	var custom_rooms = params.get("custom_rooms", {})
 	
 	# ==========================================================================
-	# PASS 0: SEAL UNUSED CUSTOM DOORWAYS
+	# PASS 0: SEAL UNUSED CUSTOM DOORWAYS (Graph-level, already fast)
 	# ==========================================================================
 	var c_room_cells = realizer.get_meta("custom_room_cells") if realizer.has_meta("custom_room_cells") else {}
 	var metric_doors_sealed = 0
@@ -34,13 +32,10 @@ static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, 
 					continue
 					
 				var is_used = false
-				
 				for dy in [-1, 0, 1]:
 					for dx in [-1, 0, 1]:
 						var check_pos = d_pos + Vector2i(dx, dy)
-						
 						if realizer.critical_path_cells.has(check_pos):
-							# Check if the path belongs to the exterior void/hallways
 							if not c_room_cells.has(check_pos) or c_room_cells[check_pos] != node_id:
 								is_used = true
 								break
@@ -48,78 +43,90 @@ static func generate(graph: Graph, realizer: GraphRealizer, params: Dictionary, 
 					
 				# --- IF UNUSED, CLEAN UP AND SEAL ---
 				if not is_used:
-					metric_doors_sealed += 1 # Log the seal
-					# 1. Revoke the pathing tags so the pink overlay doesn't jut into the wall
-					#    and so it doesn't block adjacent structure placements!
+					metric_doors_sealed += 1 
 					realizer.critical_path_cells.erase(d_pos)
 					realizer.core_path_cells.erase(d_pos)
 					realizer.reserved_cells.erase(d_pos)
 					
-					# 2. Apply the visual seal
 					if mode == 1: 
 						grid.set_cell(d_pos.x, d_pos.y, b_wall_id)
 					elif mode == 2: 
 						grid.set_cell_atlas(d_pos.x, d_pos.y, b_wall_id, exact_atlas)
 						
-					# 3. If it became a wall, remove it from the firewall so 
-					#    Zone Decorator knows it is an exterior boundary!
 					if mode != 0 and c_room_cells.has(d_pos): 
 						c_room_cells.erase(d_pos)
-	
 	
 	realizer.set_meta("metric_doors_sealed", metric_doors_sealed)
 	
 	# ==========================================================================
-	# PASS 1: SCAN FOR VOID CELLS TOUCHING FLOOR CELLS
+	# PASS 1: HIGH-PERFORMANCE IN-PLACE WALL STAMPING
 	# ==========================================================================
-	var valid_floors = {}
+	var width = grid.width
+	var height = grid.height
+	var total_cells = width * height
+	
+	# 1. Find Max ID for flat arrays
+	var max_id = 0
+	for id in grid.palette._definitions:
+		if id > max_id: max_id = id
+		
+	# 2. Precompute Floor Boolean Mask
+	var is_floor = PackedByteArray()
+	is_floor.resize(max_id + 1)
+	is_floor.fill(0)
 	for id in grid.palette._definitions:
 		if grid.palette.get_data(id).get("walkable", false):
-			valid_floors[id] = true
+			is_floor[id] = 1
+			
+	# 3. Precompute Semantic Wall Mappings
+	var floor_to_wall = PackedInt32Array()
+	floor_to_wall.resize(max_id + 1)
+	floor_to_wall.fill(default_wall_id)
+	for f_id in semantic_wall_map:
+		if f_id <= max_id:
+			floor_to_wall[f_id] = semantic_wall_map[f_id]
+			
+	# 4. Flatten Critical Path Immunity Mask
+	var is_critical = PackedByteArray()
+	is_critical.resize(total_cells)
+	is_critical.fill(0)
+	for pos in realizer.critical_path_cells:
+		var idx = pos.y * width + pos.x
+		if idx >= 0 and idx < total_cells:
+			is_critical[idx] = 1
 			
 	# --- REGENERATION MASK ---
-	var search_rect = params.get("regen_dirty_rect", Rect2i(0, 0, grid.width, grid.height))
-	var start_y = max(0, search_rect.position.y)
-	var end_y = min(grid.height, search_rect.position.y + search_rect.size.y)
-	var start_x = max(0, search_rect.position.x)
-	var end_x = min(grid.width, search_rect.position.x + search_rect.size.x)
-			
+	# Pad by 1 tile to safely skip in_bounds checks inside the loop
+	var search_rect = params.get("regen_dirty_rect", Rect2i(0, 0, width, height))
+	var start_x = max(1, search_rect.position.x)
+	var end_x = min(width - 1, search_rect.position.x + search_rect.size.x)
+	var start_y = max(1, search_rect.position.y)
+	var end_y = min(height - 1, search_rect.position.y + search_rect.size.y)
+	
+	var n_offsets = PackedInt32Array([-width - 1, -width, -width + 1, -1, 1, width - 1, width, width + 1])
+	var cells = grid.cells # Direct reference to C++ memory
+	var VOID_ID = TilePalette.VOID_ID
+	
+	# Loop through the grid
 	for y in range(start_y, end_y):
+		var idx = y * width + start_x
 		for x in range(start_x, end_x):
-			var pos = Vector2i(x, y)
 			
-			if grid.get_cell(x, y) == TilePalette.VOID_ID:
+			# If it's a void tile and NOT immune...
+			if cells[idx] == VOID_ID and is_critical[idx] == 0:
+				var chosen_wall = -1
 				
-				# --- IMMUNITY CHECK ---
-				if realizer.critical_path_cells.has(pos):
-					continue
+				# Fast unrolled neighbor search
+				for off in n_offsets:
+					var n_id = cells[idx + off]
 					
-				var touches_floor = false
-				var adjacent_floor_id = -1
-				
-				for dy in [-1, 0, 1]:
-					for dx in [-1, 0, 1]:
-						if dx == 0 and dy == 0: continue
-						var nx = x + dx
-						var ny = y + dy
+					# If the neighbor is a FLOOR tile, we build a wall!
+					if n_id >= 0 and n_id <= max_id and is_floor[n_id] == 1:
+						chosen_wall = floor_to_wall[n_id]
+						break
 						
-						if grid.in_bounds(nx, ny):
-							var neighbor_id = grid.get_cell(nx, ny)
-							if valid_floors.has(neighbor_id):
-								touches_floor = true
-								adjacent_floor_id = neighbor_id
-								break
-					if touches_floor: break
+				# Mutate the grid memory completely in-place!
+				if chosen_wall != -1:
+					cells[idx] = chosen_wall
 					
-				if touches_floor:
-					var chosen_wall_id = default_wall_id
-					if semantic_wall_map.has(adjacent_floor_id):
-						chosen_wall_id = semantic_wall_map[adjacent_floor_id]
-						
-					walls_to_build[pos] = chosen_wall_id
-					
-	# ==========================================================================
-	# PASS 2: STAMP THE WALLS
-	# ==========================================================================
-	for pos in walls_to_build:
-		grid.set_cell(pos.x, pos.y, walls_to_build[pos])
+			idx += 1
