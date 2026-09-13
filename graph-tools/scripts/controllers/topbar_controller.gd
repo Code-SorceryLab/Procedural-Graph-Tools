@@ -71,6 +71,9 @@ func _setup_menus() -> void:
 		menu_file.add_item("Save", 102)
 		menu_file.add_item("Save As...", 104)
 		menu_file.add_item("Load", 103)
+		menu_file.add_separator()
+		menu_file.add_item("Export Environment Profile...", 105)
+		menu_file.add_item("Import Environment Profile...", 106)
 		menu_file.id_pressed.connect(_on_file_menu_pressed)
 		
 	# Setup Edit Menu
@@ -162,6 +165,38 @@ func _on_file_menu_pressed(id: int) -> void:
 			file_controller._on_save_as_button_pressed()
 		103: # Load (Guarded by FileController's discard check)
 			file_controller._on_load_button_pressed()
+		105: # Export Profile
+			var fd = FileDialog.new()
+			fd.access = FileDialog.ACCESS_FILESYSTEM
+			fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+			fd.add_filter("*.cfg", "Config Files")
+			fd.current_file = "my_environment_profile.cfg"
+			fd.size = Vector2(600, 400)
+			fd.file_selected.connect(func(path: String):
+				if ConfigManager.export_profile(path) == OK:
+					_on_status_changed("Profile exported successfully!")
+				fd.queue_free()
+			)
+			fd.canceled.connect(func(): fd.queue_free())
+			add_child(fd)
+			fd.popup_centered()
+			
+		106: # Import Profile
+			var fd = FileDialog.new()
+			fd.access = FileDialog.ACCESS_FILESYSTEM
+			fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+			fd.add_filter("*.cfg", "Config Files")
+			fd.size = Vector2(600, 400)
+			fd.file_selected.connect(func(path: String):
+				if ConfigManager.import_profile(path) == OK:
+					_on_status_changed("Profile imported! Please restart or reload UI to see all changes.")
+					# Optional: If you have a global signal to force UI refreshes, emit it here!
+				fd.queue_free()
+			)
+			fd.canceled.connect(func(): fd.queue_free())
+			add_child(fd)
+			fd.popup_centered()
+			
 
 func _on_edit_menu_pressed(id: int) -> void:
 	match id:

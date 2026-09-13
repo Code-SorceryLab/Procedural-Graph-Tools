@@ -70,6 +70,23 @@ static func load_config() -> void:
 	
 	print("ConfigManager: Settings loaded.")
 
+static func export_profile(dest_path: String) -> int:
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return ERR_DOES_NOT_EXIST
+	return DirAccess.copy_absolute(SETTINGS_PATH, dest_path)
+
+static func import_profile(source_path: String) -> int:
+	if not FileAccess.file_exists(source_path):
+		return ERR_DOES_NOT_EXIST
+		
+	# Overwrite the active settings file with the new one
+	var err = DirAccess.copy_absolute(source_path, SETTINGS_PATH)
+	if err == OK:
+		# Reload global engine settings immediately
+		load_config() 
+	return err
+
+
 # --- INPUT HELPERS ---
 
 static func _save_inputs(config: ConfigFile) -> void:

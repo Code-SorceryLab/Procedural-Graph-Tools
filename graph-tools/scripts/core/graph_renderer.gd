@@ -91,7 +91,7 @@ func _ready() -> void:
 	font = ThemeDB.get_fallback_font()
 
 func _process(_delta: float) -> void:
-	# Only force continuous screen redraws if we actually have flowing edges to animate!
+	# Only force continuous screen redraws if we actually have flowing edges to animate
 	if highlighted_action_edges_ref.size() > 0:
 		queue_redraw()
 
