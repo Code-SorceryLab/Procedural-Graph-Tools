@@ -46,6 +46,7 @@ var _physics_accumulator: float = 0.0
 const PHYSICS_TICK_RATE: float = 1.0 / 45.0 # 45 FPS target
 
 # Editor State (Public)
+var is_graph_visible: bool = true # Tracks base graph visibility
 var selected_nodes: Array[String] = []
 var selected_edges: Array = []
 var selected_agent_ids: Array = []
@@ -184,6 +185,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	# 1. Global Shortcuts (Undo/Redo)
 	input_handler.handle_input(event)
 	if get_viewport().is_input_handled(): return
+
+	# --- VISIBILITY GUARD ---
+	# If the graph is hidden, completely starve the tools and picking mode of input.
+	# (We return without handling the event, which perfectly allows the Camera to continue panning!)
+	if not is_graph_visible: return 
 
 	# 2. Picking Mode Interception (Prioritize this over Tools)
 	if is_picking_mode:
@@ -873,6 +879,23 @@ func _commit_command(cmd: GraphCommand) -> void:
 
 
 # --- RENDERER / DISPLAY API ---
+
+# Visbility Toggle
+func set_graph_visible(is_visible: bool) -> void:
+	is_graph_visible = is_visible
+	
+	if renderer:
+		# We will add this property to the GraphRenderer next!
+		renderer.is_graph_visible = is_visible
+		renderer.queue_redraw()
+		
+	if not is_visible:
+		# Protect the user from themselves: clear selection so the Inspector goes blank
+		clear_selection()
+		
+		if is_picking_mode:
+			is_picking_mode = false
+			send_status_message("Picking cancelled (Graph hidden).")
 
 func request_redraw() -> void:
 	if renderer: renderer.queue_redraw()

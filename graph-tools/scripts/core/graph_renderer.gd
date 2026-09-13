@@ -38,6 +38,7 @@ var pre_selection_ref: Array[String] = []
 var pre_selected_agents_ref: Array = []
 
 # --- INTERACTION STATE ---
+var is_graph_visible: bool = true # Syncs from GraphEditor
 var path_start_ids: Array = [] 
 var path_end_ids: Array = []
 var drag_start_id: String = ""
@@ -97,22 +98,29 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if not graph_ref: return
 	
-	# Pre-calculate and draw the halos underneath EVERYTHING
-	if debug_show_depth:
-		if _depth_cache_dirty: _recalculate_depth_cache()
-		_draw_layer_depth_halos() 
-	
-	# Render Order (Painter's Algorithm: Back to Front)
-	_draw_layer_zones()
-	_draw_layer_edges()
-	_draw_layer_solver_debug()
-	_draw_breadcrumbs()
-	_draw_layer_path()
-	_draw_layer_brush()
-	_draw_layer_nodes()
-	_draw_layer_agents()
-	_draw_layer_simulation()
-	_draw_layer_labels()
+	if is_graph_visible:
+		# Pre-calculate and draw the halos underneath EVERYTHING
+		if debug_show_depth:
+			if _depth_cache_dirty: _recalculate_depth_cache()
+			_draw_layer_depth_halos() 
+		
+		# Render Order (Painter's Algorithm: Back to Front)
+		_draw_layer_zones()
+		_draw_layer_edges()
+		_draw_layer_solver_debug()
+		_draw_breadcrumbs()
+		_draw_layer_path()
+		_draw_layer_brush()
+		_draw_layer_nodes()
+		_draw_layer_agents()
+		_draw_layer_simulation()
+		_draw_layer_labels()
+		
+		# Draw the crisp depth labels on top of EVERYTHING
+		if debug_show_depth:
+			_draw_layer_depth_labels()
+
+	# --- ALWAYS DRAW EDITOR INTERACTION PREVIEWS ---
 	_draw_layer_interaction()
 	_draw_layer_selection_box()
 	
@@ -121,10 +129,6 @@ func _draw() -> void:
 	
 	if transform_rect.has_area():
 		_draw_transform_box()
-	
-	# Draw the crisp depth labels on top of EVERYTHING
-	if debug_show_depth:
-		_draw_layer_depth_labels()
 
 # ==============================================================================
 # 3. DOMAIN: ZONES

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://mjj2b0cic865"
-path="res://.godot/imported/dungeon_map_1789318544.748.png-3c3e2d7b4d2d7517825e52c88a299306.ctex"
+uid="uid://k7gtgg5kpgsa"
+path="res://.godot/imported/dungeon_map_1_pathless.png-4619154b2cce8cf3ac2e26730ea4866e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Raster Images/dungeon_map_1789318544.748.png"
-dest_files=["res://.godot/imported/dungeon_map_1789318544.748.png-3c3e2d7b4d2d7517825e52c88a299306.ctex"]
+source_file="res://Raster Images/dungeon_map_1_pathless.png"
+dest_files=["res://.godot/imported/dungeon_map_1_pathless.png-4619154b2cce8cf3ac2e26730ea4866e.ctex"]
 
 [params]
 

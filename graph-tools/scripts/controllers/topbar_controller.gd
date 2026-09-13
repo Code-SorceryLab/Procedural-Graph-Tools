@@ -28,6 +28,7 @@ var is_buoyancy_active: bool = false
 var is_auto_crystallize_active: bool = false # Tracks crystallization state
 var is_edge_snapping_active: bool = false
 var is_node_fusing_active: bool = false
+var is_base_graph_visible: bool = true # Tracks graph visibility
 var is_depth_overlay_active: bool = false
 var is_solver_debug_active: bool = true
 var is_key_inventory_active: bool = true
@@ -100,6 +101,8 @@ func _setup_menus() -> void:
 		
 		# --- OVERLAYS SECTION ---
 		menu_graph.add_separator() 
+		menu_graph.add_check_item("Show Base Graph", 307)
+		menu_graph.set_item_checked(menu_graph.get_item_index(307), is_base_graph_visible)
 		menu_graph.add_check_item("Overlay: Topological Depth", 306)
 		
 		menu_graph.id_pressed.connect(_on_graph_menu_pressed)
@@ -209,6 +212,13 @@ func _on_graph_menu_pressed(id: int) -> void:
 			menu_graph.set_item_checked(idx, is_depth_overlay_active)
 			if graph_editor and graph_editor.has_method("set_debug_depth"):
 				graph_editor.set_debug_depth(is_depth_overlay_active)
+				
+		307: # Toggle Base Graph Visibility
+			is_base_graph_visible = not is_base_graph_visible
+			var idx = menu_graph.get_item_index(307)
+			menu_graph.set_item_checked(idx, is_base_graph_visible)
+			if graph_editor and graph_editor.has_method("set_graph_visible"):
+				graph_editor.set_graph_visible(is_base_graph_visible)
 
 func _on_agents_menu_pressed(id: int) -> void:
 	match id:
