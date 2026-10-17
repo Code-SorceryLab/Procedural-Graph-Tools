@@ -208,9 +208,10 @@ func _handle_agent_click(agent) -> void:
 	if is_shift or is_ctrl:
 		var current_selection = _editor.selected_agent_ids.duplicate()
 		if is_ctrl: 
+			# CTRL = Subtract Only
 			if agent in current_selection: current_selection.erase(agent)
-			else: current_selection.append(agent)
 		elif is_shift:
+			# SHIFT = Add Only
 			if not agent in current_selection: current_selection.append(agent)
 			
 		_editor.set_agent_selection(current_selection, false)
@@ -224,19 +225,30 @@ func _handle_agent_click(agent) -> void:
 func _handle_edge_click(edge_pair: Array) -> void:
 	edge_pair.sort() 
 	
-	if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL):
-		_editor.toggle_edge_selection(edge_pair)
+	if Input.is_key_pressed(KEY_SHIFT):
+		# SHIFT = Add Only
+		_editor.add_edge_selection(edge_pair)
+	elif Input.is_key_pressed(KEY_CTRL):
+		# CTRL = Subtract Only
+		if _editor.is_edge_selected(edge_pair):
+			_editor.toggle_edge_selection(edge_pair) # Removes it safely
 	else:
 		_editor.clear_selection()
 		_editor.set_edge_selection(edge_pair)
 
 # Handle clicking a Zone directly
 func _handle_zone_click(zone) -> void:
-	if Input.is_key_pressed(KEY_SHIFT) or Input.is_key_pressed(KEY_CTRL):
+	if Input.is_key_pressed(KEY_SHIFT):
+		# SHIFT = Add Only
 		var current = _editor.selected_zones.duplicate()
-		if current.has(zone): current.erase(zone)
-		else: current.append(zone)
+		if not current.has(zone): current.append(zone)
 		_editor.set_zone_selection(current, false)
+	elif Input.is_key_pressed(KEY_CTRL):
+		# CTRL = Subtract Only
+		var current = _editor.selected_zones.duplicate()
+		if current.has(zone): 
+			current.erase(zone)
+			_editor.set_zone_selection(current, false)
 	else:
 		_perform_global_deselect()
 		_editor.set_zone_selection([zone], true)
@@ -264,22 +276,23 @@ func _start_moving_node(id: String) -> void:
 						nodes_to_action.append(peer_id)
 
 	if Input.is_key_pressed(KEY_SHIFT):
+		# SHIFT = Add Only
 		var nodes_to_add: Array[String] = []
 		for target in nodes_to_action:
 			if not _editor.selected_nodes.has(target): nodes_to_add.append(target)
 		if not nodes_to_add.is_empty(): _editor.set_selection_batch(nodes_to_add, [], false)
 			
 	elif Input.is_key_pressed(KEY_CTRL):
+		# CTRL = Subtract Only
 		var new_selection = _editor.selected_nodes.duplicate()
 		var selection_changed = false
 		for target in nodes_to_action:
 			if new_selection.has(target):
 				new_selection.erase(target)
 				selection_changed = true
-			else:
-				new_selection.append(target)
-				selection_changed = true
-		if selection_changed: _editor.set_selection_batch(new_selection, _editor.selected_edges, true)
+				
+		# [CRITICAL FIX]: We must duplicate selected_edges to prevent pass-by-reference array wiping!
+		if selection_changed: _editor.set_selection_batch(new_selection, _editor.selected_edges.duplicate(), true)
 			
 	else:
 		if is_group_action:
