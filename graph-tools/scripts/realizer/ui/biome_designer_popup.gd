@@ -629,7 +629,7 @@ func _rebuild_deck_settings(deck_type: String) -> void:
 	schema.append({ "name": "name", "label": "Node Name", "type": TYPE_STRING, "default": node.get("name", "") })
 	
 	var ref_keys = [""]
-	var hint_str = "None" # [FIXED] Hoisted to outer scope so the lambda can access it safely!
+	var hint_str = "None" # Hoisted to outer scope so the lambda can access it safely!
 	
 	if type != "pool":
 		hint_str = "None,"
@@ -641,8 +641,11 @@ func _rebuild_deck_settings(deck_type: String) -> void:
 			src_dict = {"preset_square":{"name":"Square"}, "preset_circle":{"name":"Circle"}, "preset_triangle":{"name":"Triangle"}}
 			
 		for k in src_dict.keys():
-			hint_str += src_dict[k].get("name", k) + ","
+			var display_name = src_dict[k].get("name", k)
+			# Ensure no commas are in the display name, as it breaks Godot's hint_string parsing
+			hint_str += display_name.replace(",", "") + "," 
 			ref_keys.append(k)
+			
 		hint_str = hint_str.trim_suffix(",")
 		
 		var current_ref = node.get("ref_id", "")

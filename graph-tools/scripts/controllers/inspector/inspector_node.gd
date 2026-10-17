@@ -5,6 +5,7 @@ extends InspectorStrategy
 var _tracked_nodes: Array[String] = []
 var _node_inputs: Dictionary = {}
 var _type_keys_cache: Array = [] 
+var _room_uuids_cache: Array = [] # Maps UI Index -> UUID
 
 # ==============================================================================
 # 1. LIFECYCLE
@@ -91,6 +92,32 @@ func _rebuild_node_ui() -> void:
 		"hint_string": type_hint,
 		"mixed": mixed_keys.get("type", false)
 	})
+	
+	# --- CUSTOM ROOM OVERRIDE ---
+	# Fetch all custom rooms to populate the dropdown
+	var all_rooms = ConfigManager.load_custom_rooms()
+	var room_names = ["None (Auto)"]
+	_room_uuids_cache = [""] # Empty string means "None"
+	
+	for uuid in all_rooms:
+		_room_uuids_cache.append(uuid)
+		# Use the human readable name for the UI
+		room_names.append(all_rooms[uuid].get("name", "Unnamed Room"))
+		
+	var current_uuid = first_node.custom_data.get("forced_room_uuid", "") if "custom_data" in first_node else ""
+	var default_room_idx = _room_uuids_cache.find(current_uuid)
+	if default_room_idx == -1: default_room_idx = 0
+	
+	schema.append({ 
+		"name": "forced_room_uuid", 
+		"label": "Force Custom Room", 
+		"type": TYPE_INT, 
+		"default": default_room_idx,
+		"hint": "enum", 
+		"hint_string": ",".join(room_names),
+		"mixed": mixed_keys.get("forced_room_uuid", false)
+	})
+	# -----------------------------------
 	
 	# Neighbors
 	if count == 1:
@@ -217,6 +244,16 @@ func _on_input(key: String, value: Variant) -> void:
 				var ui_idx = int(value)
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
+			# --- [NEW] CATCH THE OVERRIDE ---
+			"forced_room_uuid":
+				var ui_idx = int(value)
+				if ui_idx >= 0 and ui_idx < _room_uuids_cache.size():
+					var uuid = _room_uuids_cache[ui_idx]
+					if uuid == "":
+						graph_editor.set_node_property(id, key, null) # Erase it so it falls back to Auto
+					else:
+						graph_editor.set_node_property(id, key, uuid)
+			# --------------------------------
 			_:
 				graph_editor.set_node_property(id, key, value)
 				
@@ -228,6 +265,17 @@ func _on_input(key: String, value: Variant) -> void:
 			var ui_idx = int(value)
 			if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 				graph_editor.set_node_type_bulk(_tracked_nodes, _type_keys_cache[ui_idx])
+		# --- [NEW] BULK EDIT OVERRIDE ---
+		elif key == "forced_room_uuid":
+			var ui_idx = int(value)
+			if ui_idx >= 0 and ui_idx < _room_uuids_cache.size():
+				var uuid = _room_uuids_cache[ui_idx]
+				for id in _tracked_nodes:
+					if uuid == "":
+						graph_editor.set_node_property(id, key, null)
+					else:
+						graph_editor.set_node_property(id, key, uuid)
+		# --------------------------------
 		else:
 			for id in _tracked_nodes:
 				graph_editor.set_node_property(id, key, value)

@@ -45,6 +45,7 @@ static func save_config() -> void:
 		print("ConfigManager: Settings saved to %s" % SETTINGS_PATH)
 
 static func load_config() -> void:
+	perform_uuid_migrations()
 	var config = ConfigFile.new()
 	var err = config.load(SETTINGS_PATH)
 	
@@ -670,3 +671,49 @@ static func load_regen_triggers() -> Dictionary:
 			loaded_triggers[key] = config.get_value("RegenTriggers", key)
 			
 	return loaded_triggers
+
+
+# ==============================================================================
+# DATA MIGRATION (String -> UUID)
+# ==============================================================================
+static func perform_uuid_migrations() -> void:
+	var config = ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK: return
+	
+	var needs_save = false
+	var old_to_new_map = {}
+	
+	# 1. Migrate Custom Rooms
+	if config.has_section("CustomRooms"):
+		var keys = config.get_section_keys("CustomRooms")
+		for old_key in keys:
+			# If it doesn't look like a UUID, we migrate it
+			if not old_key.begins_with("room_"):
+				var new_uuid = "room_" + str(Time.get_unix_time_from_system()) + "_" + str(randi() % 10000)
+				old_to_new_map[old_key] = new_uuid
+				
+				var room_data = config.get_value("CustomRooms", old_key)
+				room_data["name"] = old_key # Save the old key as the display name
+				
+				config.set_value("CustomRooms", new_uuid, room_data)
+				config.erase_section_key("CustomRooms", old_key)
+				needs_save = true
+				
+				# Give the OS a tiny fraction of a millisecond so Unix Time changes 
+				# and we don't accidentally generate duplicate UUIDs in a fast loop!
+				OS.delay_msec(1) 
+				
+	# 2. Update Room Decks to point to the new UUIDs
+	if needs_save and config.has_section("RoomDecks"):
+		var deck_keys = config.get_section_keys("RoomDecks")
+		for d_key in deck_keys:
+			var deck_node = config.get_value("RoomDecks", d_key)
+			if deck_node.get("type", "") == "custom_room":
+				var old_ref = deck_node.get("ref_id", "")
+				if old_to_new_map.has(old_ref):
+					deck_node["ref_id"] = old_to_new_map[old_ref]
+					config.set_value("RoomDecks", d_key, deck_node)
+					
+	if needs_save:
+		config.save(SETTINGS_PATH)
+		print("ConfigManager: Successfully migrated Custom Rooms to UUID format.")

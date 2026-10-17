@@ -65,7 +65,14 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var chosen_type = "preset"
 		var chosen_ref = "preset_square" # Fallback if list is empty
 		
-		if room_lists.has(node_id) and room_lists[node_id].size() > 0:
+		# 1. VIP BYPASS: Forced Custom Rooms
+		var forced_uuid = node.custom_data.get("forced_room_uuid", "")
+		if forced_uuid != "" and custom_rooms.has(forced_uuid):
+			chosen_type = "custom_room"
+			chosen_ref = forced_uuid
+			
+		# 2. Standard Distribution Engine (Only runs if no VIP bypass exists)
+		elif room_lists.has(node_id) and room_lists[node_id].size() > 0:
 			var items = room_lists[node_id]
 			
 			# Priority Sort: Custom Rooms override Standard Presets
