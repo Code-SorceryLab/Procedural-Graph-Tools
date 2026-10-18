@@ -11,7 +11,12 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 	
 	# 1. Initialize shopping lists and group rooms by biome
 	var biome_nodes = {}
-	for node_id in graph.nodes:
+	
+	# Sort nodes to ensure deterministic setup
+	var sorted_node_ids = graph.nodes.keys()
+	sorted_node_ids.sort()
+	
+	for node_id in sorted_node_ids:
 		var n = graph.nodes[node_id]
 		if not biome_nodes.has(n.type):
 			biome_nodes[n.type] = []
@@ -19,10 +24,14 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 		shopping_lists[node_id] = []
 		
 	# 2. Process each biome independently
-	for biome in biome_nodes:
+	# [FIX] Sort biomes
+	var sorted_biomes = biome_nodes.keys()
+	sorted_biomes.sort()
+	
+	for biome in sorted_biomes:
 		var decks = global_decks
 		
-		# [UPDATED] Check for the dynamic override_key!
+		# [UPDATED] Check for the dynamic override_key
 		if overrides.has(biome) and overrides[biome].get("override_enabled", false):
 			if overrides[biome].has(override_key):
 				decks = overrides[biome][override_key]
@@ -31,7 +40,12 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 		
 		# Find all Root Nodes (Nodes with no parent)
 		var roots = []
-		for k in decks:
+		
+		# Sort deck keys
+		var sorted_deck_keys = decks.keys()
+		sorted_deck_keys.sort()
+		
+		for k in sorted_deck_keys:
 			if decks[k].get("parent_id", "") == "":
 				roots.append(decks[k])
 				
@@ -56,8 +70,15 @@ static func generate_shopping_lists(graph: Graph, global_decks: Dictionary, over
 				# Recursively resolve the tree into a flat array of concrete items
 				var resolved_items = _resolve_pool(root, biome_quota, decks, rng)
 				
-				# Shuffle and distribute the resulting items randomly across the rooms in this biome
-				resolved_items.shuffle()
+				# --- [FIX] DETERMINISTIC SHUFFLE ---
+				# NEVER use resolved_items.shuffle() in procedural generation!
+				for i in range(resolved_items.size() - 1, 0, -1):
+					var j = rng.randi_range(0, i)
+					var temp = resolved_items[i]
+					resolved_items[i] = resolved_items[j]
+					resolved_items[j] = temp
+				# -----------------------------------
+				
 				for item in resolved_items:
 					var target_room = SeedUtils.pick_random(rooms_in_biome, rng)
 					shopping_lists[target_room].append(item)
@@ -115,7 +136,11 @@ static func _resolve_pool(node: Dictionary, quota: int, decks: Dictionary, rng: 
 	var total_weight = 0
 	
 	# Find all children of this pool
-	for k in decks:
+	# [FIX] Sort deck keys
+	var sorted_child_keys = decks.keys()
+	sorted_child_keys.sort()
+	
+	for k in sorted_child_keys:
 		if decks[k].get("parent_id", "") == node["id"]:
 			var w = decks[k].get("weight", 10)
 			children.append({"node": decks[k], "weight": w})

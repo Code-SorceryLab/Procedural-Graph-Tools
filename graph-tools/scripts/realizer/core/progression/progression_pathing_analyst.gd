@@ -40,38 +40,34 @@ static func analyze_paths(graph: Graph, realizer: GraphRealizer, params: Diction
 	var cell_to_region = map_data.get("cell_to_region", {})
 	
 	# ==========================================================================
-	# VIP BYPASS: EXPLICIT NODE ASSIGNMENTS (INSERT NEW BLOCK HERE)
+	# VIP BYPASS: EXPLICIT NODE ASSIGNMENTS
 	# ==========================================================================
 	var explicit_start_region = -1
 	var explicit_end_region = -1
 	var explicit_start_node_id = "" 
 	var explicit_end_node_id = ""   
 	
-	# We need to map the Node ID string back to the numeric Region ID
+	# Robustly map Node IDs to Region IDs using raw physical footprint intersections
 	var node_to_region = {}
-	if realizer.has_meta("custom_room_cells"): 
-		var custom_cells = realizer.get_meta("custom_room_cells")
-		for cell in custom_cells:
-			if cell_to_region.has(cell):
-				node_to_region[custom_cells[cell]] = cell_to_region[cell]
-	
-	# If the standard mapping isn't available, fallback to checking node centers
-	if node_to_region.is_empty():
-		for n_id in graph.nodes:
-			var center = graph.nodes[n_id].custom_data.get("_grid_center", Vector2i(-1, -1))
-			if center != Vector2i(-1, -1) and cell_to_region.has(center):
-				node_to_region[n_id] = cell_to_region[center]
-	
+	for cell in realizer.cell_to_nodes:
+		if cell_to_region.has(cell):
+			var r_id = cell_to_region[cell]
+			for n_id in realizer.cell_to_nodes[cell]:
+				if not node_to_region.has(n_id):
+					node_to_region[n_id] = r_id
+					
 	# Scan the graph for the explicit flags
 	for n_id in graph.nodes:
 		var c_data = graph.nodes[n_id].custom_data
 		if c_data.get("is_forced_start", false):
 			explicit_start_node_id = n_id 
-			if node_to_region.has(n_id): explicit_start_region = node_to_region[n_id]
+			if node_to_region.has(n_id): 
+				explicit_start_region = node_to_region[n_id]
 				
 		if c_data.get("is_forced_end", false):
 			explicit_end_node_id = n_id   
-			if node_to_region.has(n_id): explicit_end_region = node_to_region[n_id]
+			if node_to_region.has(n_id): 
+				explicit_end_region = node_to_region[n_id]
 			
 	# ==========================================================================
 	# PHYSICAL GROUND TRUTH & ARCHIVE RECOVERY (YOUR EXISTING CODE CONTINUES HERE)
@@ -128,26 +124,42 @@ static func analyze_paths(graph: Graph, realizer: GraphRealizer, params: Diction
 	var start_region = -1
 	var start_tag = "Fallback (Random)"
 	var need_spawn_start = true
-	var final_start_node_id = ""
+	var final_start_node_id = "" 
+	
+	print("[DEBUG PATHING] explicit_start_node_id = ", explicit_start_node_id)
+	print("[DEBUG PATHING] existing_start_pos = ", existing_start_pos)
+	print("[DEBUG PATHING] recovered_start_region = ", recovered_start_region)
 	
 	if explicit_start_region != -1 and is_region_spawnable.call(explicit_start_region):
-		# 0. VIP BYPASS: User explicitly assigned this node
+		# 0. VIP BYPASS: User explicitly assigned this node!
+		print("[DEBUG PATHING] Branch 0: Explicit Assignment -> ", explicit_start_node_id)
 		start_region = explicit_start_region
 		start_tag = "Explicit Editor Assignment"
-		final_start_node_id = explicit_start_node_id # <--- Lock it in
+		final_start_node_id = explicit_start_node_id 
 		need_spawn_start = true
+		
+		# [CRITICAL FIX] If the user explicitly assigned a new node, we MUST delete any old entity that survived!
+		if existing_start_pos != Vector2i(-1, -1):
+			print("[DEBUG PATHING] Erasing old preserved spawn point at ", existing_start_pos)
+			grid.entities.erase(existing_start_pos)
+			
 	elif existing_start_pos != Vector2i(-1, -1) and cell_to_region.has(existing_start_pos):
 		# 1. GROUND TRUTH: The entity safely survived the blast radius!
+		print("[DEBUG PATHING] Branch 1: Preserved Spawn -> Region ", cell_to_region[existing_start_pos])
 		start_region = cell_to_region[existing_start_pos]
 		start_tag = "Preserved Spawn"
 		need_spawn_start = false
+		
 	elif recovered_start_region != -1 and valid_regions.has(recovered_start_region) and is_region_spawnable.call(recovered_start_region):
 		# 2. RECOVERY: The entity was vaporized, but we found the new room built in its place!
+		print("[DEBUG PATHING] Branch 2: Recovered Spawn -> Region ", recovered_start_region)
 		start_region = recovered_start_region
 		start_tag = "Recovered Spawn"
 		need_spawn_start = true
+		
 	else:
 		# 3. FALLBACK: Pick a new room from SPAWNABLE regions!
+		print("[DEBUG PATHING] Branch 3: Fallback Search")
 		if pref_start != "Any":
 			var matches = spawnable_regions.filter(func(r): return get_r_biomes.call(r).has(pref_start))
 			if matches.size() > 0:
@@ -162,6 +174,8 @@ static func analyze_paths(graph: Graph, realizer: GraphRealizer, params: Diction
 			else:
 				start_region = SeedUtils.pick_random(spawnable_regions, rng)
 				start_tag = "Fallback (Leaf)"
+				
+	print("[DEBUG PATHING] Final Start Region: ", start_region, " | Need Spawn: ", need_spawn_start)
 			
 	# ==========================================================================
 	# END REGION
@@ -170,15 +184,25 @@ static func analyze_paths(graph: Graph, realizer: GraphRealizer, params: Diction
 	var end_region = -1
 	var end_tag = "Fallback (Random)"
 	var need_spawn_end = true
-	var final_end_node_id = "" # <--- [NEW] Pass this to the spawner
+	var final_end_node_id = "" 
+	
+	print("[DEBUG PATHING] explicit_end_node_id = ", explicit_end_node_id)
 	
 	if explicit_end_region != -1 and is_region_spawnable.call(explicit_end_region) and (explicit_end_region != start_region or valid_regions.size() == 1):
 		# 0. VIP BYPASS: User explicitly assigned this node!
+		print("[DEBUG PATHING] Branch 0: Explicit End Assignment -> ", explicit_end_node_id)
 		end_region = explicit_end_region
 		end_tag = "Explicit Editor Assignment"
-		final_end_node_id = explicit_end_node_id # <--- Lock it in
+		final_end_node_id = explicit_end_node_id 
 		need_spawn_end = true
+		
+		# [CRITICAL FIX] Erase old entity if we are explicitly re-assigning it
+		if existing_end_pos != Vector2i(-1, -1):
+			print("[DEBUG PATHING] Erasing old preserved exit point at ", existing_end_pos)
+			grid.entities.erase(existing_end_pos)
+			
 	elif existing_end_pos != Vector2i(-1, -1) and cell_to_region.has(existing_end_pos) and (cell_to_region[existing_end_pos] != start_region or valid_regions.size() == 1):
+		print("[DEBUG PATHING] Branch 1: Preserved Exit -> Region ", cell_to_region[existing_end_pos])
 		end_region = cell_to_region[existing_end_pos]
 		end_tag = "Preserved Exit"
 		need_spawn_end = false
@@ -213,9 +237,11 @@ static func analyze_paths(graph: Graph, realizer: GraphRealizer, params: Diction
 	# --- EXECUTIONS ---
 	if need_spawn_start: 
 		var s_success = spawn_marker([start_region], "start_point", "Player Spawn", regions, realizer, rng, start_tag, "", final_start_node_id)
+		print("[DEBUG PATHING] spawn_marker(Start) Success: ", s_success)
 		
 	if need_spawn_end and end_region != -1: 
 		var e_success = spawn_marker([end_region], "end_point", "Dungeon Exit", regions, realizer, rng, end_tag, "", final_end_node_id)
+		print("[DEBUG PATHING] spawn_marker(End) Success: ", e_success)
 	
 	if emit.is_valid(): emit.call("Solver: Placed Objectives")
 
@@ -280,6 +306,12 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 				
 	# --- EXECUTE PLACEMENT ---
 	if valid_cells.size() > 0:
+		
+		# --- [FIX] DETERMINISTIC VECTOR2i SORTING ---
+		# Sorts by X, then by Y, guaranteeing identical array order across runs!
+		valid_cells.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
+		# --------------------------------------------
+		
 		var chosen = SeedUtils.pick_random(valid_cells, rng)
 		grid.entities[chosen] = {
 			"type": e_type,
