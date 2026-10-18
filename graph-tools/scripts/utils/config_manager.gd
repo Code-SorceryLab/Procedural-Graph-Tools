@@ -457,6 +457,10 @@ static func save_global_params(params: Dictionary) -> void:
 	var err = config.save(SETTINGS_PATH)
 	if err != OK: 
 		push_error("ConfigManager: Failed to save Global Params.")
+	else:
+		# Broadcast the update
+		if SignalManager.has_signal("global_params_updated"):
+			SignalManager.global_params_updated.emit()
 
 static func load_global_params() -> Dictionary:
 	var config = ConfigFile.new()
@@ -488,6 +492,10 @@ static func save_custom_rooms(data: Dictionary) -> void:
 	var err = config.save(SETTINGS_PATH)
 	if err != OK: 
 		push_error("ConfigManager: Failed to save Custom Rooms.")
+	else:
+		# Broadcast the update
+		if SignalManager.has_signal("custom_rooms_updated"):
+			SignalManager.custom_rooms_updated.emit()
 
 static func load_custom_rooms() -> Dictionary:
 	var config = ConfigFile.new()

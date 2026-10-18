@@ -244,7 +244,7 @@ func _on_input(key: String, value: Variant) -> void:
 				var ui_idx = int(value)
 				if ui_idx >= 0 and ui_idx < _type_keys_cache.size():
 					graph_editor.set_node_type(id, _type_keys_cache[ui_idx])
-			# --- [NEW] CATCH THE OVERRIDE ---
+			# --- CATCH THE OVERRIDE ---
 			"forced_room_uuid":
 				var ui_idx = int(value)
 				if ui_idx >= 0 and ui_idx < _room_uuids_cache.size():

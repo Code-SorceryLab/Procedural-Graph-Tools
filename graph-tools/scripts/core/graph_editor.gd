@@ -92,6 +92,7 @@ func _ready() -> void:
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
 	renderer.selected_agent_ids_ref = selected_agent_ids
+	renderer.refresh_caches()
 	
 	# Initialize the Simulation Engine
 	simulation = Simulation.new(graph)

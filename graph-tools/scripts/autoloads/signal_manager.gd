@@ -22,3 +22,9 @@ signal status_message_changed(message: String)
 signal agent_selection_changed(agents: Array) # Moving towards global selection
 @warning_ignore("unused_signal")
 signal zone_selection_changed(selected_zones: Array)
+
+# --- CONFIGURATION SIGNALS ---
+@warning_ignore("unused_signal")
+signal custom_rooms_updated
+@warning_ignore("unused_signal")
+signal global_params_updated
