@@ -655,16 +655,24 @@ func _draw_node_indicators(id: String, pos: Vector2) -> void:
 		var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 		var dec_offset = pos + Vector2(0, -node_radius - 12) # Start drawing above the node
 		
+		# START & END BADGES ---
+		if node_data.custom_data.get("is_forced_start", false):
+			_draw_semantic_decorator(dec_offset, "[key:#00FF00] Spawn", SemanticRegistry.DisplayMode.BADGE)
+			dec_offset += Vector2(0, -18) 
+			
+		if node_data.custom_data.get("is_forced_end", false):
+			_draw_semantic_decorator(dec_offset, "[lock:#FF0000] Exit", SemanticRegistry.DisplayMode.BADGE)
+			dec_offset += Vector2(0, -18) 
+		
 		# --- BLUEPRINT BADGE ---
 		var forced_uuid = node_data.custom_data.get("forced_room_uuid", "")
 		if forced_uuid != "":
-			# [FIX] Read from RAM cache, not disk!
 			if _cached_custom_rooms.has(forced_uuid):
 				var r_name = _cached_custom_rooms[forced_uuid].get("name", "Unknown Room")
 				_draw_semantic_decorator(dec_offset, "[blueprint:#55AAFF] " + r_name, SemanticRegistry.DisplayMode.BADGE)
 				dec_offset += Vector2(0, -18) 
 		# -----------------------------
-
+		
 		for prop_key in node_data.custom_data:
 			if not props.has(prop_key): continue
 			var mode = props[prop_key].get("display", 0)

@@ -85,7 +85,13 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "debug_routing", "label": "Show Critical Path", "type": TYPE_BOOL, "default": false,
 		  "hint_text": "Highlights the unblockable A* path connecting the Start Point to the Exit Point." },
 		
-		{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },
+		
+		# --- EXPLICIT TARGETING BUTTONS ---
+		{ "name": "btn_set_player_spawn", "label": "⌖ Assign Spawn To Node", "type": TYPE_NIL, "hint": "action" },
+		{ "name": "btn_set_dungeon_exit", "label": "⌖ Assign Exit To Node", "type": TYPE_NIL, "hint": "action" },
+		# ----------------------------------------
+		
 		{ "name": "progression_preferred_start", "label": "Preferred Spawn Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options, "return_string": true,
 		  "hint_text": "Forces the Start Point to spawn inside a specific Biome if available." },
 		{ "name": "progression_preferred_end", "label": "Preferred Exit Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options, "return_string": true,

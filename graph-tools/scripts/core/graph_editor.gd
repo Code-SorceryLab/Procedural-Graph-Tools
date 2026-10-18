@@ -34,6 +34,7 @@ var is_masking_trigger: bool = false
 var _active_mask_trigger_id: String = ""
 var _masking_banner: PanelContainer
 
+
 # File State
 var current_file_path: String = "" # Tracks the active save file!
 
