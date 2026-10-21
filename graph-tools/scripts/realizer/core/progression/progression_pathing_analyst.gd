@@ -276,26 +276,117 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 	var grid = realizer.grid
 	
 	if strict_node_id != "":
-		# --- STRICT MODE: Bypass Region flood-fill and search the Node's exact footprint! ---
-		for pos in realizer.cell_to_nodes.keys():
-			# Check if this cell belongs to our explicit node
-			if realizer.cell_to_nodes[pos].has(strict_node_id):
-				# Must be a floor tile, not a wall
-				var cell_id = grid.get_cell(pos.x, pos.y)
-				if cell_id == realizer.wall_id or (realizer.semantic_wall_map.values().has(cell_id)):
-					continue
+		# --- STRICT MODE: Guaranteed Reachability Search ---
+		# 1. Find all critical path cells that belong to this node
+		var node_critical_cells = []
+		var all_node_cells = []
+		
+		var fetch_node_cells = func(n_id: String):
+			node_critical_cells.clear()
+			all_node_cells.clear()
+			for pos in realizer.cell_to_nodes.keys():
+				if realizer.cell_to_nodes[pos].has(n_id):
+					all_node_cells.append(pos)
+					if realizer.critical_path_cells.has(pos):
+						node_critical_cells.append(pos)
+		
+		# Initial fetch for the target node
+		fetch_node_cells.call(strict_node_id)
 					
-				# Must not be reserved or occupied
-				if not realizer.reserved_cells.has(pos) and not realizer.critical_path_cells.has(pos) and not grid.entities.has(pos):
-					valid_cells.append(pos)
-					
-		# Optional: Filter out 'bridge' cells (cells owned by multiple nodes) to force it deep inside the room
-		var pure_cells = valid_cells.filter(func(p): return realizer.cell_to_nodes[p].size() == 1)
-		if pure_cells.size() > 0:
-			valid_cells = pure_cells
+		# 2. Rescue Operation (If severed from critical path)
+		if node_critical_cells.is_empty():
+			print("[WARNING] Strict Node '", strict_node_id, "' is severed from the critical path!")
 			
-	else:
-		# --- STANDARD MODE: Use Region Safe Chunks ---
+			var rescued = false
+			# Do a fast BFS on the abstract graph to find the closest living neighbor!
+			var visited_nodes = { strict_node_id: true }
+			# We pass the graph reference via an assumption that it's accessible, but it's cleaner
+			# to use the `realizer.graph_ref` if we stashed it, OR we can just rely on `cell_to_nodes` 
+			# to find a neighbor physically.
+			
+			# Let's find neighbors by checking `cell_to_edges` which tells us what nodes connect here!
+			var search_queue = []
+			
+			# We need access to the graph to do this cleanly.
+			# Since spawn_marker doesn't receive `graph`, we will use a purely physical search 
+			# based on the cell_to_nodes dictionary! We find ANY node that has critical cells.
+			
+			print("[RESCUE] Scanning map for the closest valid topological replacement...")
+			var fallback_node = ""
+			var min_dist = INF
+			
+			# Find the physical center of the dead room
+			var dead_center = Vector2i.ZERO
+			if all_node_cells.size() > 0:
+				for p in all_node_cells: dead_center += p
+				dead_center /= all_node_cells.size()
+			
+			# Find the node that HAS critical path cells that is physically closest to our dead room
+			var candidate_nodes = {}
+			for pos in realizer.critical_path_cells.keys():
+				if realizer.cell_to_nodes.has(pos):
+					for n_id in realizer.cell_to_nodes[pos].keys():
+						candidate_nodes[n_id] = true
+						
+			for n_id in candidate_nodes.keys():
+				var center = Vector2i.ZERO
+				var count = 0
+				for pos in realizer.cell_to_nodes.keys():
+					if realizer.cell_to_nodes[pos].has(n_id):
+						center += pos
+						count += 1
+				if count > 0:
+					center /= count
+					var d = Vector2(dead_center).distance_squared_to(Vector2(center))
+					if d < min_dist:
+						min_dist = d
+						fallback_node = n_id
+						
+			if fallback_node != "":
+				print("[RESCUE] Successfully hijacked Start/End point. Redirecting to neighbor: ", fallback_node)
+				strict_node_id = fallback_node
+				fetch_node_cells.call(strict_node_id)
+				rescued = true
+				
+			if not rescued:
+				print("[ERROR] Rescue failed! No valid nodes found. Falling back to Region search.")
+				strict_node_id = "" # Clear it to trigger the standard fallback block
+			
+		# 3. Flood-fill outward from the critical path (Only runs if we have critical cells!)
+		if strict_node_id != "":
+			var solvable_chunk = {}
+			var queue = node_critical_cells.duplicate()
+			for c in queue: solvable_chunk[c] = true
+				
+			var ortho = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,1), Vector2i(0,-1)]
+			var allowed_floor_lookup = {}
+			for pos in all_node_cells:
+				var cell_id = grid.get_cell(pos.x, pos.y)
+				if cell_id != realizer.wall_id and not realizer.semantic_wall_map.values().has(cell_id):
+					if not realizer.reserved_cells.has(pos) and not grid.entities.has(pos):
+						allowed_floor_lookup[pos] = true
+			
+			while queue.size() > 0:
+				var curr = queue.pop_front()
+				for d in ortho:
+					var n = curr + d
+					if allowed_floor_lookup.has(n) and not solvable_chunk.has(n):
+						solvable_chunk[n] = true
+						queue.append(n)
+						
+			# 4. Filter for 'pure' cells
+			for pos in solvable_chunk.keys():
+				if not realizer.critical_path_cells.has(pos): 
+					if realizer.cell_to_nodes[pos].size() == 1:
+						valid_cells.append(pos)
+						
+			if valid_cells.is_empty():
+				for pos in solvable_chunk.keys():
+					if not realizer.critical_path_cells.has(pos):
+						valid_cells.append(pos)
+						
+	# --- STANDARD MODE: Use Region Safe Chunks ---
+	if strict_node_id == "":
 		for r_id in valid_region_ids:
 			if not regions.has(r_id): continue
 				
@@ -306,13 +397,9 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 				
 	# --- EXECUTE PLACEMENT ---
 	if valid_cells.size() > 0:
-		
-		# --- [FIX] DETERMINISTIC VECTOR2i SORTING ---
-		# Sorts by X, then by Y, guaranteeing identical array order across runs!
 		valid_cells.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
-		# --------------------------------------------
-		
 		var chosen = SeedUtils.pick_random(valid_cells, rng)
+		
 		grid.entities[chosen] = {
 			"type": e_type,
 			"key_type": subtype if e_type == "key" else "",
@@ -322,10 +409,7 @@ static func spawn_marker(valid_region_ids: Array, e_type: String, subtype: Strin
 		realizer.reserved_cells[chosen] = true
 		return true
 		
-	# Fallback Debug Print
-	if strict_node_id != "":
-		print("[WARNING] spawn_marker failed! strict_node_id '", strict_node_id, "' has no valid spawnable floor tiles left!")
-		
+	print("[WARNING] spawn_marker failed entirely! No valid cells found.")
 	return false
 
 static func _find_spine_path(start: int, end: int, adj: Dictionary) -> Array:

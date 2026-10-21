@@ -88,8 +88,16 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },{ "name": "sep_spawns", "type": TYPE_NIL, "hint": "separator" },
 		
 		# --- EXPLICIT TARGETING BUTTONS ---
-		{ "name": "btn_set_player_spawn", "label": "⌖ Assign Spawn To Node", "type": TYPE_NIL, "hint": "action" },
-		{ "name": "btn_set_dungeon_exit", "label": "⌖ Assign Exit To Node", "type": TYPE_NIL, "hint": "action" },
+		
+		
+		{ "name": "group_spawn", "type": TYPE_NIL, "hint": "action_group", "buttons": [
+			{ "name": "btn_set_player_spawn", "label": "⌖ Assign Spawn To Node", "type": TYPE_NIL, "hint": "action" },
+			{ "name": "btn_clear_player_spawn", "label": "❌ Clear" }
+		]},
+		{ "name": "group_exit", "type": TYPE_NIL, "hint": "action_group", "buttons": [
+			{ "name": "btn_set_dungeon_exit", "label": "⌖ Assign Exit To Node", "type": TYPE_NIL, "hint": "action" },
+			{ "name": "btn_clear_dungeon_exit", "label": "❌ Clear" }
+		]},
 		# ----------------------------------------
 		
 		{ "name": "progression_preferred_start", "label": "Preferred Spawn Biome", "type": TYPE_STRING, "default": "Any", "hint": "enum", "options": biome_options, "return_string": true,

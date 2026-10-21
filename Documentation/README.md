@@ -67,7 +67,6 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 - [Glossary](glossary.md)
 
 ### The graph
-- [Graph Editor](graph-editor.md)
 - [Graph Tools Reference](graph-tools.md)
 - [Zones](zones.md)
 - [Semantic System](semantic-system.md)
@@ -75,7 +74,6 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 ### Procedural generation
 - [Pipeline Overview](pipeline.md)
 - [Modifier Reference](pipeline-modifiers.md)
-- [Pipeline Presets](pipeline-presets.md)
 
 ### Agents
 - [Agent Simulation](agents.md)
@@ -90,7 +88,6 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 ### Progression & regeneration
 - [Lock‑and‑Key Progression](progression.md)
 - [Triggers & Temporal Progression](triggers.md)
-- [Dynamic Regeneration](dynamic-regeneration.md)
 
 ### Validation & analysis
 - [Validator & Player Simulation](validator.md)

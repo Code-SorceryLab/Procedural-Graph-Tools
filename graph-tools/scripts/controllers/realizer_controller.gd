@@ -483,6 +483,19 @@ func _on_generator_interaction(key: String, _value: Variant) -> void:
 			
 		graph_editor.request_node_pick(on_pick)
 		
+	# --- CLEAR PLAYER SPAWN ---
+	elif key == "btn_clear_player_spawn":
+		graph_editor.start_undo_transaction("Clear Explicit Player Spawn")
+		var cleared_any = false
+		for n_id in graph_editor.graph.nodes:
+			if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_start", false):
+				graph_editor.set_node_property(n_id, "is_forced_start", false)
+				cleared_any = true
+				
+		graph_editor.commit_undo_transaction()
+		if cleared_any:
+			graph_editor.send_status_message("Explicit Player Spawn assignment cleared.")
+		
 	elif key == "btn_set_dungeon_exit":
 		var on_pick = func(node_id: String):
 			graph_editor.start_undo_transaction("Set Dungeon Exit Node")
@@ -494,6 +507,19 @@ func _on_generator_interaction(key: String, _value: Variant) -> void:
 			graph_editor.commit_undo_transaction()
 			
 		graph_editor.request_node_pick(on_pick)
+		
+	# --- [NEW] CLEAR DUNGEON EXIT ---
+	elif key == "btn_clear_dungeon_exit":
+		graph_editor.start_undo_transaction("Clear Explicit Dungeon Exit")
+		var cleared_any = false
+		for n_id in graph_editor.graph.nodes:
+			if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_end", false):
+				graph_editor.set_node_property(n_id, "is_forced_end", false)
+				cleared_any = true
+				
+		graph_editor.commit_undo_transaction()
+		if cleared_any:
+			graph_editor.send_status_message("Explicit Dungeon Exit assignment cleared.")
 
 # ==============================================================================
 # TIMELINE / VCR RENDERER
