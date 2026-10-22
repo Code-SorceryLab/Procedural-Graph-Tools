@@ -34,6 +34,7 @@ var is_masking_trigger: bool = false
 var _active_mask_trigger_id: String = ""
 var _masking_banner: PanelContainer
 
+
 # File State
 var current_file_path: String = "" # Tracks the active save file!
 
@@ -92,6 +93,7 @@ func _ready() -> void:
 	renderer.new_nodes_ref = new_nodes
 	renderer.node_labels_ref = node_labels
 	renderer.selected_agent_ids_ref = selected_agent_ids
+	renderer.refresh_caches()
 	
 	# Initialize the Simulation Engine
 	simulation = Simulation.new(graph)
@@ -539,6 +541,25 @@ func clear_selection() -> void:
 	selected_zones.clear()
 	renderer.selected_zones_ref = selected_zones
 	SignalManager.zone_selection_changed.emit(selected_zones)
+
+func select_all() -> void:
+	# Respect the visibility guard: don't select invisible nodes!
+	if not is_graph_visible: return 
+	
+	var all_nodes: Array[String] = []
+	for id in graph.nodes:
+		all_nodes.append(id)
+		
+	var all_edges: Array = []
+	for key in graph.edge_store:
+		var edge = graph.edge_store[key]
+		var pair = [edge.u, edge.v]
+		pair.sort()
+		if not all_edges.has(pair):
+			all_edges.append(pair)
+			
+	# Grab everything and push it through the batch selector to update the UI & Renderer
+	set_selection_batch(all_nodes, all_edges, true)
 
 # --- HOVER STATE API ---
 

@@ -53,7 +53,19 @@ func handle_input(event: InputEvent) -> void:
 		_handle_delete()
 		return
 
-	# 4. TOOL SWITCHING (Dynamic)
+	# 4. SELECTIONS
+	if event.is_action_pressed("edit_select_all"):
+		_editor.select_all()
+		_editor.get_viewport().set_input_as_handled()
+		return
+	
+	if event.is_action_pressed("edit_deselect_all"):
+		_editor.clear_selection()
+		_editor.get_viewport().set_input_as_handled()
+		return
+	
+
+	# 5. TOOL SWITCHING (Dynamic)
 	_handle_tool_switching(event)
 
 # --- INTERNAL HELPERS ---

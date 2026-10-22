@@ -73,6 +73,10 @@ var _depth_cache: Dictionary = {}
 var _depth_cache_dirty: bool = true
 var _max_depth_in_cache: int = 0 # Tracks the deepest node for heatmap math
 
+# --- CACHES (For Hover Performance) ---
+var _cached_custom_rooms: Dictionary = {}
+var _cached_global_params: Dictionary = {}
+
 # --- OVERLAY STATE ---
 var tool_line_start: Vector2 = Vector2.INF
 var tool_line_end: Vector2 = Vector2.INF
@@ -89,11 +93,24 @@ const HANDLE_SIZE: float = 10.0
 
 func _ready() -> void:
 	font = ThemeDB.get_fallback_font()
+	
+	# --- INITIALIZE CACHES & LISTEN FOR UPDATES ---
+	refresh_caches()
+	
+	if SignalManager.has_signal("custom_rooms_updated"):
+		SignalManager.custom_rooms_updated.connect(refresh_caches)
+		
+	if SignalManager.has_signal("global_params_updated"):
+		SignalManager.global_params_updated.connect(refresh_caches)
 
 func _process(_delta: float) -> void:
 	# Only force continuous screen redraws if we actually have flowing edges to animate
 	if highlighted_action_edges_ref.size() > 0:
 		queue_redraw()
+
+func refresh_caches() -> void:
+	_cached_custom_rooms = ConfigManager.load_custom_rooms()
+	_cached_global_params = ConfigManager.load_global_params()
 
 func _draw() -> void:
 	if not graph_ref: return
@@ -111,6 +128,7 @@ func _draw() -> void:
 		_draw_breadcrumbs()
 		_draw_layer_path()
 		_draw_layer_brush()
+		_draw_hover_blueprints()
 		_draw_layer_nodes()
 		_draw_layer_agents()
 		_draw_layer_simulation()
@@ -523,6 +541,56 @@ func _draw_stamp_preview() -> void:
 		# Draw a slightly brighter border ring to make the shapes pop
 		draw_arc(pos, node_radius, 0, TAU, 32, Color(1, 1, 1, ghost_alpha * 1.5), 2.0, true)
 
+
+
+# --- HOVER BLUEPRINT SYSTEM ---
+func _draw_hover_blueprints() -> void:
+	if hovered_id == "" or not graph_ref.nodes.has(hovered_id): return
+	
+	var node_data = graph_ref.nodes[hovered_id]
+	var forced_uuid = node_data.custom_data.get("forced_room_uuid", "")
+	if forced_uuid == "" or not _cached_custom_rooms.has(forced_uuid): return
+		
+	var r_data = _cached_custom_rooms[forced_uuid]
+	
+	# [FIX] Use the exact rasterization scale from the Global Params, defaulting to cell_size if missing
+	var grid_scale = float(_cached_global_params.get("grid_scale", 25.0))
+	var spacing = Vector2(grid_scale, grid_scale)
+	var half_size = spacing / 2.0
+	
+	var anchor = r_data.get("anchor", Vector2i.ZERO)
+	var node_pos = graph_ref.get_node_pos(hovered_id)
+	
+	var to_world = func(local_pos: Vector2i) -> Vector2:
+		var rel_grid = local_pos - anchor
+		return node_pos + Vector2(rel_grid.x * spacing.x, rel_grid.y * spacing.y)
+		
+	# Draw the Floors (Translucent Blue)
+	var floor_color = Color(0.2, 0.5, 1.0, 0.3)
+	for cat in ["floors", "exact_floors"]:
+		if r_data.has(cat):
+			for l_pos in r_data[cat]:
+				var w_pos = to_world.call(l_pos)
+				draw_rect(Rect2(w_pos - half_size, spacing), floor_color, true)
+				
+	# Draw the Walls (Solid Dark Blue)
+	var wall_color = Color(0.1, 0.3, 0.8, 0.6)
+	for cat in ["walls", "exact_walls"]:
+		if r_data.has(cat):
+			for l_pos in r_data[cat]:
+				var w_pos = to_world.call(l_pos)
+				draw_rect(Rect2(w_pos - half_size, spacing), wall_color, true)
+				
+	# Draw the Doorways (Bright Cyan outlines)
+	if r_data.has("doorways"):
+		for l_pos in r_data["doorways"]:
+			var w_pos = to_world.call(l_pos)
+			draw_rect(Rect2(w_pos - half_size, spacing), Color(0.0, 1.0, 1.0, 0.8), false, 2.0)
+			
+	# Draw the Pivot indicator in the dead center
+	GraphIconLibrary.draw_icon(self, "pivot", node_pos, node_radius * 2.5, Color(1, 1, 1, 0.5))
+# -----------------------------------
+
 # ==============================================================================
 # 7. DOMAIN: NODES
 # ==============================================================================
@@ -586,6 +654,24 @@ func _draw_node_indicators(id: String, pos: Vector2) -> void:
 	if not node_data.custom_data.is_empty():
 		var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_NODE)
 		var dec_offset = pos + Vector2(0, -node_radius - 12) # Start drawing above the node
+		
+		# START & END BADGES ---
+		if node_data.custom_data.get("is_forced_start", false):
+			_draw_semantic_decorator(dec_offset, "[key:#00FF00] Spawn", SemanticRegistry.DisplayMode.BADGE)
+			dec_offset += Vector2(0, -18) 
+			
+		if node_data.custom_data.get("is_forced_end", false):
+			_draw_semantic_decorator(dec_offset, "[lock:#FF0000] Exit", SemanticRegistry.DisplayMode.BADGE)
+			dec_offset += Vector2(0, -18) 
+		
+		# --- BLUEPRINT BADGE ---
+		var forced_uuid = node_data.custom_data.get("forced_room_uuid", "")
+		if forced_uuid != "":
+			if _cached_custom_rooms.has(forced_uuid):
+				var r_name = _cached_custom_rooms[forced_uuid].get("name", "Unknown Room")
+				_draw_semantic_decorator(dec_offset, "[blueprint:#55AAFF] " + r_name, SemanticRegistry.DisplayMode.BADGE)
+				dec_offset += Vector2(0, -18) 
+		# -----------------------------
 		
 		for prop_key in node_data.custom_data:
 			if not props.has(prop_key): continue

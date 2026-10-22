@@ -62,6 +62,15 @@ static func build_ui(settings_list: Array, container: Control) -> Dictionary:
 			active_inputs[key] = btn
 			continue
 			
+		# --- ACTION GROUP (Side-by-side buttons) ---
+		if hint == "action_group":
+			var hbox = _create_action_group(setting, container)
+			# We must register the sub-buttons individually so collect_params works!
+			for child in hbox.get_children():
+				if child is Button:
+					active_inputs[child.name] = child
+			continue
+			
 		# 3. STANDARD CONTROLS (Row Layout)
 		var row_control = null
 		
@@ -175,6 +184,28 @@ static func _create_action_button(setting: Dictionary, parent: Control) -> Butto
 		
 	parent.add_child(btn)
 	return btn
+
+static func _create_action_group(setting: Dictionary, parent: Control) -> HBoxContainer:
+	var row = HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	for btn_def in setting.get("buttons", []):
+		var btn = Button.new()
+		btn.name = btn_def["name"]
+		var label = btn_def.get("label", "Action")
+		btn.text = label
+		btn.add_theme_font_size_override("font_size", COMPACT_FONT_SIZE)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL # Make them share width equally
+		
+		if "Delete" in label or "Clear" in label or "❌" in label:
+			btn.modulate = Color(1, 0.5, 0.5)
+		elif "Add" in label or "⌖" in label: 
+			btn.modulate = Color(0.6, 1.0, 0.6)
+			
+		row.add_child(btn)
+		
+	parent.add_child(row)
+	return row
 
 static func _create_number(setting: Dictionary) -> SpinBox:
 	var spin = SpinBox.new()

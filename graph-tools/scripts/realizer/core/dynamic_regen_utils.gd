@@ -87,7 +87,7 @@ static func get_dirty_rect(realizer: GraphRealizer, graph: Graph, target_nodes: 
 # PHASE 3: THE "SMART" ERASE (BYSTANDER PROTECTION & DEBUGGING)
 # ==============================================================================
 
-# [NEW] Returns the exact mathematical lists without destroying anything!
+# Returns the exact mathematical lists without destroying anything
 static func get_wipe_map(realizer: GraphRealizer, dirty_rect: Rect2i, infected_nodes: Array, infected_edges: Array) -> Dictionary:
 	var cells_to_wipe = []
 	var protected_cells = []

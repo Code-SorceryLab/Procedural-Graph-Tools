@@ -82,6 +82,7 @@ func _ready() -> void:
 	
 	_generator_tab = GeneratorTabView.new()
 	_generator_tab.interaction_triggered.connect(_config_manager.handle_interaction)
+	_generator_tab.interaction_triggered.connect(_on_generator_interaction)
 	tabs.add_child(_generator_tab)
 	
 	_timeline_tab = TimelineTabView.new()
@@ -461,6 +462,64 @@ func _on_validation_stop_requested() -> void:
 
 func _on_visualize_toggled(is_on: bool) -> void:
 	_validator_visualizer.set_visible_state(is_on)
+
+# ==============================================================================
+# TARGETING INTERACTIONS
+# ==============================================================================
+func _on_generator_interaction(key: String, _value: Variant) -> void:
+	if not graph_editor: return
+	
+	if key == "btn_set_player_spawn":
+		var on_pick = func(node_id: String):
+			graph_editor.start_undo_transaction("Set Player Spawn Node")
+			# 1. Wipe the flag from ALL other nodes
+			for n_id in graph_editor.graph.nodes:
+				if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_start", false):
+					graph_editor.set_node_property(n_id, "is_forced_start", false)
+					
+			# 2. Set the flag on the new target
+			graph_editor.set_node_property(node_id, "is_forced_start", true)
+			graph_editor.commit_undo_transaction()
+			
+		graph_editor.request_node_pick(on_pick)
+		
+	# --- CLEAR PLAYER SPAWN ---
+	elif key == "btn_clear_player_spawn":
+		graph_editor.start_undo_transaction("Clear Explicit Player Spawn")
+		var cleared_any = false
+		for n_id in graph_editor.graph.nodes:
+			if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_start", false):
+				graph_editor.set_node_property(n_id, "is_forced_start", false)
+				cleared_any = true
+				
+		graph_editor.commit_undo_transaction()
+		if cleared_any:
+			graph_editor.send_status_message("Explicit Player Spawn assignment cleared.")
+		
+	elif key == "btn_set_dungeon_exit":
+		var on_pick = func(node_id: String):
+			graph_editor.start_undo_transaction("Set Dungeon Exit Node")
+			for n_id in graph_editor.graph.nodes:
+				if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_end", false):
+					graph_editor.set_node_property(n_id, "is_forced_end", false)
+					
+			graph_editor.set_node_property(node_id, "is_forced_end", true)
+			graph_editor.commit_undo_transaction()
+			
+		graph_editor.request_node_pick(on_pick)
+		
+	# --- [NEW] CLEAR DUNGEON EXIT ---
+	elif key == "btn_clear_dungeon_exit":
+		graph_editor.start_undo_transaction("Clear Explicit Dungeon Exit")
+		var cleared_any = false
+		for n_id in graph_editor.graph.nodes:
+			if graph_editor.graph.nodes[n_id].custom_data.get("is_forced_end", false):
+				graph_editor.set_node_property(n_id, "is_forced_end", false)
+				cleared_any = true
+				
+		graph_editor.commit_undo_transaction()
+		if cleared_any:
+			graph_editor.send_status_message("Explicit Dungeon Exit assignment cleared.")
 
 # ==============================================================================
 # TIMELINE / VCR RENDERER

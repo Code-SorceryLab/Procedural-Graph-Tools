@@ -25,7 +25,11 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 	var stamped_walls = {}
 	var stamped_doorways = {}
 
-	for node_id in graph.nodes:
+	# Sort the node IDs to guarantee deterministic iteration
+	var sorted_node_ids = graph.nodes.keys()
+	sorted_node_ids.sort()
+
+	for node_id in sorted_node_ids:
 		var node = graph.nodes[node_id] as NodeData
 		
 		# --- PURGE STALE DATA FROM PREVIOUS GENERATIONS ---
@@ -65,7 +69,14 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 		var chosen_type = "preset"
 		var chosen_ref = "preset_square" # Fallback if list is empty
 		
-		if room_lists.has(node_id) and room_lists[node_id].size() > 0:
+		# 1. VIP BYPASS: Forced Custom Rooms
+		var forced_uuid = node.custom_data.get("forced_room_uuid", "")
+		if forced_uuid != "" and custom_rooms.has(forced_uuid):
+			chosen_type = "custom_room"
+			chosen_ref = forced_uuid
+			
+		# 2. Standard Distribution Engine (Only runs if no VIP bypass exists)
+		elif room_lists.has(node_id) and room_lists[node_id].size() > 0:
 			var items = room_lists[node_id]
 			
 			# Priority Sort: Custom Rooms override Standard Presets
@@ -116,6 +127,11 @@ static func allocate(graph: Graph, realizer: GraphRealizer, default_floor_id: in
 			# 1. Capacity Gatekeeper
 			# If the node has more connections than the room has doorways, it physically cannot work!
 			var neighbor_nodes = graph.get_neighbors(node_id)
+			
+			# --- [FIX] DETERMINISTIC NEIGHBOR SORTING ---
+			neighbor_nodes.sort() 
+			# --------------------------------------------
+			
 			var raw_doors = c_room.get("doorways", [])
 			if neighbor_nodes.size() > raw_doors.size() or raw_doors.is_empty():
 				metric_rejected_custom_rooms += 1

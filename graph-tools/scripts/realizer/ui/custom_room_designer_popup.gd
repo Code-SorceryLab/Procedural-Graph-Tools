@@ -241,7 +241,9 @@ func open(texture_path: String, tile_size: Vector2i, existing_rooms: Dictionary,
 	
 	custom_rooms = existing_rooms.duplicate(true) 
 	if custom_rooms.is_empty():
-		_add_new_room_data("New_Room")
+		# Generate the UUID and pass the default name
+		var new_uuid = "room_" + str(Time.get_unix_time_from_system()) + "_" + str(randi() % 10000)
+		_add_new_room_data(new_uuid, "New_Room")
 		
 	_refresh_room_dropdown()
 	_refresh_structure_dropdown()
@@ -251,8 +253,10 @@ func open(texture_path: String, tile_size: Vector2i, existing_rooms: Dictionary,
 	_update_brush_ui()
 	popup_centered()
 
-func _add_new_room_data(r_name: String) -> void:
-	custom_rooms[r_name] = {
+# Note: Add the `display_name` parameter to this function
+func _add_new_room_data(uuid: String, display_name: String) -> void:
+	custom_rooms[uuid] = {
+		"name": display_name,
 		"width": 9, "height": 9,
 		"anchor": Vector2i(4, 4),
 		"doorways": [],        
@@ -267,7 +271,7 @@ func _add_new_room_data(r_name: String) -> void:
 		"unused_door_mode": 1, 
 		"unused_door_atlas": Vector2i.ZERO
 	}
-	_current_room_key = r_name
+	_current_room_key = uuid
 
 func _update_current_room_size() -> void:
 	if _current_room_key == "" or not custom_rooms.has(_current_room_key): return
@@ -281,9 +285,15 @@ func _update_current_room_size() -> void:
 func _refresh_room_dropdown() -> void:
 	_room_dropdown.clear()
 	var keys = custom_rooms.keys()
+	
 	for i in range(keys.size()):
-		_room_dropdown.add_item(keys[i], i)
-		if keys[i] == _current_room_key:
+		var uuid = keys[i]
+		var display_name = custom_rooms[uuid].get("name", "Unnamed Room")
+		
+		_room_dropdown.add_item(display_name, i)
+		_room_dropdown.set_item_metadata(i, uuid) # Store the UUID
+		
+		if uuid == _current_room_key:
 			_room_dropdown.selected = i
 	
 	if keys.size() > 0 and _current_room_key == "":
@@ -298,8 +308,7 @@ func _load_room_to_ui() -> void:
 	_width_spin.set_value_no_signal(r.get("width", 9))
 	_height_spin.set_value_no_signal(r.get("height", 9))
 	painter.grid_bounds = Vector2i(r.get("width", 9), r.get("height", 9))
-	_room_name_edit.text = _current_room_key
-	
+	_room_name_edit.text = r.get("name", "Unnamed Room")
 	_opt_unused_door.selected = r.get("unused_door_mode", 1)
 	var d_atlas = r.get("unused_door_atlas", Vector2i.ZERO)
 	_lbl_unused_atlas.text = "[%d, %d]" % [d_atlas.x, d_atlas.y]
@@ -310,13 +319,13 @@ func _load_room_to_ui() -> void:
 
 func _on_room_renamed(new_name: String) -> void:
 	var safe_name = new_name.strip_edges()
-	if safe_name == "" or safe_name == _current_room_key or custom_rooms.has(safe_name):
-		_room_name_edit.text = _current_room_key 
+	
+	if safe_name == "" or safe_name == custom_rooms[_current_room_key].get("name", ""):
+		_room_name_edit.text = custom_rooms[_current_room_key].get("name", "") 
 		return
 		
-	custom_rooms[safe_name] = custom_rooms[_current_room_key]
-	custom_rooms.erase(_current_room_key)
-	_current_room_key = safe_name
+	# [FIX] Just update the internal name property. The UUID never changes!
+	custom_rooms[_current_room_key]["name"] = safe_name
 	_room_dropdown.set_item_text(_room_dropdown.selected, safe_name)
 
 func _on_unused_door_mode_changed(idx: int) -> void:
@@ -725,12 +734,14 @@ func _on_canvas_draw() -> void:
 # SAVE & VALIDATE
 # ==============================================================================
 func _on_room_selected(idx: int) -> void:
-	_current_room_key = _room_dropdown.get_item_text(idx)
+	_current_room_key = _room_dropdown.get_item_metadata(idx)
 	_load_room_to_ui()
 
 func _on_add_room() -> void:
 	var new_name = "Room_" + str(custom_rooms.size() + 1)
-	_add_new_room_data(new_name)
+	var new_uuid = "room_" + str(Time.get_unix_time_from_system()) + "_" + str(randi() % 10000)
+	
+	_add_new_room_data(new_uuid, new_name)
 	_refresh_room_dropdown()
 
 func _on_delete_room() -> void:

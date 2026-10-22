@@ -16,6 +16,8 @@ var _tooltip_label: RichTextLabel
 
 # --- STATE ---
 var _hovered_lock_type: String = ""
+var _show_advanced_details: bool = false # Toggle state
+var _last_map_pos: Vector2i = Vector2i(-INF, -INF) # Cache for quick redraws
 
 func setup(p_tile_map_layer: TileMapLayer) -> void:
 	tile_map_layer = p_tile_map_layer
@@ -69,12 +71,21 @@ func update_context(realizer: GraphRealizer, biome_params: Dictionary) -> void:
 	_biome_params = biome_params
 
 func _input(event: InputEvent) -> void:
-	if not event is InputEventMouseMotion: return
-	
 	if not is_active or not _realizer or not _realizer.grid or not tile_map_layer:
 		_tooltip_panel.visible = false
 		return
 		
+	# --- [NEW] SHIFT TOGGLE LOGIC ---
+	if event is InputEventKey and event.keycode == KEY_SHIFT and event.pressed and not event.echo:
+		_show_advanced_details = not _show_advanced_details
+		# Force a visual update if we are already hovering over a valid cell
+		if _tooltip_panel.visible and _last_map_pos != Vector2i(-INF, -INF):
+			_build_tooltip_text(_last_map_pos)
+		return
+	# --------------------------------
+		
+	if not event is InputEventMouseMotion: return
+	
 	var local_pos = tile_map_layer.get_local_mouse_position()
 	var map_pos = tile_map_layer.local_to_map(local_pos)
 	
@@ -85,6 +96,16 @@ func _input(event: InputEvent) -> void:
 	if cell_id == TilePalette.VOID_ID:
 		_tooltip_panel.visible = false; return
 		
+	# [NEW] Cache the position and build the text
+	_last_map_pos = map_pos
+	_build_tooltip_text(map_pos)
+	
+	# Keep the panel following the mouse
+	_tooltip_panel.position = event.position + Vector2(15, 15)
+
+func _build_tooltip_text(map_pos: Vector2i) -> void:
+	var cell_id = _realizer.grid.get_cell(map_pos.x, map_pos.y)
+	
 	var biome_name = "Default Global"
 	var terrain_type = "Floor"
 	var current_cat_key = "" 
@@ -135,13 +156,10 @@ func _input(event: InputEvent) -> void:
 			entity_str = "\n[Portal ID: %d]\nLock: %s" % [ent.get("portal_id", -1), ent.get("lock_type", "Unlocked")]
 			new_hover_lock = ent.get("lock_type", "") 
 		elif e_type == "trigger":
-			# --- TEMPORAL HIGHLIGHTING ---
 			var t_id = ent.get("trigger_id", "")
 			entity_str = "\n[Trigger] : " + ent.get("name", "Lever")
 			var p_method = ent.get("placement_method", "")
 			if p_method != "": entity_str += " [" + p_method + "]"
-			
-			# Map this trigger to its corresponding temporal doors
 			new_hover_lock = "TemporalLock_" + t_id
 		else:
 			var req = ent.get("key_type", "")
@@ -153,13 +171,30 @@ func _input(event: InputEvent) -> void:
 			else: 
 				entity_str = "\n[Entity] : " + ent.get("name", "Scatter Prop")
 				
-	# Signal the parent if the locked door/key we are hovering over changed
 	if new_hover_lock != _hovered_lock_type:
 		_hovered_lock_type = new_hover_lock
 		lock_hover_changed.emit(_hovered_lock_type)
 			
 	# --- ASSEMBLE THE TOOLTIP ---
 	var text = "[ %d, %d ]\n" % [map_pos.x, map_pos.y]
+	
+	# --- [NEW] ADVANCED DATA TOGGLE ---
+	if _show_advanced_details:
+		text = "[color=yellow][ ADVANCED VIEW ][/color]\n" + text
+		
+		# Reveal exactly which nodes own this tile!
+		if _realizer.cell_to_nodes.has(map_pos):
+			var owners = _realizer.cell_to_nodes[map_pos].keys()
+			if owners.size() == 1:
+				text += "[color=cyan]Node Owner:[/color] %s\n" % owners[0]
+			elif owners.size() > 1:
+				text += "[color=magenta]Shared Bridge:[/color] %s\n" % ", ".join(owners)
+				
+		# Optional: Add any other raw dictionary dumps you want here
+		# text += "Cell ID: %d\n" % cell_id
+		
+		text += "------------------\n"
+	# ----------------------------------
 	
 	if _realizer.has_meta("cell_to_area"):
 		var c2a = _realizer.get_meta("cell_to_area")
@@ -187,7 +222,10 @@ func _input(event: InputEvent) -> void:
 	
 	text += "Terrain: %s" % terrain_type
 	if entity_str != "": text += entity_str
+	
+	# --- HELP FOOTER ---
+	if not _show_advanced_details:
+		text += "\n[color=gray][Press Shift for Details][/color]"
 		
 	_tooltip_label.text = text
 	_tooltip_panel.visible = true
-	_tooltip_panel.position = event.position + Vector2(15, 15)
