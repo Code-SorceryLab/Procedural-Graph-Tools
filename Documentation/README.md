@@ -24,7 +24,7 @@ Start with the analytical capabilities: measure graphs, run experiments, reprodu
 2. **[Pipeline Overview](pipeline.md)** – understand how generation is composed.
 3. **[Analysis & Metrics](analysis.md)** – measure the graphs you generate.
 4. **[Batch Experiments](experiments.md)** – sweep parameters and collect data.
-5. **[Architecture & Development](architecture.md)** – the internals, if you want to extend or inspect them.
+
 
 Not sure which track? Read **[Getting Started](getting-started.md)** first—everything else branches from there.
 

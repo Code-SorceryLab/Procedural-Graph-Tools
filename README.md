@@ -124,7 +124,7 @@ Rasterization example using a base graph for topology. Note that different colou
 
 ## Getting Started
 
-<!-- TODO: Add basic instructions for running the project, loading a sample graph, and generating a raster dungeon. -->
+**[In-depth Documentation](Documentation/README.md)**
 
 ---
 
