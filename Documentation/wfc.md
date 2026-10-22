@@ -20,7 +20,7 @@ You do not build the map here. Instead, you paint a small "ideal" example of wha
 
 ### Extraction Rules
 When the engine reads your sample canvas, it breaks it down into overlapping chunks to learn the rules.
-*   **Pattern Size (N):** The size of the chunks it scans. `N=3` means it learns rules by looking at 3x3 grids. Larger N values create more structured, rigid output. Smaller N values (like 2) create chaotic, noisy output.
+*   **Pattern Size (N):** The size of the chunks it scans. `N=3` means it learns rules by looking at 3x3 grids. Larger N values create more structured, rigid output. Smaller N values (like 2) create chaotic, noisy output. Higher N values are also slower.
 *   **Rotations & Reflections:** If enabled, the engine automatically mathematically rotates and flips your painted sample to learn all 4-way and mirrored permutations, saving you from having to paint every single corner manually.
 *   **Wall-Aware:** If true, the algorithm pays attention to the physical walls of the dungeon, allowing you to create textures that organically react to the room boundaries (e.g., moss that only grows against walls).
 *   **Seamless:** If enabled, the extractor treats your sample canvas as a wrap-around torus (the right edge connects to the left edge).

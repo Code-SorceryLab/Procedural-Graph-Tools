@@ -13,10 +13,9 @@ Start with the practical workflow: author a graph, generate a dungeon, see it in
 
 1. **[Getting Started](getting-started.md)** – your first session, from an empty graph to a saved environment.
 2. **[User Interface Overview](ui-overview.md)** – a tour of the editor layout and where everything lives.
-3. **[Graph Editor](graph-editor.md)** – the core authoring environment and its toolset.
-4. **[Pipeline Overview](pipeline.md)** – compose procedural generation recipes.
-5. **[Rasterizer Overview](rasterizer.md)** – turn graphs into playable tilemaps.
-6. **[Validator & Player Simulation](validator.md)** – confirm your environments are solvable.
+3. **[Pipeline Overview](pipeline.md)** – compose procedural generation recipes.
+4. **[Rasterizer Overview](rasterizer.md)** – turn graphs into playable tilemaps.
+5. **[Validator & Player Simulation](validator.md)** – confirm your environments are solvable.
 
 ### For researchers
 Start with the analytical capabilities: measure graphs, run experiments, reproduce results.
@@ -94,11 +93,6 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 - [Analysis & Metrics](analysis.md)
 - [Batch Experiments](experiments.md)
 
-### Reference
-- [Popups Reference](popups-reference.md)
-- [File Formats](file-formats.md)
-- [Architecture & Development](architecture.md)
-- [Troubleshooting](troubleshooting.md)
 
 ---
 
