@@ -324,8 +324,11 @@ func _on_run_pipeline_pressed() -> void:
 	
 	_pipeline_context = {
 		"touched_nodes": [],
-		"touched_edges": []
+		"touched_edges": [],
+		"extracted_topo_patterns": graph_editor.extracted_topo_patterns.duplicate(true),
+		"extracted_semantic_patterns": graph_editor.extracted_semantic_patterns.duplicate(true)
 	}
+
 	
 	# Wipe the stale Live memory so ghost nodes don't persist!
 	_live_context.clear() 
@@ -434,11 +437,16 @@ func _on_live_apply_pressed() -> void:
 
 	var recorder = GraphRecorder.new(graph)
 
-	# [FIX] Inject memory from the previous Live Apply!
-	mod.pipeline_context = _live_context.duplicate(true)
+	# [FIX] Inject memory from the previous Live Apply, PLUS the freshest patterns!
+	var fresh_context = _live_context.duplicate(true)
+	fresh_context["extracted_topo_patterns"] = graph_editor.extracted_topo_patterns.duplicate(true)
+	fresh_context["extracted_semantic_patterns"] = graph_editor.extracted_semantic_patterns.duplicate(true)
+	
+	mod.pipeline_context = fresh_context
 	mod.execute(recorder)
 
-	# [FIX] Save memory for the NEXT Live Apply!
+	# [FIX] Save footprint memory for the NEXT Live Apply!
+	# (Do not save the patterns into _live_context, we want them fresh every click)
 	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
 	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
 
@@ -478,13 +486,20 @@ func _on_live_generate_pressed() -> void:
 
 	# [FIX] Wipe the memory clean since we just destroyed the graph!
 	_live_context.clear()
-	mod.pipeline_context = _live_context.duplicate(true)
+	
+	var fresh_context = {}
+	fresh_context["touched_nodes"] = []
+	fresh_context["touched_edges"] = []
+	fresh_context["extracted_topo_patterns"] = graph_editor.extracted_topo_patterns.duplicate(true)
+	fresh_context["extracted_semantic_patterns"] = graph_editor.extracted_semantic_patterns.duplicate(true)
+	
+	mod.pipeline_context = fresh_context
 	mod.execute(recorder)
 
 	# [FIX] Save memory for the NEXT Live action!
 	_live_context["touched_nodes"] = recorder.touched_nodes.duplicate()
 	_live_context["touched_edges"] = recorder.touched_edges.duplicate()
-
+	
 	var mod_batch = CmdBatch.new(graph, mod.modifier_name, false)
 	for cmd in recorder.recorded_commands:
 		mod_batch.add_command(cmd)

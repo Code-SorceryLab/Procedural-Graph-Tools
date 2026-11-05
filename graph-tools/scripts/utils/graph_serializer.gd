@@ -58,19 +58,22 @@ static func serialize(graph: Graph) -> String:
 			
 	return JSON.stringify(data, "\t")
 
-static func deserialize(json_string: String) -> Graph:
+static func deserialize(json_string: String, restore_registry: bool = true) -> Graph:
 	var json = JSON.new()
 	var error = json.parse(json_string)
-	if error != OK: 
+	if error != OK:
 		push_error("JSON Parse Error: %s" % json.get_error_message())
 		return null
-	
+
 	var data = json.data
 	
 	# 1. Restore Semantic Registry
-	if data.has("legend"): _deserialize_categories(data["legend"])
-	if data.has("schema"): _deserialize_properties(data["schema"])
-		
+	# Skip autoload mutation unless explicitly requested (file loading needs it;
+	# pattern deserialization does not).
+	if restore_registry:
+		if data.has("legend"): _deserialize_categories(data["legend"])
+		if data.has("schema"): _deserialize_properties(data["schema"])
+
 	var new_graph = Graph.new()
 	
 	# 2. Restore Meta-Data

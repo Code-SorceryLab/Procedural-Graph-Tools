@@ -63,7 +63,6 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 ### First steps
 - [Getting Started](getting-started.md)
 - [User Interface Overview](ui-overview.md)
-- [Glossary](glossary.md)
 
 ### The graph
 - [Graph Tools Reference](graph-tools.md)
@@ -72,7 +71,7 @@ Additional tutorials are planned for triggers, WFC, custom rooms, and batch expe
 
 ### Procedural generation
 - [Pipeline Overview](pipeline.md)
-- [Modifier Reference](pipeline-modifiers.md)
+- [Modifiers Reference](pipeline-modifiers.md)
 
 ### Agents
 - [Agent Simulation](agents.md)

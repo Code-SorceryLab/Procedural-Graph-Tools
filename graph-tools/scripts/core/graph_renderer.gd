@@ -6,6 +6,8 @@ class_name GraphRenderer
 # ==============================================================================
 
 # --- VISUAL SETTINGS ---
+@export var is_preview_mode: bool = false
+
 @export_group("Dimensions")
 @export var node_radius: float = GraphSettings.NODE_RADIUS
 @export var edge_width: float = GraphSettings.EDGE_WIDTH
@@ -19,6 +21,7 @@ class_name GraphRenderer
 
 @export_group("Debug")
 @export var debug_show_depth: bool = false
+
 
 # --- SHARED RESOURCES ---
 var font: Font
@@ -87,6 +90,10 @@ var transform_border_color: Color = Color(0.3, 0.6, 1.0, 0.8) # Sleek UI Blue
 var transform_handle_color: Color = Color.WHITE
 const HANDLE_SIZE: float = 10.0
 
+# --- PREVIEW MODE (For UI Cards) ---
+var preview_scale: float = 1.0
+var preview_offset: Vector2 = Vector2.ZERO
+
 # ==============================================================================
 # 2. LIFECYCLE & MAIN LOOP
 # ==============================================================================
@@ -116,37 +123,34 @@ func _draw() -> void:
 	if not graph_ref: return
 	
 	if is_graph_visible:
-		# Pre-calculate and draw the halos underneath EVERYTHING
-		if debug_show_depth:
+		if debug_show_depth and not is_preview_mode:
 			if _depth_cache_dirty: _recalculate_depth_cache()
 			_draw_layer_depth_halos() 
 		
-		# Render Order (Painter's Algorithm: Back to Front)
-		_draw_layer_zones()
+		# Render Order
+		if not is_preview_mode: _draw_layer_zones()
 		_draw_layer_edges()
-		_draw_layer_solver_debug()
-		_draw_breadcrumbs()
-		_draw_layer_path()
-		_draw_layer_brush()
-		_draw_hover_blueprints()
-		_draw_layer_nodes()
-		_draw_layer_agents()
-		_draw_layer_simulation()
-		_draw_layer_labels()
+		if not is_preview_mode: _draw_layer_solver_debug()
+		if not is_preview_mode: _draw_breadcrumbs()
+		if not is_preview_mode: _draw_layer_path()
+		if not is_preview_mode: _draw_layer_brush()
+		if not is_preview_mode: _draw_hover_blueprints()
 		
-		# Draw the crisp depth labels on top of EVERYTHING
-		if debug_show_depth:
-			_draw_layer_depth_labels()
+		_draw_layer_nodes() # Core
+		
+		if not is_preview_mode: _draw_layer_agents()
+		if not is_preview_mode: _draw_layer_simulation()
+		if not is_preview_mode: _draw_layer_labels()
+		if debug_show_depth and not is_preview_mode: _draw_layer_depth_labels()
 
-	# --- ALWAYS DRAW EDITOR INTERACTION PREVIEWS ---
-	_draw_layer_interaction()
-	_draw_layer_selection_box()
-	
-	if not stamp_preview_data.is_empty():
-		_draw_stamp_preview()
-	
-	if transform_rect.has_area():
-		_draw_transform_box()
+	# --- EDITOR INTERACTION PREVIEWS (SKIP IN PREVIEW MODE) ---
+	if not is_preview_mode:
+		_draw_layer_interaction()
+		_draw_layer_selection_box()
+		if not stamp_preview_data.is_empty():
+			_draw_stamp_preview()
+		if transform_rect.has_area():
+			_draw_transform_box()
 
 # ==============================================================================
 # 3. DOMAIN: ZONES
@@ -226,34 +230,34 @@ func _draw_layer_edges() -> void:
 	if graph_ref.edge_store.is_empty(): return
 	
 	var drawn_pairs = {}
-	var edge_decorators = [] # Cache semantic text to draw AFTER lines so it stays on top
+	var edge_decorators = [] 
+	
+	# Scale the edge width
+	var base_width = edge_width * preview_scale if is_preview_mode else edge_width
 	
 	for key in graph_ref.edge_store:
 		var e = graph_ref.edge_store[key]
 		
-		# Validate nodes exist
 		if not graph_ref.nodes.has(e.u) or not graph_ref.nodes.has(e.v):
 			continue
 			
-		var pos_a = graph_ref.nodes[e.u].position
-		var pos_b = graph_ref.nodes[e.v].position
+		# Apply transform
+		var pos_a = _to_screen(graph_ref.nodes[e.u].position)
+		var pos_b = _to_screen(graph_ref.nodes[e.v].position)
 		
-		# Use the alphabetical pair to deduplicate and check selection
 		var pair = [e.u, e.v]
 		pair.sort()
 		
-		# --- Direction & Deduplication ---
 		var key_rev = graph_ref.get_edge_key(e.v, e.u)
 		var is_bidir = graph_ref.edge_store.has(key_rev)
 		
 		if is_bidir and drawn_pairs.has(pair):
-			continue # We already drew the base line for this pair
+			continue 
 			
 		drawn_pairs[pair] = true
 		
-		# --- Determine Styling ---
 		var draw_color = GraphSettings.COLOR_EDGE
-		var current_width = edge_width
+		var current_width = base_width
 		
 		if selected_edges_ref.has(pair):
 			draw_color = selected_color
@@ -271,51 +275,52 @@ func _draw_layer_edges() -> void:
 		var midpoint = Vector2.ZERO
 		
 		if e.u == e.v:
-			var loop_radius = node_radius * 1.5
-			var loop_center = pos_a + Vector2(node_radius, -node_radius)
+			# Scale the loop radius
+			var draw_radius = node_radius * preview_scale if is_preview_mode else node_radius
+			var loop_radius = draw_radius * 1.5
+			var loop_center = pos_a + Vector2(draw_radius, -draw_radius)
 			draw_arc(loop_center, loop_radius, -PI*0.8, PI*1.3, 32, draw_color, current_width)
 			
 			var arrow_pos = loop_center + Vector2(-loop_radius, 0)
 			var fake_from = arrow_pos + Vector2(0, -10)
 			_draw_edge_arrow(fake_from, arrow_pos, draw_color, current_width)
-			
 			midpoint = loop_center + Vector2(0, -loop_radius)
 			
 		# --- 2. Handle Normal Edge (A -> B) ---
 		else:
-			# Check if this line should be an animated Action Edge!
 			var is_action_edge = false
 			var flow_start = pos_a
 			var flow_end = pos_b
 			
-			for act_pair in highlighted_action_edges_ref:
-				# Since we deduplicate, check if the action edge matches this line in EITHER direction
-				if (act_pair[0] == e.u and act_pair[1] == e.v):
-					is_action_edge = true
-					break
-				elif (act_pair[0] == e.v and act_pair[1] == e.u):
-					is_action_edge = true
-					# Reverse the flow points so the animation marches the right way!
-					flow_start = pos_b
-					flow_end = pos_a
-					break
+			# [FIX] Only perform the action edge check if we are NOT in preview mode.
+			# If we are in preview mode, is_action_edge remains false and skips the heavy animation.
+			if not is_preview_mode:
+				for act_pair in highlighted_action_edges_ref:
+					# Since we deduplicate, check if the action edge matches this line in EITHER direction
+					if (act_pair[0] == e.u and act_pair[1] == e.v):
+						is_action_edge = true
+						break
+					elif (act_pair[0] == e.v and act_pair[1] == e.u):
+						is_action_edge = true
+						# Reverse the flow points so the animation marches the right way!
+						flow_start = pos_b
+						flow_end = pos_a
+						break
 			
 			if is_action_edge:
-				# Draw the animated green flowing line!
 				var action_color = Color(0.2, 0.8, 0.2, 0.9)
 				_draw_flowing_dashed_line(flow_start, flow_end, action_color, current_width + 1.0)
 				if not is_bidir:
 					_draw_edge_arrow(pos_a, pos_b, action_color, current_width + 1.0)
 			else:
-				# Draw standard solid line
 				draw_line(pos_a, pos_b, draw_color, current_width)
 				if not is_bidir:
 					_draw_edge_arrow(pos_a, pos_b, draw_color, current_width)
 					
 			midpoint = (pos_a + pos_b) / 2.0
 				
-		# --- 3. Gather Semantic Decorators ---
-		if not e.custom.is_empty():
+		# --- 3. Gather Semantic Decorators (SKIP IN PREVIEW) ---
+		if not is_preview_mode and not e.custom.is_empty():
 			var props = SemanticRegistry.get_properties_for_target(SemanticRegistry.TARGET_EDGE)
 			for prop_key in e.custom:
 				if not props.has(prop_key): continue
@@ -329,19 +334,22 @@ func _draw_layer_edges() -> void:
 					# Offset the midpoint slightly so multiple badges on one edge stack nicely
 					midpoint += Vector2(0, -18) 
 
-	# --- 4. Draw Gathered Decorators (On top of lines) ---
-	for dec in edge_decorators:
-		_draw_semantic_decorator(dec.pos, dec.text, dec.mode)
+	# --- 4. Draw Gathered Decorators ---
+	if not is_preview_mode:
+		for dec in edge_decorators:
+			_draw_semantic_decorator(dec.pos, dec.text, dec.mode)
 
 
 # Helper to draw the arrowhead at the end of the line
 func _draw_edge_arrow(from: Vector2, to: Vector2, color: Color, width: float) -> void:
 	var dir = (to - from).normalized()
-	# Pull back from the exact center of the target node so the arrow doesn't disappear under it
-	var tip_offset = node_radius + 6.0
+	
+	# Scale the pull-back and the arrow size
+	var draw_radius = node_radius * preview_scale if is_preview_mode else node_radius
+	var tip_offset = draw_radius + (6.0 * preview_scale)
 	var tip = to - (dir * tip_offset)
 	
-	var arrow_size = 12.0
+	var arrow_size = 12.0 * preview_scale
 	var angle = PI / 5.0
 	
 	var p1 = tip - dir.rotated(angle) * arrow_size
@@ -596,9 +604,14 @@ func _draw_hover_blueprints() -> void:
 # ==============================================================================
 
 func _draw_layer_nodes() -> void:
+	# Scale the radius
+	var draw_radius = node_radius * preview_scale if is_preview_mode else node_radius
+	
 	for id: String in graph_ref.nodes:
 		var node_data = graph_ref.nodes[id] as NodeData
-		var pos = node_data.position
+		
+		# Apply transform
+		var pos = _to_screen(node_data.position)
 		
 		# Color & Body
 		var col = SemanticRegistry.get_category_color(SemanticRegistry.TARGET_NODE, node_data.type)
@@ -610,11 +623,12 @@ func _draw_layer_nodes() -> void:
 		if is_masking_trigger_ref and not is_selected:
 			col.a *= 0.15
 			
-		draw_circle(pos, node_radius, col)
-		draw_circle(pos, node_radius * 0.7, Color(0, 0, 0, 0.1 if not is_masking_trigger_ref or is_selected else 0.05))
+		draw_circle(pos, draw_radius, col)
+		draw_circle(pos, draw_radius * 0.7, Color(0, 0, 0, 0.1 if not is_masking_trigger_ref or is_selected else 0.05))
 		
-		# Indicators
-		_draw_node_indicators(id, pos)
+		# Skip heavy indicators in the tiny preview cards
+		if not is_preview_mode:
+			_draw_node_indicators(id, pos)
 
 func _draw_node_indicators(id: String, pos: Vector2) -> void:
 	# Selection Rings
@@ -1244,3 +1258,10 @@ func get_agents_in_visual_rect(local_rect: Rect2) -> Array:
 				result.append(agent)
 				
 	return result
+
+
+# Helper to transform a world position into a preview position
+func _to_screen(world_pos: Vector2) -> Vector2:
+	if is_preview_mode:
+		return (world_pos * preview_scale) + preview_offset
+	return world_pos

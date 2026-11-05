@@ -2279,15 +2279,15 @@
 		}
 	},
 	"meta": {
-		"next_ticket": 1,
-		"timestamp": "2026-08-30T13:37:49",
+		"next_ticket": 107,
+		"timestamp": "2026-10-25T12:49:15",
 		"version": "1.6"
 	},
 	"nodes": [
 		{
 			"custom_data": {
 				"_grid_center": "(143, 139)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:0",
 			"shape": 0,
@@ -2305,10 +2305,10 @@
 				],
 				"_custom_room_id": "dla:-1:0",
 				"_custom_room_ref": "Tall Room",
-				"_custom_room_rot": 3,
+				"_custom_room_rot": 3.0,
 				"_grid_center": "(127, 139)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:0",
 			"shape": 0,
@@ -2320,7 +2320,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(127, 123)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:-1",
 			"shape": 0,
@@ -2332,7 +2332,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(143, 155)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:1",
 			"shape": 0,
@@ -2358,10 +2358,10 @@
 				],
 				"_custom_room_id": "dla:1:1",
 				"_custom_room_ref": "21x21 LCZ Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(159, 155)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:1",
 			"shape": 0,
@@ -2379,10 +2379,10 @@
 				],
 				"_custom_room_id": "dla:-1:-2",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(127, 107)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:-2",
 			"shape": 0,
@@ -2393,7 +2393,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(127, 155)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:1",
 			"shape": 0,
@@ -2404,7 +2404,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(159, 171)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:2",
 			"shape": 0,
@@ -2422,10 +2422,10 @@
 				],
 				"_custom_room_id": "dla:0:-1",
 				"_custom_room_ref": "21x21 WFC Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(143, 123)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-1",
 			"shape": 0,
@@ -2436,7 +2436,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(175, 155)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:2:1",
 			"shape": 0,
@@ -2447,7 +2447,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(118, 165)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:1",
 			"shape": 0,
@@ -2458,7 +2458,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(111, 139)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:0",
 			"shape": 0,
@@ -2484,10 +2484,10 @@
 				],
 				"_custom_room_id": "dla:-2:-1",
 				"_custom_room_ref": "21x21 LCZ Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(111, 123)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:-1",
 			"shape": 0,
@@ -2499,7 +2499,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(95, 139)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:0",
 			"shape": 0,
@@ -2517,10 +2517,10 @@
 				],
 				"_custom_room_id": "dla:0:-2",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(143, 107)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-2",
 			"shape": 0,
@@ -2531,7 +2531,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(110, 175)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:2",
 			"shape": 0,
@@ -2542,7 +2542,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(106, 188)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:3",
 			"shape": 0,
@@ -2553,7 +2553,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(191, 155)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:1",
 			"shape": 0,
@@ -2564,7 +2564,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(159, 123)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:-1",
 			"shape": 0,
@@ -2575,7 +2575,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(191, 171)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:2",
 			"shape": 0,
@@ -2586,7 +2586,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(191, 139)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:0",
 			"shape": 0,
@@ -2597,7 +2597,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(191, 187)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:3",
 			"shape": 0,
@@ -2608,7 +2608,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(98, 171)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:2",
 			"shape": 0,
@@ -2620,7 +2620,7 @@
 			"custom_data": {
 				"_custom_room_rot": 1.0,
 				"_grid_center": "(127, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:-3",
 			"shape": 0,
@@ -2631,7 +2631,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(191, 123)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:-1",
 			"shape": 0,
@@ -2642,7 +2642,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(207, 171)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:4:2",
 			"shape": 0,
@@ -2653,7 +2653,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(111, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:-3",
 			"shape": 0,
@@ -2665,7 +2665,7 @@
 			"custom_data": {
 				"_custom_room_rot": 2.0,
 				"_grid_center": "(143, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-3",
 			"shape": 0,
@@ -2676,7 +2676,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(111, 75)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:-4",
 			"shape": 0,
@@ -2687,7 +2687,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 171)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:2",
 			"shape": 0,
@@ -2707,10 +2707,10 @@
 				],
 				"_custom_room_id": "dla:-4:0",
 				"_custom_room_ref": "L Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(79, 139)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-4:0",
 			"shape": 0,
@@ -2730,10 +2730,10 @@
 				],
 				"_custom_room_id": "dla:3:-2",
 				"_custom_room_ref": "L Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(191, 107)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:-2",
 			"shape": 0,
@@ -2744,7 +2744,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(95, 75)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:-4",
 			"shape": 0,
@@ -2755,7 +2755,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(79, 123)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-4:-1",
 			"shape": 0,
@@ -2767,7 +2767,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(127, 75)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:-4",
 			"shape": 0,
@@ -2778,7 +2778,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(102, 200)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:3",
 			"shape": 0,
@@ -2796,10 +2796,10 @@
 				],
 				"_custom_room_id": "dla:3:-3",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(191, 91)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:-3",
 			"shape": 0,
@@ -2810,7 +2810,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(95, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:-5",
 			"shape": 0,
@@ -2821,7 +2821,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(96, 211)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:4",
 			"shape": 0,
@@ -2832,7 +2832,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(91, 223)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:5",
 			"shape": 0,
@@ -2843,7 +2843,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 187)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:3",
 			"shape": 0,
@@ -2861,10 +2861,10 @@
 				],
 				"_custom_room_id": "dla:-3:-3",
 				"_custom_room_ref": "Pointy Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(95, 91)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:-3",
 			"shape": 0,
@@ -2875,7 +2875,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(239, 187)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:3",
 			"shape": 0,
@@ -2886,7 +2886,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 203)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:4",
 			"shape": 0,
@@ -2904,10 +2904,10 @@
 				],
 				"_custom_room_id": "dla:2:3",
 				"_custom_room_ref": "Pointy Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(175, 187)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:2:3",
 			"shape": 0,
@@ -2925,10 +2925,10 @@
 				],
 				"_custom_room_id": "dla:-1:-5",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(127, 59)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-1:-5",
 			"shape": 0,
@@ -2940,7 +2940,7 @@
 			"custom_data": {
 				"_custom_room_rot": 1.0,
 				"_grid_center": "(207, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:4:-3",
 			"shape": 0,
@@ -2950,9 +2950,9 @@
 		},
 		{
 			"custom_data": {
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(223, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:-3",
 			"shape": 0,
@@ -2963,7 +2963,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(79, 75)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-4:-4",
 			"shape": 0,
@@ -2974,7 +2974,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 155)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:1",
 			"shape": 0,
@@ -2985,7 +2985,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(78, 222)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-4:5",
 			"shape": 0,
@@ -3003,10 +3003,10 @@
 				],
 				"_custom_room_id": "dla:0:-5",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(143, 59)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-5",
 			"shape": 0,
@@ -3017,7 +3017,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(95, 237)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:6",
 			"shape": 0,
@@ -3028,7 +3028,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(143, 43)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-6",
 			"shape": 0,
@@ -3039,7 +3039,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 219)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:5",
 			"shape": 0,
@@ -3050,7 +3050,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(239, 219)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:5",
 			"shape": 0,
@@ -3061,7 +3061,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(106, 233)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:6",
 			"shape": 0,
@@ -3073,7 +3073,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(239, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:-3",
 			"shape": 0,
@@ -3084,7 +3084,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(63, 75)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:-4",
 			"shape": 0,
@@ -3095,7 +3095,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(143, 27)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:-7",
 			"shape": 0,
@@ -3106,7 +3106,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(95, 43)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:-6",
 			"shape": 0,
@@ -3117,7 +3117,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(63, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:-5",
 			"shape": 0,
@@ -3128,7 +3128,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(143, 171)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:0:2",
 			"shape": 0,
@@ -3146,10 +3146,10 @@
 				],
 				"_custom_room_id": "dla:5:-4",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(223, 75)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:-4",
 			"shape": 0,
@@ -3167,10 +3167,10 @@
 				],
 				"_custom_room_id": "dla:-3:7",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(95, 251)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:7",
 			"shape": 0,
@@ -3181,7 +3181,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(255, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:7:-3",
 			"shape": 0,
@@ -3192,7 +3192,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(65, 222)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:5",
 			"shape": 0,
@@ -3210,10 +3210,10 @@
 				],
 				"_custom_room_id": "dla:1:3",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(159, 187)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:3",
 			"shape": 0,
@@ -3224,7 +3224,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(62, 234)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:6",
 			"shape": 0,
@@ -3235,7 +3235,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(159, 203)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:4",
 			"shape": 0,
@@ -3253,10 +3253,10 @@
 				],
 				"_custom_room_id": "dla:-3:8",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(95, 267)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:8",
 			"shape": 0,
@@ -3267,7 +3267,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(61, 247)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:7",
 			"shape": 0,
@@ -3285,10 +3285,10 @@
 				],
 				"_custom_room_id": "dla:-2:7",
 				"_custom_room_ref": "Tall Room",
-				"_custom_room_rot": 1,
+				"_custom_room_rot": 1.0,
 				"_grid_center": "(111, 251)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-2:7",
 			"shape": 0,
@@ -3300,7 +3300,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(239, 235)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:6",
 			"shape": 0,
@@ -3311,7 +3311,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(63, 209)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:4",
 			"shape": 0,
@@ -3322,7 +3322,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(63, 91)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:-3",
 			"shape": 0,
@@ -3333,7 +3333,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(62, 258)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:8",
 			"shape": 0,
@@ -3344,7 +3344,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(47, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-6:-5",
 			"shape": 0,
@@ -3364,10 +3364,10 @@
 				],
 				"_custom_room_id": "dla:7:6",
 				"_custom_room_ref": "L Room",
-				"_custom_room_rot": 2,
+				"_custom_room_rot": 2.0,
 				"_grid_center": "(255, 235)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:7:6",
 			"shape": 0,
@@ -3378,7 +3378,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(255, 251)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:7:7",
 			"shape": 0,
@@ -3389,7 +3389,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(47, 39)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-6:-6",
 			"shape": 0,
@@ -3409,10 +3409,10 @@
 				],
 				"_custom_room_id": "dla:-3:9",
 				"_custom_room_ref": "L Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(95, 283)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-3:9",
 			"shape": 0,
@@ -3430,10 +3430,10 @@
 				],
 				"_custom_room_id": "dla:6:7",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(239, 251)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:7",
 			"shape": 0,
@@ -3444,7 +3444,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(279, 107)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:8:-3",
 			"shape": 0,
@@ -3462,10 +3462,10 @@
 				],
 				"_custom_room_id": "dla:3:-4",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(191, 75)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:3:-4",
 			"shape": 0,
@@ -3476,7 +3476,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(159, 219)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:5",
 			"shape": 0,
@@ -3487,7 +3487,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(52, 220)",
-				"physics_mode": 0.0
+				"physics_mode": 1
 			},
 			"id": "dla:-6:5",
 			"shape": 0,
@@ -3498,7 +3498,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(159, 235)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:1:6",
 			"shape": 0,
@@ -3516,10 +3516,10 @@
 				],
 				"_custom_room_id": "dla:-6:-7",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(31, 39)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-6:-7",
 			"shape": 0,
@@ -3530,7 +3530,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(223, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:5:-5",
 			"shape": 0,
@@ -3541,7 +3541,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(15, 39)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-6:-8",
 			"shape": 0,
@@ -3553,7 +3553,7 @@
 			"custom_data": {
 				"_custom_room_rot": 0.0,
 				"_grid_center": "(239, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:-5",
 			"shape": 0,
@@ -3571,10 +3571,10 @@
 				],
 				"_custom_room_id": "dla:-7:-5",
 				"_custom_room_ref": "Tall Room",
-				"_custom_room_rot": 1,
+				"_custom_room_rot": 1.0,
 				"_grid_center": "(31, 59)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-7:-5",
 			"shape": 0,
@@ -3592,10 +3592,10 @@
 				],
 				"_custom_room_id": "dla:6:-6",
 				"_custom_room_ref": "Cross Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(239, 43)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:-6",
 			"shape": 0,
@@ -3613,10 +3613,10 @@
 				],
 				"_custom_room_id": "dla:-4:1",
 				"_custom_room_ref": "Pointy Room",
-				"_custom_room_rot": 2,
+				"_custom_room_rot": 2.0,
 				"_grid_center": "(79, 155)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-4:1",
 			"shape": 0,
@@ -3634,10 +3634,10 @@
 				],
 				"_custom_room_id": "dla:6:8",
 				"_custom_room_ref": "Pointy Room",
-				"_custom_room_rot": 3,
+				"_custom_room_rot": 3.0,
 				"_grid_center": "(239, 267)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:6:8",
 			"shape": 0,
@@ -3655,10 +3655,10 @@
 				],
 				"_custom_room_id": "dla:7:8",
 				"_custom_room_ref": "Biome Room",
-				"_custom_room_rot": 0,
+				"_custom_room_rot": 0.0,
 				"_grid_center": "(255, 267)",
 				"_is_custom_room": true,
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:7:8",
 			"shape": 0,
@@ -3669,7 +3669,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(15, 15)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-5:-8",
 			"shape": 0,
@@ -3680,7 +3680,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(261, 122)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:8:-2",
 			"shape": 0,
@@ -3691,7 +3691,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(15, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:-8:-5",
 			"shape": 0,
@@ -3702,7 +3702,7 @@
 		{
 			"custom_data": {
 				"_grid_center": "(255, 59)",
-				"physics_mode": 1.0
+				"physics_mode": 1
 			},
 			"id": "dla:7:-5",
 			"shape": 0,

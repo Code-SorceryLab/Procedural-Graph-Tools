@@ -30,7 +30,7 @@ static var available_modifiers: Array[Script] = [
 	MutateCA, 
 	MutateFlowDirect, 
 	MutateWalker, 
-	MutateGrammar, 
+	MutateGrowPatterns,
 	MutateEdgeSubdivide, 
 	MutatePruneLeaves,
 	MutateFuseNodes,

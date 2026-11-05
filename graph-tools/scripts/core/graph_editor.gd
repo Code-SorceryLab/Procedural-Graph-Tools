@@ -21,6 +21,11 @@ signal request_agent_tab_view(filter_node_id: String)
 # --- DATA MODEL ---
 var graph: Graph = Graph.new()
 
+# --- PATTERN EXTRACTION STATE ---
+# Stores the active dictionaries extracted from the PatternExtractorPopup
+var extracted_topo_patterns: Dictionary = {}
+var extracted_semantic_patterns: Dictionary = {}
+
 # --- PHYSICS & LOGIC ENGINE ---
 var simulation: Simulation
 var buoyancy_engine: BuoyancyEngine
@@ -950,7 +955,11 @@ func new_graph() -> void:
 	_reset_local_state()
 	_reconstruct_state_from_ids() # [FIXED] Reset counters
 	
-	# 4. Sync the Renderer
+	# 4. Wipe pattern memory on a hard reset
+	extracted_topo_patterns.clear()
+	extracted_semantic_patterns.clear()
+	
+	# 5. Sync the Renderer
 	renderer.graph_ref = graph
 	renderer.selected_nodes_ref = selected_nodes
 	renderer.current_path_ref = current_path
@@ -961,7 +970,7 @@ func new_graph() -> void:
 	if tool_manager:
 		set_active_tool(tool_manager.active_tool_id)
 	
-	# 5. Emit signals to update the rest of the UI
+	# 6. Emit signals to update the rest of the UI
 	graph_loaded.emit(graph)
 	history.history_changed.connect(simulation.validate_all_agents)
 	

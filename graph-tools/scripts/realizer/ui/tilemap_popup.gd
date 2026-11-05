@@ -213,12 +213,13 @@ func _init() -> void:
 	overlay.draw.connect(_on_overlay_draw)
 	texture_rect.gui_input.connect(_on_texture_gui_input)
 	
-	scroll_atlas = ScrollContainer.new() # [NEW] Name the scroll container!
+	scroll_atlas = ScrollContainer.new()
 	scroll_atlas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_panel.add_child(scroll_atlas)
 	
 	palette_editor = CosinePaletteEditor.new()
 	palette_editor.visible = false
+	palette_editor.palette_changed.connect(_update_item_list_visuals) # Live sync
 	right_panel.add_child(palette_editor)
 	
 	# Change texture_rect's parent from `scroll` to `scroll_atlas`:
@@ -282,9 +283,11 @@ func open(texture_path: String, t_size: Vector2i, default_mappings: Dictionary, 
 	if not default_palette.is_empty():
 		palette_editor.params = default_palette.duplicate()
 		palette_editor._sync_ui_to_params()
-	
+		
 	_set_zoom(zoom_level)
+	_update_item_list_visuals() # Ensure loaded data tints the list
 	popup_centered()
+	
 
 func _on_mode_changed(idx: int) -> void:
 	_current_mode = idx
@@ -321,6 +324,7 @@ func _on_file_selected(path: String) -> void:
 		texture_rect.texture = atlas_texture
 		_set_zoom(zoom_level)
 		overlay.queue_redraw()
+		_refresh_item_list()
 
 func _on_new_blank_pressed() -> void:
 	# Create a tiny 1x1 grid image to start
@@ -330,6 +334,7 @@ func _on_new_blank_pressed() -> void:
 	atlas_texture_path = "" 
 	_set_zoom(zoom_level)
 	overlay.queue_redraw()
+	_refresh_item_list()
 
 func _on_save_image_pressed() -> void:
 	if not _active_image: return
@@ -382,6 +387,7 @@ func _on_category_selected(index: int) -> void:
 func _on_procedural_toggled(toggled: bool) -> void:
 	var base_key = selected_category.replace("_floor", "").replace("_wall", "")
 	procedural_flags[base_key] = toggled
+	_update_item_list_visuals() # Apply the visual shift
 
 func _get_grid_coord(pos: Vector2) -> Vector2i:
 	return Vector2i(int(pos.x / tile_size.x), int(pos.y / tile_size.y))
@@ -410,8 +416,16 @@ func _on_texture_gui_input(event: InputEvent) -> void:
 				mappings[selected_category] = coord
 				overlay.queue_redraw()
 				
+				# --- UPDATE THE ICON IN THE LIST ---
+				var selected_idx = item_list.get_selected_items()[0]
+				var rect = Rect2i(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
+				var slice = _active_image.get_region(rect)
+				var new_tex = ImageTexture.create_from_image(slice)
+				item_list.set_item_icon(selected_idx, new_tex)
+				# -----------------------------------------
+				
 				# Auto-advance
-				var next_idx = (item_list.get_selected_items()[0] + 1) % item_list.item_count
+				var next_idx = (selected_idx + 1) % item_list.item_count
 				item_list.select(next_idx)
 				_on_category_selected(next_idx)
 				
@@ -453,9 +467,22 @@ func _get_semantic_color(key: String) -> Color:
 
 func _add_category_item(key: String, display_name: String, color: Color) -> void:
 	semantic_keys.append(key)
-	var img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	img.fill(color)
-	var tex = ImageTexture.create_from_image(img)
+	var tex: ImageTexture
+	
+	# Check if this key already has a mapping on the active image
+	if _active_image and mappings.has(key):
+		var coord = mappings[key]
+		var rect = Rect2i(coord.x * tile_size.x, coord.y * tile_size.y, tile_size.x, tile_size.y)
+		
+		# Slice the specific tile out of the master image
+		var slice = _active_image.get_region(rect)
+		tex = ImageTexture.create_from_image(slice)
+	else:
+		# Fallback to the solid semantic color block
+		var img = Image.create(tile_size.x, tile_size.y, false, Image.FORMAT_RGBA8)
+		img.fill(color)
+		tex = ImageTexture.create_from_image(img)
+		
 	item_list.add_item(display_name, tex)
 
 func _on_overlay_draw() -> void:
@@ -485,3 +512,68 @@ func _on_overlay_draw() -> void:
 				overlay.draw_rect(rect, Color(outline_color, 0.4), true)
 				
 			overlay.draw_rect(rect, outline_color, false, thickness)
+
+func _refresh_item_list() -> void:
+	item_list.clear()
+	semantic_keys.clear()
+	
+	_add_category_item("default_floor", "Default Floor", Color.LIGHT_GRAY)
+	_add_category_item("default_wall", "Default Wall", Color.DARK_GRAY)
+	
+	var node_cats = SemanticRegistry.categories[SemanticRegistry.TARGET_NODE]
+	for key in node_cats:
+		var cat_name = node_cats[key]["name"]
+		var base_color = node_cats[key]["color"]
+		_add_category_item(key + "_floor", cat_name + " (Floor)", base_color)
+		_add_category_item(key + "_wall", cat_name + " (Wall)", base_color.darkened(0.3))
+		
+	if item_list.item_count > 0:
+		var previous_selection = 0
+		if selected_category != "":
+			previous_selection = max(0, semantic_keys.find(selected_category))
+			
+		item_list.select(previous_selection)
+		_on_category_selected(previous_selection)
+	
+
+func _update_item_list_visuals() -> void:
+	if semantic_keys.is_empty(): return
+	
+	# We need to know how many distinct base biomes exist to calculate 't' evenly.
+	# We divide by 2 because semantic_keys contains both the floor AND wall entries for each biome.
+	var total_biomes = float(max(1, (semantic_keys.size() - 2) / 2)) 
+	var biome_counter = 0.0
+
+	for i in range(item_list.item_count):
+		var key = semantic_keys[i]
+		
+		# Skip the hardcoded defaults
+		if key == "default_floor" or key == "default_wall":
+			item_list.set_item_icon_modulate(i, Color.WHITE)
+			item_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0))
+			continue
+			
+		var base_key = key.replace("_floor", "").replace("_wall", "")
+		var is_procedural = procedural_flags.get(base_key, false)
+
+		if is_procedural and not palette_editor.params.is_empty():
+			# Calculate 't' based on how far down the list of biomes we are
+			var t = biome_counter / max(1.0, total_biomes - 1.0)
+			
+			if key.ends_with("_wall"):
+				t += palette_editor.params.get("wall_shift", 0.0)
+				
+			# Clamp t so the math doesn't break if shift pushes it over 1.0
+			t = fposmod(t, 1.0) 
+				
+			var tint = CosinePaletteEditor.get_iq_color(t, palette_editor.params)
+			
+			item_list.set_item_icon_modulate(i, tint)
+			item_list.set_item_custom_bg_color(i, Color(tint.r, tint.g, tint.b, 0.2))
+		else:
+			item_list.set_item_icon_modulate(i, Color.WHITE)
+			item_list.set_item_custom_bg_color(i, Color(0, 0, 0, 0))
+			
+		# Increment the biome counter AFTER we process the wall (since floors and walls share a 't')
+		if key.ends_with("_wall"):
+			biome_counter += 1.0

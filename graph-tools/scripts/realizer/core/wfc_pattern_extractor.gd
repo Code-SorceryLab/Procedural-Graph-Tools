@@ -102,7 +102,7 @@ static func _get_edge_string(pat: Array, dir: String, n: int) -> String:
 			
 	return str(edge)
 
-# --- [NEW] MATH HELPERS ---
+# --- MATH HELPERS ---
 static func _rotate_pattern_90(pat: Array, n: int) -> Array:
 	var res = []
 	res.resize(n * n)

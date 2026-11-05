@@ -23,6 +23,7 @@ extends Node
 @export var sb_speed: SpinBox
 
 # --- STATE ---
+var _pattern_extractor_popup: PatternExtractorPopup
 var _active_tool_inputs: Dictionary = {}
 var is_buoyancy_active: bool = false
 var is_auto_crystallize_active: bool = false # Tracks crystallization state
@@ -44,6 +45,10 @@ func _ready() -> void:
 	if not graph_editor or not status_label:
 		push_warning("TopbarController: Missing references.")
 		return
+		
+	# Instantiate the Extractor Popup
+	_pattern_extractor_popup = PatternExtractorPopup.new()
+	add_child(_pattern_extractor_popup)
 		
 	# 1. Listen for Status Updates
 	if SignalManager.has_signal("status_message_changed"):
@@ -93,6 +98,10 @@ func _setup_menus() -> void:
 	# Setup Graph Menu
 	if menu_graph:
 		menu_graph.clear()
+		
+		# --- PROCEDURAL TOOLS SECTION ---
+		menu_graph.add_separator()
+		menu_graph.add_item("Extract Graph Patterns", 308) # ID 308
 		
 		# --- BUOYANCY PHYSICS SECTION ---
 		menu_graph.add_separator() 
@@ -240,20 +249,25 @@ func _on_graph_menu_pressed(id: int) -> void:
 			menu_graph.set_item_checked(idx, is_node_fusing_active)
 			if graph_editor and graph_editor.has_method("set_buoyancy_node_fusing"):
 				graph_editor.set_buoyancy_node_fusing(is_node_fusing_active)
-				
+		
 		306: # Toggle Topological Depth
 			is_depth_overlay_active = not is_depth_overlay_active
 			var idx = menu_graph.get_item_index(306)
 			menu_graph.set_item_checked(idx, is_depth_overlay_active)
 			if graph_editor and graph_editor.has_method("set_debug_depth"):
 				graph_editor.set_debug_depth(is_depth_overlay_active)
-				
+		
 		307: # Toggle Base Graph Visibility
 			is_base_graph_visible = not is_base_graph_visible
 			var idx = menu_graph.get_item_index(307)
 			menu_graph.set_item_checked(idx, is_base_graph_visible)
 			if graph_editor and graph_editor.has_method("set_graph_visible"):
 				graph_editor.set_graph_visible(is_base_graph_visible)
+		
+		308: # Extract Graph Patterns
+			if graph_editor:
+				_pattern_extractor_popup.open(graph_editor)
+
 
 func _on_agents_menu_pressed(id: int) -> void:
 	match id:
