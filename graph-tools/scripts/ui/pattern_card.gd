@@ -3,15 +3,17 @@ extends VBoxContainer
 
 var _mini_renderer: GraphRenderer
 var _graph_data: Graph
+var _include_geometry: bool = false
 var signature_key: String = ""
 
 # UI Refs
 var chk_active: CheckBox
 var spin_weight: SpinBox
 
-func setup(signature: String, graph_data: Graph, frequency: int) -> void:
+func setup(signature: String, graph_data: Graph, frequency: int, include_geometry: bool = false) -> void:
 	signature_key = signature
 	_graph_data = graph_data
+	_include_geometry = include_geometry
 	
 	# --- HEADER UI ---
 	var header = HBoxContainer.new()
@@ -39,7 +41,7 @@ func setup(signature: String, graph_data: Graph, frequency: int) -> void:
 	add_child(header)
 	
 	# --- RENDERER UI ---
-	var render_container = ColorRect.new() # Dark background for the card
+	var render_container = ColorRect.new()
 	render_container.color = Color(0.1, 0.1, 0.12, 1.0)
 	render_container.custom_minimum_size = Vector2(200, 200)
 	render_container.clip_contents = true
@@ -53,11 +55,21 @@ func setup(signature: String, graph_data: Graph, frequency: int) -> void:
 	
 	render_container.add_child(_mini_renderer)
 	add_child(render_container)
+	
+	# --- WARNING (geometry-agnostic merges) ---
+	# In geometry-agnostic mode, frequency > 1 means multiple instances collapsed
+	# under one signature. Some may have different shapes than the stored one.
+	if not include_geometry and frequency > 1:
+		var warning = Label.new()
+		warning.text = "⚠ Geometry ignored — %d instances may vary" % frequency
+		warning.add_theme_color_override("font_color", Color(1.0, 0.8, 0.3))
+		warning.add_theme_font_size_override("font_size", 11)
+		warning.autowrap_mode = TextServer.AUTOWRAP_WORD
+		add_child(warning)
 
 func _calculate_preview_transforms(box_size: Vector2) -> void:
 	if _graph_data.nodes.is_empty(): return
 	
-	# 1. Find the bounding box of the sub-graph
 	var min_pos = Vector2(INF, INF)
 	var max_pos = Vector2(-INF, -INF)
 	
@@ -69,30 +81,22 @@ func _calculate_preview_transforms(box_size: Vector2) -> void:
 		max_pos.y = max(max_pos.y, p.y)
 		
 	var graph_size = max_pos - min_pos
-	
-	# 2. Add padding so nodes don't clip the edges of the box
 	var padding = 40.0
 	var padded_size = graph_size + Vector2(padding * 2, padding * 2)
 	
-	# 3. Calculate Scale (Fit to box)
 	var scale_x = box_size.x / max(1.0, padded_size.x)
 	var scale_y = box_size.y / max(1.0, padded_size.y)
-	
-	# Use the smaller scale to maintain aspect ratio
 	_mini_renderer.preview_scale = min(scale_x, scale_y)
 	
-	# 4. Calculate Offset (Center it)
 	var scaled_graph_size = graph_size * _mini_renderer.preview_scale
 	var center_offset = (box_size - scaled_graph_size) / 2.0
-	
-	# Subtract the scaled min_pos to anchor the top-left of the graph to 0,0, then add the center offset
 	_mini_renderer.preview_offset = center_offset - (min_pos * _mini_renderer.preview_scale)
 
-# Helper to fetch data when saving the dictionary
 func get_export_data() -> Dictionary:
 	return {
 		"signature": signature_key,
 		"weight": int(spin_weight.value),
 		"active": chk_active.button_pressed,
+		"include_geometry": _include_geometry,
 		"graph_json": GraphSerializer.serialize(_graph_data) 
 	}

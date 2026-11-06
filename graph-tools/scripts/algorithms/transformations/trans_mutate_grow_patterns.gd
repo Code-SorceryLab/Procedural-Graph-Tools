@@ -20,6 +20,7 @@ class_name MutateGrowPatterns extends GraphModifier
 # ==============================================================================
 
 var _local_id_counter: int = 0
+const GROW_DEBUG: bool = true
 
 func _init() -> void:
 	super._init()
@@ -117,7 +118,17 @@ func execute(recorder: GraphRecorder) -> void:
 		var gs: Vector2 = GraphSettings.GRID_SPACING
 		min_spacing_px = min(gs.x, gs.y) * min_spacing_units
 	var scrub: bool            = local_settings.get("scrub_metadata", true)
-
+	
+	
+	if GROW_DEBUG:
+		print("\n[GROW] params: iterations=%d planarity=%s attempts=%d ortho=%s snap=%s min_spacing_px=%.1f scrub=%s" % [
+			iterations, str(enforce_planarity), max_attempts, str(orthogonal_only), str(snap_grid), min_spacing_px, str(scrub)
+		])
+		print("[GROW] geometry: GRID_SPACING=%s NODE_RADIUS=%.1f check_radius=%.1f col_radius=%.1f" % [
+			str(GraphSettings.GRID_SPACING), GraphSettings.NODE_RADIUS,
+			GraphSettings.NODE_RADIUS * 2.0, GraphSettings.NODE_RADIUS * 2.5
+		])
+	
 	# Filter and weight active patterns.
 	var active_patterns: Array = []
 	var total_weight: int = 0
@@ -125,7 +136,9 @@ func execute(recorder: GraphRecorder) -> void:
 		if p.get("active", true):
 			active_patterns.append(p)
 			total_weight += max(1, int(p.get("weight", 1)))
+	
 
+	
 	if active_patterns.is_empty():
 		print("MutateGrowPatterns: All patterns marked inactive. Skipping.")
 		return
@@ -147,13 +160,21 @@ func execute(recorder: GraphRecorder) -> void:
 		print("MutateGrowPatterns: No deserializable patterns. Skipping.")
 		return
 
+	if GROW_DEBUG:
+		print("[GROW] deserialized %d patterns:" % pattern_graphs.size())
+		for sig in pattern_graphs:
+			print("   %s → %d nodes, %d edge records" % [sig, pattern_graphs[sig].nodes.size(), pattern_graphs[sig].edge_store.size()])
+
 	# Seed an empty graph so growth has somewhere to start.
 	if recorder.nodes.is_empty():
 		var seed_id := _make_new_id(recorder)
 		recorder.add_node(seed_id, Vector2.ZERO)
 		recorder.set_node_type(seed_id, "empty")
 		print("MutateGrowPatterns: Empty graph — seeded origin node '%s'." % seed_id)
-
+	
+	if GROW_DEBUG:
+		print("[GROW] after seed: recorder has %d nodes" % recorder.nodes.size())
+	
 	print("\n--- GROW: %d patterns active, %d iterations ---" % [active_patterns.size(), iterations])
 
 	var applied_count := 0
@@ -166,6 +187,7 @@ func execute(recorder: GraphRecorder) -> void:
 
 		var candidates: Array = _gather_perimeter_candidates(recorder, orthogonal_only)
 		if candidates.is_empty():
+			print("GROW: Candidates.is_empty()")
 			# Graph is fully packed — no room to grow anywhere.
 			break
 
@@ -174,6 +196,10 @@ func execute(recorder: GraphRecorder) -> void:
 		var attempts: int = min(max_attempts, candidates.size())
 		for i in range(attempts):
 			var anchor: Dictionary = candidates[i]
+			if GROW_DEBUG:
+				print("   [attempt %d/%d] anchor=%s @ %s outward=%s free_count=%d" % [
+					i + 1, attempts, anchor["id"], str(anchor["pos"]), str(anchor["outward"]), anchor["free_count"]
+				])
 			if _attempt_transformation(recorder, anchor, rule_graph,
 		enforce_planarity, orthogonal_only, snap_grid, scrub, min_spacing_px):
 				applied_count += 1
@@ -185,22 +211,27 @@ func execute(recorder: GraphRecorder) -> void:
 # PERIMETER CANDIDATES
 # ==============================================================================
 
-# Returns [{id, pos, outward, free_count}, ...] for every node with at least
-# one free adjacent grid slot. `outward` is a normalized Vector2 pointing into
-# the nearest free space from that node's perspective.
 func _gather_perimeter_candidates(recorder: GraphRecorder, orthogonal_only: bool) -> Array:
 	var dirs: Array[Vector2i] = [
 		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)
 	]
-	# Diagonals included only in non-orthogonal mode; they're not real adjacency
-	# in grid-aligned graphs but can be real if snap_grid is off.
 	if not orthogonal_only:
 		dirs.append_array([
 			Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
 		])
 
 	var spacing: Vector2 = GraphSettings.GRID_SPACING
-	var check_radius: float = GraphSettings.NODE_RADIUS * 2.0
+	# Probe is considered occupied only if a node is genuinely close to the
+	# probe point. `min(spacing) * 0.4` is "less than half a grid step", so a
+	# node one full step away never counts.
+	var check_radius: float = min(spacing.x, spacing.y) * 0.4
+	var check_radius_sq: float = check_radius * check_radius
+
+	# Pre-collect positions once (cheap; n is small).
+	var node_positions: Array = []
+	for id in recorder.nodes:
+		node_positions.append(recorder.get_node_pos(id))
+
 	var candidates: Array = []
 
 	for id in recorder.nodes:
@@ -209,14 +240,19 @@ func _gather_perimeter_candidates(recorder: GraphRecorder, orthogonal_only: bool
 
 		for d in dirs:
 			var probe: Vector2 = pos + Vector2(d) * spacing
-			if recorder.get_nodes_near_position(probe, check_radius).is_empty():
+			var occupied := false
+			for other_pos in node_positions:
+				if probe.distance_squared_to(other_pos) < check_radius_sq:
+					occupied = true
+					break
+			if not occupied:
 				free_dirs.append(d)
 
 		if free_dirs.is_empty():
-			continue  # Interior node — nowhere to grow.
+			if GROW_DEBUG:
+				print("   [perim] node %s @ %s → 0 free dirs" % [id, str(pos)])
+			continue
 
-		# Average the free directions. If they cancel, pick one at random
-		# (this is the "node on a straight line" case — grows either way).
 		var outward := Vector2.ZERO
 		for d in free_dirs:
 			outward += Vector2(d)
@@ -345,12 +381,20 @@ func _attempt_transformation(
 	# --- Planarity ---
 	if enforce_planarity:
 		if not _check_planarity(recorder, proposed_nodes, proposed_edges, [seed_real_id]):
+			if GROW_DEBUG:
+				print("   [tx] REJECT planarity: seed=%s proposed=%s" % [seed_real_id, str(proposed_nodes.keys())])
 			return false
+		if GROW_DEBUG:
+			print("   [tx] planarity OK")
 
-	# --- Minimum spacing (independent of planarity) ---
 	if min_spacing_px > 0.0:
 		if not _check_min_spacing(recorder, proposed_nodes, [seed_real_id], min_spacing_px):
+			if GROW_DEBUG:
+				print("   [tx] REJECT min_spacing (%.1fpx)" % min_spacing_px)
 			return false
+
+	if GROW_DEBUG:
+		print("   [tx] COMMIT: %d new nodes, %d new edges" % [proposed_nodes.size(), proposed_edges.size()])
 
 	# --- Commit ---
 	var id_mapping: Dictionary = { seed_rule_id: seed_real_id }
@@ -403,21 +447,29 @@ func _check_planarity(
 	for id in exempt_ids:
 		exempt[id] = true
 
-	var col_radius: float = GraphSettings.NODE_RADIUS * 2.5
+	var col_radius: float = GraphSettings.NODE_RADIUS * 2.0
+	var col_radius_sq: float = col_radius * col_radius
 
-	# A. Node collisions.
+	# A. Node collisions — direct distance, no spatial-grid dependency.
+	var all_positions: Array = []  # [id, pos] pairs
+	for id in recorder.nodes:
+		all_positions.append([id, recorder.get_node_pos(id)])
+
 	for rule_id in proposed_nodes:
 		var p_pos: Vector2 = proposed_nodes[rule_id]
-		var nearby: Array[String] = recorder.get_nodes_near_position(p_pos, col_radius)
-		for hit_id in nearby:
-			if exempt.has(hit_id):
+		for pair in all_positions:
+			if exempt.has(pair[0]):
 				continue
-			# Exact-position overlap — collision even if exempt set missed it.
-			if recorder.get_node_pos(hit_id).distance_squared_to(p_pos) < 0.01:
+			if p_pos.distance_squared_to(pair[1]) < col_radius_sq:
+				if GROW_DEBUG:
+					print("      [planarity] collision: proposed %s at %s vs %s at %s (d=%.1f < %.1f)" % [
+						rule_id, str(p_pos), pair[0], str(pair[1]),
+						p_pos.distance_to(pair[1]), col_radius
+					])
 				return false
-			return false
 
-	# B. Edge crossings.
+	# B. Edge crossings — unchanged, uses get_edges_in_rect which has its own
+	# narrow phase and is therefore trustworthy.
 	var grow: float = GraphSettings.NODE_RADIUS
 	for p_edge in proposed_edges:
 		var rect: Rect2 = Rect2(p_edge[0], p_edge[1] - p_edge[0]).abs().grow(grow)
@@ -425,7 +477,6 @@ func _check_planarity(
 		for ex_e in existing:
 			var ex_a: Vector2 = recorder.get_node_pos(ex_e[0])
 			var ex_b: Vector2 = recorder.get_node_pos(ex_e[1])
-			# Shared endpoint = legitimate joint, not a crossing.
 			if p_edge[0].distance_squared_to(ex_a) < 1.0 or p_edge[0].distance_squared_to(ex_b) < 1.0:
 				continue
 			if p_edge[1].distance_squared_to(ex_a) < 1.0 or p_edge[1].distance_squared_to(ex_b) < 1.0:
@@ -449,13 +500,17 @@ func _check_min_spacing(
 	for id in exempt_ids:
 		exempt[id] = true
 
+	var min_sq: float = min_spacing_px * min_spacing_px
+	var all_positions: Array = []
+	for id in recorder.nodes:
+		all_positions.append([id, recorder.get_node_pos(id)])
+
 	for rule_id in proposed_nodes:
 		var p_pos: Vector2 = proposed_nodes[rule_id]
-		var nearby: Array[String] = recorder.get_nodes_near_position(p_pos, min_spacing_px)
-		for hit_id in nearby:
-			if exempt.has(hit_id):
+		for pair in all_positions:
+			if exempt.has(pair[0]):
 				continue
-			if p_pos.distance_to(recorder.get_node_pos(hit_id)) < min_spacing_px:
+			if p_pos.distance_squared_to(pair[1]) < min_sq:
 				return false
 	return true
 

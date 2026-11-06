@@ -4,6 +4,7 @@ extends Window
 # --- DATA ---
 var _target_graph: Graph
 var _extracted_patterns: Dictionary = {}
+var _extraction_dirty: bool = false
 
 var _editor_ref: GraphEditor 
 var _active_mode: GraphPatternExtractor.ExtractMode
@@ -11,14 +12,14 @@ var _active_mode: GraphPatternExtractor.ExtractMode
 # --- UI REFS ---
 var opt_mode: OptionButton
 var spin_depth: SpinBox
-var chk_rotations: CheckBox
-var chk_reflections: CheckBox
+var chk_geometry: CheckBox
 var btn_extract: Button
 var btn_save: Button
 var btn_close: Button
 var grid_container: GridContainer
 var lbl_status: Label
 var file_dialog: FileDialog
+
 
 func _init() -> void:
 	title = "Graph Pattern Extractor"
@@ -63,6 +64,7 @@ func _init() -> void:
 	opt_mode = OptionButton.new()
 	opt_mode.add_item("Topological Grammar (Structure)")
 	opt_mode.add_item("Semantic WFC (Tags/Rules)")
+	opt_mode.item_selected.connect(_on_mode_changed)
 	left_panel.add_child(opt_mode)
 	
 	# Depth
@@ -75,19 +77,19 @@ func _init() -> void:
 	spin_depth.min_value = 1
 	spin_depth.max_value = 5
 	spin_depth.value = 1
+	spin_depth.value_changed.connect(_on_extraction_params_changed)
 	
 	hbox_depth.add_child(lbl_depth)
 	hbox_depth.add_child(spin_depth)
 	left_panel.add_child(hbox_depth)
 	
-	# Permutations
-	chk_rotations = CheckBox.new()
-	chk_rotations.text = "Extract Rotations (90/180/270)"
-	left_panel.add_child(chk_rotations)
-	
-	chk_reflections = CheckBox.new()
-	chk_reflections.text = "Extract Reflections (Flip)"
-	left_panel.add_child(chk_reflections)
+		# Geometry toggle (topological mode only)
+	chk_geometry = CheckBox.new()
+	chk_geometry.text = "Consider Geometry (Shape)"
+	chk_geometry.button_pressed = false
+	chk_geometry.tooltip_text = "Off: patterns with the same topology but different shapes merge into one. On: they are tracked as distinct patterns."
+	chk_geometry.toggled.connect(_on_extraction_params_changed)
+	left_panel.add_child(chk_geometry)
 	
 	left_panel.add_child(HSeparator.new())
 	
@@ -188,17 +190,26 @@ func _rebuild_grid_from_cache(pattern_dict: Dictionary) -> void:
 		var card = PatternCard.new()
 		grid_container.add_child(card)
 		
-		# We must deserialize the mini-graph from the cached JSON string
 		var mini_graph = GraphSerializer.deserialize(p_data["graph_json"])
+		var include_geometry: bool = p_data.get("include_geometry", false)
 		
-		card.setup(p_data["signature"], mini_graph, p_data["weight"])
-		
-		# If the user previously turned this pattern off, respect that
+		card.setup(p_data["signature"], mini_graph, p_data["weight"], include_geometry)
 		card.chk_active.button_pressed = p_data.get("active", true)
 
 func _clear_grid() -> void:
 	for child in grid_container.get_children():
 		child.queue_free()
+
+func _on_mode_changed(_idx: int) -> void:
+	# Geometry only affects topological extraction.
+	chk_geometry.disabled = (opt_mode.selected == 1)
+
+func _on_extraction_params_changed(_arg = null) -> void:
+	if _extraction_dirty:
+		return
+	_extraction_dirty = true
+	btn_save.disabled = true
+	lbl_status.text = "Parameters changed — re-run extraction to apply."
 
 func _on_run_extraction_pressed() -> void:
 	if not _target_graph: return
@@ -210,19 +221,22 @@ func _on_run_extraction_pressed() -> void:
 	_active_mode = GraphPatternExtractor.ExtractMode.TOPOLOGICAL
 	if opt_mode.selected == 1:
 		_active_mode = GraphPatternExtractor.ExtractMode.SEMANTIC
-		
-	var depth = int(spin_depth.value)
 	
-	# Execute the Math
-	var extracted_data = GraphPatternExtractor.extract_patterns(_target_graph, _active_mode, depth)
+	var depth = int(spin_depth.value)
+	var include_geometry: bool = chk_geometry.button_pressed and not chk_geometry.disabled
+	
+	var extracted_data = GraphPatternExtractor.extract_patterns(_target_graph, _active_mode, depth, include_geometry)
 	
 	for pattern in extracted_data:
 		var card = PatternCard.new()
 		grid_container.add_child(card)
-		card.setup(pattern["signature"], pattern["graph"], pattern["frequency"])
-		
+		card.setup(pattern["signature"], pattern["graph"], pattern["frequency"], include_geometry)
+	
 	lbl_status.text = "Extraction complete! Found %d unique patterns. (Unsaved)" % extracted_data.size()
 	btn_extract.disabled = false
+	
+	_extraction_dirty = false
+	btn_save.disabled = false
 
 # The "Apply" logic
 func _on_save_requested() -> void:

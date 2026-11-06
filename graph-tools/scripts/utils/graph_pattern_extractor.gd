@@ -4,7 +4,7 @@ extends RefCounted
 enum ExtractMode { TOPOLOGICAL, SEMANTIC }
 
 # Core extraction function
-static func extract_patterns(source_graph: Graph, mode: ExtractMode, depth: int, use_rotations: bool = false) -> Array[Dictionary]:
+static func extract_patterns(source_graph: Graph, mode: ExtractMode, depth: int, include_geometry: bool = false) -> Array[Dictionary]:
 	var results = {}
 	
 	# 1. Iterate every node as a potential "Seed" for a motif
@@ -14,23 +14,20 @@ static func extract_patterns(source_graph: Graph, mode: ExtractMode, depth: int,
 		var subgraph_edges = _gather_internal_edges(source_graph, subgraph_nodes)
 		
 		# 3. Generate a Canonical Signature
-		# This is the secret sauce. A signature must be identical for two graphs 
-		# that have the exact same shape/tags, regardless of rotation or node IDs.
-		var signature = _generate_canonical_signature(source_graph, subgraph_nodes, subgraph_edges, mode)
+		var signature = _generate_canonical_signature(source_graph, subgraph_nodes, subgraph_edges, mode, include_geometry)
 		
 		# 4. Tally and Store
 		if results.has(signature):
 			results[signature]["frequency"] += 1
 		else:
-			# First time seeing this pattern; build a standalone mini-Graph for it
 			var mini_graph = _build_isolated_subgraph(source_graph, subgraph_nodes, subgraph_edges)
 			results[signature] = {
 				"signature": signature,
 				"frequency": 1,
 				"graph": mini_graph
 			}
-			
-	# 5. Convert dictionary to a sorted array (highest frequency first)
+	
+	# 5. Convert dictionary to a sorted array
 	var final_array: Array[Dictionary] = []
 	final_array.assign(results.values())
 	final_array.sort_custom(func(a, b): return a["frequency"] > b["frequency"])
@@ -76,9 +73,9 @@ static func _gather_internal_edges(graph: Graph, node_subset: Array[String]) -> 
 			
 	return internal_edges
 
-static func _generate_canonical_signature(graph: Graph, nodes: Array[String], edges: Array, mode: ExtractMode) -> String:
+static func _generate_canonical_signature(graph: Graph, nodes: Array[String], edges: Array, mode: ExtractMode, include_geometry: bool) -> String:
 	if mode == ExtractMode.TOPOLOGICAL:
-		return _generate_topological_signature(graph, nodes, edges)
+		return _generate_topological_signature(graph, nodes, edges, include_geometry)
 	else:
 		return _generate_semantic_signature(graph, nodes, edges)
 
@@ -115,34 +112,44 @@ static func _build_isolated_subgraph(source: Graph, nodes: Array[String], edges:
 	return mini
 
 
-static func _generate_topological_signature(graph: Graph, nodes: Array[String], edges: Array) -> String:
+static func _generate_topological_signature(graph: Graph, nodes: Array[String], edges: Array, include_geometry: bool) -> String:
 	var degree_map = {}
 	
-	# Initialize degrees
 	for id in nodes:
 		degree_map[id] = 0
-		
-	# Count connections within the isolated subgraph
+	
 	for e in edges:
 		if degree_map.has(e.u): degree_map[e.u] += 1
 		if degree_map.has(e.v): degree_map[e.v] += 1
-		
-	# Extract just the numbers
-	var degree_sequence = degree_map.values()
 	
-	# Sort them descending (e.g., [3, 1, 1, 1] for a Hub connected to 3 Leaves)
+	var degree_sequence = degree_map.values()
 	degree_sequence.sort()
 	degree_sequence.reverse()
 	
-	# Stringify the sequence
 	var sig = "Topo_Deg:"
 	for d in degree_sequence:
 		sig += str(d) + "-"
-		
-	# Add Edge Count to prevent collisions between graphs with identical degree 
-	# sequences but different loop structures.
 	sig += "_E" + str(edges.size())
-		
+	
+	# Geometry dimension: multiset of pairwise node distances, quantized to
+	# 0.1 grid units. Rotation/reflection invariant by construction (distances
+	# don't change under rigid motion), so rotated copies of the same shape
+	# still merge — only *shape* differences split them.
+	if include_geometry and nodes.size() >= 2:
+		var spacing: float = min(GraphSettings.GRID_SPACING.x, GraphSettings.GRID_SPACING.y)
+		if spacing <= 0.0:
+			spacing = 1.0
+		var distances: Array = []
+		for i in range(nodes.size()):
+			for j in range(i + 1, nodes.size()):
+				var d: float = graph.nodes[nodes[i]].position.distance_to(graph.nodes[nodes[j]].position)
+				distances.append(snappedf(d / spacing, 0.1))
+		distances.sort()
+		var shape_sig := ""
+		for d in distances:
+			shape_sig += str(d) + ","
+		sig += "|D:" + shape_sig
+	
 	return sig
 	
 
