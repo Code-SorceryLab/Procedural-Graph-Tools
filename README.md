@@ -108,7 +108,7 @@ Rasterization example using a base graph for topology. Note that different colou
 
 ### 8. UI/UX & Editor Environment
 
-- Customizable panels with Zen mode and persistent layout.
+- Collapsible panels with persistent layout.
 - Toolbar and topbar with menus and simulation controls.
 - Context-sensitive inspectors for nodes, edges, agents, and zones.
 - Dedicated rasterizer tabs: Generator, Timeline, Report, Validator.
