@@ -2,7 +2,9 @@
 
 *Literature and tool scan, compiled 2026-10-22. Sources: Semantic Scholar, arXiv, Crossref, GitHub, publisher pages, and the Zotero library. Entries come with a DOI or URL. Fields that could not be confirmed are marked "?". Items already in Zotero are tagged [Zotero].*
 
-The scan is split into four themes, and some papers appear in more than one (e.g., Dormans 2010, Smith et al. 2018, Sturgeon). Deduplicate them when you build the .bib file.
+*Updated 2026-11-19: added Themes E–G (adversarial novelty check, gap scan of 2026 work and tools, pattern-extraction prior art). The executive summary below reflects the update.*
+
+The scan is split into seven themes, and some papers appear in more than one (e.g., Dormans 2010, Smith et al. 2018, Sturgeon). Deduplicate them when you build the .bib file.
 
 | Theme | Entries |
 |---|---|
@@ -10,6 +12,9 @@ The scan is split into four themes, and some papers appear in more than one (e.g
 | B. Graph→layout, rasterization, CA, WFC, plus a tool survey | 65 papers + 31 tools |
 | C. Online/dynamic PCG, partial regeneration, agent-based PCG and validators | 50 papers + ludography |
 | D. Mixed-initiative tools, PCG pipelines, level analysis/metrics, surveys, LLM-based generation | 77 papers |
+| E. Adversarial novelty check of claims (a)–(c): experience management, narrative mediation, VR impossible spaces, incremental replanning | 25 papers + ludography |
+| F. Gap scan: 2026 venues/arXiv, PCG workbenches, graph realization, agent tools | 38 papers + 14 tools/repos |
+| G. Example-based motif mining → graph grammar (Pattern Extractor feature) | 21 papers |
 
 ---
 
@@ -31,6 +36,11 @@ The scan is split into four themes, and some papers appear in more than one (e.g
 | 10 | **Danesh** (Cook et al., IEEE ToG 2022, 10.1109/TG.2021.3078323) | Generator analysis, expressive range, parameter exploration | No graph editor or graph metrics; analysis-only plugin |
 | 11 | **Bao et al.**, PLoS ONE 2026, 10.1371/journal.pone.0354705 | Betweenness, closeness, and k-hop reachability on Metroidvania map graphs | Static analysis of commercial maps, not an integrated tool |
 | 12 | **Voisard, Politowski, Petrillo & Guéhéneuc**, "CG-WFC," GAS@ICSE 2026, 10.1145/3786171.3788381 | **Our own prior work**: cyclic graph grammar plus WFC | PGT generalizes it into a full editor/pipeline/runtime system. Position PGT explicitly against it |
+| 13 | **Robertson & Young**, General Mediation Engine / "Perceptual experience management," AIIDE 2014/2015; IEEE ToG 2019, 10.1109/TG.2018.2817162 (Theme E) | Experience manager that generates and revises the game world during play, changing what the player has not observed | Revises symbolic world state; no spatial triggers, node/edge mask, or re-rasterization (spatial-layout rewriting unverified) |
+| 14 | **Ashmore & Nitsche**, "The quest in a generated world" (*Charbitat*), DiGRA 2007 (Theme E) | Places keys and locks at runtime from the current player status | Append-only world, heuristic placement, no solvability guarantee, no re-planning after regeneration |
+| 15 | **Xu & Verbrugge**, "From experience to 3D platformer levels via topological graphs," AIIDE 2026, 10.1609/aiide.v22i1.43601 (Theme F) | Progression/gating graph realized as a level, with a topological validator in the loop | One algorithm, 3D platformers; no workbench, metrics, agents, or runtime features |
+| 16 | **Atrium** (Godot 4 addon, 2026) and **Level Building Sidekick** tutorial, FDG 2026, 10.1145/3815598.3815711 (Theme F) | Godot editor-first seeded dungeon tool with edit locks and validation; LBS repositioned as a PCG research platform | Atrium: no graph model, metrics, agents, or sweeps. LBS: grid/Unity, no graph pipeline or graph metrics |
+| 17 | **Londoño & Missura**, PCG Workshop 2015; **Nishida et al.**, CGF 2016, 10.1111/cgf.12728 (Theme G) | Learn graph grammars from example levels (SubdueGL); grow graphs from example patches attached at the frontier | Same algorithmic idea as the Pattern Extractor; PGT adds only the designer-curated, engine-integrated workflow |
 
 Reproducibility citations: Withington, Cook & Tokarchuk, FDG 2024, 10.1145/3649921.3650016; Khalifa et al., "PCG Benchmark," FDG 2025, 10.1145/3723498.3723794.
 
@@ -42,12 +52,18 @@ Reproducibility citations: Withington, Cook & Tokarchuk, FDG 2024, 10.1145/36499
   - Partial regeneration and repair (Tanagra pinning, Sturgeon infill, level repair, inpainting) happens offline at design time.
   - Runtime "impossible spaces" in VR and games like *P.T.* or *Layers of Fear* are scripted or perceptual and have no generation pipeline.
   - Closest conceptually: Dormans & Bakkes 2011; Lopes, Eisemann & Bidarra 2018.
+  - **2026-11-19 verdict: weakened (slightly).** Experience managers (Robertson & Young's GME) revise the world during play, and VR systems hide layout changes (VRoamer, Suma 2011). Reword as: "brings mask-scoped constrained regeneration from design time into play." See Theme E.
 - **(b) Temporally aware lock-and-key progression.**
   - All lock-and-key feasibility work found (Dormans, ASP, randomizers, Sturgeon) guarantees solvability once, from the start state.
   - No work found re-plans keys after a mid-play change or uses trigger-gated key placement.
+  - **2026-11-19 verdict: weakened (moderately).** *Charbitat* (DiGRA 2007) places keys from the current player status, and narrative mediation/late commitment replans from the current state. Drop "first to place keys from player state"; claim re-planning after in-place regeneration plus trigger-gated key commitment. See Theme E.
 - **(c) Persistent validator agent that survives regenerations.**
   - Only Momentum (Kar 2026) validates at runtime, and it is stateless and append-only.
   - No incremental validator found that keeps state (inventory, explored set) across content mutations.
+  - **2026-11-19 verdict: holds.** Frame it as applying incremental replanning (D* Lite, LPA*) to PCG validation, not as a new algorithm. See Theme E.
+- **(e) Pattern extraction and growth (new feature on `main`).**
+  - The algorithm is not novel: Londoño & Missura 2015, Sturgeon-GRAPH 2023, Merrell 2023, Nishida et al. 2016, SubdueGL. See Theme G.
+  - Fix before publishing: the topological signature (degree sequence + edge count) is not canonical, and semantic mode ignores `depth`.
 - **(d) Agents that both generate and test.**
   - Established idea: Doran & Parberry 2010; Kerssemakers et al. 2012; PCGRL; ARLPCG.
   - Frame PGT's unified capability model as an engineering contribution, not a new idea.
@@ -1097,3 +1113,627 @@ Abbreviations: PCG = procedural content generation; MI = mixed-initiative; ERA =
 
 ---
 
+## Theme E — Adversarial novelty check of claims (a)–(c) (2026-11-19)
+
+*Compiled 2026-11-19. Scope: only works **not** already in `Documentation/RelatedWork.md`. Sources: Zotero (first), Semantic Scholar API, Crossref, arXiv, web, and publisher PDFs where reachable. All metadata verified against Crossref/S2. "?" marks fields I could not confirm. "[Zotero]" means the item is already in the library. AAAI OJS and NCSU repository pages blocked automated access, so for GME/PEM I used the published abstracts plus secondary descriptions, and say so where it matters.*
+
+**Bottom line**
+- (a): weakened (slightly)
+- (b): weakened (moderately)
+- (c): holds, but frame it as applying known incremental-replanning ideas, not as a new algorithm
+
+The main body of prior art the survey misses is **experience management / narrative mediation** (Riedl and Young; Robertson and Young; Thue and Bulitko). These systems replan from the player's *current* state while play is running, and they revise world state the player has not observed. PGT should position against this body explicitly.
+
+---
+
+### Claim (a): trigger-based partial regeneration at runtime that preserves the surrounding topology
+
+#### Threatening works (closest first)
+
+[N1] J. Robertson and R. M. Young, "Automated gameplay generation from declarative world representations," in *Proc. AIIDE*, 2015. DOI: 10.1609/aiide.v11i1.12790
+[N2] J. Robertson and R. M. Young, "The General Mediation Engine," in *Proc. AIIDE* (vol. 10, no. 3, workshop/demo track), 2014. DOI: 10.1609/aiide.v10i3.12739
+[N3] J. Robertson and R. M. Young, "Perceptual experience management," *IEEE Trans. Games*, vol. 11, no. 1 (?), pp. 15–24, Mar. 2019. DOI: 10.1109/TG.2018.2817162
+
+- **What they do.** GME is a game engine whose world comes from a PDDL-style planning domain. The abstract of [N1] says it uses "a PCG pipeline to generate and control a range of gameplay experiences from an underlying IN experience management construct." A secondary description says the game world "dynamically reconfigures whenever the experience management framework modifies the underlying world state." [N3] calls GME "an experience manager capable of procedurally generating and revising a game world." It revises parts of the world the player has not observed so that the author's constraints still hold.
+- **How close.** **High at the concept level**: runtime, in-place revision of the game world during play, driven by a manager. This weakens any wording like "first to regenerate a live level during play."
+- **Residual delta.**
+  - GME revises *symbolic world state*: facts, and object or character positions in pre-authored locations.
+  - I could not confirm (full texts blocked) that it rewrites spatial topology or tile geometry.
+  - It has no designer-placed spatial triggers, no node/edge mask, and no raster/tilemap re-realization through a layered PCG pipeline.
+  - Preservation is defined by player *knowledge*, not by graph topology.
+
+[N4] L.-P. Cheng, E. Ofek, C. Holz, and A. D. Wilson, "VRoamer: Generating on-the-fly VR experiences while walking inside large, unknown real-world building environments," in *Proc. IEEE VR*, 2019, pp. ? DOI: 10.1109/VR.2019.8798074
+
+- **What it does.** Procedurally generates a dungeon on the fly while the user walks. It instantiates pre-authored rooms or corridors and doors as the physical space is discovered, and uses doors to "prevent users from seeing changes beyond the current virtual scene."
+- **How close.** Medium. Runtime topology generation hidden from the player.
+- **Residual delta.** Append-only, like Momentum. It does not regenerate already-realized interior nodes, and it has no progression logic.
+
+[N5] E. A. Suma, S. Clark, D. Krum, S. Finkelstein, M. Bolas, and Z. Wartell, "Leveraging change blindness for redirection in virtual environments," in *Proc. IEEE VR*, 2011. DOI: 10.1109/VR.2011.5759455
+[N6] B. G. Koltai, J. E. Husted, R. Vangsted, T. N. Mikkelsen, and M. Kraus, "Procedurally generated self overlapping mazes in virtual reality," in *Proc. ArtsIT/DLI* (LNICST), 2020. DOI: 10.1007/978-3-030-53294-9_16
+[N7] K. Vasylevska and H. Kaufmann, "Compressing VR: Fitting large virtual environments within limited physical space," *IEEE Comput. Graph. Appl.*, 2017. DOI: 10.1109/MCG.2017.3621226
+[N8] S. Marwecki and P. Baudisch, "Scenograph: Fitting real-walking VR experiences into various tracking volumes," in *Proc. UIST*, 2018. DOI: 10.1145/3242587.3242648
+
+- **What they do.** Swap doors or room layouts while the user is not looking ([N5], [N7]). Procedurally generate overlapping maze layouts ([N6]; whether this happens at runtime is "?"). Split narrative locations to fit a tracking volume while keeping the narrative structure ([N8]).
+- **How close.** Low to medium. They extend the "impossible/flexible spaces" entries already in the survey.
+- **Residual delta.** Perceptual or physical-space motivation. No generative graph pipeline, no lock/key semantics.
+
+[N9] D. Thue and V. Bulitko, "Procedural game adaptation: Framing experience management as changing an MDP," in *Proc. AIIDE Workshops (INT)*, 2012. DOI: 10.1609/aiide.v8i2.12535
+
+- **What it does.** A formal framework for changing a game's transition function *during play*. It represents Left 4 Dead's AI Director, including path changes, as an instance.
+- **How close.** Low to medium. It is the formal umbrella under which PGT's runtime regeneration is a "game-dynamics change."
+
+**Ludography (cite as games):**
+- *Left 4 Dead 2* (Valve, 2009). The AI Director opens or closes pre-authored alternate routes. Sources: GamesRadar developer interview, https://www.gamesradar.com/left-4-dead-2-dev-interview/2 ; Valve Developer Community. The routes are selected, not generated. Whether they change mid-chapter is "?"
+- *Tea For God* (void room, in development). A VR roguelite that generates impossible-space cells on the fly and discards distant ones (https://void-room.itch.io/tea-for-god/devlog/235914/open-world-with-impossible-spaces). This is streaming/append-and-evict, not trigger-scoped regeneration.
+
+**Low threat (design-time):** A. Bauer and Z. Popović, "RRT-based game level analysis, visualization, and visual refinement," *Proc. AIIDE*, 2012, DOI: 10.1609/aiide.v8i1.12512. Interactive reachability-driven refinement, offline.
+
+#### Verdict (a): **Weakened (slightly)**
+Runtime revision of a game world under a manager (GME/PEM) and runtime hidden topology change (VR) both exist. Nothing found performs **designer-placed spatial triggers → masked subgraph regeneration → re-rasterization through the same PCG pipeline, with the rest of the graph fixed**.
+
+**Suggested rewording:**
+> "PGT brings constrained, mask-scoped regeneration (previously a design-time operation) into play: in-world triggers regenerate selected nodes/edges of the level graph and re-rasterize only the affected region, preserving the remaining topology. Unlike experience managers that revise symbolic world state [N1]–[N3], or VR systems that hide layout swaps [N4]–[N7], PGT operates on the spatial level graph within a full generation pipeline."
+
+---
+
+### Claim (b): temporally aware lock-and-key progression (re-planned from current position and inventory; trigger-gated keys)
+
+#### Threatening works
+
+[N10] C. Ashmore and M. Nitsche, "The quest in a generated world," in *Proc. DiGRA Conf.: Situated Play*, Tokyo, 2007. URL: https://dl.digra.org/index.php/dl/article/view/312
+
+- **What it does (verified from the PDF).** In *Charbitat*, "world and quest generation … happen during the expansion of the game world." When the player reaches a world edge, the backend creates "a new tile based on the current player status and the surrounding world." It "has to be aware of what keys and locks exist in the world and how they are arranged," and places barriers (rivers, walls) and spawns keys in other tiles.
+- **How close.** **High for the "keys/locks placed at runtime from the current player state" sub-claim.** This predates PGT by about 19 years and is missing from the survey.
+- **Residual delta.**
+  - Append-only (tiles persist; nothing is regenerated).
+  - Keys are scored heuristically (about 13 evaluator rules), with no solvability guarantee.
+  - No re-planning after mutation of existing space, and no trigger-gated withholding.
+
+[N3] Robertson & Young, "Perceptual experience management" (see above).
+[N11] J. Robertson and R. M. Young, "Finding Schrödinger's gun," in *Proc. AIIDE*, 2014. DOI: 10.1609/aiide.v10i1.12724
+[N12] M. Riedl, C. J. Saretto, and R. M. Young, "Managing interaction between users and agents in a multi-agent storytelling environment," in *Proc. AAMAS*, 2003. DOI: 10.1145/860575.860694
+[N13] M. O. Riedl and V. Bulitko, "Interactive narrative: An intelligent systems approach," *AI Mag.*, vol. 34, no. 1, 2013. DOI: 10.1609/aimag.v34i1.2449
+
+- **What they do.** Narrative mediation: when the player deviates, the system either *accommodates* (replans from the current world state so goals stay achievable) or *intervenes*.
+  - [N11] and [N3] use a model of player knowledge to change facts the player has not observed ("Schrödinger's gun": where an item is, or whether it exists, is decided late).
+- **How close.** **Medium to high, conceptually.** Replanning the remaining solution from the player's current state after a disruption is the core of mediation. Deciding a key's location only once a trigger fires is the same deferred-commitment idea.
+- **Residual delta.**
+  - Their domain is story plans with STRIPS/PDDL actions, not a spatial lock-and-key graph with doors and keys realized in a tilemap.
+  - The change is driven by player deviation, not by designer triggers.
+  - No in-place topology regeneration.
+
+[N14] V. Genoese-Zerbi, J. Robertson, and R. E. Cardona-Rivera, "Categorizing experience management problem difficulty using graph analysis," in *Proc. IEEE CoG*, 2026. DOI: 10.1109/CoG67430.2026.11778899
+
+- **What it does.** Formalizes avoiding "online dead-ends where experiential outcomes cannot be achieved" using state-space and causal-graph properties (safety and liveness).
+- **How close.** Medium. It is the 2026 formal statement of "keep the game solvable from the current state online." Cite it as the formal counterpart of PGT's temporal guarantees.
+
+[N15] I. Swartjes, E. Kruizinga, M. Theune, and D. Heylen, "Emergent narrative and late commitment" (title per Crossref; may differ), in *Proc. IVA* (LNCS), 2008 (?). DOI: 10.1007/978-3-540-85483-8_80
+[N16] B. Sunshine-Hill and N. Badler, "Perceptually realistic behavior through alibi generation," in *Proc. AIIDE*, 2010. DOI: 10.1609/aiide.v6i1.12389
+
+- **What they do.** Late commitment: world facts (e.g., an object's location) or unobserved agent state are filled in at runtime, consistent with what the player has seen.
+- **How close.** Low to medium. These are the conceptual ancestors of the "withheld key" mechanic.
+
+[N17] L. Gomes, J. Ribeiro-Gomes, and J.-P. Barros, "Using Petri nets for analysis of navigation paths in constrained graphs – application to roguelike games," in *Proc. PNSE'24*, CEUR-WS vol. 3730, 2024. URL: https://ceur-ws.org/Vol-3730/paper17.pdf
+
+- **What it does.** Resource-gated (key/lock) roguelike room graphs are converted to Petri nets. Reachability-graph analysis then classifies the map as viable, non-viable, or inviable regardless of player choices.
+- **How close.** Low. Static and from the start state, but it is a formal backbone alongside Johnson et al. Re-running it from the current marking would be one way to formalize PGT's re-planning.
+
+#### Verdict (b): **Weakened (moderately)**
+Two ideas are prior art:
+- Runtime key/lock placement from the current player status [N10].
+- Replanning from the current state, with late commitment of unobserved facts so goals stay reachable [N3], [N11]–[N16].
+
+What remains unfound is lock-and-key progression **re-planned after an in-place topology regeneration** that:
+- respects opened doors and collected keys (temporal_state), and
+- uses **trigger-gated withholding**, where the key is guaranteed to spawn inside the regenerated subgraph.
+
+**Suggested rewording:**
+- Drop any phrasing like "first to place keys according to the player's current state."
+- Use instead: "PGT re-plans lock-and-key progression *after mid-play topology regeneration*, from the player's current position and inventory, and supports trigger-gated locks whose keys are committed only inside the regenerated region. This applies the late-commitment/accommodation principle of experience management [N3], [N11], [N12] to spatial lock-and-key graphs, extending runtime key placement in append-only worlds [N10] to mutating ones."
+
+---
+
+### Claim (c): persistent validator agent that survives regenerations (incremental solvability validation)
+
+#### Threatening works
+
+[N18] M. Likhachev and S. Koenig, "Incremental heuristic search in games: The quest for speed," in *Proc. AIIDE*, 2006. DOI: 10.1609/aiide.v2i1.18758
+[N19] S. Koenig and M. Likhachev, "Fast replanning for navigation in unknown terrain," *IEEE Trans. Robot.*, vol. 21 (?), no. 3 (?), 2005. DOI: 10.1109/TRO.2004.838026 (D* Lite)
+[N20] S. Koenig, M. Likhachev, and D. Furcy, "Lifelong planning A*," *Artif. Intell.*, vol. 155, 2004. DOI: 10.1016/j.artint.2003.12.001
+[N21] V. King, "Fully dynamic algorithms for maintaining all-pairs shortest paths and transitive closure in digraphs," in *Proc. FOCS*, 1999. DOI: 10.1109/SFFCS.1999.814580
+
+- **What they do.** An agent keeps its search state and repairs it when graph edges or costs change ([N18]–[N20]; [N18] explicitly targets games). Dynamic transitive closure maintains reachability under edge updates ([N21]).
+- **How close.** **Medium at the algorithm level.** Keeping agent state and re-exploring only from the changed region is textbook incremental replanning.
+- **Residual delta.** None of them is a *playability/solvability validator for PCG*. They have no inventory-gated state (keys), and the graph changes come from the environment, not from a generator.
+
+[N22] C. Lewis and J. Whitehead, "Repairing games at runtime or, how we learned to stop worrying and love emergence," *IEEE Softw.*, vol. 28, no. 5, pp. 53–59, 2011. DOI: 10.1109/MS.2011.87 [Zotero]
+
+- **What it does.** Mayet: runtime monitoring of game state, with automatic repair when undesirable states arise.
+- **How close.** Low to medium. A runtime validity monitor and repairer, but rule-based, with no simulated player and no PCG.
+
+[N23] S. Shirzadehhajimahmood, I. S. W. B. Prasetya, F. Dignum, M. Dastani, and G. Keller, "Using an agent-based approach for robust automated testing of computer games," in *Proc. A-TEST @ ESEC/FSE*, 2021. DOI: 10.1145/3472672.3473952
+[N24] I. S. W. B. Prasetya *et al.*, "Navigation and exploration in 3D-game automated play testing," in *Proc. A-TEST*, 2020. DOI: 10.1145/3412452.3423570 (content beyond the title not verified here)
+
+- **What they do.** BDI test agents (iv4XR) that keep beliefs and stay robust when "layout and game logic … change during development."
+- **How close.** Low to medium. These are persistent-belief agents facing changed levels, but the changes happen between builds, not during a run, and the goal is regression testing, not PCG solvability.
+
+[N25] S. Ariyurek, E. Surer, and A. Betin-Can, "Playtesting: What is beyond personas," *IEEE Trans. Games*, 2023. DOI: 10.1109/TG.2022.3165882 [Zotero]
+
+- **What it does.** Developing personas that remember the paths they tested across sessions.
+- **How close.** Low. The memory spans test sessions, not a mutating level.
+
+**Searched with no hit:** 2024–2026 arXiv LLM "game master" / dynamic world papers. RPGBench (arXiv:2502.00595) BFS-checks reachability of LLM-generated games once, offline. Dungeon Crawl Infinite (arXiv:2508.15866) generates mechanics code at runtime with correctness guarantees but no spatial solvability. Neither validates across mutations.
+
+#### Verdict (c): **Holds**, with a framing caveat
+No work found uses a simulated player that persists across content regenerations as an *incremental solvability validator* for a mutating PCG level, keeping inventory and explored set and re-exploring from the trigger location. Momentum (Kar 2026, already listed) remains the nearest PCG prior art.
+
+**Suggested rewording:**
+- Do not claim algorithmic novelty.
+- Use instead: "PGT applies incremental replanning [N18]–[N20] to PCG validation: a persistent validator agent carries inventory and explored state across regenerations and re-validates solvability from the trigger location, rather than re-validating the whole level from the start state."
+- Cite D* Lite/LPA* and, optionally, dynamic reachability [N21].
+
+---
+
+### Re-assessment of entries already in the survey
+- **Lopes, Eisemann & Bidarra 2018** and **Dormans & Bakkes 2011** remain the closest PCG works for (a). However, GME [N1]–[N3] is closer than both on "runtime revision in place" and should be added to the "closest prior art" table.
+- **Momentum (Kar 2026)** is still the nearest work for (c). Its assessment is unchanged.
+- In the ludography, add *Charbitat* (research game, [N10]), *Left 4 Dead 2*, and *Tea For God*.
+
+### Low-relevance items found (for completeness, not threats)
+- E. Halina and M. Guzdial, "Representing and generating levels over time through playtrace reconstructive partitioning," arXiv:2607.12097, 2026. A temporal "cake" level representation; offline (Sokoban).
+- K. Hartsook, A. Zook, S. Das, and M. O. Riedl, "Toward supporting stories with procedurally generated game worlds," *Proc. IEEE CIG*, 2011, DOI: 10.1109/CIG.2011.6032020. Story-driven world generation, offline.
+- S. Das, A. Zook, and M. O. Riedl, "Examining game world topology personalization," *Proc. CHI*, 2015, DOI: 10.1145/2702123.2702473. Abstract not retrieved, so whether it runs at runtime is "?"; check it before citing.
+- J. Robertson, R. E. Cardona-Rivera, and R. M. Young, "Invisible dynamic mechanic adjustment in virtual reality games," *Proc. IEEE AIVR*, 2020, DOI: 10.1109/AIVR50618.2020.00057. Runtime mechanic changes gated by player knowledge. Relevant if PGT argues that its regenerations are imperceptible.
+
+### Open verification items
+- Full texts of [N1]–[N3]: confirm whether GME regenerates spatial layout (rooms and connectivity) or only object and fact state. This decides whether (a) stays "slightly" weakened.
+- Issue number for [N3]; volume and issue for [N19]; exact title and year for [N15].
+- L4D2: whether the Director changes routes mid-chapter or only at load.
+
+---
+
+## Theme F — Gap scan: 2026 work, workbenches, graph realization (2026-11-19)
+
+Checked against `Documentation/RelatedWork.md` (compiled 2026-10-22) by grepping titles, authors, DOIs and arXiv IDs. Everything below is **missing from the survey**. None of these items is in the Zotero library either (spot-checked).
+
+Sources:
+- arXiv, 2026-06 to 2026-11.
+- Crossref sweeps of FDG 2026 (10.1145/3815598.*), AIIDE 2026 (10.1609/aiide.v22i1.*, all DOIs from 43550 to 43620 enumerated), IEEE CoG 2026 (10.1109/cog67430.2026.*), IEEE ToG, Entertainment Computing and SBGames 2026.
+- Semantic Scholar, plus GitHub (topic and keyword searches).
+
+Metadata was verified on Crossref or arXiv. Anything I could not confirm is marked "?".
+
+**Flag key:** ⚑ = comparable to or closer than an entry in the "closest prior art" table (RelatedWork.md lines 18–35). See the summary at the end.
+
+Already in the survey, so not repeated here: Eger I3D 2026 (growing-graph WFC), Endrovski et al. FDG 2026, High-Dimensional PCG FDG 2026, PCG.ME CoG 2026, Two-Scale BSP ToG 2026, Nonuniform-tile WFC ToG 2026, PCGRLLM ToG 2026, Bao et al. PLoS ONE 2026, Earle et al. AIIDE 2025 (MARL level design), Lim et al. arXiv 2512.10501, Kar arXiv 2605.01783, LBS AIIDE 2023, PCG Benchmark, Gaea, Edgar.Godot, godot-constraint-solving, and the threejs-procedural-dungeon repo.
+
+---
+
+### 1. New work, 2026-06 to 2026-11 (venues and arXiv)
+
+[1] K. Xu and C. Verbrugge, "Boss fights as spatio-temporal level generation," in *Proc. IEEE CoG*, 2026, pp. 1–4. doi: 10.1109/CoG67430.2026.11778879.
+- **What it does:** Boss encounters are synthesized over a time-expanded (x, y, t) player-state space and validated under avatar physics.
+- **How PGT differs:** PGT works on spatial graph and tile structure, not on time-expanded hazard schedules.
+
+[2] J. Brazell and J. Robertson, "Pacing-aware procedural generation and runtime control," in *Proc. IEEE CoG*, 2026, pp. 1–4. doi: 10.1109/CoG67430.2026.11778894.
+- **What it does:** One target pacing curve drives both terrain generation and a runtime director.
+- **How PGT differs:** PGT regenerates the topology of selected graph regions. This work tunes pacing parameters and leaves the level structure alone.
+- **Note:** Cite it under novelty claim (a), runtime regeneration.
+
+[3] V. Genoese-Zerbi, J. Robertson, and R. E. Cardona-Rivera, "Categorizing experience management problem difficulty using graph analysis," in *Proc. IEEE CoG*, 2026, pp. 1–8. doi: 10.1109/CoG67430.2026.11778899.
+- **What it does:** Links how hard it is to avoid dead-ends to measurable properties of the state-space graph.
+- **How PGT differs:** PGT applies graph metrics to level topology, not to a narrative planning state space. The method could be reused for lock-and-key dead-end analysis.
+
+[4] D. Rajesh, A. Khalifa, and J. Togelius, "Evolutionary wave function collapse," in *Proc. IEEE CoG*, 2026, pp. 1–4. doi: 10.1109/CoG67430.2026.11778645. (arXiv:2607.02082)
+- **What it does:** Evolves WFC input examples and tests them on mazes and Zelda dungeons. Global constraints remain hard.
+- **How PGT differs:** PGT uses WFC as a texturing pass constrained by graph structure, which supplies the global structure.
+
+[5] T. Truesdell, E. Rankin, and B. Horn, "From tiles to jumps: Optimizing wave function collapse window size for playable platformer generation," in *Proc. IEEE CoG*, 2026. doi: 10.1109/CoG67430.2026.11778724.
+- **What it does:** A parameter study of WFC window size against agent completion and player ratings.
+- **How PGT differs:** The study is a single-algorithm sweep. PGT's batch experiments generalize this kind of study to whole modifier stacks.
+
+[6] M. Siper, A. Khalifa, and J. Togelius, "Procedural content metageneration via program search and continual abstraction discovery," in *Proc. IEEE CoG*, 2026, pp. 1–7. doi: 10.1109/CoG67430.2026.11778816. (arXiv:2608.17947)
+- **What it does:** LLM-driven evolution of whole generator programs. The learned libraries keep rediscovering reachability and validation utilities.
+- **How PGT differs:** PGT offers hand-composed, deterministic modifier stacks rather than searched programs. The rediscovered primitives line up with PGT's built-in passes, which supports its design.
+
+[7] Y. Zhang, K. Xu, R. Zhao, and C. Verbrugge, "Path2Patrol: Path-conditioned guard generation in stealth games through MAP-Elites," in *Proc. IEEE CoG*, 2026, pp. 1–8. doi: 10.1109/CoG67430.2026.11778548.
+- **What it does:** QD generation of guard routes conditioned on player paths.
+- **How PGT differs:** It covers agent placement only. PGT simulates agents on the graph or tilemap it generates.
+
+[8] J. Martins, F. Cardoso, C. Hartz, K. Skorupska, and J. Kowalski, "Real-time procedural generation of coherent infinite multi-biome 2D landscapes," in *Proc. IEEE CoG*, 2026, pp. 1–4. doi: 10.1109/CoG67430.2026.11778897.
+- **What it does:** Deterministic chunked biome blending with local physical simulation.
+- **How PGT differs:** PGT assigns biomes by flood fill over the graph and rasterizes them, rather than streaming terrain.
+
+[9] A. Vetter, E. Kühne, M. Geißler, K. Pfeiffer, and S. von Mammen, "Puzzle Anything: An assembly-graph representation for 3D puzzle authoring," in *Proc. IEEE CoG*, 2026, pp. 1–4. doi: 10.1109/CoG67430.2026.11778846.
+- **What it does:** A graph representation for authoring 3D assembly puzzles.
+- **How PGT differs:** That graph encodes part assembly. PGT's graphs encode spatial topology and progression.
+
+[10] J. Pfau, I. Baverstock, M. de Ronde, M. Mol, and J. Vis, "Generative remastering: LLM versus diffusion-based level generation, target style realization, and autonomous augmentation," in *Proc. IEEE CoG*, 2026, pp. 1–8. doi: 10.1109/CoG67430.2026.11778726.
+- **What it does:** A comparison of learned level generators.
+- **How PGT differs:** PGT is non-learned and fully deterministic.
+
+[11] M.-S. Park, D.-W. Kim, S. Kang, and S.-H. Jang, "Beyond playability: A design-space perspective on persistent spatial intent in co-creative PCGRL," in *Proc. IEEE CoG*, 2026. doi: 10.1109/CoG67430.2026.11778598.
+- **What it does:** Keeps designer-painted regions intact during co-creative PCGRL.
+- **How PGT differs:** It is related to PGT's DAG locks and pinned regions, but the mechanism is RL and grid-only.
+
+[12] K. Xu, F. Meng, and C. Verbrugge, "Scene-modular LLM-driven procedural level generation for anomaly-detection games," in *Proc. IEEE CoG*, 2026. doi: 10.1109/CoG67430.2026.11778806.
+- **What it does:** LLM-generated scene edits with a repair loop.
+- **How PGT differs:** It does not generate topology or graphs.
+
+[13] K. Kidokoro, Y. Miyake, D. Satoi, S. Asei, S. Sakata, and Y. Mizuno, "Reducing reward interference in PCGRL through multilayer level generation," in *Proc. AIIDE*, vol. 22, 2026, pp. 118–127. doi: 10.1609/aiide.v22i1.43570.
+- **What it does:** Splits generation into layers so that reward terms stop interfering with each other.
+- **How PGT differs:** It is a conceptual cousin of PGT's layered raster passes, but done with RL.
+
+[14] S. Randall, M. Bazzaz, and S. Cooper, "Constraining the expressive range of shortest paths," in *Proc. AIIDE*, vol. 22, 2026. doi: 10.1609/aiide.v22i1.43592.
+- **What it does:** Path-state reachability graphs that constrain all shortest paths to hit target ERA metrics. It belongs to the Cooper/Sturgeon line.
+- **How PGT differs:** PGT measures path metrics after generation in its dashboard and sweeps. It does not solve for them as constraints.
+
+[15] R. Mawhorter and M. Guzdial, "Syntactic segmentation and collage generation for videogame levels with perceptual distance," in *Proc. AIIDE*, vol. 22, 2026, pp. 149–159. doi: 10.1609/aiide.v22i1.43573. (arXiv:2610.38987)
+- **What it does:** Uses a Space-Syntax-based "perceptual distance" to recover a room graph from existing levels, and runs a proof-of-concept collage generator over it.
+- **How PGT differs:** It goes from tiles to a graph, the inverse of PGT's rasterizer. It could serve as an evaluation metric for PGT output.
+
+[16] R. Agarwal *et al.* (M. Eger, senior author), "On the reproducibility of technical game AI research," in *Proc. AIIDE*, vol. 22, 2026, pp. 192–200. doi: 10.1609/aiide.v22i1.43577.
+- **What it does:** Reports eight reproduction attempts and the structural barriers they hit.
+- **How PGT differs:** It is not a tool. It supports PGT's reproducibility features: seeds, deterministic pipelines and CSV sweeps.
+
+[17] R. Hardcastle and M. Guzdial, "Dungeons & Dragons encounter analysis with semi-random simulation in Foundry VTT," in *Proc. AIIDE*, vol. 22, 2026. doi: 10.1609/aiide.v22i1.43584. (arXiv:2610.38975)
+- **What it does:** Analyzes encounters by simulating them with agents.
+- **How PGT differs:** It covers combat only, with no spatial generation.
+
+[18] F. Shyne, K. Facey, and S. Cooper, "Puzzle Garden 2.0: Exploring variable constraint genetic algorithms in a mixed initiative puzzle authoring tool," in *Proc. AIIDE*, vol. 22, 2026, pp. 373–383. doi: 10.1609/aiide.v22i1.43595.
+- **What it does:** A mixed-initiative quality-diversity authoring framework for logic-grid puzzles.
+- **How PGT differs:** It is a different domain and offers no spatial or graph pipeline.
+
+[19] E. Halina and M. Guzdial, "Representing and generating levels over time through playtrace reconstructive partitioning," arXiv:2607.12097, Jul. 2026.
+- **What it does:** A "cake" representation of a level over time, generated from playtraces (Sokoban).
+- **How PGT differs:** PGT has a raster step-through timeline, but it does not use time as a generative representation.
+
+[20] D. Wu, "PCGRL for complex platformers: Synthesizing playable and diverse levels via inflated envelopes and forward curricula," arXiv:2611.22250, Nov. 2026.
+- **What it does:** Scales PCGRL to long platformer levels.
+- **How PGT differs:** It is a learned, single-genre generator.
+
+[21] A. Khalifa, M. U. Nasir, M. Siper, S. James, and J. Togelius, "Programmable cellular automata," arXiv:2609.06102, Sep. 2026.
+- **What it does:** CA rules written as Python local and global functions, evaluated on PCG Benchmark games.
+- **How PGT differs:** PGT's CA smoothing and erosion use fixed rules. This work is a reference for making CA passes programmable or inspectable.
+
+[22] A. Najafgholizadeh and M. Afsharchi, "Infinite worlds from one example: What local generators must share," arXiv:2611.01048, Oct. 2026.
+- **What it does:** Theory of when local, random-access WFC-style generators can be both valid and faithful to the example.
+- **How PGT differs:** It is relevant to PGT's chunked or partial regeneration, but PGT gets its global structure from the graph.
+
+[23] Z. Majercik *et al.*, "Providing rapid design feedback for 3D obstacle course games using constrained solvability queries," arXiv:2609.36225, Sep. 2026.
+- **What it does:** An interactive design tool built around a GPU simulator, Go-Explore and an RL agent. It answers "can this be solved, and how?" queries, and its code is released.
+- **How PGT differs:** It validates hand-authored obstacles in 3D. PGT generates the topology and validates it with walkers and the lock-and-key solver.
+
+[24] A. Baars, F. Akker, A. Chatzimparmpas, and J. Pfau, "Ctrl + Create: Empowering creative control in AI-driven rapid level design," in *Proc. FDG*, 2026. doi: 10.1145/3815598.3815646.
+- **What it does:** Diffusion-based level visualization with designer control.
+- **How PGT differs:** It produces visuals only, with no structural generation.
+
+[25] V. Gnatyuk, V. Koriukina, I. Levoshevich, P. Nurminskiy, and G. Wallner, "With the stroke of a brush: A generative-AI smart brush for instant game map editing," in *Proc. FDG*, 2026, pp. 1–12. doi: 10.1145/3815598.3815603.
+- **What it does:** Learned brush-based map editing.
+- **How PGT differs:** PGT's editing happens at graph level, with undo and deterministic passes.
+
+[26] W. Wittrock and M. A. Gómez-Maureira, "Next level generation: Adaptive 3D procedural terrain driven by player skill," in *Proc. FDG*, 2026. doi: 10.1145/3815598.3815670.
+- **What it does:** Experience-driven terrain parameters, with a user study (n = 30).
+- **How PGT differs:** It adapts parameters, not topology.
+
+[27] J. Varsaluoma, "Mapperoni: A tool for teaching the basics of level design," in *Proc. FDG*, 2026, Art. 95. doi: 10.1145/3815598.3815703.
+- **What it does:** Turns a 2D layout image into a quick 3D walk-through.
+- **How PGT differs:** It is a teaching tool with no generation.
+
+[28] S. Davern and M. Haahr, "SPHINX 2: Procedural generation of narrative puzzles for open world games," *Entertain. Comput.*, vol. 58, Art. 101162, 2026. doi: 10.1016/j.entcom.2026.101162.
+- **What it does:** Puzzle-dependency generation for open worlds.
+- **How PGT differs:** It sits next to the survey's §A8, puzzle graphs linked to space. PGT's solver only tracks lock and key state.
+
+[29] I. F. Vieira, K. S. C. Linares, E. W. G. Clua, and É. O. Rodrigues, "A novel procedural generation for level design of mansions and dungeons," arXiv:2606.03857, Jun. 2026. (A gamedev.net write-up says the paper is from SBGames 2025; not verified, "?".)
+- **What it does:** BSP partition, then room links via graph traversal, then post-processing. BFS connectivity is checked on 100k seeded maps.
+- **How PGT differs:** It is a single fixed pipeline. PGT makes these stages stackable and adds graph metrics.
+
+[30] H. Tremblay, Y. Francillette, and B. Bouchard, "Analysis of difficulty gradients of player path variants: An evaluation tool to support level design," in *Proc. IEEE GEM*, 2026. doi: 10.1109/GEM72276.2026.11746952.
+- **What it does:** Spatial difficulty and accessibility fields along path variants in platformer levels.
+- **How PGT differs:** It is analysis only. It could be compared with PGT's flow and betweenness views.
+
+[31] Z. Jiang, S. Earle, A. Khalifa, and J. Togelius, "Agentic PCG: Procedural content generation via tool-using LLMs," Zenodo preprint, Mar. 31 2026. doi: 10.5281/zenodo.19355469.
+- **What it does:** An LLM agent iteratively calls PCG tools, evaluates the result with metrics and edits levels (Maze, Lode Runner, Zelda, Sokoban).
+- **How PGT differs:** It is a natural future integration point: an LLM could drive PGT's modifier stack. PGT itself has no LLM.
+- **Note:** This item is from before 2026-06, but it is missing from the survey.
+
+---
+
+### 2. Integrated PCG workbenches, frameworks, research platforms, tools
+
+[32] N. Romero, F. Besoaín, C. Aliaga, N. Acevedo, A. Díaz, *et al.*, "The Level Building Sidekick mixed-initiative tool for game research in Unity: A tutorial," in *Proc. FDG*, 2026. doi: 10.1145/3815598.3815711.
+- **What it does:** Repositions LBS as a reusable research platform with four modules: physical space (WFC, hill climbing), population (MAP-Elites), quests (grammars) and semi-automatic testing (A*).
+- **How PGT differs:** LBS is grid- and Unity-based. It has no explicit graph pipeline, graph-metrics dashboard or parameter-sweep CSV.
+- **Note:** The survey only cites the 2023 LBS paper. Cite this 2026 framing as well, because it is the closest research-platform framing to PGT's. ⚑
+
+[33] S. Ferrada, S. Bravo, H. Schaa, and N. A. Barriga, "Evaluating the Level Building Sidekick mixed-initiative procedural content generation Unity package: Two case studies," in *Proc. 44th Int. Conf. Chilean Comput. Sci. Soc. (SCCC)*, 2025. doi: 10.1109/SCCC67219.2025.11420485.
+- **What it does:** Case-study evaluation of LBS.
+- **How PGT differs:** This is evaluation evidence for the comparator, not a new tool.
+
+[34] R. M. de Oliveira and E. S. de Matos, "Omnigenesys: A universal framework for procedural map generation in digital games," in *Anais Estendidos do SBGames*, 2026. doi: 10.5753/sbgames_estendido.2026.25726.
+- **What it does:** An engine-agnostic, modular map-generation core written in Go. It is seeded and deterministic, exports JSON and ships adapters for Unity and Unreal.
+- **How PGT differs:** It does not mention a graph editor, metrics, agents or experiments, and its evaluation is listed as future work.
+- **Note:** It is close to PGT's export and determinism story. ⚑ (weak)
+
+[35] T. Y. Teoi, L. T. Pereira, and C. F. M. Toledo, "Towards requirements for mixed-initiative content orchestration tools for game development," in *Proc. SBGames*, 2026. doi: 10.5753/sbgames.2026.26432.
+- **What it does:** Elicits requirements for tools that orchestrate several generators together.
+- **How PGT differs:** It is useful for positioning PGT as an orchestration workbench.
+
+[36] T. Y. Teoi, L. T. Pereira, and C. F. M. Toledo, "Adapting a content orchestrator across game genres: From top-down adventure to 2D platformer," *Entertain. Comput.*, vol. 58, Art. 101148, 2026. doi: 10.1016/j.entcom.2026.101148.
+- **What it does:** Ports a content orchestrator across genres (abstract not retrieved, "?").
+- **How PGT differs:** Orchestration across content types, compared with PGT's single graph-to-tilemap pipeline.
+
+[37] M. Mazzotti Silvestrini, P. H. Salmaze, and L. Tortoro Pereira, "Mesa De Bar: An open, configurable platform for human–AI co-creation, with a multi-agent simulation study of creative homogenization," in *Proc. AIIDE*, vol. 22, 2026, pp. 300–310. doi: 10.1609/aiide.v22i1.43588.
+- **What it does:** An open, file-configured platform that can run with human players or simulated agents, with parameter sweeps.
+- **How PGT differs:** It concerns ideation, not levels. It is an analogous "platform + agent simulation + sweeps" research design.
+
+[38] H. Noteboom, K. Nair, and S. Cooper, "Procedural level generation via program inversion," in *CEUR Workshop Proc.*, vol. 4090, 2025, short4. URL: https://ceur-ws.org/Vol-4090/short4.pdf
+- **What it does:** Inverts a game's rewrite-rule program to generate solvable start levels.
+- **How PGT differs:** It is a pre-2026 gap. It relates to PGT's grammar modifier and solver.
+
+**Tools and repositories** (GitHub metadata checked 2026-11-19):
+
+[39] Dragonboon, *Atrium* (Godot 4 addon), MIT, 89★, pushed 2026-10-30. https://github.com/Dragonboon/Atrium
+- **What it does:** An editor-first Godot tool for rooms and dungeons. It has seeded critical-path and tree layouts with optional loops, multi-floor buildings, routed corridors, persistent locks on edits, socket validation and native scene export.
+- **How PGT differs:** Atrium is 3D blockout with no explicit graph model, graph metrics, agents, lock-and-key solver or sweeps.
+- **Note:** It is the closest Godot competitor after Edgar.Godot. ⚑
+
+[40] yabadabu, *godot_flow* ("Flow Graph", a PCG node editor for Godot 4.7, inspired by Unreal's PCG framework), Apache-2.0, 32★, pushed 2026-10-21. https://github.com/yabadabu/godot_flow
+- **What it does:** Point-set dataflow with 75+ nodes, grammar-along-spline, clustering, Watabou dungeon importers and a data inspector.
+- **How PGT differs:** Like Gaea, it is a dataflow graph of operations rather than level topology.
+
+[41] B. Py (BenPyton), *ProceduralDungeon* (Unreal Engine 4/5 plugin), 845★, pushed 2026-11-16, plus *DungeonRules*, a state-machine graph extension. https://github.com/BenPyton/ProceduralDungeon
+- **What it does:** Room-prefab dungeon generation, with the companion plugin adding rule graphs.
+- **How PGT differs:** It is a game-production plugin with no research or analysis layer.
+
+[42] shun126, *DungeonGenerator* (Unreal Engine 5), GPL-3.0, 156★, pushed 2026-09-05. https://github.com/shun126/DungeonGenerator
+- **What it does:** 3D dungeons, minimaps and "missions".
+- **How PGT differs:** It is a production plugin.
+
+[43] KoBeWi, *Metroidvania-System (MetSys)* (Godot), MIT, ~1.6k★, pushed 2026-10-23. https://github.com/KoBeWi/Metroidvania-System
+- **What it does:** A Godot framework for metroidvania maps and room linking. A third-party generator exists (arunsrajan/godot-metroidvania-map-generator, 2026).
+- **How PGT differs:** It is an authoring framework without procedural graph pipelines.
+
+[44] OrganicaWild, *OrganicaWild* (Unity PCG framework with graph grammars), MIT, 75★, last pushed 2022. https://github.com/OrganicaWild/OrganicaWild
+- **What it does:** A framework for organic worlds driven by graph grammars.
+- **How PGT differs:** It is inactive and has no analysis or agents.
+
+[45] Small 2026 repositories, worth a footnote only:
+- *Kabyik-Kayal/dungeon-repair*: playability verification and intent-preserving repair of lock-and-key dungeons with solver plus agent (MIT, 2026-08).
+- *mykaadev/NsDungeons*: cyclic lock-and-key grid generation for Unreal (MIT, 2026-10).
+- *StevenClontz/key-lock-graphs*: formal "dungeon graph" solvability, with a web editor (MIT, 2025).
+
+---
+
+### 3. Graph → tilemap / graph realization / mission → space
+
+[46] K. Xu and C. Verbrugge, "From experience to 3D platformer levels via topological graphs," in *Proc. AIIDE*, vol. 22, 2026, pp. 434–443. doi: 10.1609/aiide.v22i1.43601.
+- **What it does:** The Experience Topological Graph (ETG) encodes progression order, branching and gating. A pipeline realizes the ETG as a level through incremental construction and a **local topological validator** that blocks unintended shortcuts. It is benchmarked against constructive, lane-based, evolutionary and CP baselines.
+- **How PGT differs:** The ETG work is a single realization algorithm for 3D platformers. PGT is a 2D workbench with an editor, modifier stack, metrics, agents and sweeps.
+- **Note:** This is the strongest 2026 mission→space paper and belongs next to closest-prior-art rows 1 and 4. ⚑
+
+[47] A. Z. Fahreza, C. A. Putra, and Y. V. Via, "Procedural level generation for 2D platformer games based on graph and chunk," *J. Comput. Sci. Technol. (JOCSTEC)*, vol. 4, no. 3, 2026. doi: 10.59435/jocstec.v4i3.828.
+- **What it does:** Maps graph nodes to chunks, arranges them by topology and validates reachability with a path-finding agent.
+- **How PGT differs:** It is qualitative and descriptive with a fixed mapping. PGT realizes rooms through allocation and corridor routing.
+
+[48] B. van Eden and N. Botha, "Constraint-guided hybrid procedural dungeon generation using CNN-based semantic refinement," in *Proc. SAIMC-INSPIRE*, 2026. doi: 10.1109/SAIMC-INSPIRE70184.2026.11772774.
+- **What it does:** A constructive room-and-corridor stage, then a CNN that places doors, enemies and treasure, with solvability and connectivity checks.
+- **How PGT differs:** It is a two-stage fixed pipeline with no graph model.
+
+[49] R. D. M. dos Santos, R. C. Contreras, G. B. Guimarães, M. S. Viana, and R. C. Guido, "Controlling energy-propagation-based dungeon generation using genetic algorithms," in *Anais Estendidos do SBGames*, 2026. doi: 10.5753/sbgames_estendido.2026.25589.
+- **What it does:** A GA steers a high-entropy room-graph generator.
+- **How PGT differs:** It is parameter search over one generator, which PGT's batch sweeps could reproduce.
+
+[50] M. V. P. Dias, A. de O. da R. Franco, J. W. F. da Silva, and J. G. R. Maia, "Procedural map generation by energy propagation," in *Proc. SBGames*, 2025. doi: 10.5753/sbgames.2025.10173.
+- **What it does:** A linear-time room-graph generator whose output ranges from trees to grids.
+- **How PGT differs:** It is a pre-2026 gap and a candidate to add as a PGT generator.
+
+[51] G. G. Medeiros and C. B. de Oliveira, "Map generation for roguelike games from textual descriptions using large language models," in *Proc. SBGames*, 2026. doi: 10.5753/sbgames.2026.25721.
+- **What it does:** Text-to-roguelike-map generation with structural checks.
+- **How PGT differs:** It is LLM-based with no graph stage.
+
+[52] J. M. Yap, N. C. Woo, B.-S. Tan, and K. S. Chong, "From algorithm to playable space: A technical note on BSP-based dungeon design," *Int. J. Creative Multimedia*, 2025. URL: https://journals.mmupress.com/index.php/ijcm/article/download/2470/1127 (DOI "?").
+- **What it does:** A Unity BSP generator with DFS corridors.
+- **How PGT differs:** It is a minor gap, a single generator.
+
+---
+
+### 4. Agent-based generation + simulation in one tool
+
+No 2026 paper found combines **agent-driven generation (builder or painter agents) with agent simulation and analysis in one tool**, which is PGT's walker subsystem. The nearest items:
+
+- **Majercik et al. [23]:** a simulator, solver agents and procedural obstacle generation in one design tool (3D, solvability focus).
+- **Agentic PCG [31]:** an LLM agent that generates and evaluates by calling tools.
+- **Mesa De Bar [37]:** a platform that switches between human and simulated agents, with sweeps (non-spatial).
+- **Path2Patrol [7]:** agent routes generated over levels.
+- **Fahreza et al. [47]:** a path-finding agent as reachability validator.
+- **Kabyik-Kayal/dungeon-repair [45]:** solver plus agent repair of lock-and-key dungeons. It is a repository, not a paper.
+
+Also seen, but only as a talk and not citable as a paper: E. Fredericks, "Every map an evolution, every room a generation: Co-evolution in a procedurally-generated video game," GPTP 2026 talk (slides only; GP-managed map and entity generation). https://gpbib.pmacs.upenn.edu/gp-html/Fredericks_2026_GPTP.html
+
+---
+
+### Flags against the "closest prior art" table
+
+None of these displaces Edgar, Ludoscope or Sturgeon-MKIV as the closest overall match. Recommended additions:
+
+1. **Xu & Verbrugge, AIIDE 2026 [46] (ETG).** Add as a new row near #1 and #4. It is graph→level realization with an in-loop topological validator, the closest 2026 match to PGT's graph→raster plus solver chain. It differs in being one algorithm, 3D platformer only, with no workbench.
+2. **Atrium [39].** Add next to Edgar.Godot in row #1. It is a Godot 4 editor-first procedural dungeon tool with persistent edit locks and validation, the closest Godot packaging. It differs in being 3D blockout, with no graph model, metrics, agents or experiments.
+3. **LBS FDG 2026 tutorial [32].** Update the LBS citation. Its explicit "research platform for PCG and HCI studies" framing overlaps PGT's positioning as a research workbench.
+4. **Brazell & Robertson, CoG 2026 [2].** Not a table row, but cite it in novelty (a) as a runtime generation-plus-control system that adapts parameters, not topology.
+5. **Omnigenesys [34].** A weak flag: an engine-agnostic modular framework with deterministic JSON export, but no published evaluation.
+
+Gaps I could not close:
+- EXAG 2026 and the PCG Workshop 2026 accepted lists were not retrievable.
+- CHI PLAY 2026 proceedings were not swept.
+- The CoG 2026 sweep was keyword-based (via Crossref), not exhaustive. The AIIDE 2026 sweep was exhaustive over the DOIs Crossref has.
+
+---
+
+## Theme G — Example-based motif mining → graph grammar (Pattern Extractor) (2026-11-19)
+
+Scope: papers similar to PGT's new feature (`graph_pattern_extractor.gd`, `pattern_extractor_popup.gd`,
+`trans_mutate_grow_patterns.gd` on `main`). Searched: Zotero library (nothing relevant beyond
+surveys/textbook chapters already cited), Semantic Scholar, arXiv, web. Searched 2026-11-19.
+
+### What the feature actually does (from the code)
+
+- **Extraction:** For every node, it runs a bounded-depth BFS (radius `depth`), takes the induced subgraph and computes a signature:
+  - *Topological:* the sorted degree sequence of the induced subgraph plus the edge count. Optionally it adds a multiset of pairwise node distances quantized to the grid, which is rotation/reflection invariant. **This is not a true canonical form.** Non-isomorphic neighbourhoods with the same degree sequence collide.
+  - *Semantic:* the seed type plus the sorted multiset of the types of its direct neighbours. This is a **star / radius-1 signature regardless of `depth`**, the same idea as a WFC adjacency rule or one Weisfeiler–Lehman iteration.
+- **Tally:** It counts occurrences per signature and keeps one exemplar mini-graph per signature, re-centred on its centroid. The results are sorted by frequency and shown as cards.
+- **Generation (`MutateGrowPatterns`):** It picks a pattern at random, weighted by its weight, and picks a random perimeter anchor (DLA-like). It then stamps a rotated copy attached at the anchor, with planarity and spacing rejection.
+  - This step has **no LHS/RHS context matching**. It is attach-only "motif stamping", not a rewriting grammar in the Dormans/Subdue sense.
+  - The separate `MutateGrammar` modifier does LHS subgraph matching, but it uses hand-authored rules from `GraphSettings.grammar_rules`.
+
+### Already in `Documentation/RelatedWork.md` (not re-reported)
+
+These are directly relevant and already listed:
+- Merrell 2023 (TOG, example-based graph grammars)
+- Cooper 2023, Sturgeon-GRAPH (learns local labeled neighbourhood patterns from example graphs)
+- Cooper & Balema 2023 (learned constrained graph layout)
+- Cooper & Bazzaz 2024/2025 (graph label rewrite rules)
+- Madkour et al. 2021/2022 (example-guided graph grammars)
+- Summerville et al. 2015, "The learning of Zelda"; Summerville & Mateas, "Sampling Hyrule"
+- VGLC
+- Kim et al. 2019 (graph-based WFC, CoG)
+- Eger 2026 (growing graph WFC)
+- Baldwin et al. 2017 (pattern-based dungeon generation)
+- Snodgrass & Ontañón (MdMC); Karth & Smith (WFC)
+- Gutierrez & Schrum 2020; Rupp & Eckert (G-PCGRL); Alvarez et al. (design style clustering)
+- Merrell & Manocha (model synthesis)
+
+---
+
+### A. Graph grammar induction from example *game levels* (closest)
+
+[1] S. Londoño and O. Missura, "Graph grammars for Super Mario Bros levels," in *Proc. 6th Workshop on Procedural Content Generation (PCG) @ FDG*, Pacific Grove, CA, USA, 2015. DOI: ? URL: https://pcgworkshop.com/archive/londoño2015grammars.pdf
+- *What:* It represents SMB levels as graphs and extends SubdueGL (MDL-driven frequent-substructure compression) to learn a **stochastic graph grammar from example levels**, then generates new level graphs from it.
+- *PGT differs:* PGT counts radius-bounded BFS neighbourhoods with a hashed signature instead of MDL substructure discovery. It produces flat attach-only motifs, not a hierarchical, recursive grammar. PGT adds designer curation (cards, weights) and works on dungeon/room graphs rather than platformer tiles.
+- *Note:* This is the single closest prior art for "mine recurring subgraphs from an example level and use them as grammar productions".
+
+[2] E. Hauck and C. Aranha, "Automatic generation of Super Mario levels via graph grammars," in *Proc. IEEE Conf. Games (CoG)*, 2020, pp. 297–304. DOI: 10.1109/CoG47356.2020.9231526
+- *What:* It builds a reachability graph of SMB levels, **automatically detects level structures**, and turns them into graph-grammar productions. A designer can add or remove structures.
+- *PGT differs:* Hauck & Aranha's structure detection is tailored to the SMB tile grid. PGT's extraction is domain-agnostic over arbitrary attributed graphs, with optional geometry.
+
+[3] M. K. Oguz and A. Dockhorn, "Markov Senior — Learning Markov Junior grammars to generate user-specified content," in *Proc. IEEE CoG*, 2024, pp. 1–8. DOI: 10.1109/CoG60054.2024.10645650
+- *What:* It uses genetic programming to learn probabilistic rewrite-rule sets (MarkovJunior grammars) from a **single example**, with KL-divergence fitness on extracted positional and distance relations. It is tested on SMB and images.
+- *PGT differs:* Markov Senior works on grids and *searches* rule sets against a pattern-distribution objective. PGT works on graphs and directly *extracts* rules by frequency, with no optimisation loop or fidelity objective.
+
+[4] G. Hermans, T. Winters, and L. De Raedt, "Shape inference and grammar induction for example-based procedural generation," in *Proc. Int. Conf. Computational Creativity (ICCC)*, 2021. arXiv:2109.10217. DOI: 10.48550/arXiv.2109.10217
+- *What:* SIGI infers shapes and **induces a shape grammar** from grid-based 3D Minecraft building examples, aimed at co-creative design.
+- *PGT differs:* SIGI targets voxel shape grammars for buildings. PGT targets topological and semantic graph motifs for level graphs.
+
+### B. Frequent-subgraph mining → graph grammar inference (general CS; the algorithmic ancestors)
+
+[5] I. Jonyer, L. B. Holder, and D. J. Cook, "MDL-based context-free graph grammar induction and applications," *Int. J. Artif. Intell. Tools*, vol. 13, no. 1, pp. 65–79, 2004. DOI: 10.1142/S0218213004001429
+- *What:* SubdueGL repeatedly finds the substructure that best compresses the graph (MDL), replaces it with a nonterminal, and handles recursion. It infers context-free graph grammars.
+- *PGT differs:* PGT uses a frequency count only (no compression criterion), does no replacement/abstraction pass, and produces no recursive rules.
+
+[6] J. P. Kukluk, L. B. Holder, and D. J. Cook, "Inference of node replacement graph grammars," *Intelligent Data Analysis*, vol. 11, no. 4, pp. 377–400, 2007. DOI: 10.3233/IDA-2007-11405
+- *What:* It mines frequent subgraphs and **detects overlap between instances** to infer node-replacement productions, including recursive ones. It evaluates by recovering known grammars.
+- *PGT differs:* PGT ignores how motif instances overlap or connect. That connection information is exactly what would turn PGT's motifs into productions with embedding rules, rather than free-floating stamps.
+
+[7] S. Aguiñaga, D. Chiang, and T. Weninger, "Learning hyperedge replacement grammars for graph generation," *IEEE Trans. Pattern Anal. Mach. Intell.*, vol. 41, no. 3, pp. 625–638, 2019. DOI: ? (arXiv: 10.48550/arXiv.1802.08068)
+- *What:* It extracts a hyperedge replacement grammar (HRG) from a graph's clique-tree decomposition. It then generates new graphs of a target size that preserve local substructures and global statistics.
+- *PGT differs:* HRG productions carry formal boundary (attachment) semantics and come with size control. PGT has neither, but PGT is interactive and can use geometry.
+
+[8] M. Guo, V. Thost, B. Li, P. Das, J. Chen, and W. Matusik, "Data-efficient graph grammar learning for molecular generation," in *Proc. ICLR*, 2022. arXiv:2203.08031
+- *What:* It learns graph-grammar production rules automatically from about 20 example graphs and optimises the grammar for domain metrics.
+- *PGT differs:* This is the same "few examples → grammar" premise in chemistry. PGT has no learned rule-selection objective.
+
+[9] X. Yan and J. Han, "gSpan: Graph-based substructure pattern mining," in *Proc. IEEE ICDM*, 2002. DOI: ?
+- *What:* This is the canonical frequent-subgraph miner. It uses minimum DFS codes as a true canonical form.
+- *PGT differs:* PGT's degree-sequence hash is not canonical. A DFS-code, nauty or WL hash would remove signature collisions.
+
+[10] R. Milo, S. Shen-Orr, S. Itzkovitz, N. Kashtan, D. Chklovskii, and U. Alon, "Network motifs: Simple building blocks of complex networks," *Science*, vol. 298, no. 5594, pp. 824–827, 2002. DOI: 10.1126/science.298.5594.824
+- *What:* It defines motifs as subgraphs over-represented relative to randomized null models.
+- *PGT differs:* PGT ranks by raw frequency, with no null model. Frequent ≠ characteristic: degree-2 corridor chains will dominate any dungeon.
+
+[11] N. Shervashidze, P. Schweitzer, E. J. van Leeuwen, K. Mehlhorn, and K. M. Borgwardt, "Weisfeiler–Lehman graph kernels," *J. Mach. Learn. Res.*, vol. 12, pp. 2539–2561, 2011.
+- *What:* WL relabeling hashes rooted labeled neighbourhoods of increasing radius into compact signatures.
+- *PGT differs:* PGT's semantic signature is effectively one WL iteration (seed label + sorted neighbour labels). Citing WL justifies the design, and iterating it would make `depth` meaningful in semantic mode.
+
+### C. Example-based procedural modeling with graphs / grammars (graphics, architecture, urban)
+
+[12] D. G. Aliaga, C. A. Vanegas, and B. Beneš, "Interactive example-based urban layout synthesis," *ACM Trans. Graph.*, vol. 27, no. 5 (Proc. SIGGRAPH Asia), 2008. DOI: 10.1145/1457515.1409113
+- *What:* It extracts local structure from example road networks (intersections and streets as a graph with attributes) and synthesizes new layouts that are locally similar to the example.
+- *PGT differs:* Same "local neighbourhood statistics of an example graph → grow new graph" idea in the urban domain. PGT targets abstract level graphs and adds semantic labels.
+
+[13] G. Nishida, I. Garcia-Dorado, and D. G. Aliaga, "Example-driven procedural urban roads," *Comput. Graph. Forum*, vol. 35, no. 6, pp. 5–17, 2016. DOI: 10.1111/cgf.12728
+- *What:* It extracts road "patches" (local subgraphs) from real road networks and **grows** a new network by attaching patches at frontier vertices, combined with procedural growth.
+- *PGT differs:* This is algorithmically the closest generation step to `MutateGrowPatterns`: patch extraction plus attach-at-frontier growth. PGT applies it to level graphs and ranks patches by frequency.
+
+[14] J. O. Talton, L. Yang, R. Kumar, M. Lim, N. D. Goodman, and R. Měch, "Learning design patterns with Bayesian grammar induction," in *Proc. ACM UIST*, 2012. DOI: 10.1145/2380116.2380127
+- *What:* It induces a probabilistic grammar from labeled hierarchical exemplars (Bayesian model merging) and samples new designs.
+- *PGT differs:* Talton et al. work on hierarchical (tree) designs and give a principled probabilistic induction. PGT is a non-probabilistic, flat motif frequency count over general graphs.
+
+[15] M. Bokeloh, M. Wand, and H.-P. Seidel, "A connection between partial symmetry and inverse procedural modeling," *ACM Trans. Graph.*, vol. 29, no. 4, 2010. DOI: ?
+- *What:* It detects partial symmetries (repeated docking sites) in an example and derives a shape grammar that generates variations.
+- *PGT differs:* Bokeloh et al. work on 3D geometry. PGT's "repeated neighbourhood → rule" is the graph analogue but has no docking/boundary formalism.
+
+[16] P. Merrell, "Technical companion to Example-based procedural modeling using graph grammars," arXiv:2309.00275, 2023.
+- *What:* This gives theoretical and implementation details for Merrell's TOG 2023 method (the main paper is already listed).
+- *PGT differs:* Cite it only if you need detail on Merrell's primitive decomposition when contrasting it with PGT's BFS motifs.
+
+### D. Graph-based WFC (local-adjacency learning on graphs)
+
+[17] H. Kim, T. Hahn, S. Kim, and S. Kang, "Graph based wave function collapse algorithm for procedural content generation in games," *IEICE Trans. Inf. Syst.*, vol. E103.D, no. 8, 2020. DOI: 10.1587/transinf.2019EDP7295 (volume/issue ?)
+- *What:* This is the journal version of Kim et al.'s CoG 2019 graph-WFC: association rules over nodes of a navmesh graph.
+- *PGT differs:* Graph WFC *fills labels on a fixed graph*. PGT *grows topology* from mined motifs.
+
+[18] H. Kim, B. Seo, and S. Kang, "Puzzle-level generation with simple-tiled and graph-based wave function collapse algorithms," *IEEE Trans. Games*, 2025. DOI: 10.1109/TG.2024.3368017 (vol./pages ?)
+- *What:* It applies graph-based WFC and simple-tiled WFC to Strimko and Flow puzzles.
+- *PGT differs:* Same distinction: label assignment on given graph structure versus topology growth.
+
+### E. Pattern / n-gram / local-pattern learning from example levels (non-graph analogues)
+
+[19] S. Dahlskog, J. Togelius, and M. J. Nelson, "Linear levels through n-grams," in *Proc. 18th Int. Academic MindTrek Conf.*, 2014. DOI: ? URL: http://www.kmjn.org/publications/NgramLevels_MT14.pdf
+- *What:* It mines n-gram frequencies of vertical slices from SMB levels and samples new levels.
+- *PGT differs:* This is the 1-D sequence analogue of PGT's frequency-weighted motif sampling. PGT generalises it to graph neighbourhoods but drops conditional (n−1 context) probabilities, so PGT is closer to a unigram-of-motifs model.
+
+[20] V. Volz *et al.*, "Capturing local and global patterns in procedural content generation via machine learning," in *Proc. IEEE CoG*, 2020, pp. 399–406. DOI: 10.1109/CoG47356.2020.9231944
+- *What:* It shows that local-neighbourhood models (MRF, GAN) miss global patterns such as symmetry, and augments neighbourhoods with symmetric positional information.
+- *PGT differs:* This is relevant as a *limitation* reference. Purely local motif stamping (PGT) will not reproduce global structure (cycles, lock-key ordering, start→boss flow) unless constrained.
+
+[21] M. Etheredge, "Fast exact graph matching using adjacency matrices," in *Proc. 3rd Workshop on PCG @ FDG*, 2012, pp. 10:1–10:6. DOI: 10.1145/2538528.2538536
+- *What:* It gives fast exact subgraph search for graph-rewrite-based track generation (DroidRacers).
+- *PGT differs:* This is relevant to `MutateGrammar`'s LHS matching, not to mining.
+
+### F. GNN / deep graph-generative models for *game* level graphs
+
+No peer-reviewed work was found that trains a GNN or graph-generative model (GraphRNN, graph VAE, graph diffusion) on game level/dungeon graphs, as of this search. The closest are:
+- floorplan graph models (already listed: House-GAN, Graph2Plan, HouseDiffusion);
+- G-PCGRL (already listed).
+
+This gap is a possible future comparison baseline, not prior art against PGT.
+
+---
+
+### Closest works (ranked)
+
+1. **Londoño & Missura 2015 [1]:** learns graph-grammar productions from recurring substructures in example *game levels* (SubdueGL). This is conceptually the same pipeline.
+2. **Cooper 2023, Sturgeon-GRAPH (already in RelatedWork.md):** learns local labeled-neighbourhood patterns from example graphs (including Zelda dungeon graphs) and generates new graphs of varying structure that are locally similar. It is the closest in purpose and domain, and it adds constraint solving.
+3. **Merrell 2023 (already listed):** example → graph-grammar primitives → generation. It is more principled (locally similar guarantee) but targets geometric shapes.
+4. **Nishida et al. 2016 [13] / Aliaga et al. 2008 [12]:** extract local patches from an example graph and grow by attaching at the frontier. This is nearly identical to `MutateGrowPatterns`, in the urban domain.
+5. **Kukluk et al. 2007 [6] / Jonyer et al. 2004 [5]:** the formal frequent-subgraph → graph-grammar induction that PGT approximates.
+
+### Novelty verdict (candid)
+
+- **The core algorithm is not novel.** Mining recurring local neighbourhoods from an example graph and reusing them as generative rules is established:
+  - Subdue/SubdueGL grammar induction (2004–2007);
+  - applied to game levels by Londoño & Missura (2015);
+  - locally-similar graph generation from examples (Sturgeon-GRAPH 2023, Merrell 2023);
+  - the "extract patches → grow at frontier" generation step (Nishida et al. 2016).
+- **The feature is technically weaker than these baselines in three ways a reviewer will spot:**
+  - The topological signature (degree sequence + |E|) is **not a canonical form**, so non-isomorphic motifs merge. Use WL hashing, nauty or gSpan DFS codes.
+  - The semantic signature ignores `depth` beyond radius 1.
+  - Generation is **attach-only stamping with no LHS context or embedding rules**, so calling it "grammar inference" overstates it. It is closer to a unigram motif sampler. Frequency is also used without a null model (cf. Milo et al.), so trivial corridor motifs dominate.
+- **What is defensibly new is the integration and interaction, not the algorithm:**
+  - a designer-facing, mixed-initiative curation loop (motif cards; toggling and weighting motifs);
+  - a rotation-invariant geometric signature option;
+  - composition with PGT's other modifiers in a Godot pipeline.
+
+  None of the closest works offer this specific interactive workflow in an engine-integrated tool.
+- **Recommended framing:** "example-driven, designer-curated motif extraction as a modifier in a graph PCG toolchain". Present it as a tool contribution, cite [1], [5]/[6], Sturgeon-GRAPH, Merrell 2023 and [13] as the algorithmic lineage, and fix the canonical signature before publishing.
+- **Evaluation that would make it publishable (FDG/CoG short or EXAG/PCG workshop):** run on VGLC Zelda dungeon graphs and compare motif-distribution fidelity (e.g., KL over WL-subtree histograms) and expressive range against Sturgeon-GRAPH and a SubdueGL-style baseline.
