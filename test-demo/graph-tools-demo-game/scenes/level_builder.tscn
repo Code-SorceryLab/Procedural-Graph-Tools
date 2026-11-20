@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3 uid="uid://t1rwhi73hajo"]
+
+[ext_resource type="Script" uid="uid://c4xojspleihbl" path="res://scripts/level_importer.gd" id="1_77rll"]
+[ext_resource type="PackedScene" uid="uid://ccsqltox26nm1" path="res://scenes/player.tscn" id="2_6artv"]
+[ext_resource type="TileSet" uid="uid://cdo2u48xqqt0m" path="res://assets/tile_set.tres" id="2_yyvap"]
+
+[node name="LevelBuilder" type="Node2D" node_paths=PackedStringArray("floor_layer", "collision_layer", "entity_container")]
+texture_filter = 1
+script = ExtResource("1_77rll")
+json_path = "res://levels/dungeon_raster_1795110898.494.json"
+floor_layer = NodePath("FloorLayer")
+collision_layer = NodePath("CollisionLayer")
+entity_container = NodePath("EntityContainer")
+player_scene = ExtResource("2_6artv")
+default_floor_atlas = Vector2i(0, 1)
+collision_tile_atlas = Vector2i(0, 0)
+
+[node name="FloorLayer" type="TileMapLayer" parent="."]
+texture_filter = 1
+tile_set = ExtResource("2_yyvap")
+
+[node name="CollisionLayer" type="TileMapLayer" parent="."]
+visible = false
+texture_filter = 1
+tile_set = ExtResource("2_yyvap")
+
+[node name="EntityContainer" type="Node2D" parent="."]

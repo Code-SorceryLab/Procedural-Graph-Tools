@@ -37,6 +37,12 @@ func build(custom_structures: Dictionary, current_params: Dictionary) -> void:
 		
 		{ "name": "btn_clear", "label": "Clear TileMap", "type": TYPE_NIL, "hint": "action" },
 		
+		# --- EXPORT SECTION ---
+		{ "name": "sep_export", "type": TYPE_NIL, "hint": "separator" },
+		{ "name": "btn_export_raster", "label": "Export Raster to JSON", "type": TYPE_NIL, "hint": "action" },
+		{ "name": "export_include_metrics", "label": "Include Validation Metrics in Export", "type": TYPE_BOOL, "default": true,
+		  "hint_text": "Bundles the progression report and validation analytics into the final JSON file." },
+		
 		# --- MODULAR REGENERATION LAYERS ---
 		{ "name": "sep_regen", "type": TYPE_NIL, "hint": "separator" },
 		{ "name": "regen_layer_geometry", "label": "Rebuild Base Geometry", "type": TYPE_BOOL, "default": true,

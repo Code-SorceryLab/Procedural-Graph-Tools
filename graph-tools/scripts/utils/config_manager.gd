@@ -231,6 +231,10 @@ static func load_semantic_data(categories_ref: Dictionary, properties_ref: Dicti
 	
 	if config.has_section("SemanticCategories"):
 		for target in config.get_section_keys("SemanticCategories"):
+			# [FIX] Create the target dictionary if it doesn't exist yet
+			if not categories_ref.has(target):
+				categories_ref[target] = {}
+				
 			var saved_cats = config.get_value("SemanticCategories", target, {})
 			for key in saved_cats:
 				# Protect existing core categories from being overwritten by old save files!
@@ -240,6 +244,10 @@ static func load_semantic_data(categories_ref: Dictionary, properties_ref: Dicti
 				
 	if config.has_section("SemanticProperties"):
 		for target in config.get_section_keys("SemanticProperties"):
+			# [FIX] Create the target dictionary if it doesn't exist yet
+			if not properties_ref.has(target):
+				properties_ref[target] = {}
+				
 			var saved_props = config.get_value("SemanticProperties", target, {})
 			for key in saved_props:
 				# Protect existing core properties from being overwritten by old save files!

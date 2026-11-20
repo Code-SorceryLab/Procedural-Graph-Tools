@@ -137,8 +137,15 @@ func rebuild_dynamic_tileset_and_mapping(realizer: GraphRealizer, custom_rooms: 
 			
 	tile_map_layer.tile_set = dynamic_tileset
 	
-	var get_mapping_data = func(atlas_coord: Vector2i, alt_id: int = 0) -> Dictionary:
-		return { "is_terrain": false, "source_id": floor_source_id, "atlas_coords": atlas_coord, "alternative_tile": alt_id }
+	# [FIX] Add mod_color to the mapping dictionary!
+	var get_mapping_data = func(atlas_coord: Vector2i, alt_id: int = 0, mod_color: Color = Color.WHITE) -> Dictionary:
+		return { 
+			"is_terrain": false, 
+			"source_id": floor_source_id, 
+			"atlas_coords": atlas_coord, 
+			"alternative_tile": alt_id,
+			"modulate_color": mod_color.to_html() # Save as Hex String for JSON
+		}
 
 	var active_mapping = {
 		realizer.floor_id: get_mapping_data.call(def_floor_atlas),
@@ -155,8 +162,12 @@ func rebuild_dynamic_tileset_and_mapping(realizer: GraphRealizer, custom_rooms: 
 		var floor_alt = biome_alt_ids.get(cat_key + "_floor", 0)
 		var wall_alt = biome_alt_ids.get(cat_key + "_wall", 0)
 		
-		active_mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt)
-		active_mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt)
+		# [FIX] Pass the specific biome colors we calculated earlier
+		var c_floor = biome_colors.get(cat_key + "_floor", Color.WHITE)
+		var c_wall = biome_colors.get(cat_key + "_wall", Color.WHITE)
+		
+		active_mapping[s_floor_id] = get_mapping_data.call(custom_floor, floor_alt, c_floor)
+		active_mapping[s_wall_id] = get_mapping_data.call(custom_wall, wall_alt, c_wall)
 		
 	return active_mapping
 

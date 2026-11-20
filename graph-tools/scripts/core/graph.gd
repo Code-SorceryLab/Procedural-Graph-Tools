@@ -302,9 +302,26 @@ func _rebuild_spatial_grid() -> void:
 func get_nodes_near_position(pos: Vector2, radius: float = -1.0) -> Array[String]:
 	if radius < 0:
 		radius = _node_radius
-	
+	return get_nodes_in_circle(pos, radius)
+
+func get_nodes_in_circle(center: Vector2, radius: float) -> Array[String]:
 	_ensure_spatial_grid()
-	return _spatial_grid.query_circle(pos, radius)
+
+	# `candidates` is untyped on purpose: `nodes.keys()` returns plain Array,
+	# so a typed declaration would fail when the fallback branch runs.
+	var candidates: Array = []
+	if _spatial_grid != null:
+		candidates = _spatial_grid.query_circle(center, radius)
+	else:
+		candidates = nodes.keys()
+
+	var result: Array[String] = []
+	var r_sq: float = radius * radius
+	for id in candidates:
+		if not nodes.has(id): continue
+		if nodes[id].position.distance_squared_to(center) <= r_sq:
+			result.append(id)
+	return result
 
 # Get nodes in a rectangle (for selection boxes, etc.)
 func get_nodes_in_rect(rect: Rect2) -> Array[String]:

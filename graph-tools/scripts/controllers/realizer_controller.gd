@@ -10,6 +10,7 @@ extends Node
 @export var floor_source_id: int = 0
 
 var _realizer: GraphRealizer
+var _export_file_dialog: FileDialog
 
 # --- STATE ---
 var _snapshots: Array[Dictionary] = []
@@ -74,7 +75,16 @@ func _ready() -> void:
 		if not _snapshots.is_empty() and tile_map_layer:
 			_renderer.render_overlays(_realizer, _snapshots[-1]["entities"], _config_manager.global_params, _execution_manager.is_rasterizing)
 	)
+	# Setup the Export FileDialog
+	_export_file_dialog = FileDialog.new()
+	_export_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_export_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_export_file_dialog.add_filter("*.json", "Raster JSON Package")
+	_export_file_dialog.use_native_dialog = true
+	_export_file_dialog.file_selected.connect(_on_export_file_selected)
+	add_child(_export_file_dialog)
 	
+		
 	# 3. Attach Dumb UI Views
 	var tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -508,7 +518,7 @@ func _on_generator_interaction(key: String, _value: Variant) -> void:
 			
 		graph_editor.request_node_pick(on_pick)
 		
-	# --- [NEW] CLEAR DUNGEON EXIT ---
+	# --- CLEAR DUNGEON EXIT ---
 	elif key == "btn_clear_dungeon_exit":
 		graph_editor.start_undo_transaction("Clear Explicit Dungeon Exit")
 		var cleared_any = false
@@ -520,6 +530,29 @@ func _on_generator_interaction(key: String, _value: Variant) -> void:
 		graph_editor.commit_undo_transaction()
 		if cleared_any:
 			graph_editor.send_status_message("Explicit Dungeon Exit assignment cleared.")
+	
+	# --- RASTER EXPORT HOOK ---
+	elif key == "btn_export_raster":
+		if _execution_manager.is_rasterizing: return
+		if _realizer == null or _realizer.grid == null:
+			print("Warning: Must perform a Rasterization before exporting!")
+			return
+			
+		_export_file_dialog.current_file = "dungeon_raster_" + str(Time.get_unix_time_from_system()) + ".json"
+		_export_file_dialog.popup_centered_ratio(0.5)
+
+# --- EXECUTE THE EXPORT ---
+func _on_export_file_selected(path: String) -> void:
+	if _realizer == null: return
+	
+	# Fetch the toggle state directly from the global params managed by ConfigManager
+	var include_metrics = _config_manager.global_params.get("export_include_metrics", true)
+	
+	var err = RasterExporter.export_level(_realizer, path, include_metrics, _active_mapping)
+	if err == OK:
+		print("Successfully exported raster package to: " + path.get_file())
+	else:
+		print("Failed to export raster package.")
 
 # ==============================================================================
 # TIMELINE / VCR RENDERER
