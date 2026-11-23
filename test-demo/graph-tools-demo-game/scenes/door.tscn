@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3 uid="uid://xdwgah5kjw2h"]
+
+[ext_resource type="Script" uid="uid://deyun6tg4gu2d" path="res://scripts/door.gd" id="1_uvdjg"]
+[ext_resource type="Texture2D" uid="uid://tkdnsh0u5fgn" path="res://assets/tile_set_v2.png" id="2_83dcw"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_la1wf"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_18pbm"]
+size = Vector2(16, 16)
+
+[node name="Door" type="StaticBody2D"]
+script = ExtResource("1_uvdjg")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_83dcw")
+region_enabled = true
+region_rect = Rect2(128, 48, 16, 16)
+region_filter_clip_enabled = true
+
+[node name="BumpDetector" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BumpDetector"]
+shape = SubResource("RectangleShape2D_la1wf")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_18pbm")
+
+[connection signal="body_entered" from="BumpDetector" to="." method="_on_bump_detector_body_entered"]

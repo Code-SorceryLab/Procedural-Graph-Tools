@@ -1,0 +1,18 @@
+[gd_scene load_steps=4 format=3 uid="uid://dqii246wu8c2p"]
+
+[ext_resource type="Script" uid="uid://y045e8d5kssc" path="res://scripts/pushbox.gd" id="1_p8o3m"]
+[ext_resource type="Texture2D" uid="uid://ycgj1eowxlm2" path="res://assets/pushable_box_default.png" id="2_quxu0"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rtp8m"]
+size = Vector2(8, 8)
+
+[node name="Pushbox" type="CharacterBody2D"]
+texture_filter = 1
+motion_mode = 1
+script = ExtResource("1_p8o3m")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_quxu0")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_rtp8m")

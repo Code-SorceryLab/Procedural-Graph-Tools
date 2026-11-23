@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://lpjhnb45r16j"]
+
+[ext_resource type="Script" uid="uid://cprdhx1dxn62d" path="res://scripts/loot.gd" id="1_xofgn"]
+
+[sub_resource type="Gradient" id="Gradient_o0pg5"]
+interpolation_mode = 1
+offsets = PackedFloat32Array(0.053333335, 0.4, 0.56666666)
+colors = PackedColorArray(1, 1, 0.07450981, 1, 0.85882354, 0.61960787, 0, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_30m34"]
+gradient = SubResource("Gradient_o0pg5")
+width = 16
+height = 16
+fill = 2
+fill_from = Vector2(0.5, 0.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rtp8m"]
+size = Vector2(8, 8)
+
+[node name="Loot" type="Area2D"]
+texture_filter = 1
+script = ExtResource("1_xofgn")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = SubResource("GradientTexture2D_30m34")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_rtp8m")
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]

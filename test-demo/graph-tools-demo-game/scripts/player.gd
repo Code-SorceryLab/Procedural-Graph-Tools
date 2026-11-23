@@ -7,10 +7,20 @@ extends CharacterBody2D
 var colored_keys: Array[String] = []
 var max_tier_key: int = 0
 
+@export var push_force: float = 150.0
+
 func _physics_process(_delta: float) -> void:
 	var input_dir = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	velocity = input_dir.normalized() * speed
 	move_and_slide()
+	
+	# --- PUSH LOGIC ---
+	for i in get_slide_collision_count():
+		var collision = get_slide_collision(i)
+		var collider = collision.get_collider()
+		if collider is PushBox:
+			# Apply force in the opposite direction of the collision normal
+			collider.velocity = -collision.get_normal() * push_force
 
 # Called by Key.gd when touched
 func collect_key(key_type: String) -> void:

@@ -1,0 +1,25 @@
+[gd_scene load_steps=4 format=3 uid="uid://bj5vb0xngjawr"]
+
+[ext_resource type="Script" uid="uid://nh5payo13ncy" path="res://scripts/enemy.gd" id="1_md0e3"]
+[ext_resource type="Texture2D" uid="uid://b3u0cpk5i137c" path="res://assets/moving_statue_sprite.png" id="2_md0e3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rtp8m"]
+size = Vector2(10, 10)
+
+[node name="Enemy" type="CharacterBody2D"]
+texture_filter = 1
+motion_mode = 1
+script = ExtResource("1_md0e3")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_md0e3")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_rtp8m")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
+rect = Rect2(-5, -5, 10, 10)
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 1.5
+autostart = true

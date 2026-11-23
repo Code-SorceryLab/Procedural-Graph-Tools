@@ -1,11 +1,20 @@
 class_name LevelImporter
 extends Node2D
 
+signal level_completed
+
 @export_file("*.json") var json_path: String
 @export var floor_layer: TileMapLayer
 @export var collision_layer: TileMapLayer
 @export var entity_container: Node2D
 @export var player_scene: PackedScene
+@export var key_scene: PackedScene
+@export var door_scene: PackedScene
+@export var end_point_scene: PackedScene
+@export var loot_scene: PackedScene
+@export var pushbox_scene: PackedScene
+@export var enemy_scene: PackedScene
+
 
 # Map the raw Integer IDs from your JSON export to the actual atlas coords in this new project's TileSet
 @export var default_floor_atlas: Vector2i = Vector2i(0, 0)
@@ -14,6 +23,20 @@ extends Node2D
 func _ready() -> void:
 	if json_path != "":
 		load_and_build(json_path)
+
+func clear_level() -> void:
+	# Clear the TileMaps
+	floor_layer.clear()
+	collision_layer.clear()
+	
+	# Destroy all spawned entities, structures, and the player
+	for child in entity_container.get_children():
+		child.queue_free()
+		
+	# If the player was spawned directly as a child of LevelBuilder, remove them too
+	for child in get_children():
+		if child is Player:
+			child.queue_free()
 
 func load_and_build(path: String) -> void:
 	var file = FileAccess.open(path, FileAccess.READ)
@@ -155,6 +178,17 @@ func _build_instances(layer: Dictionary, tile_size: int) -> void:
 				add_child(player)
 			continue 
 			
+		# --- Spawn Exit Tile ---
+		if type == "end_point" or c_data.get("is_forced_end", false):
+			if end_point_scene:
+				var exit_node = end_point_scene.instantiate() as EndPoint
+				exit_node.position = world_pos
+				entity_container.add_child(exit_node)
+				
+				# Forward the signal to the importer so GamePlayer can hear it
+				exit_node.player_entered.connect(func(): level_completed.emit())
+			continue
+			
 		# --- DEBUG: Print the raw dictionary of the first scattered entity ---
 		if type != "door" and type != "key" and type != "start_point" and type != "end_point" and not inst.get("is_structure", false):
 			if not printed_debug:
@@ -172,14 +206,42 @@ func _build_instances(layer: Dictionary, tile_size: int) -> void:
 		var inst_str = str(inst).to_lower()
 		
 		# 3. Resolve Identity & Color
-		if c_data.get("logic_type") == "key":
-			dummy.modulate = Color.YELLOW
-		elif c_data.get("logic_type") == "lock":
-			dummy.modulate = Color.RED
+		if type == "key":
+			if key_scene:
+				var key_node = key_scene.instantiate() as DungeonKey
+				# Grab the exact string from the JSON (e.g. "Tier 2" or "LavenderBlush")
+				var k_type = inst.get("key_type", "Red")
+				
+				# Determine Color
+				var k_col = Color.YELLOW
+				if k_type.begins_with("Tier "):
+					k_col = Color(0.8, 0.8, 0.8) # Silver for tiers
+				else:
+					k_col = Color.from_string(k_type, Color.YELLOW)
+					
+				key_node.position = world_pos
+				entity_container.add_child(key_node)
+				key_node.setup(k_type, k_col, tile_size)
+			continue
 			
-		# [FIX] Check e_type instead of the non-existent 'is_structure' key
+		elif type == "door":
+			if door_scene:
+				var door_node = door_scene.instantiate() as DungeonDoor
+				var l_type = inst.get("lock_type", "Red")
+				
+				var l_col = Color.RED
+				if l_type.begins_with("Tier "):
+					l_col = Color(0.4, 0.4, 0.4) # Dark gray for tier doors
+				else:
+					l_col = Color.from_string(l_type, Color.RED)
+					
+				door_node.position = world_pos
+				entity_container.add_child(door_node)
+				door_node.setup(l_type, l_col, tile_size)
+			continue
+			
 		elif type == "structure":
-			var s_color = Color.WEB_GRAY # Default color
+			var s_color = Color.WEB_GRAY
 			if inst.has("color"):
 				var c_str = inst["color"].replace("(", "").replace(")", "")
 				var c_parts = c_str.split(",")
@@ -187,35 +249,54 @@ func _build_instances(layer: Dictionary, tile_size: int) -> void:
 					s_color = Color(c_parts[0].to_float(), c_parts[1].to_float(), c_parts[2].to_float(), 0.8)
 					
 			if inst.has("footprint_world"):
-				for pt_str in inst["footprint_world"]:
-					var clean = pt_str.replace("(", "").replace(")", "")
-					var parts = clean.split(",")
-					if parts.size() == 2:
-						var cx = parts[0].to_int()
-						var cy = parts[1].to_int()
-						
-						# Spawn a visual block for each tile of the structure
-						var block = Sprite2D.new()
-						var b_tex = PlaceholderTexture2D.new()
-						b_tex.size = Vector2(tile_size, tile_size)
-						block.texture = b_tex
-						block.modulate = s_color
-						block.position = Vector2(cx * tile_size + (tile_size / 2.0), cy * tile_size + (tile_size / 2.0))
-						entity_container.add_child(block)
+				for pt in inst["footprint_world"]:
+					var cx = 0
+					var cy = 0
+					
+					if typeof(pt) == TYPE_STRING:
+						var clean = pt.replace("(", "").replace(")", "")
+						var parts = clean.split(",")
+						if parts.size() == 2:
+							cx = parts[0].to_int()
+							cy = parts[1].to_int()
+					
+					var block = Sprite2D.new()
+					var b_tex = PlaceholderTexture2D.new()
+					b_tex.size = Vector2(tile_size, tile_size)
+					block.texture = b_tex
+					block.modulate = s_color
+					block.position = Vector2(cx * tile_size + (tile_size / 2.0), cy * tile_size + (tile_size / 2.0))
+					entity_container.add_child(block)
 						
 				dummy.queue_free()
 				continue
 				
 		else:
-			# Fuzzy search across the entire instance payload
+			# Fuzzy search across the payload
 			if inst_str.contains("default entity") or inst_str.contains("pushable"):
-				dummy.modulate = Color.SADDLE_BROWN # Movable Box
+				if pushbox_scene:
+					var box = pushbox_scene.instantiate()
+					box.position = world_pos
+					entity_container.add_child(box)
+				continue
+				
 			elif inst_str.contains("enemy") or inst_str.contains("statue"):
-				dummy.modulate = Color.PURPLE # Enemy
+				if enemy_scene:
+					var enemy = enemy_scene.instantiate()
+					enemy.position = world_pos
+					entity_container.add_child(enemy)
+				continue
+				
 			elif inst_str.contains("loot"):
-				dummy.modulate = Color.GOLD # Loot
-				tex.size = Vector2(tile_size * 0.5, tile_size * 0.5)
+				if loot_scene:
+					var loot = loot_scene.instantiate()
+					loot.position = world_pos
+					entity_container.add_child(loot)
+				continue
+				
 			else:
-				dummy.modulate = Color.GREEN # Fallback Unknown
+				# Absolute Fallback (Draw a green square for unknowns)
+				dummy.modulate = Color.GREEN 
+				entity_container.add_child(dummy)
 				
 		entity_container.add_child(dummy)

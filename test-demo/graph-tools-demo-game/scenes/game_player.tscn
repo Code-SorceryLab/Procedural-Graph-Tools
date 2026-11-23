@@ -1,7 +1,116 @@
-[gd_scene load_steps=2 format=3 uid="uid://chejvpwoqx45u"]
+[gd_scene load_steps=4 format=3 uid="uid://chejvpwoqx45u"]
 
 [ext_resource type="PackedScene" uid="uid://t1rwhi73hajo" path="res://scenes/level_builder.tscn" id="1_84i4m"]
+[ext_resource type="Script" uid="uid://vh5dt3laf5ir" path="res://scripts/game_player.gd" id="1_it57u"]
+[ext_resource type="FontFile" uid="uid://dnn8fmvafwn68" path="res://assets/LoveLetter.TTF" id="2_wv330"]
 
 [node name="GamePlayer" type="Node2D"]
+script = ExtResource("1_it57u")
+map_to_load = "res://levels/dungeon_raster_1795110898.494.json"
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+color = Color(0, 0, 0, 1)
 
 [node name="LevelBuilder" parent="." instance=ExtResource("1_84i4m")]
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+
+[node name="TitleScreen" type="Control" parent="UILayer"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UILayer/TitleScreen"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="UILayer/TitleScreen/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="TitleLabel" type="Label" parent="UILayer/TitleScreen/VBoxContainer/MarginContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_wv330")
+theme_override_font_sizes/font_size = 30
+text = "Graph Tools Demo Game"
+
+[node name="BtnStart" type="Button" parent="UILayer/TitleScreen/VBoxContainer"]
+layout_mode = 2
+text = "Start Game"
+
+[node name="BtnSettings" type="Button" parent="UILayer/TitleScreen/VBoxContainer"]
+layout_mode = 2
+text = "Settings"
+
+[node name="BtnExit" type="Button" parent="UILayer/TitleScreen/VBoxContainer"]
+layout_mode = 2
+text = "Exit"
+
+[node name="WinScreen" type="Control" parent="UILayer"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UILayer/WinScreen"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="UILayer/WinScreen/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="WinLabel" type="Label" parent="UILayer/WinScreen/VBoxContainer/MarginContainer"]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_wv330")
+theme_override_font_sizes/font_size = 30
+text = "Level Complete"
+
+[node name="BtnRestart" type="Button" parent="UILayer/WinScreen/VBoxContainer"]
+layout_mode = 2
+text = "Return to Menu"
